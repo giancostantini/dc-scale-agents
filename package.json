@@ -5,6 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "morning-briefing": "node scripts/morning-briefing/index.js"
+    "morning-briefing": "node scripts/morning-briefing/index.js",
+    "content-creator": "node scripts/content-creator/index.js",
+    "content-strategy": "node scripts/content-strategy/index.js",
+    "seo": "node scripts/seo/index.js"
   }
 }

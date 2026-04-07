@@ -1,0 +1,46 @@
+name: SEO Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      piece_type:
+        description: 'Piece type: blog-post | keyword-research | product-meta | category-meta | content-brief'
+        required: true
+        default: 'blog-post'
+        type: choice
+        options:
+          - blog-post
+          - keyword-research
+          - product-meta
+          - category-meta
+          - content-brief
+
+jobs:
+  generate-seo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate SEO piece
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/seo/index.js ${{ inputs.client }} ${{ inputs.piece_type }}
+
+      - name: Commit seo-library update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/clients/${{ inputs.client }}/seo-library.md
+          git add vault/agents/seo/keyword-database.md
+          git diff --cached --quiet || git commit -m "SEO Agent: new ${{ inputs.piece_type }} for ${{ inputs.client }}"
+          git push
