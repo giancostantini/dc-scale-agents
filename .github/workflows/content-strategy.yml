@@ -1,0 +1,39 @@
+name: Content Strategy — DMancuello
+
+on:
+  schedule:
+    # Todos los lunes a las 11:00 UTC (8:00 AM Uruguay)
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: false
+        default: 'dmancuello'
+
+jobs:
+  strategy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Content Strategy Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/content-strategy/index.js ${{ github.event.inputs.client || 'dmancuello' }}
+
+      - name: Commit updated calendar
+        run: |
+          git config user.name "D&C Scale Bot"
+          git config user.email "bot@dcscale.com"
+          git add vault/clients/*/content-calendar.md
+          git diff --staged --quiet || git commit -m "Update content calendar — $(date +%Y-%m-%d)"
+          git push
