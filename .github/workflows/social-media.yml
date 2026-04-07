@@ -1,0 +1,91 @@
+name: Social Media Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      content_type:
+        description: 'Content type'
+        required: true
+        default: 'reel'
+        type: choice
+        options:
+          - reel
+          - static-ad
+          - carousel
+          - story
+          - text-post
+      platforms:
+        description: 'Platforms (comma-separated: instagram,tiktok,linkedin,facebook,twitter)'
+        required: true
+        default: 'instagram,tiktok,linkedin,facebook,twitter'
+      content_piece_id:
+        description: 'Content piece ID from content-library.md (e.g. 042, leave empty for standalone)'
+        required: false
+      content_text:
+        description: 'Raw content text (if not referencing a piece)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  # Consultant Agent, Dashboard, or Content Creator Agent can trigger via API
+  # POST /repos/{owner}/{repo}/dispatches with { event_type: "social-media", client_payload: { brief: {...} } }
+  repository_dispatch:
+    types: [social-media]
+
+jobs:
+  publish-content:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure queue directories exist
+        run: |
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          mkdir -p "vault/clients/${CLIENT}/social-media-queue"
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
+
+      - name: Build brief and generate social media content
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/social-media/index.js --brief /tmp/brief.json
+          else
+            # Convert comma-separated platforms to JSON array
+            PLATFORMS_JSON=$(echo '${{ inputs.platforms }}' | sed 's/,/","/g' | sed 's/^/["/' | sed 's/$/"]/')
+
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "${{ inputs.client }}",
+            "contentType": "${{ inputs.content_type }}",
+            "source": "dashboard",
+            "platforms": ${PLATFORMS_JSON},
+            "contentPieceId": "${{ inputs.content_piece_id }}",
+            "contentText": "${{ inputs.content_text }}",
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/social-media/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit social media updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Social Media Agent: new post for ${{ inputs.client || github.event.client_payload.brief.client }}"
+          git push
