@@ -1,0 +1,87 @@
+name: Content Creator Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      piece_type:
+        description: 'Piece type'
+        required: true
+        default: 'reel'
+        type: choice
+        options:
+          - reel
+          - static-ad
+          - social-review
+          - headline-ad
+          - collage-ad
+          - carousel
+      objective:
+        description: 'Objective (leave empty for auto)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - viral
+          - sales
+          - value
+          - branding
+      angle:
+        description: 'Content angle or topic (free text, leave empty for auto)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  # Future: repository_dispatch allows Consultant Agent or Dashboard to trigger via API
+  # POST /repos/{owner}/{repo}/dispatches with { event_type: "content-creator", client_payload: { brief: {...} } }
+  repository_dispatch:
+    types: [content-creator]
+
+jobs:
+  create-content:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build brief and generate content
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # If triggered by repository_dispatch (Consultant Agent / Dashboard), use the payload brief
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/content-creator/index.js --brief /tmp/brief.json
+          else
+            # Manual dispatch — build brief from inputs
+            cat > /tmp/brief.json << 'BRIEF_EOF'
+          {
+            "client": "${{ inputs.client }}",
+            "pieceType": "${{ inputs.piece_type }}",
+            "source": "dashboard",
+            "objective": "${{ inputs.objective }}",
+            "angle": "${{ inputs.angle }}",
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/content-creator/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit content-library update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Content Creator: new piece for ${{ inputs.client || github.event.client_payload.brief.client }}"
+          git push

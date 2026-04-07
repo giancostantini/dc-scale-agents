@@ -30,10 +30,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: node scripts/content-strategy/index.js ${{ github.event.inputs.client || 'dmancuello' }}
 
-      - name: Commit updated calendar
+      - name: Commit calendar and briefs
         run: |
-          git config user.name "D&C Scale Bot"
-          git config user.email "bot@dcscale.com"
-          git add vault/clients/*/content-calendar.md
-          git diff --staged --quiet || git commit -m "Update content calendar — $(date +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/clients/*/content-calendar.md vault/clients/*/content-briefs/ vault/clients/*/agent-reports/
+          git diff --staged --quiet || git commit -m "Content Strategy: calendar + briefs — $(date +%Y-%m-%d)"
           git push

@@ -1,0 +1,42 @@
+{
+  "client": "dmancuello",
+  "pieceType": "reel",
+  "source": "consultant-agent",
+  "objective": "sales",
+  "scriptFormat": "double-drop",
+  "emotionalTrigger": "awe",
+  "hookStyle": "mostrar el proceso artesanal en close-up extremo",
+  "tone": "premium pero cercano, no corporativo",
+  "angle": "el tiempo que lleva hacer un producto artesanal vs. uno industrial",
+  "targetAudience": "mujeres 28-45, valoran lo hecho a mano, dispuestas a pagar mas por calidad",
+  "cta": "Visita nuestra tienda — link en bio",
+  "voice": {
+    "provider": "elevenlabs",
+    "voiceId": null,
+    "style": "narration",
+    "language": "es"
+  },
+  "visual": {
+    "style": "artisanal",
+    "palette": ["#8B4513", "#F5F0EB", "#2C1810"],
+    "aspectRatio": "9:16"
+  },
+  "examples": [
+    {
+      "type": "video",
+      "url": "https://www.instagram.com/reel/example123/",
+      "notes": "Copiar el ritmo de edicion de los primeros 3 segundos y el uso de close-ups"
+    },
+    {
+      "type": "static",
+      "filePath": "vault/clients/dmancuello/references/competidor-ad-01.png",
+      "notes": "Usar este estilo de tipografia y layout como referencia"
+    }
+  ],
+  "instructions": "El cliente quiere enfocarse esta semana en mostrar el proceso de fabricacion. Usar cuero como protagonista visual.",
+  "calendarEntryId": null,
+  "produceVideo": false,
+  "produceStatic": false,
+  "generateVoice": false,
+  "autoPublish": false
+}

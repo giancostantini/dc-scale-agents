@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -23,7 +23,11 @@ function writeVaultFile(relativePath, content) {
   writeFileSync(resolve(VAULT, relativePath), content, "utf-8");
 }
 
-async function callClaude(prompt) {
+function ensureDir(path) {
+  mkdirSync(path, { recursive: true });
+}
+
+async function callClaude(prompt, maxTokens = 4096) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -33,7 +37,7 @@ async function callClaude(prompt) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -51,7 +55,6 @@ async function callClaude(prompt) {
 
 function getWeekRange() {
   const now = new Date();
-  // Next Monday
   const monday = new Date(now);
   const dayOfWeek = now.getDay();
   const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
@@ -67,19 +70,21 @@ function getWeekRange() {
       month: "long",
     });
 
+  const fmtISO = (d) => d.toISOString().split("T")[0];
+
   const days = [];
   for (let i = 0; i < 7; i++) {
     const day = new Date(monday);
     day.setDate(monday.getDate() + i);
-    days.push(fmt(day));
+    days.push({ label: fmt(day), iso: fmtISO(day) });
   }
 
   return {
     start: fmt(monday),
     end: fmt(sunday),
     days,
-    isoStart: monday.toISOString().split("T")[0],
-    isoEnd: sunday.toISOString().split("T")[0],
+    isoStart: fmtISO(monday),
+    isoEnd: fmtISO(sunday),
   };
 }
 
@@ -105,12 +110,21 @@ async function run() {
   const hookDatabase = readVaultFile("agents/content-creator/hook-database.md");
 
   const week = getWeekRange();
+  const daysLabels = week.days.map((d) => d.label).join(", ");
+  const daysJSON = week.days
+    .map((d) => `  "${d.label}": "${d.iso}"`)
+    .join(",\n");
 
   const prompt = `Eres el Content Strategy Agent de D&C Scale Partners, una agencia de crecimiento digital.
 
 Tu trabajo es generar el CALENDARIO DE CONTENIDO SEMANAL para el cliente ${CLIENT}.
 Semana: ${week.start} al ${week.end}
-Dias: ${week.days.join(", ")}
+Dias: ${daysLabels}
+
+Mapeo de dias a fechas ISO:
+{
+${daysJSON}
+}
 
 --- CONTEXTO DE LA AGENCIA ---
 ${agencyContext || "Sin contexto de agencia."}
@@ -155,7 +169,14 @@ REGLAS DE PLANIFICACION:
 8. Lunes y jueves: contenido educativo. Viernes y fines de semana: emocional/lifestyle
 9. Si no hay datos reales del cliente, genera un plan basado en mejores practicas para su nicho
 
-FORMATO DE SALIDA (Markdown estricto, usar exactamente esta estructura):
+---
+
+IMPORTANTE: Tu output debe tener EXACTAMENTE dos secciones separadas por la linea "---BRIEFS_JSON---".
+
+SECCION 1: El calendario en Markdown legible (para humanos y el dashboard).
+SECCION 2: Un array JSON con los briefs estructurados para el Content Creator Agent.
+
+FORMATO SECCION 1 (Markdown):
 
 # Calendario de Contenido — ${CLIENT}
 
@@ -164,7 +185,7 @@ Tema central: [tema unificador de la semana]
 
 ### [dia completo con fecha]
 - **Plataforma:** [Instagram Reels / Instagram Stories / Instagram Carousel / TikTok / etc.]
-- **Tipo:** [reel / static-ad / carousel / story / social-review]
+- **Tipo:** [reel / static-ad / carousel / social-review / headline-ad / collage-ad]
 - **Funnel:** [TOF / MOF / BOF]
 - **Angulo:** [tema concreto y especifico, NO generico]
 - **Hook:** "[primera linea o primer segundo — concreto y provocador]"
@@ -179,37 +200,161 @@ Tema central: [tema unificador de la semana]
 - BOF: X piezas
 - Formatos: [lista de formatos usados]
 
+---BRIEFS_JSON---
+
+FORMATO SECCION 2 (JSON array):
+Genera un array JSON valido. Cada objeto es un brief para el Content Creator Agent.
+Los campos pieceType deben ser exactamente: "reel", "static-ad", "social-review", "headline-ad", "collage-ad", o "carousel".
+El campo objective debe ser: "viral", "sales", "value", o "branding".
+
+[
+  {
+    "date": "[YYYY-MM-DD]",
+    "client": "${CLIENT}",
+    "pieceType": "[tipo exacto]",
+    "source": "strategy-agent",
+    "objective": "[viral/sales/value/branding]",
+    "scriptFormat": "[double-drop/direct-value/3x-ranking]" o null,
+    "emotionalTrigger": "[anger/awe/empathy/fear]" o null,
+    "hookStyle": "[hook concreto sugerido]",
+    "tone": "[indicacion de tono]" o null,
+    "angle": "[angulo concreto]",
+    "targetAudience": "[segmento]" o null,
+    "cta": "[CTA concreto]",
+    "instructions": "[notas detalladas para el Content Creator]",
+    "platform": "[instagram-reels/instagram-stories/tiktok/instagram-carousel/etc.]",
+    "funnelStage": "[TOF/MOF/BOF]"
+  }
+]
+
 Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Los angulos deben ser ideas concretas adaptadas al nicho del cliente.`;
 
   console.log("Calling Claude API...");
-  const calendar = await callClaude(prompt);
+  const rawOutput = await callClaude(prompt, 6000);
 
-  // Write calendar to vault
+  // --- Parse the two sections ---
+  const separator = "---BRIEFS_JSON---";
+  const separatorIdx = rawOutput.indexOf(separator);
+
+  let calendarMd;
+  let briefs = [];
+
+  if (separatorIdx === -1) {
+    // Fallback: no separator found, treat entire output as calendar
+    console.warn("WARNING: No briefs JSON section found in output. Saving calendar only.");
+    calendarMd = rawOutput;
+  } else {
+    calendarMd = rawOutput.substring(0, separatorIdx).trim();
+    const jsonPart = rawOutput.substring(separatorIdx + separator.length).trim();
+
+    // Extract JSON array (handle markdown code fences if Claude wraps it)
+    const jsonClean = jsonPart.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "");
+
+    try {
+      briefs = JSON.parse(jsonClean);
+      console.log(`Parsed ${briefs.length} content briefs from strategy output.`);
+    } catch (e) {
+      console.error("WARNING: Failed to parse briefs JSON:", e.message);
+      console.error("Raw JSON section:", jsonClean.substring(0, 500));
+    }
+  }
+
+  // --- Write calendar markdown ---
   console.log("Writing calendar to vault...");
-  writeVaultFile(`clients/${CLIENT}/content-calendar.md`, calendar);
+  writeVaultFile(`clients/${CLIENT}/content-calendar.md`, calendarMd);
 
-  // Write report for the Consultant Agent to pick up and relay via WhatsApp
+  // --- Write individual brief files ---
+  const briefsDir = resolve(VAULT, `clients/${CLIENT}/content-briefs`);
+  ensureDir(briefsDir);
+
+  // Clean previous briefs for this week
+  try {
+    const existing = readdirSync(briefsDir).filter((f) =>
+      f.startsWith(week.isoStart)
+    );
+    for (const f of existing) {
+      rmSync(resolve(briefsDir, f));
+    }
+  } catch {
+    // directory might not exist yet
+  }
+
+  // Write each brief as a separate JSON file
+  for (let i = 0; i < briefs.length; i++) {
+    const brief = briefs[i];
+    const seq = String(i + 1).padStart(2, "0");
+    const date = brief.date || week.isoStart;
+    const filename = `${date}-${brief.pieceType || "content"}-${seq}.json`;
+
+    // Ensure required fields from Content Creator schema
+    const fullBrief = {
+      client: CLIENT,
+      pieceType: brief.pieceType || "reel",
+      source: "strategy-agent",
+      objective: brief.objective || null,
+      scriptFormat: brief.scriptFormat || null,
+      emotionalTrigger: brief.emotionalTrigger || null,
+      hookStyle: brief.hookStyle || null,
+      tone: brief.tone || null,
+      angle: brief.angle || null,
+      targetAudience: brief.targetAudience || null,
+      cta: brief.cta || null,
+      instructions: brief.instructions || null,
+      voice: null,
+      visual: null,
+      examples: [],
+      calendarEntryId: `${date}-${seq}`,
+      produceVideo: false,
+      produceStatic: false,
+      generateVoice: false,
+      autoPublish: false,
+      // Strategy-specific metadata (Content Creator ignores, Consultant Agent uses)
+      _strategy: {
+        date: brief.date || null,
+        platform: brief.platform || null,
+        funnelStage: brief.funnelStage || null,
+      },
+    };
+
+    writeFileSync(
+      resolve(briefsDir, filename),
+      JSON.stringify(fullBrief, null, 2),
+      "utf-8"
+    );
+  }
+
+  console.log(`Wrote ${briefs.length} briefs to vault/clients/${CLIENT}/content-briefs/`);
+
+  // --- Write report for Consultant Agent ---
+  const reportsDir = resolve(VAULT, `clients/${CLIENT}/agent-reports`);
+  ensureDir(reportsDir);
+
   const report = {
     agent: "content-strategy",
     client: CLIENT,
     timestamp: new Date().toISOString(),
     week: { start: week.isoStart, end: week.isoEnd },
-    calendar,
+    briefsGenerated: briefs.length,
+    briefFiles: briefs.map((b, i) => {
+      const seq = String(i + 1).padStart(2, "0");
+      const date = b.date || week.isoStart;
+      return `${date}-${b.pieceType || "content"}-${seq}.json`;
+    }),
+    calendar: calendarMd,
   };
-  const reportsDir = resolve(VAULT, `clients/${CLIENT}/agent-reports`);
-  const reportPath = resolve(reportsDir, `content-strategy-${week.isoStart}.json`);
-  try {
-    await import("fs").then((fs) => fs.mkdirSync(reportsDir, { recursive: true }));
-  } catch {
-    // directory already exists
-  }
-  writeFileSync(reportPath, JSON.stringify(report, null, 2), "utf-8");
+
+  writeFileSync(
+    resolve(reportsDir, `content-strategy-${week.isoStart}.json`),
+    JSON.stringify(report, null, 2),
+    "utf-8"
+  );
 
   console.log("Content Strategy Agent completed successfully.");
-  console.log(`Calendar written to: vault/clients/${CLIENT}/content-calendar.md`);
-  console.log(`Report for Consultant Agent: vault/clients/${CLIENT}/agent-reports/content-strategy-${week.isoStart}.json`);
-  console.log("\n--- Calendar generated ---\n");
-  console.log(calendar);
+  console.log(`Calendar: vault/clients/${CLIENT}/content-calendar.md`);
+  console.log(`Briefs:   vault/clients/${CLIENT}/content-briefs/ (${briefs.length} files)`);
+  console.log(`Report:   vault/clients/${CLIENT}/agent-reports/content-strategy-${week.isoStart}.json`);
+  console.log("\n--- Calendar ---\n");
+  console.log(calendarMd);
 }
 
 run().catch((err) => {
