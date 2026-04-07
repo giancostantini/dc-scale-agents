@@ -1,0 +1,10 @@
+{
+  "name": "dc-scale-agents",
+  "version": "1.0.0",
+  "description": "D&C Scale Partners — AI agent system",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "morning-briefing": "node scripts/morning-briefing/index.js"
+  }
+}
