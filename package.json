@@ -9,6 +9,7 @@
     "content-creator": "node scripts/content-creator/index.js",
     "content-strategy": "node scripts/content-strategy/index.js",
     "seo": "node scripts/seo/index.js",
-    "social-media": "node scripts/social-media/index.js"
+    "social-media": "node scripts/social-media/index.js",
+    "social-media-metrics": "node scripts/social-media-metrics/index.js"
   }
 }

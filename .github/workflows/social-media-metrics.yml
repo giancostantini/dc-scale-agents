@@ -1,0 +1,97 @@
+name: Social Media Metrics Agent
+
+on:
+  schedule:
+    # Daily: 8 PM Montevideo (23:00 UTC)
+    - cron: '0 23 * * *'
+    # Weekly: Sundays 9 PM Montevideo (00:00 UTC Monday)
+    - cron: '0 0 * * 1'
+
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      mode:
+        description: 'Mode'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - weekly
+      lookback_days:
+        description: 'How many days back to analyze (default: 1 for daily, 7 for weekly)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  # Consultant Agent or Dashboard can trigger via API
+  repository_dispatch:
+    types: [social-media-metrics]
+
+jobs:
+  collect-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure directories exist
+        run: |
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
+
+      - name: Determine mode for scheduled runs
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # Monday 00:00 UTC cron = weekly report
+            if [ "$(date -u +%u)" = "1" ] && [ "$(date -u +%H)" = "00" ]; then
+              echo "value=weekly" >> $GITHUB_OUTPUT
+            else
+              echo "value=daily" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "value=${{ inputs.mode || 'daily' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Collect and analyze metrics
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/social-media-metrics/index.js --brief /tmp/brief.json
+          else
+            MODE="${{ steps.mode.outputs.value }}"
+            CLIENT="${{ inputs.client || 'dmancuello' }}"
+
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "${CLIENT}",
+            "mode": "${MODE}",
+            "source": "github-actions",
+            "lookbackDays": ${{ inputs.lookback_days || 'null' }},
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/social-media-metrics/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit metrics updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Metrics Agent: ${{ steps.mode.outputs.value }} report for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git push
