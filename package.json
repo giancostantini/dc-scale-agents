@@ -10,6 +10,11 @@
     "content-strategy": "node scripts/content-strategy/index.js",
     "seo": "node scripts/seo/index.js",
     "social-media": "node scripts/social-media/index.js",
-    "social-media-metrics": "node scripts/social-media-metrics/index.js"
+    "social-media-metrics": "node scripts/social-media-metrics/index.js",
+    "meta-ads": "node scripts/meta-ads/index.js",
+    "stock": "node scripts/stock/index.js",
+    "logistics": "node scripts/logistics/index.js",
+    "reporting-performance": "node scripts/reporting-performance/index.js",
+    "customer-service": "node scripts/customer-service/index.js"
   }
 }

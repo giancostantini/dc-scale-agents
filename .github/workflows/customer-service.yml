@@ -1,0 +1,102 @@
+name: Customer Service Agent
+
+on:
+  schedule:
+    # Weekly report: Sunday 6 PM Montevideo (21:00 UTC)
+    - cron: '0 21 * * 0'
+
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      mode:
+        description: 'Mode'
+        required: true
+        default: 'faq'
+        type: choice
+        options:
+          - chat
+          - faq
+          - report
+      customer_message:
+        description: 'Customer message (for chat mode testing)'
+        required: false
+      channel:
+        description: 'Channel'
+        required: false
+        type: choice
+        options:
+          - ''
+          - web-chat
+          - whatsapp
+          - instagram-dm
+          - email
+      lookback_days:
+        description: 'Days to analyze for report (default: 7)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  repository_dispatch:
+    types: [customer-service]
+
+jobs:
+  run-customer-service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure directories exist
+        run: |
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
+
+      - name: Run Customer Service Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/customer-service/index.js --brief /tmp/brief.json
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "dmancuello",
+            "mode": "report",
+            "source": "github-actions"
+          }
+          BRIEF_EOF
+            node scripts/customer-service/index.js --brief /tmp/brief.json
+          else
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "${{ inputs.client }}",
+            "mode": "${{ inputs.mode }}",
+            "source": "dashboard",
+            "customerMessage": "${{ inputs.customer_message }}",
+            "channel": "${{ inputs.channel }}",
+            "lookbackDays": ${{ inputs.lookback_days || 'null' }},
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/customer-service/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit vault updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Customer Service Agent: ${{ inputs.mode || github.event.client_payload.brief.mode || 'report' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git push

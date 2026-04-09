@@ -1,0 +1,114 @@
+name: Reporting Performance Agent
+
+on:
+  schedule:
+    # Weekly metrics: Monday 7 AM Montevideo (10:00 UTC)
+    - cron: '0 10 * * 1'
+    # Monthly report: 1st of month 8 AM Montevideo (11:00 UTC)
+    - cron: '0 11 1 * *'
+
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      mode:
+        description: 'Mode'
+        required: true
+        default: 'metrics'
+        type: choice
+        options:
+          - metrics
+          - market
+          - report
+      business_type:
+        description: 'Business type (affects KPI selection)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - ecommerce
+          - services
+          - physical-retail
+          - saas
+          - it-services
+      lookback_days:
+        description: 'Days to analyze (default: 7 for metrics, 30 for report)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  repository_dispatch:
+    types: [reporting-performance]
+
+jobs:
+  run-reporting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure directories exist
+        run: |
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
+
+      - name: Determine mode from schedule
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            DAY=$(date -u +%d)
+            if [ "$DAY" = "01" ]; then
+              echo "mode=report" >> $GITHUB_OUTPUT
+            else
+              echo "mode=metrics" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Run Reporting Performance Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/reporting-performance/index.js --brief /tmp/brief.json
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "dmancuello",
+            "mode": "${{ steps.mode.outputs.mode }}",
+            "source": "github-actions",
+            "businessType": "ecommerce"
+          }
+          BRIEF_EOF
+            node scripts/reporting-performance/index.js --brief /tmp/brief.json
+          else
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "${{ inputs.client }}",
+            "mode": "${{ inputs.mode }}",
+            "source": "dashboard",
+            "businessType": "${{ inputs.business_type }}",
+            "lookbackDays": ${{ inputs.lookback_days || 'null' }},
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/reporting-performance/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit vault updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Reporting Performance Agent: ${{ inputs.mode || steps.mode.outputs.mode || github.event.client_payload.brief.mode || 'metrics' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git push

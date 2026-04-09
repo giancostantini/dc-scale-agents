@@ -1,0 +1,115 @@
+name: Logistics Agent
+
+on:
+  schedule:
+    # Weekdays 8 AM Montevideo (11:00 UTC) — schedule mode
+    - cron: '0 11 * * 1-5'
+    # Friday 6 PM Montevideo (21:00 UTC) — report mode
+    - cron: '0 21 * * 5'
+
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (e.g. dmancuello)'
+        required: true
+        default: 'dmancuello'
+      mode:
+        description: 'Mode'
+        required: true
+        default: 'schedule'
+        type: choice
+        options:
+          - schedule
+          - dispatch
+          - optimize
+          - report
+      shipping_company:
+        description: 'Preferred carrier (optional)'
+        required: false
+      trigger_stock_check:
+        description: 'Trigger Stock Agent after dispatch'
+        required: false
+        type: boolean
+        default: false
+      lookback_days:
+        description: 'Days to analyze (default varies by mode)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  repository_dispatch:
+    types: [logistics]
+
+jobs:
+  run-logistics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure directories exist
+        run: |
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
+
+      - name: Determine mode from schedule
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            DOW=$(date -u +%u)
+            HOUR=$(date -u +%H)
+            if [ "$DOW" = "5" ] && [ "$HOUR" = "21" ]; then
+              echo "mode=report" >> $GITHUB_OUTPUT
+            else
+              echo "mode=schedule" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Run Logistics Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/logistics/index.js --brief /tmp/brief.json
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "dmancuello",
+            "mode": "${{ steps.mode.outputs.mode }}",
+            "source": "github-actions"
+          }
+          BRIEF_EOF
+            node scripts/logistics/index.js --brief /tmp/brief.json
+          else
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "${{ inputs.client }}",
+            "mode": "${{ inputs.mode }}",
+            "source": "dashboard",
+            "shippingCompany": "${{ inputs.shipping_company }}",
+            "triggerStockCheck": ${{ inputs.trigger_stock_check || 'false' }},
+            "lookbackDays": ${{ inputs.lookback_days || 'null' }},
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/logistics/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit vault updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Logistics Agent: ${{ inputs.mode || steps.mode.outputs.mode || github.event.client_payload.brief.mode || 'schedule' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git push
