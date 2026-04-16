@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -439,6 +440,7 @@ function parsePublishData(output) {
 
 export async function publishContent(briefInput) {
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `Social Media Agent — ${brief.contentType} for ${brief.client} on ${brief.platforms.join(", ")} (source: ${brief.source})`
   );
@@ -554,6 +556,7 @@ _vault/clients/${brief.client}/social-media-log.md_`
   );
 
   // Step 9: Return result (for programmatic use by Consultant Agent)
+  await logAgentRun(brief.client, "social-media", "success", `Post #${postId} generado para ${(brief.platforms || []).join(", ")}.`, { postId, contentType: brief.contentType, platforms: brief.platforms, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     postId,
     client: brief.client,
@@ -584,6 +587,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Social Media Agent failed:", err.message);
+  await logAgentError("unknown", "social-media", err, {});
   try {
     await sendTelegram(
       `*❌ Social Media Agent — Error*\n\n\`${err.message}\``

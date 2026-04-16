@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -520,6 +521,7 @@ Conversaciones: ${csData.kpis?.totalConversations} | Resolucion: ${csData.kpis?.
 
 export async function runCustomerServiceAgent(briefInput) {
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `Customer Service Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
   );
@@ -629,6 +631,7 @@ _${getTodayFormatted()}_
   await sendTelegram(telegramSummary);
 
   // Step 8: Return result (for Consultant Agent or webhook)
+  await logAgentRun(brief.client, "customer-service", "success", `Customer Service ejecutado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -664,6 +667,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Customer Service Agent failed:", err.message);
+  await logAgentError("unknown", "customer-service", err, {});
   try {
     await sendTelegram(`*\u{274C} Customer Service Agent — Error*\n\n\`${err.message}\``);
   } catch {

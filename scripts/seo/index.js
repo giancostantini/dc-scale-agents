@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -484,6 +485,7 @@ Learning: PENDING
 
 export async function createSEOPiece(briefInput) {
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `SEO Agent — ${brief.pieceType} for ${brief.client} (source: ${brief.source})`
   );
@@ -518,6 +520,7 @@ export async function createSEOPiece(briefInput) {
   console.log("\n" + summary);
 
   // Step 5: Return result (for programmatic use by Consultant Agent)
+  await logAgentRun(brief.client, "seo", "success", `SEO #${pieceId} generado: ${brief.pieceType}.`, { pieceId, pieceType: brief.pieceType, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     pieceId,
     client: brief.client,
@@ -542,7 +545,8 @@ async function main() {
   console.log("\n" + "=".repeat(60));
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error("SEO Agent failed:", err.message);
+  await logAgentError("unknown", "seo", err, {});
   process.exit(1);
 });
