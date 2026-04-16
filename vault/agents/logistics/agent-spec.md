@@ -17,7 +17,6 @@ Programar pedidos, coordinar con companias de envio, optimizar logistica. Trabaj
 - Lee stock-log.md y sales-log.md (datos compartidos con Stock Agent)
 - Despues de dispatch, triggerea Stock Agent via repository_dispatch (event_type: "stock") para reconciliar inventario
 - Brief de trigger: `{ client, mode: "alert", source: "logistics-agent" }`
-- Patron identico a meta-ads → content-creator
 
 ## Flujo de datos
 - **Lee:** CLAUDE.md, claude-client.md, strategy.md, logistics-log.md, stock-log.md, sales-log.md, learning-log.md

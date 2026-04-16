@@ -123,7 +123,7 @@ function loadClientContext(client) {
     strategy: readVaultFile(`clients/${client}/strategy.md`),
     contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
     contentCalendar: readVaultFile(`clients/${client}/content-calendar.md`),
-    socialMediaLog: readVaultFile(`clients/${client}/social-media-log.md`),
+    socialMediaLog: readVaultFile(`clients/${client}/content-library.md`),
     metricsLog: readVaultFile(`clients/${client}/metrics-log.md`),
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
     hookDatabase: readVaultFile(`clients/${client}/hook-database.md`),

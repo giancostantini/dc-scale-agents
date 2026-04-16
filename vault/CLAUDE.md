@@ -52,16 +52,16 @@ Gianluca Costantini (estrategia y arquitectura de agentes) + Federico (dashboard
 ## Vertical de Marketing — Prioridades de agentes
 1. Content Creator Agent (PRIORIDAD MAXIMA)
 2. Content Strategy Agent
-3. Morning Briefing Agent
-4. SEO Agent
-5. Meta Ads Monitor Agent (bloqueado por permisos Meta)
-6. Social Media Metrics Agent
+3. Analytics Agent (Reporting Performance — KPIs de negocio)
+4. Morning Briefing Agent
+5. SEO Agent
+6. Social Media Metrics Agent (evaluacion per-pieza, loop de aprendizaje)
 
 ## Vertical de Automatizacion — Productos
 - Agente de Reportes (Morning Briefing)
 - Agente de Contenido
 - Agente de Prospeccion (D&C Scale interno)
-- Agente de Atencion (chatbot WhatsApp/web)
+- Stock + Logistics (eCommerce con rotacion alta)
 - Agente de SEO
 - Agente de Ads
 - Sistema de Onboarding automatizado

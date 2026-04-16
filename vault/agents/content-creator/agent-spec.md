@@ -99,5 +99,5 @@ Aceptados via:
 ## Integracion con otros agentes
 - **Content Strategy Agent** → define calendario y briefs estrategicos
 - **Consultant Agent** → orquesta, refina parametros, envia ejemplos de referencia
-- **Meta Ads Agent** → recibe piezas ganadoras para lanzar como ads
+- **Social Media Metrics Agent** → evalua performance de piezas y alimenta learning-log
 - **Dashboard** → permite al dueno solicitar contenido directamente
