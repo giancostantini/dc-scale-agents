@@ -57,7 +57,10 @@
  * @property {boolean} [produceVideo] - false in Fase 1, true when Remotion is connected
  * @property {boolean} [produceStatic] - false in Fase 1, true when NanoBanana is connected
  * @property {boolean} [generateVoice] - false in Fase 1, true when ElevenLabs is connected
- * @property {boolean} [autoPublish] - false until Blotato MCP is connected
+ * @property {boolean} [autoPublish] - false until Blotato is connected
+ * @property {string[]} [crossPost] - Additional platforms to cross-post to
+ *   e.g. ["tiktok", "instagram-stories"] — uses PLATFORM_MAP keys in produce-publish.js
+ * @property {string} [scheduleTime] - ISO 8601 datetime to schedule post (null = publish immediately)
  */
 
 /** Default brief — used when no brief file is provided */
@@ -82,6 +85,8 @@ export const DEFAULT_BRIEF = {
   produceStatic: false,
   generateVoice: false,
   autoPublish: false,
+  crossPost: [],
+  scheduleTime: null,
 };
 
 /** Validates a brief and fills missing fields with defaults */
