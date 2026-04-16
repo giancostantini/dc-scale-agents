@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -524,6 +525,7 @@ function updateVaultWithMetrics(ctx, client, metricsData, fullOutput) {
 
 export async function collectMetrics(briefInput) {
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `Social Media Metrics Agent — ${brief.mode} for ${brief.client} (source: ${brief.source}, lookback: ${brief.lookbackDays}d)`
   );
@@ -617,6 +619,7 @@ Analisis completado. Ver metrics-log.md`;
   await sendTelegram(telegramSummary);
 
   // Step 8: Return result (for programmatic use by Consultant Agent)
+  await logAgentRun(brief.client, "social-media-metrics", "success", `Métricas recolectadas: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -642,6 +645,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Social Media Metrics Agent failed:", err.message);
+  await logAgentError("unknown", "social-media-metrics", err, {});
   try {
     await sendTelegram(
       `*❌ Social Media Metrics Agent — Error*\n\n\`${err.message}\``

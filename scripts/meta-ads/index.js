@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -875,6 +876,7 @@ async function handleContentCreatorRequest(client, adsData) {
 
 export async function runMetaAds(briefInput) {
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `Meta Ads Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
   );
@@ -993,6 +995,7 @@ _${getTodayFormatted()}_
   await sendTelegram(telegramSummary);
 
   // Step 9: Return result (for Consultant Agent)
+  await logAgentRun(brief.client, "meta-ads", "success", `Meta Ads ejecutado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -1031,6 +1034,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Meta Ads Agent failed:", err.message);
+  await logAgentError("unknown", "meta-ads", err, {});
   try {
     await sendTelegram(
       `*❌ Meta Ads Agent — Error*\n\n\`${err.message}\``

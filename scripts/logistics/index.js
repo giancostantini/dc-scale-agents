@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -731,6 +732,7 @@ function updateVaultWithLogisticsData(ctx, client, logisticsData, fullOutput, mo
 export async function runLogisticsAgent(briefInput) {
   // Step 1: Parse and validate brief
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `Logistics Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
   );
@@ -870,6 +872,7 @@ _${getTodayFormatted()}_
   await sendTelegram(telegramSummary);
 
   // Step 9: Return result (for Consultant Agent)
+  await logAgentRun(brief.client, "logistics", "success", `Logistics ejecutado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -908,6 +911,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Logistics Agent failed:", err.message);
+  await logAgentError("unknown", "logistics", err, {});
   try {
     await sendTelegram(`*\u274C Logistics Agent — Error*\n\n\`${err.message}\``);
   } catch {

@@ -6,7 +6,7 @@ import { produceVideo } from "./produce-video.js";
 import { produceVoice } from "./produce-voice.js";
 import { produceStatic } from "./produce-static.js";
 import { publishContent } from "./produce-publish.js";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import { logAgentRun, logAgentError, registerContentPiece } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -541,7 +541,20 @@ export async function createContent(briefInput) {
     }
   }
 
-  // Step 5: Notify via Telegram
+  // Step 5: Fase 4 — Publish with Blotato (if enabled)
+  let publishResults = null;
+  if (brief.autoPublish) {
+    const mediaPath = videoPath || staticResult?.filePath || null;
+    try {
+      publishResults = await publishContent(brief, output, mediaPath);
+      const published = publishResults.filter((r) => r.status === "published");
+      console.log(`Published to ${published.length} platform(s): ${published.map((r) => r.platform).join(", ")}`);
+    } catch (err) {
+      console.error(`Publishing failed: ${err.message}`);
+    }
+  }
+
+  // Step 6: Notify via Telegram
   const staticLabel = staticResult
     ? `\n🖼️ *Static:* ${staticResult.fileName} (${staticResult.aspectRatio})`
     : brief.produceStatic && brief.pieceType !== "reel"
@@ -560,6 +573,18 @@ export async function createContent(briefInput) {
     ? "\n⚠️ *Video:* producción falló — revisar manualmente"
     : "";
 
+  const publishLabel = publishResults
+    ? publishResults
+        .map((r) =>
+          r.status === "published"
+            ? `\n✅ *${r.platform}:* publicado`
+            : `\n❌ *${r.platform}:* falló`
+        )
+        .join("")
+    : brief.autoPublish
+    ? "\n⚠️ *Publicación:* falló — revisar manualmente"
+    : "";
+
   const sourceLabel = {
     cli: "CLI manual",
     "consultant-agent": "Agente Consultor",
@@ -575,40 +600,29 @@ _${getTodayFormatted()}_
 👤 *Cliente:* ${brief.client}
 📡 *Solicitado por:* ${sourceLabel}
 ${brief.angle ? `🎯 *Angulo:* ${brief.angle}` : ""}
-${brief.angle ? `🎯 *Angulo:* ${brief.angle}` : ""}
 ${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${staticLabel}${voiceLabel}${videoLabel}${publishLabel}
 📝 *Estado:* ${publishResults?.some((r) => r.status === "published") ? "PUBLICADO ✅" : videoPath || staticResult ? "LISTO — pendiente publicación" : "DRAFT — revisar script"}
 
 _vault/clients/${brief.client}/content-library.md_`
   );
 
-  // Step 5b: Fase 4 — Publish with Blotato (if enabled)
-  let publishResults = null;
-  if (brief.autoPublish) {
-    const mediaPath = videoPath || staticResult?.filePath || null;
-    try {
-      publishResults = await publishContent(brief, output, mediaPath);
-      const published = publishResults.filter((r) => r.status === "published");
-      console.log(`Published to ${published.length} platform(s): ${published.map((r) => r.platform).join(", ")}`);
-    } catch (err) {
-      console.error(`Publishing failed: ${err.message}`);
-    }
-  }
-
-  // Update Telegram notification status based on publish result
-  const publishLabel = publishResults
-    ? publishResults
-        .map((r) =>
-          r.status === "published"
-            ? `\n✅ *${r.platform}:* publicado`
-            : `\n❌ *${r.platform}:* falló`
-        )
-        .join("")
-    : brief.autoPublish
-    ? "\n⚠️ *Publicación:* falló — revisar manualmente"
-    : "";
-
-  // Step 6: Return result (for programmatic use by Consultant Agent)
+  // Step 7: Log to Supabase
+  await registerContentPiece({
+    client: brief.client,
+    piece_id: pieceId,
+    piece_type: brief.pieceType,
+    source: brief.source,
+    objective: brief.objective || null,
+    angle: brief.angle || null,
+    script_format: brief.scriptFormat || null,
+    emotional_trigger: brief.emotionalTrigger || null,
+    platforms: brief.crossPost?.length ? [brief._strategy?.platform, ...brief.crossPost].filter(Boolean) : [brief._strategy?.platform].filter(Boolean),
+    video_path: videoPath || null,
+    voice_path: voiceResult?.filePath || null,
+    static_path: staticResult?.filePath || null,
+    publish_results: publishResults || [],
+    status: publishResults?.some((r) => r.status === "published") ? "published" : videoPath || staticResult ? "produced" : "draft",
+  });
   await logAgentRun(brief.client, "content-creator", "success", `Pieza #${pieceId} generada: ${brief.pieceType}.`, { pieceId, pieceType: brief.pieceType, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     pieceId,

@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -66,6 +67,7 @@ async function sendTelegram(text) {
 // --- Main ---
 
 async function run() {
+  const startTime = Date.now();
   console.log("Morning Briefing Agent — starting...");
 
   // Read vault context
@@ -119,10 +121,12 @@ Sé directo, útil y breve. Máximo 800 caracteres. Si no hay datos reales, gene
   console.log("Sending to Telegram...");
   await sendTelegram(briefing);
 
+  await logAgentRun("dmancuello", "morning-briefing", "success", "Briefing matutino enviado a Telegram.", {}, { duration_ms: Date.now() - startTime });
   console.log("Morning Briefing sent successfully.");
 }
 
-run().catch((err) => {
+run().catch(async (err) => {
   console.error("Morning Briefing failed:", err.message);
+  await logAgentError("dmancuello", "morning-briefing", err, {});
   process.exit(1);
 });

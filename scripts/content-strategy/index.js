@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -91,6 +92,7 @@ function getWeekRange() {
 // --- Main ---
 
 async function run() {
+  const startTime = Date.now();
   console.log(`Content Strategy Agent — generating calendar for ${CLIENT}...`);
 
   // Read all vault context
@@ -349,6 +351,7 @@ Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Lo
     "utf-8"
   );
 
+  await logAgentRun(CLIENT, "content-strategy", "success", `Calendario generado: ${briefs.length} briefs para semana ${week.isoStart}.`, { briefsGenerated: briefs.length, week: week.isoStart }, { duration_ms: Date.now() - startTime });
   console.log("Content Strategy Agent completed successfully.");
   console.log(`Calendar: vault/clients/${CLIENT}/content-calendar.md`);
   console.log(`Briefs:   vault/clients/${CLIENT}/content-briefs/ (${briefs.length} files)`);
@@ -357,7 +360,8 @@ Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Lo
   console.log(calendarMd);
 }
 
-run().catch((err) => {
+run().catch(async (err) => {
   console.error("Content Strategy Agent failed:", err.message);
+  await logAgentError(CLIENT, "content-strategy", err, {});
   process.exit(1);
 });

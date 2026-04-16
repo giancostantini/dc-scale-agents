@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -732,6 +733,7 @@ function updateVaultWithStockData(ctx, client, stockData, fullOutput, mode) {
 
 export async function runStockAgent(briefInput) {
   const brief = parseBrief(briefInput);
+  const startTime = Date.now();
   console.log(
     `Stock Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
   );
@@ -854,6 +856,7 @@ _${getTodayFormatted()}_
   await sendTelegram(telegramSummary);
 
   // Step 8: Return result (for Consultant Agent)
+  await logAgentRun(brief.client, "stock", "success", `Stock ejecutado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -879,6 +882,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("Stock Agent failed:", err.message);
+  await logAgentError("unknown", "stock", err, {});
   try {
     await sendTelegram(`*\u{274C} Stock Agent — Error*\n\n\`${err.message}\``);
   } catch {
