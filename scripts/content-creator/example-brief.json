@@ -39,4 +39,9 @@
   "produceStatic": false,
   "generateVoice": false,
   "autoPublish": false
+
+  // Para activar produccion completa:
+  // "generateVoice": true  → genera MP3 con ElevenLabs
+  // "produceVideo": true   → renderiza MP4 con Remotion (incluye el audio)
+  // "autoPublish": true    → publica con Blotato (Fase 4)
 }

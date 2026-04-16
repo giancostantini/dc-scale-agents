@@ -3,6 +3,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
 import { produceVideo } from "./produce-video.js";
+import { produceVoice } from "./produce-voice.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -497,19 +498,41 @@ export async function createContent(briefInput) {
   appendToVaultFile(`clients/${brief.client}/content-library.md`, entry);
   console.log(`Registered as Piece #${pieceId} in content-library.md`);
 
-  // Step 4b: Fase 2 — Produce video with Remotion (if enabled)
+  // Step 4b: Fase 3 — Generate voice with ElevenLabs (if enabled)
+  let voiceResult = null;
+  if (brief.generateVoice && brief.pieceType === "reel") {
+    try {
+      voiceResult = await produceVoice(brief, output, pieceId);
+      console.log(`Voice generated: ${voiceResult.filePath}`);
+    } catch (err) {
+      console.error(`Voice generation failed: ${err.message}`);
+    }
+  }
+
+  // Step 4c: Fase 2 — Produce video with Remotion (if enabled)
+  // Voice is generated first so Remotion can include it in the composition
   let videoPath = null;
   if (brief.produceVideo && brief.pieceType === "reel") {
     try {
-      videoPath = await produceVideo(brief, output, pieceId);
+      // Pass voice path to Remotion so it can include the audio track
+      const briefWithVoice = voiceResult
+        ? { ...brief, _voicePath: voiceResult.remotionPath }
+        : brief;
+      videoPath = await produceVideo(briefWithVoice, output, pieceId);
       console.log(`Video produced: ${videoPath}`);
     } catch (err) {
       console.error(`Video production failed: ${err.message}`);
-      console.log("Script and storyboard saved. Produce manually with: cd remotion-studio && npm run studio");
+      console.log("Produce manually with: cd remotion-studio && npm run studio");
     }
   }
 
   // Step 5: Notify via Telegram
+  const voiceLabel = voiceResult
+    ? `\n🎙️ *Voz:* generada (${voiceResult.durationEstimateSeconds}s estimados)`
+    : brief.generateVoice
+    ? "\n⚠️ *Voz:* generación falló — revisar manualmente"
+    : "";
+
   const videoLabel = videoPath
     ? `\n🎬 *Video:* ${videoPath.split("/").pop()}`
     : brief.produceVideo
@@ -531,7 +554,7 @@ _${getTodayFormatted()}_
 👤 *Cliente:* ${brief.client}
 📡 *Solicitado por:* ${sourceLabel}
 ${brief.angle ? `🎯 *Angulo:* ${brief.angle}` : ""}
-${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${videoLabel}
+${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${voiceLabel}${videoLabel}
 📝 *Estado:* ${videoPath ? "VIDEO LISTO — revisar y aprobar publicación" : "DRAFT — revisar script y aprobar"}
 
 _vault/clients/${brief.client}/content-library.md_`
@@ -544,6 +567,7 @@ _vault/clients/${brief.client}/content-library.md_`
     pieceType: brief.pieceType,
     source: brief.source,
     output,
+    voicePath: voiceResult?.filePath || null,
     videoPath,
     registeredAt: `vault/clients/${brief.client}/content-library.md`,
   };

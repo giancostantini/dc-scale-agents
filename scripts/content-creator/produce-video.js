@@ -51,6 +51,7 @@ async function callClaude(prompt, maxTokens = 8000) {
 function buildRemotionPrompt(storyboard, brief, compositionId) {
   const brandColors = brief.visual?.palette || ["#8B4513", "#F5F0EB", "#2C1810", "#FFFFFF"];
   const style = brief.visual?.style || "artisanal";
+  const voicePath = brief._voicePath || null;
 
   return `You are an expert Remotion (React video framework) developer.
 
@@ -85,6 +86,13 @@ Import from these paths (they are already created):
   Props: children, showGuides
 
 From remotion, use: AbsoluteFill, Sequence, useCurrentFrame, interpolate, Audio, Video, Img, spring
+
+--- AUDIO ---
+${voicePath
+  ? `Voice narration audio is available at: "${voicePath}"
+Include it using: <Audio src="${voicePath}" /> inside the main composition (outside any Sequence).
+The audio track runs for the full duration of the video.`
+  : "No voice audio available. Use only music/SFX if needed (reference Pixabay royalty-free)."}
 
 --- RULES ---
 1. All text MUST be inside <SafeZone> — never place text outside safe zone
