@@ -1,3 +1,16 @@
+/**
+ * Analytics Agent (Reporting Performance) — v2
+ *
+ * Generates business-level analytics reports (daily, weekly, biweekly, monthly),
+ * prioritized improvement insights, custom reports, and natural language answers.
+ *
+ * Phase 1 (current): simulated — Claude estimates KPIs from vault context
+ * Phase 2: read historical snapshots from Supabase
+ * Phase 3: connect Shopify, Meta, GA4, Google Ads APIs for real-time data
+ *
+ * Modes: daily | weekly | biweekly | monthly | insights | custom | query
+ */
+
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -13,9 +26,10 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // --- CLI parsing ---
 // Usage:
-//   node index.js --brief path/to/brief.json      (full brief)
-//   node index.js dmancuello metrics               (shorthand: client + mode)
-//   node index.js                                  (defaults: metrics)
+//   node index.js --brief path/to/brief.json
+//   node index.js dmancuello daily
+//   node index.js dmancuello query "¿Qué canal tiene mejor ROAS?"
+//   node index.js                                  (defaults)
 
 function loadBriefFromArgs() {
   const args = process.argv.slice(2);
@@ -27,11 +41,11 @@ function loadBriefFromArgs() {
     return parseBrief({ ...raw, source: raw.source || "cli" });
   }
 
-  return parseBrief({
-    client: args[0] || DEFAULT_BRIEF.client,
-    mode: args[1] || DEFAULT_BRIEF.mode,
-    source: "cli",
-  });
+  const client = args[0] || DEFAULT_BRIEF.client;
+  const mode = args[1] || DEFAULT_BRIEF.mode;
+  const question = mode === "query" ? args.slice(2).join(" ") || null : null;
+
+  return parseBrief({ client, mode, source: "cli", question });
 }
 
 // --- Helpers ---
@@ -103,6 +117,10 @@ async function sendTelegram(text) {
   }
 }
 
+function getTodayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+
 function getTodayFormatted() {
   return new Date().toLocaleDateString("es-UY", {
     weekday: "long",
@@ -110,10 +128,6 @@ function getTodayFormatted() {
     month: "long",
     day: "numeric",
   });
-}
-
-function getTodayISO() {
-  return new Date().toISOString().split("T")[0];
 }
 
 // --- Context Loader ---
@@ -129,7 +143,9 @@ function loadClientContext(client) {
     metricsLog: readVaultFile(`clients/${client}/metrics-log.md`),
     adsLog: readVaultFile(`clients/${client}/ads-log.md`),
     salesLog: readVaultFile(`clients/${client}/sales-log.md`),
+    contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
+    productCatalog: readVaultFile(`clients/${client}/product-catalog.md`),
   };
 
   const loaded = Object.entries(context).filter(([, v]) => v !== null).length;
@@ -144,41 +160,28 @@ function loadClientContext(client) {
 function getBusinessTypeGuide(businessType) {
   const guides = {
     ecommerce: `TIPO DE NEGOCIO: eCommerce
-KPIs PRIORITARIOS: AOV (ticket promedio), tasa de conversion, ROAS, CAC, LTV, tasa de abandono de carrito, revenue por canal, tasa de recompra.
-BENCHMARKS TIPICOS: Conversion 1-3%, AOV depende del nicho, ROAS >3x es saludable, CAC debe ser <1/3 del LTV.`,
+KPIs PRIORITARIOS: Revenue, AOV (ticket promedio), tasa de conversion, tasa de abandono de carrito, ROAS, CAC, LTV, LTV/CAC ratio, tasa de recompra, revenue por canal.
+BENCHMARKS: Conversion 1-3%, abandono carrito 60-80% (bajar es enorme upside), ROAS >3x es saludable, CAC debe ser <1/3 del LTV, LTV/CAC >3x sano.`,
     services: `TIPO DE NEGOCIO: Servicios
-KPIs PRIORITARIOS: CAC, LTV, tasa de retencion de clientes, margen por proyecto/servicio, revenue recurrente, NPS, tiempo de cierre de venta.
-BENCHMARKS TIPICOS: Retencion >80% anual es buena, LTV/CAC >3x es saludable, margen bruto servicios 50-70%.`,
+KPIs PRIORITARIOS: CAC, LTV, retencion, margen por proyecto, revenue recurrente, NPS.
+BENCHMARKS: Retencion >80% anual, LTV/CAC >3x, margen bruto 50-70%.`,
     "physical-retail": `TIPO DE NEGOCIO: Retail fisico
-KPIs PRIORITARIOS: Ticket promedio, trafico en tienda, tasa de conversion en tienda, ventas por m2, rotacion de inventario, same-store growth, margen bruto.
-BENCHMARKS TIPICOS: Conversion en tienda 20-30%, rotacion de inventario depende del rubro.`,
+KPIs PRIORITARIOS: Ticket promedio, trafico en tienda, conversion en tienda, ventas/m2, rotacion inventario.
+BENCHMARKS: Conversion tienda 20-30%.`,
     saas: `TIPO DE NEGOCIO: SaaS
-KPIs PRIORITARIOS: MRR, ARR, churn mensual, expansion revenue, LTV, CAC, payback period, NRR (Net Revenue Retention).
-BENCHMARKS TIPICOS: Churn <5% mensual, NRR >100%, payback <12 meses, LTV/CAC >3x.`,
+KPIs PRIORITARIOS: MRR, ARR, churn, NRR, expansion revenue, LTV, CAC, payback.
+BENCHMARKS: Churn <5%/mes, NRR >100%, payback <12 meses.`,
     "it-services": `TIPO DE NEGOCIO: Servicios IT
-KPIs PRIORITARIOS: Margen por proyecto, tasa de utilizacion del equipo, tiempo de entrega, backlog en horas, revenue por empleado, tasa de retencion de clientes.
-BENCHMARKS TIPICOS: Utilizacion 70-85%, margen bruto 40-60%, retencion >85%.`,
+KPIs PRIORITARIOS: Margen por proyecto, utilizacion, delivery time, backlog.
+BENCHMARKS: Utilizacion 70-85%, margen 40-60%.`,
   };
-  return guides[businessType] || `TIPO DE NEGOCIO: General\nKPIs PRIORITARIOS: Revenue, CAC, LTV, ROAS, conversion rate, margen bruto, margen neto, tasa de crecimiento.`;
+  return guides[businessType] || guides.ecommerce;
 }
 
-// --- Prompt Builders ---
+// --- Shared context block (reused across modes) ---
 
-function buildMetricsPrompt(ctx, brief) {
-  return `Eres el Reporting Performance Agent de D&C Scale Partners.
-
-Tu trabajo es calcular y analizar los KPIs clave del negocio del cliente, adaptandote al tipo de negocio.
-
-CLIENTE: ${brief.client}
-MODO: METRICS — Calculo de KPIs del periodo
-FECHA: ${getTodayFormatted()}
-PERIODO: ultimos ${brief.lookbackDays} dias
-${brief.focusAreas ? `AREAS DE FOCO: ${brief.focusAreas.join(", ")}` : "AREAS DE FOCO: todas"}
-${brief.revenueData ? `DATOS DE REVENUE PROPORCIONADOS: ${JSON.stringify(brief.revenueData)}` : ""}
-
-${getBusinessTypeGuide(brief.businessType)}
-
---- CONTEXTO DE LA AGENCIA ---
+function buildContextBlock(ctx) {
+  return `--- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
 --- MARCA DEL CLIENTE ---
@@ -187,618 +190,460 @@ ${ctx.clientBrand || "Sin contexto de marca."}
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida."}
 
---- PERFORMANCE LOG (historial de KPIs) ---
-${ctx.performanceLog || "Sin historial de performance. Este es el primer calculo de KPIs."}
-
---- METRICAS DE REDES SOCIALES ---
-${ctx.metricsLog || "Sin metricas de redes."}
-
---- HISTORIAL DE ADS ---
-${ctx.adsLog || "Sin historial de ads."}
+--- HISTORIAL DE PERFORMANCE (reportes previos) ---
+${ctx.performanceLog || "Sin historial de performance. Primer reporte."}
 
 --- LOG DE VENTAS ---
 ${ctx.salesLog || "Sin log de ventas."}
 
+--- HISTORIAL DE ADS ---
+${ctx.adsLog || "Sin historial de ads."}
+
+--- METRICAS DE CONTENIDO ---
+${ctx.metricsLog || "Sin metricas de contenido."}
+
+--- LIBRARY DE CONTENIDO ---
+${ctx.contentLibrary || "Sin piezas registradas."}
+
+--- CATALOGO DE PRODUCTOS ---
+${ctx.productCatalog || "Sin catalogo."}
+
 --- LEARNING LOG ---
-${ctx.learningLog || "Sin learning log."}
+${ctx.learningLog || "Sin learnings."}`;
+}
+
+// --- Prompt Builders per mode ---
+
+function buildDailyPrompt(ctx, brief) {
+  return `Eres el Analytics Agent de D&C Scale Partners.
+
+Genera el REPORTE DIARIO del negocio. Es el "pulso del dia" — comparacion vs ayer, numeros clave, resumen narrativo.
+
+CLIENTE: ${brief.client}
+FECHA: ${getTodayFormatted()}
+MODO: daily
+
+${getBusinessTypeGuide(brief.businessType)}
+
+${buildContextBlock(ctx)}
+
+${brief.revenueData ? `--- DATOS DE HOY (proporcionados) ---\n${JSON.stringify(brief.revenueData, null, 2)}` : ""}
 
 ${brief.instructions ? `--- INSTRUCCIONES ADICIONALES ---\n${brief.instructions}` : ""}
 
 ---
 
-IMPORTANTE: Tu rol es:
+IMPORTANTE: Tu rol es generar un reporte breve, accionable, que el dueño del negocio pueda leer en 60 segundos.
 
-1. CALCULAR todos los KPIs relevantes para el tipo de negocio del cliente
-2. COMPARAR con el periodo anterior (si hay datos historicos en performance-log)
-3. IDENTIFICAR tendencias: subiendo, estable, bajando para cada KPI clave
-4. EVALUAR la salud general del negocio: healthy, attention-needed, critical
-5. DESTACAR el mejor KPI y el peor KPI con explicacion
+Si no hay datos reales suficientes, explicalo claramente y estima con rangos razonables basados en el contexto.
 
-Si no hay datos suficientes para calcular un KPI, indicar "sin datos" y explicar que datos se necesitan.
-Si se proporcionaron revenueData, usar esos numeros como base. Si no, estimar basandose en el contexto disponible.
+GENERA (formato Markdown):
+
+## Reporte diario — ${getTodayISO()}
+
+### Pulso del dia
+- **Trafico vs ayer:** [+/- X%] · [sesiones] · [users]
+- **Conversiones hoy:** [numero] · ROAS [Xx]
+- **Inversion del dia:** [$X] · desglose por canal
+- **Revenue estimado:** [$X]
+
+### Resumen narrativo (2-3 oraciones)
+Explica que tipo de dia fue, que lo impulso, que freno.
+
+### Alertas del dia (si las hay)
+- Campañas con CAC por encima del target
+- Caidas de trafico o conversion inesperadas
+- Nada si todo marcha estable
+
+### Accion sugerida para hoy
+Una sola accion concreta, priorizada.
+
+---ANALYTICS_JSON---
+
+\`\`\`json
+{
+  "date": "${getTodayISO()}",
+  "client": "${brief.client}",
+  "mode": "daily",
+  "kpis": {
+    "sessions": 0,
+    "users": 0,
+    "conversions": 0,
+    "revenue": 0,
+    "adSpend": 0,
+    "roas": 0,
+    "cac": 0
+  },
+  "deltaVsYesterday": {
+    "traffic": "+X%",
+    "conversions": "+X",
+    "revenue": "+X%"
+  },
+  "narrative": "resumen en 2-3 oraciones",
+  "alerts": ["alerta 1", "alerta 2"],
+  "suggestedAction": "accion concreta"
+}
+\`\`\``;
+}
+
+function buildPeriodicPrompt(ctx, brief, periodLabel, comparisonLabel) {
+  return `Eres el Analytics Agent de D&C Scale Partners.
+
+Genera el REPORTE ${periodLabel.toUpperCase()} del negocio. Analisis completo con comparativa ${comparisonLabel}.
+
+CLIENTE: ${brief.client}
+FECHA: ${getTodayFormatted()}
+MODO: ${brief.mode} (ultimos ${brief.lookbackDays} dias)
+
+${getBusinessTypeGuide(brief.businessType)}
+${brief.focusAreas ? `\nAREAS DE FOCO: ${brief.focusAreas.join(", ")}` : ""}
+
+${buildContextBlock(ctx)}
+
+${brief.revenueData ? `--- DATOS DEL PERIODO (proporcionados) ---\n${JSON.stringify(brief.revenueData, null, 2)}` : ""}
+
+${brief.instructions ? `--- INSTRUCCIONES ADICIONALES ---\n${brief.instructions}` : ""}
 
 ---
 
-GENERA EL SIGUIENTE REPORTE (formato Markdown):
+GENERA (formato Markdown, apto para mostrar al cliente):
 
-## KPIs del Negocio — ${getTodayISO()}
+## Reporte ${periodLabel} — ${getTodayISO()}
+Periodo: ultimos ${brief.lookbackDays} dias
 
 ### Resumen ejecutivo
-- Health score: healthy / attention-needed / critical
-- Mejor KPI: [nombre] — [valor] — [por que es bueno]
-- Peor KPI: [nombre] — [valor] — [que hacer]
-- Hallazgo principal
+- Health score: **healthy / attention-needed / critical**
+- Mejor KPI: [nombre] — [valor] — [por que]
+- Peor KPI / oportunidad mas grande: [nombre] — [valor] — [que hacer]
+- Hallazgo principal del periodo
 
-### Tabla de KPIs
-| KPI | Valor actual | Periodo anterior | Variacion | Tendencia |
-|-----|-------------|------------------|-----------|-----------|
+### KPIs principales
+| KPI | Valor actual | ${comparisonLabel} | Variacion | Tendencia |
+|-----|-------------|-------------------|-----------|-----------|
 | Revenue | $X | $X | +X% | up/stable/down |
-| Ad Spend | $X | $X | +X% | up/stable/down |
+| Ventas (cantidad) | X | X | +X% | up/stable/down |
+| AOV / Ticket promedio | $X | $X | +X% | up/stable/down |
+| Tasa de conversion | X% | X% | +X pp | up/stable/down |
+| Tasa de abandono carrito | X% | X% | -X pp | up/stable/down |
 | CAC | $X | $X | -X% | up/stable/down |
 | LTV | $X | $X | +X% | up/stable/down |
-| ROAS | X.X | X.X | +X% | up/stable/down |
-| Tasa de conversion | X% | X% | +X pp | up/stable/down |
-| Margen bruto | X% | X% | +X pp | up/stable/down |
-| Margen neto | X% | X% | +X pp | up/stable/down |
-| AOV / Ticket promedio | $X | $X | +X% | up/stable/down |
-| Retencion de clientes | X% | X% | +X pp | up/stable/down |
-| Crecimiento de revenue | X% | X% | +X pp | up/stable/down |
+| LTV/CAC | X.Xx | X.Xx | +X% | up/stable/down |
+| ROAS | X.Xx | X.Xx | +X% | up/stable/down |
+| Sesiones | X | X | +X% | up/stable/down |
+| Bounce rate | X% | X% | -X pp | up/stable/down |
+| Tasa de recompra | X% | X% | +X pp | up/stable/down |
 
-### Analisis por area
-Para cada area de foco, explicar la situacion actual, que esta funcionando y que no.
+### Breakdown por canal
+Revenue / CAC / ROAS por cada canal (organico, paid Meta, paid Google, email, referral).
 
-### Alertas
-- KPIs que estan fuera de benchmark o empeorando
-- Acciones inmediatas recomendadas
+### Top productos del periodo
+Los 3-5 productos que mas vendieron, con unidades y revenue.
 
-### Notas para el Consultant Agent
-Resumen de la salud del negocio y decisiones pendientes.
+### Analisis de funnel
+Visitantes → ATC → Checkout iniciado → Compra completada. Donde se pierde mas gente.
 
----PERFORMANCE_DATA_JSON---
+### Recomendaciones accionables (3-5)
+Prioridad + accion + impacto estimado en $/leads.
+
+---ANALYTICS_JSON---
 
 \`\`\`json
 {
   "date": "${getTodayISO()}",
   "client": "${brief.client}",
-  "mode": "metrics",
-  "businessType": "${brief.businessType || "general"}",
-  "period": {
-    "start": "YYYY-MM-DD",
-    "end": "${getTodayISO()}",
-    "days": ${brief.lookbackDays}
-  },
+  "mode": "${brief.mode}",
+  "period": { "days": ${brief.lookbackDays}, "end": "${getTodayISO()}" },
+  "healthScore": "healthy|attention-needed|critical",
   "kpis": {
-    "revenue": 0,
-    "adSpend": 0,
-    "cac": 0,
-    "ltv": 0,
-    "roas": 0.0,
-    "conversionRate": 0.0,
-    "grossMargin": 0.0,
-    "netMargin": 0.0,
-    "averageOrderValue": 0,
-    "customerRetentionRate": 0.0,
-    "revenueGrowthRate": 0.0
+    "revenue": 0, "sales": 0, "aov": 0,
+    "conversionRate": 0, "cartAbandonment": 0,
+    "cac": 0, "ltv": 0, "ltvCacRatio": 0, "roas": 0,
+    "sessions": 0, "bounceRate": 0, "repurchaseRate": 0
   },
-  "trends": {
-    "revenue": "up|stable|down",
-    "cac": "up|stable|down",
-    "roas": "up|stable|down",
-    "conversion": "up|stable|down"
+  "channels": [
+    { "name": "meta-ads", "revenue": 0, "cac": 0, "roas": 0 }
+  ],
+  "topProducts": [
+    { "name": "", "units": 0, "revenue": 0 }
+  ],
+  "funnel": {
+    "sessions": 0, "addToCart": 0, "checkoutStarted": 0, "purchased": 0
   },
-  "summary": {
-    "healthScore": "healthy|attention-needed|critical",
-    "topKpi": "nombre del mejor KPI",
-    "worstKpi": "nombre del peor KPI",
-    "keyInsight": "hallazgo principal"
-  }
+  "recommendations": [
+    { "priority": "ALTA|MEDIA|OPORTUNIDAD", "action": "", "impactEstimate": "" }
+  ]
 }
 \`\`\``;
 }
 
-function buildMarketPrompt(ctx, brief) {
-  return `Eres el Reporting Performance Agent de D&C Scale Partners.
+function buildInsightsPrompt(ctx, brief) {
+  return `Eres el Analytics Agent de D&C Scale Partners.
 
-Tu trabajo es analizar el posicionamiento del cliente en el mercado, comparar con la competencia y generar un analisis SWOT con recomendaciones estrategicas.
+Tu trabajo AHORA es generar "INPUTS CLAVE DE MEJORA" — una lista priorizada de acciones concretas con impacto estimado en revenue.
+
+Este output alimenta directamente el dashboard del cliente (seccion "Inputs clave de mejora").
 
 CLIENTE: ${brief.client}
-MODO: MARKET — Analisis competitivo y de mercado
 FECHA: ${getTodayFormatted()}
-PERIODO DE REFERENCIA: ultimos ${brief.lookbackDays} dias
-${brief.competitors ? `COMPETIDORES A ANALIZAR: ${brief.competitors.join(", ")}` : "COMPETIDORES: identificar los principales del mercado"}
+LOOKBACK: ultimos ${brief.lookbackDays} dias
 
 ${getBusinessTypeGuide(brief.businessType)}
 
---- CONTEXTO DE LA AGENCIA ---
-${ctx.agencyContext || "Sin contexto de agencia."}
-
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "Sin contexto de marca."}
-
---- ESTRATEGIA ACTIVA ---
-${ctx.strategy || "Sin estrategia definida."}
-
---- PERFORMANCE LOG ---
-${ctx.performanceLog || "Sin historial de performance."}
-
---- METRICAS DE REDES SOCIALES ---
-${ctx.metricsLog || "Sin metricas de redes."}
-
---- HISTORIAL DE ADS ---
-${ctx.adsLog || "Sin historial de ads."}
-
---- LOG DE VENTAS ---
-${ctx.salesLog || "Sin log de ventas."}
-
---- LEARNING LOG ---
-${ctx.learningLog || "Sin learning log."}
+${buildContextBlock(ctx)}
 
 ${brief.instructions ? `--- INSTRUCCIONES ADICIONALES ---\n${brief.instructions}` : ""}
 
 ---
 
-IMPORTANTE: Tu rol es:
+IMPORTANTE:
+- Cada insight debe tener **impacto estimado cuantificado en $ o unidades** (ej. "+$2.400/mes en revenue", "+42 leads/mes")
+- Priorizar: ALTA (bloqueante / gran oportunidad) / MEDIA (mejora clara) / OPORTUNIDAD (upside sin riesgo)
+- Usar datos del contexto para justificar. Si no hay datos, indicar que se necesita medir.
+- Generar ENTRE 3 Y 6 insights, no mas.
 
-1. ANALIZAR la posicion competitiva del cliente en su mercado
-2. GENERAR un analisis SWOT basado en los datos disponibles
-3. COMPARAR con competidores (si se proporcionaron) o identificar los principales
-4. ESTABLECER benchmarks de la industria para contextualizar los KPIs del cliente
-5. IDENTIFICAR oportunidades de mercado no explotadas
-6. RECOMENDAR acciones estrategicas basadas en el posicionamiento
+GENERA (formato Markdown + JSON al final):
 
-Basa el analisis en los datos de la vault (ventas, ads, metricas), el contexto del cliente y conocimiento general del mercado. Si no tienes datos especificos de competidores, genera estimaciones razonables basadas en el tipo de negocio y mercado.
+## Inputs clave de mejora — ${getTodayISO()}
 
----
+### [ALTA | MEDIA | OPORTUNIDAD] — Titulo del insight (1 linea accionable)
+**Contexto:** por que es importante, que metrica/dato lo evidencia.
+**Impacto estimado:** +$X/mes en revenue (o +X leads, +X conversiones).
+**Accion recomendada:** proximo paso concreto.
 
-GENERA EL SIGUIENTE ANALISIS (formato Markdown):
+(repetir para cada insight)
 
-## Analisis de Mercado — ${getTodayISO()}
-
-### Posicionamiento actual
-Descripcion de donde esta el cliente en relacion al mercado. Fortalezas y debilidades clave.
-
-### Analisis SWOT
-#### Fortalezas
-- [Fortaleza 1 — con datos que la respaldan]
-- [Fortaleza 2]
-
-#### Debilidades
-- [Debilidad 1 — con datos]
-- [Debilidad 2]
-
-#### Oportunidades
-- [Oportunidad 1 — por que es viable ahora]
-- [Oportunidad 2]
-
-#### Amenazas
-- [Amenaza 1 — nivel de riesgo]
-- [Amenaza 2]
-
-### Analisis de competidores
-| Competidor | Market share est. | Diferenciador clave | Posicion de precio | Evaluacion |
-|------------|-------------------|--------------------|--------------------|------------|
-
-Para cada competidor:
-- Que hacen bien
-- Donde son debiles
-- Como nos diferenciamos
-
-### Benchmarks de la industria
-| Metrica | Nuestro valor | Benchmark industria | Posicion |
-|---------|--------------|---------------------|----------|
-| CAC | $X | $X | Above/At/Below |
-| ROAS | X.X | X.X | Above/At/Below |
-| Conversion | X% | X% | Above/At/Below |
-| AOV | $X | $X | Above/At/Below |
-
-### Oportunidades de mercado
-Para cada oportunidad:
-1. Descripcion
-2. Tamano estimado
-3. Barrera de entrada
-4. Tiempo para capitalizar
-
-### Recomendaciones estrategicas
-1. [Recomendacion — con impacto esperado y prioridad]
-2. [Recomendacion]
-3. [Recomendacion]
-
-### Notas para el Consultant Agent
-Decisiones estrategicas que requieren discusion con el dueno.
-
----PERFORMANCE_DATA_JSON---
+---INSIGHTS_JSON---
 
 \`\`\`json
 {
   "date": "${getTodayISO()}",
   "client": "${brief.client}",
-  "mode": "market",
-  "businessType": "${brief.businessType || "general"}",
-  "marketPosition": {
-    "strengths": ["fortaleza 1", "fortaleza 2"],
-    "weaknesses": ["debilidad 1", "debilidad 2"],
-    "opportunities": ["oportunidad 1", "oportunidad 2"],
-    "threats": ["amenaza 1", "amenaza 2"]
-  },
-  "competitorAnalysis": [
+  "mode": "insights",
+  "insights": [
     {
-      "name": "nombre",
-      "estimatedMarketShare": "X%",
-      "keyDifferentiator": "diferenciador",
-      "pricePosition": "lower|similar|higher"
+      "priority": "ALTA|MEDIA|OPORTUNIDAD",
+      "title": "",
+      "context": "",
+      "impactEstimate": "",
+      "recommendedAction": ""
     }
-  ],
-  "industryBenchmarks": {
-    "avgCac": 0,
-    "avgRoas": 0.0,
-    "avgConversionRate": 0.0,
-    "avgAov": 0
-  },
-  "recommendations": ["recomendacion 1", "recomendacion 2"],
-  "learnings": ["aprendizaje 1", "aprendizaje 2"]
+  ]
 }
 \`\`\``;
 }
 
-function buildReportPrompt(ctx, brief) {
-  return `Eres el Reporting Performance Agent de D&C Scale Partners.
+function buildCustomPrompt(ctx, brief) {
+  const typeGuides = {
+    "channel-deep-dive": "Analisis profundo de un canal especifico: performance, ROI, tendencias, oportunidades.",
+    "cohort-analysis": "Analisis por cohortes: como se comportan los usuarios segun su mes de primera compra.",
+    "funnel": "Analisis completo del funnel: donde se pierde gente, conversion por step, oportunidades.",
+    "ltv-cac": "Deep dive en LTV/CAC por canal, segmento y cohorte. Tiempo de payback.",
+    "forecast": "Proyeccion de revenue, ventas y KPIs para el proximo mes basada en tendencia actual.",
+    "free-form": "Reporte custom segun los filtros y description del brief.",
+  };
 
-Tu trabajo es generar un reporte completo de performance del negocio con resumen ejecutivo, KPIs, analisis por canal, y acciones a seguir.
+  const guide = typeGuides[brief.customReportType] || typeGuides["free-form"];
 
+  return `Eres el Analytics Agent de D&C Scale Partners.
+
+Generas un REPORTE CUSTOM on-demand.
+
+TIPO DE REPORTE: ${brief.customReportType || "free-form"}
+DESCRIPCION: ${guide}
 CLIENTE: ${brief.client}
-MODO: REPORT — Reporte completo de performance
 FECHA: ${getTodayFormatted()}
-PERIODO: ultimos ${brief.lookbackDays} dias
-${brief.focusAreas ? `AREAS DE FOCO: ${brief.focusAreas.join(", ")}` : "AREAS DE FOCO: todas"}
-${brief.revenueData ? `DATOS DE REVENUE: ${JSON.stringify(brief.revenueData)}` : ""}
+LOOKBACK: ${brief.lookbackDays} dias
+${brief.customFilters ? `FILTROS: ${JSON.stringify(brief.customFilters)}` : ""}
 
 ${getBusinessTypeGuide(brief.businessType)}
 
---- CONTEXTO DE LA AGENCIA ---
-${ctx.agencyContext || "Sin contexto de agencia."}
+${buildContextBlock(ctx)}
 
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "Sin contexto de marca."}
-
---- ESTRATEGIA ACTIVA ---
-${ctx.strategy || "Sin estrategia definida."}
-
---- PERFORMANCE LOG ---
-${ctx.performanceLog || "Sin historial de performance. Este es el primer reporte."}
-
---- METRICAS DE REDES SOCIALES ---
-${ctx.metricsLog || "Sin metricas de redes."}
-
---- HISTORIAL DE ADS ---
-${ctx.adsLog || "Sin historial de ads."}
-
---- LOG DE VENTAS ---
-${ctx.salesLog || "Sin log de ventas."}
-
---- LEARNING LOG ---
-${ctx.learningLog || "Sin learning log."}
-
-${brief.instructions ? `--- INSTRUCCIONES ADICIONALES ---\n${brief.instructions}` : ""}
+${brief.instructions ? `--- INSTRUCCIONES / DESCRIPCION DEL REPORTE ---\n${brief.instructions}` : ""}
 
 ---
 
-GENERA UN REPORTE INTEGRAL DE PERFORMANCE:
+GENERA un reporte en Markdown con la estructura apropiada para el tipo solicitado. Incluye:
+- Resumen ejecutivo
+- KPIs relevantes para este analisis (no todos, solo los que importan)
+- Hallazgos concretos con datos
+- Recomendaciones accionables al final
 
-1. RESUMEN EJECUTIVO: 3-5 oraciones que capturen el estado del negocio
-2. KPIs COMPLETOS: todos los KPIs relevantes con comparacion al periodo anterior
-3. DESGLOSE POR CANAL: organico, paid social, SEO, directo, email — revenue, gasto, ROAS, contribucion
-4. ACCIONES PRIORITARIAS: items concretos ordenados por impacto esperado
-5. APRENDIZAJES: que funciono, que no, que cambio
+Se riguroso con los numeros. Si no hay datos suficientes, indicalo y sugiere que se necesita medir.`;
+}
+
+function buildQueryPrompt(ctx, brief) {
+  return `Eres el Analytics Agent de D&C Scale Partners.
+
+El dueno del negocio te hizo la siguiente consulta en lenguaje natural. Responde de forma directa, breve y basada en datos.
+
+CLIENTE: ${brief.client}
+FECHA: ${getTodayFormatted()}
+
+PREGUNTA:
+"${brief.question}"
+
+${getBusinessTypeGuide(brief.businessType)}
+
+${buildContextBlock(ctx)}
 
 ---
 
-GENERA EL SIGUIENTE REPORTE (formato Markdown):
+IMPORTANTE:
+- Responde en maximo 3-4 parrafos, usando los datos del contexto.
+- Si no hay datos suficientes, decilo claramente y explica que se necesita medir.
+- Da numeros concretos cuando puedas. No inventes datos que no tenes.
+- Si la pregunta requiere accion, termina con 1-2 recomendaciones.
 
-## Reporte de Performance — ${getTodayISO()}
-
-### Resumen ejecutivo
-[3-5 oraciones con los hallazgos mas importantes, salud del negocio, y prioridad #1]
-
-### KPIs del periodo
-| KPI | Valor actual | Periodo anterior | Variacion | Estado |
-|-----|-------------|------------------|-----------|--------|
-| Revenue total | $X | $X | +X% | OK/ALERTA |
-| Ad Spend total | $X | $X | +X% | OK/ALTO |
-| CAC | $X | $X | -X% | OK/ALTO |
-| LTV | $X | $X | +X% | OK/BAJO |
-| ROAS global | X.X | X.X | +X% | OK/BAJO |
-| Tasa de conversion | X% | X% | +X pp | OK/BAJO |
-| Margen bruto | X% | X% | +X pp | OK/BAJO |
-| Margen neto | X% | X% | +X pp | OK/BAJO |
-| AOV | $X | $X | +X% | OK/BAJO |
-| Retencion | X% | X% | +X pp | OK/BAJO |
-| Crecimiento | X% | X% | +X pp | OK/BAJO |
-
-### Performance por canal
-| Canal | Revenue | Gasto | ROAS | Contribucion | Tendencia |
-|-------|---------|-------|------|-------------|-----------|
-| Organico | $X | $0 | - | X% | up/stable/down |
-| Paid Social | $X | $X | X.X | X% | up/stable/down |
-| SEO | $X | $0 | - | X% | up/stable/down |
-| Directo | $X | $0 | - | X% | up/stable/down |
-| Email | $X | $X | X.X | X% | up/stable/down |
-
-### Canal estrella
-Cual es el canal con mejor performance y por que. Recomendacion de escalamiento.
-
-### Canal problematico
-Cual es el canal con peor performance. Diagnostico y recomendacion.
-
-### Items de accion
-Para cada item:
-| Prioridad | Area | Accion | Impacto esperado |
-|-----------|------|--------|------------------|
-| HIGH | canal/kpi | accion concreta | resultado esperado |
-| MEDIUM | canal/kpi | accion | resultado |
-| LOW | canal/kpi | accion | resultado |
-
-### Aprendizajes del periodo
-- [Que funciono y por que]
-- [Que no funciono y que cambiar]
-- [Patron nuevo detectado]
-
-### Notas para el Consultant Agent
-Resumen para discutir con el dueno. Decisiones pendientes. Proximos pasos criticos.
-
----PERFORMANCE_DATA_JSON---
-
-\`\`\`json
-{
-  "date": "${getTodayISO()}",
-  "client": "${brief.client}",
-  "mode": "report",
-  "businessType": "${brief.businessType || "general"}",
-  "period": {
-    "start": "YYYY-MM-DD",
-    "end": "${getTodayISO()}",
-    "days": ${brief.lookbackDays}
-  },
-  "executiveSummary": "resumen en 2-3 oraciones",
-  "kpis": {
-    "revenue": 0,
-    "adSpend": 0,
-    "cac": 0,
-    "ltv": 0,
-    "roas": 0.0,
-    "conversionRate": 0.0,
-    "grossMargin": 0.0,
-    "netMargin": 0.0,
-    "averageOrderValue": 0,
-    "customerRetentionRate": 0.0,
-    "revenueGrowthRate": 0.0
-  },
-  "channelBreakdown": [
-    {
-      "channel": "organic|paid-social|seo|direct|email",
-      "revenue": 0,
-      "spend": 0,
-      "roas": 0.0,
-      "contribution": 0.0
-    }
-  ],
-  "actionItems": [
-    {
-      "priority": "high|medium|low",
-      "area": "area afectada",
-      "action": "accion concreta",
-      "expectedImpact": "impacto esperado"
-    }
-  ],
-  "recommendations": ["recomendacion 1", "recomendacion 2"],
-  "learnings": ["aprendizaje 1", "aprendizaje 2"]
-}
-\`\`\``;
+Responde ahora:`;
 }
 
-// --- Parse structured data from output ---
+// --- Parsers ---
 
-function parsePerformanceData(output) {
-  const separator = "---PERFORMANCE_DATA_JSON---";
-  const idx = output.indexOf(separator);
-  if (idx === -1) return null;
-
-  const jsonPart = output.slice(idx + separator.length);
-  const jsonMatch = jsonPart.match(/```json\s*([\s\S]*?)\s*```/);
-  if (!jsonMatch) return null;
-
+function extractJsonBlock(output, marker) {
   try {
+    const markerIdx = output.indexOf(marker);
+    if (markerIdx === -1) return null;
+    const afterMarker = output.slice(markerIdx);
+    const jsonMatch = afterMarker.match(/```json\s*([\s\S]*?)\s*```/);
+    if (!jsonMatch) return null;
     return JSON.parse(jsonMatch[1]);
-  } catch {
-    console.warn("Warning: could not parse Performance data JSON");
+  } catch (err) {
+    console.warn(`Could not parse JSON block (${marker}): ${err.message}`);
     return null;
   }
 }
 
-// --- Update vault files ---
+// --- Main: exported for programmatic use ---
 
-function updateVaultWithPerformanceData(ctx, client, perfData, fullOutput, mode) {
-  if (!perfData) return;
-
-  const modeLabels = {
-    metrics: "KPIs",
-    market: "Analisis de Mercado",
-    report: "Reporte de Performance",
-  };
-
-  let logEntry = `\n## ${modeLabels[mode]} — ${perfData.date}\n\n` +
-    `Mode: ${mode} | Business type: ${perfData.businessType || "general"}\n`;
-
-  if (perfData.kpis) {
-    logEntry += `Revenue: $${perfData.kpis.revenue} | Ad Spend: $${perfData.kpis.adSpend} | CAC: $${perfData.kpis.cac} | LTV: $${perfData.kpis.ltv} | ROAS: ${perfData.kpis.roas} | Conversion: ${perfData.kpis.conversionRate}% | Margen bruto: ${perfData.kpis.grossMargin}%\n`;
-  }
-
-  if (perfData.summary) {
-    logEntry += `Health: ${perfData.summary.healthScore} | Top KPI: ${perfData.summary.topKpi} | Worst KPI: ${perfData.summary.worstKpi} | Insight: ${perfData.summary.keyInsight}\n`;
-  }
-
-  if (perfData.executiveSummary) {
-    logEntry += `Resumen: ${perfData.executiveSummary}\n`;
-  }
-
-  if (perfData.marketPosition) {
-    logEntry += `Fortalezas: ${perfData.marketPosition.strengths?.length || 0} | Debilidades: ${perfData.marketPosition.weaknesses?.length || 0} | Oportunidades: ${perfData.marketPosition.opportunities?.length || 0} | Amenazas: ${perfData.marketPosition.threats?.length || 0}\n`;
-  }
-
-  appendToVaultFile(`clients/${client}/performance-log.md`, logEntry);
-  console.log("Updated performance-log.md");
-
-  // Update learning-log
-  const learnings = [];
-
-  if (perfData.summary?.keyInsight) {
-    learnings.push(`- [${perfData.date}] Performance ${modeLabels[mode]}: ${perfData.summary.keyInsight}`);
-  }
-
-  if (perfData.recommendations) {
-    for (const rec of perfData.recommendations.slice(0, 3)) {
-      learnings.push(`- [${perfData.date}] Performance ${mode}: ${rec}`);
-    }
-  }
-
-  if (perfData.learnings) {
-    for (const learning of perfData.learnings.slice(0, 3)) {
-      learnings.push(`- [${perfData.date}] Performance aprendizaje: ${learning}`);
-    }
-  }
-
-  if (learnings.length > 0) {
-    appendToVaultFile(
-      `clients/${client}/learning-log.md`,
-      `\n### Aprendizajes Performance — ${perfData.date}\n${learnings.join("\n")}\n`
-    );
-    console.log("Updated learning-log.md with performance learnings");
-  }
-}
-
-// --- Main: exported for future use by Consultant Agent ---
-
-export async function runReportingAgent(briefInput) {
+export async function runAnalyticsAgent(briefInput) {
   const brief = parseBrief(briefInput);
   const startTime = Date.now();
   console.log(
-    `Reporting Performance Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
+    `Analytics Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
   );
 
-  // Step 1: Load vault context
   const ctx = loadClientContext(brief.client);
 
-  // Step 2: Build prompt based on mode
-  const promptBuilders = {
-    metrics: buildMetricsPrompt,
-    market: buildMarketPrompt,
-    report: buildReportPrompt,
-  };
+  // Build prompt based on mode
+  let prompt;
+  let jsonMarker = "---ANALYTICS_JSON---";
+  switch (brief.mode) {
+    case "daily":
+      prompt = buildDailyPrompt(ctx, brief);
+      break;
+    case "weekly":
+      prompt = buildPeriodicPrompt(ctx, brief, "semanal", "semana anterior");
+      break;
+    case "biweekly":
+      prompt = buildPeriodicPrompt(ctx, brief, "quincenal", "quincena anterior");
+      break;
+    case "monthly":
+      prompt = buildPeriodicPrompt(ctx, brief, "mensual", "mes anterior");
+      break;
+    case "insights":
+      prompt = buildInsightsPrompt(ctx, brief);
+      jsonMarker = "---INSIGHTS_JSON---";
+      break;
+    case "custom":
+      prompt = buildCustomPrompt(ctx, brief);
+      jsonMarker = null;
+      break;
+    case "query":
+      prompt = buildQueryPrompt(ctx, brief);
+      jsonMarker = null;
+      break;
+    default:
+      throw new Error(`Unknown mode: ${brief.mode}`);
+  }
 
-  const prompt = promptBuilders[brief.mode](ctx, brief);
+  console.log("Calling Claude API...");
+  const output = await callClaude(prompt);
+  console.log("Report generated.");
 
-  // Step 3: Generate analysis
-  console.log(`Generating ${brief.mode} analysis...`);
-  const maxTokensMap = {
-    metrics: 6000,
-    market: 8000,
-    report: 10000,
-  };
-  const maxTokens = maxTokensMap[brief.mode];
-  const output = await callClaude(prompt, maxTokens);
-  console.log(`${brief.mode} analysis generated successfully.`);
+  // Parse structured data if available
+  const structuredData = jsonMarker ? extractJsonBlock(output, jsonMarker) : null;
 
-  // Step 4: Parse structured data
-  const perfData = parsePerformanceData(output);
+  // Write outputs
+  const today = getTodayISO();
+  const reportEntry = `\n\n---\n\n## ${brief.mode.toUpperCase()} report — ${today}\nSource: ${brief.source}\n\n${output}`;
 
-  // Step 5: Update vault files
-  updateVaultWithPerformanceData(ctx, brief.client, perfData, output, brief.mode);
+  // Query mode doesn't persist to performance-log (it's ephemeral)
+  if (brief.mode !== "query") {
+    appendToVaultFile(`clients/${brief.client}/performance-log.md`, reportEntry);
+    console.log(`Appended to performance-log.md`);
 
-  // Step 6: Write agent report
-  writeVaultFile(
-    `clients/${brief.client}/agent-reports/reporting-performance-${brief.mode}-${getTodayISO()}.json`,
-    JSON.stringify(
-      {
-        agent: "reporting-performance",
-        mode: brief.mode,
-        client: brief.client,
-        date: getTodayISO(),
-        perfData,
-        timestamp: new Date().toISOString(),
-      },
-      null,
-      2
-    )
+    // Write structured JSON for dashboard consumption
+    if (structuredData) {
+      const fileName =
+        brief.mode === "insights"
+          ? `insights-${today}.json`
+          : `analytics-${brief.mode}-${today}.json`;
+      writeVaultFile(
+        `clients/${brief.client}/agent-reports/${fileName}`,
+        JSON.stringify(structuredData, null, 2)
+      );
+      console.log(`Wrote structured report: agent-reports/${fileName}`);
+    }
+  }
+
+  // Telegram notification (only for automated scheduled modes)
+  const shouldNotify = ["daily", "weekly", "biweekly", "monthly", "insights"].includes(brief.mode);
+  if (shouldNotify) {
+    const modeEmoji = {
+      daily: "☀️",
+      weekly: "📊",
+      biweekly: "📊",
+      monthly: "📈",
+      insights: "💡",
+    }[brief.mode];
+
+    let telegramSummary = `*${modeEmoji} Analytics — ${brief.mode.toUpperCase()}*\n_${getTodayFormatted()}_\n👤 *Cliente:* ${brief.client}\n`;
+
+    if (structuredData) {
+      if (brief.mode === "daily" && structuredData.narrative) {
+        telegramSummary += `\n📝 ${structuredData.narrative}`;
+        if (structuredData.suggestedAction) {
+          telegramSummary += `\n🎯 *Accion sugerida:* ${structuredData.suggestedAction}`;
+        }
+      } else if (brief.mode === "insights" && structuredData.insights) {
+        const altas = structuredData.insights.filter((i) => i.priority === "ALTA");
+        telegramSummary += `\n💡 *${structuredData.insights.length} insights generados* (${altas.length} de prioridad ALTA)`;
+        if (altas.length > 0) {
+          telegramSummary += `\n\n*Top prioridad:*\n${altas.slice(0, 2).map((i) => `• ${i.title}\n  ${i.impactEstimate}`).join("\n")}`;
+        }
+      } else if (structuredData.healthScore) {
+        telegramSummary += `\n💚 *Health:* ${structuredData.healthScore}`;
+        if (structuredData.kpis?.revenue) {
+          telegramSummary += `\n💰 Revenue: $${structuredData.kpis.revenue}`;
+        }
+        if (structuredData.kpis?.roas) {
+          telegramSummary += `\n📊 ROAS: ${structuredData.kpis.roas}x`;
+        }
+      }
+    }
+
+    telegramSummary += `\n\n_vault/clients/${brief.client}/performance-log.md_`;
+    await sendTelegram(telegramSummary);
+  }
+
+  // Log to Supabase
+  await logAgentRun(
+    brief.client,
+    "reporting-performance",
+    "success",
+    `Analytics ${brief.mode} generado.`,
+    { mode: brief.mode, source: brief.source },
+    { duration_ms: Date.now() - startTime }
   );
-  console.log("Wrote agent report.");
 
-  // Step 7: Notify via Telegram
-  const sourceLabel = {
-    cli: "CLI manual",
-    "consultant-agent": "Agente Consultor",
-    dashboard: "Dashboard",
-    "github-actions": "GitHub Actions",
-  }[brief.source] || brief.source;
-
-  const modeEmoji = {
-    metrics: "\u{1F4C8}",
-    market: "\u{1F30E}",
-    report: "\u{1F4CA}",
-  };
-
-  const modeLabel = {
-    metrics: "KPIs del Negocio",
-    market: "Analisis de Mercado",
-    report: "Reporte de Performance",
-  };
-
-  let telegramSummary = `*${modeEmoji[brief.mode]} Reporting Performance — ${modeLabel[brief.mode]}*
-_${getTodayFormatted()}_
-
-\u{1F464} *Cliente:* ${brief.client}
-\u{1F4E1} *Solicitado por:* ${sourceLabel}
-\u{1F3E2} *Tipo:* ${brief.businessType || "general"}`;
-
-  if (perfData?.kpis) {
-    telegramSummary += `
-\u{1F4B0} *Revenue:* $${perfData.kpis.revenue}
-\u{1F4B8} *Ad Spend:* $${perfData.kpis.adSpend}
-\u{1F3AF} *ROAS:* ${perfData.kpis.roas}
-\u{1F4B5} *CAC:* $${perfData.kpis.cac}
-\u{1F4C8} *LTV:* $${perfData.kpis.ltv}
-\u{1F6D2} *Conversion:* ${perfData.kpis.conversionRate}%`;
-  }
-
-  if (perfData?.summary) {
-    telegramSummary += `
-\u{1F3E5} *Health:* ${perfData.summary.healthScore}
-\u{1F4A1} *Insight:* ${perfData.summary.keyInsight}`;
-  }
-
-  if (perfData?.marketPosition) {
-    telegramSummary += `
-\u{1F4AA} *Fortalezas:* ${perfData.marketPosition.strengths?.length || 0}
-\u{26A0}\u{FE0F} *Debilidades:* ${perfData.marketPosition.weaknesses?.length || 0}
-\u{1F31F} *Oportunidades:* ${perfData.marketPosition.opportunities?.length || 0}
-\u{1F6A8} *Amenazas:* ${perfData.marketPosition.threats?.length || 0}`;
-  }
-
-  if (perfData?.executiveSummary) {
-    telegramSummary += `\n\u{1F4DD} *Resumen:* ${perfData.executiveSummary.slice(0, 200)}...`;
-  }
-
-  telegramSummary += `\n\n_vault/clients/${brief.client}/performance-log.md_`;
-
-  await sendTelegram(telegramSummary);
-
-  // Step 8: Return result (for Consultant Agent)
-  await logAgentRun(brief.client, "reporting-performance", "success", `Reporte generado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
     source: brief.source,
     output,
-    perfData,
-    registeredAt: `vault/clients/${brief.client}/performance-log.md`,
+    structuredData,
+    registeredAt: brief.mode === "query" ? null : `vault/clients/${brief.client}/performance-log.md`,
   };
 }
 
@@ -806,20 +651,20 @@ _${getTodayFormatted()}_
 
 async function main() {
   const brief = loadBriefFromArgs();
-  const result = await runReportingAgent(brief);
+  const result = await runAnalyticsAgent(brief);
 
   console.log("\n" + "=".repeat(60));
-  console.log(`REPORTING PERFORMANCE — ${result.mode.toUpperCase()} — ${result.client}`);
+  console.log(`ANALYTICS — ${result.mode.toUpperCase()} — ${result.client}`);
   console.log("=".repeat(60) + "\n");
   console.log(result.output);
   console.log("\n" + "=".repeat(60));
 }
 
 main().catch(async (err) => {
-  console.error("Reporting Performance Agent failed:", err.message);
+  console.error("Analytics Agent failed:", err.message);
   await logAgentError("unknown", "reporting-performance", err, {});
   try {
-    await sendTelegram(`*\u{274C} Reporting Performance Agent — Error*\n\n\`${err.message}\``);
+    await sendTelegram(`*\u{274C} Analytics Agent — Error*\n\n\`${err.message}\``);
   } catch {
     /* silent */
   }

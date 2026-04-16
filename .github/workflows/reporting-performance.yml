@@ -1,11 +1,13 @@
-name: Reporting Performance Agent
+name: Analytics Agent (Reporting Performance)
 
 on:
   schedule:
-    # Weekly metrics: Monday 7 AM Montevideo (10:00 UTC)
-    - cron: '0 10 * * 1'
-    # Monthly report: 1st of month 8 AM Montevideo (11:00 UTC)
-    - cron: '0 11 1 * *'
+    # Daily pulse: every day 9 AM Montevideo (12:00 UTC)
+    - cron: '0 12 * * *'
+    # Weekly: Monday 8 AM Montevideo (11:00 UTC)
+    - cron: '0 11 * * 1'
+    # Monthly: 1st of month 9 AM Montevideo (12:00 UTC)
+    - cron: '0 12 1 * *'
 
   workflow_dispatch:
     inputs:
@@ -16,35 +18,42 @@ on:
       mode:
         description: 'Mode'
         required: true
-        default: 'metrics'
+        default: 'daily'
         type: choice
         options:
-          - metrics
-          - market
-          - report
+          - daily
+          - weekly
+          - biweekly
+          - monthly
+          - insights
+          - custom
+          - query
       business_type:
         description: 'Business type (affects KPI selection)'
         required: false
         type: choice
         options:
-          - ''
           - ecommerce
           - services
           - physical-retail
           - saas
           - it-services
+        default: 'ecommerce'
       lookback_days:
-        description: 'Days to analyze (default: 7 for metrics, 30 for report)'
+        description: 'Days to analyze (leave empty for mode default)'
+        required: false
+      question:
+        description: 'Natural language question (only for mode=query)'
         required: false
       instructions:
-        description: 'Additional instructions (free text)'
+        description: 'Additional instructions / custom report description (free text)'
         required: false
 
   repository_dispatch:
-    types: [reporting-performance]
+    types: [reporting-performance, analytics]
 
 jobs:
-  run-reporting:
+  run-analytics:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -65,18 +74,27 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             DAY=$(date -u +%d)
-            if [ "$DAY" = "01" ]; then
-              echo "mode=report" >> $GITHUB_OUTPUT
+            DOW=$(date -u +%u)
+            HOUR=$(date -u +%H)
+            # Monthly on day 1 at 12 UTC
+            if [ "$DAY" = "01" ] && [ "$HOUR" = "12" ]; then
+              echo "mode=monthly" >> $GITHUB_OUTPUT
+            # Weekly on Monday (DOW=1) at 11 UTC
+            elif [ "$DOW" = "1" ] && [ "$HOUR" = "11" ]; then
+              echo "mode=weekly" >> $GITHUB_OUTPUT
             else
-              echo "mode=metrics" >> $GITHUB_OUTPUT
+              # Default to daily
+              echo "mode=daily" >> $GITHUB_OUTPUT
             fi
           fi
 
-      - name: Run Reporting Performance Agent
+      - name: Run Analytics Agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
@@ -97,8 +115,9 @@ jobs:
             "client": "${{ inputs.client }}",
             "mode": "${{ inputs.mode }}",
             "source": "dashboard",
-            "businessType": "${{ inputs.business_type }}",
+            "businessType": "${{ inputs.business_type || 'ecommerce' }}",
             "lookbackDays": ${{ inputs.lookback_days || 'null' }},
+            "question": "${{ inputs.question }}",
             "instructions": "${{ inputs.instructions }}"
           }
           BRIEF_EOF
@@ -110,5 +129,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add vault/
-          git diff --cached --quiet || git commit -m "Reporting Performance Agent: ${{ inputs.mode || steps.mode.outputs.mode || github.event.client_payload.brief.mode || 'metrics' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git diff --cached --quiet || git commit -m "Analytics Agent: ${{ inputs.mode || steps.mode.outputs.mode || github.event.client_payload.brief.mode || 'daily' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
           git push

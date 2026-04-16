@@ -5,6 +5,8 @@
 | Morning Briefing | Pendiente | - |
 | Content Creator | Pendiente | - |
 | Content Strategy | Pendiente | - |
-| SEO Audit | Pendiente | - |
-| Meta Ads Monitor | Bloqueado (permisos Meta) | - |
-| Social Metrics | Pendiente | - |
+| SEO Agent | Pendiente | - |
+| Social Media Metrics | Pendiente | - |
+| Analytics (Reporting Performance) | Pendiente | - |
+| Stock | Pendiente | - |
+| Logistics | Pendiente | - |

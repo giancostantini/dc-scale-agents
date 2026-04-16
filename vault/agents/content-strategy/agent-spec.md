@@ -82,7 +82,7 @@ Tema central: [tema de la semana]
 ## Integracion con otros agentes
 - **Morning Briefing** lee el calendario para reportar que toca hoy
 - **Content Creator** ejecuta cada pieza segun las instrucciones del calendario
-- **Meta Ads Agent** (futuro) toma piezas ganadoras y las escala como ads
+- **Analytics Agent** identifica piezas ganadoras para replicar angulos/formatos exitosos
 
 ## Estado
 - v1: Calendario semanal basico con contexto de vault

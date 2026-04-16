@@ -1,48 +1,54 @@
 /**
- * Reporting Performance Agent — Brief Schema
+ * Analytics Agent (Reporting Performance) — Brief Schema
  *
- * Contract for how any source communicates with the Reporting Performance Agent.
  * Sources: Consultant Agent, Dashboard, CLI (manual), GitHub Actions (cron)
  *
- * The Reporting Performance Agent handles:
- * - Calculating business KPIs (CAC, LTV, ROAS, margins, growth rates)
- * - Analyzing market position and competitive landscape
- * - Generating comprehensive performance reports with action items
- * - Adapting analysis based on business type (ecommerce, services, SaaS, etc.)
- * - Tracking trends and providing health scores
- * - Producing channel-level breakdowns and ROI analysis
+ * The Analytics Agent handles:
+ * - Automated periodic reports (daily, weekly, biweekly, monthly)
+ * - Prioritized improvement insights with $ impact estimates
+ * - Custom on-demand reports (channel deep dive, cohorts, funnel, LTV/CAC, forecast)
+ * - Natural language queries (for dashboard chat integration)
  *
  * Modes:
- * - "metrics":  Calculate and analyze key business KPIs for the period
- * - "market":   Competitive analysis, SWOT, industry benchmarks
- * - "report":   Full performance report with executive summary and action items
+ * - "daily":    Daily pulse report (today vs yesterday, conversions, spend, narrative)
+ * - "weekly":   Weekly performance report with week-over-week comparison
+ * - "biweekly": Biweekly report with trend analysis
+ * - "monthly":  Full client-facing monthly report
+ * - "insights": Prioritized improvement inputs (ALTA/MEDIA/OPORTUNIDAD) with $ impact
+ * - "custom":   Ad-hoc report with specific parameters (channel, product, period, cohort)
+ * - "query":    Natural language question → direct textual answer
  *
- * Business Type Adaptation:
- * - ecommerce:       AOV, cart abandonment, ROAS, conversion rate
- * - services:        Client acquisition cost, retention, LTV, project margins
- * - physical-retail: Foot traffic, ticket size, inventory turns, same-store growth
- * - saas:            MRR, churn, ARR, expansion revenue, payback period
+ * Business Type Adaptation (KPI focus):
+ * - ecommerce:       Revenue, AOV, cart abandonment, ROAS, conversion, LTV/CAC (default)
+ * - services:        CAC, LTV, retention, project margins, recurring revenue
+ * - physical-retail: Ticket size, foot traffic, sales/m2, inventory turns
+ * - saas:            MRR, ARR, churn, expansion revenue, payback period, NRR
  * - it-services:     Project margins, utilization rate, delivery time, backlog
  */
 
-/** @typedef {Object} PerformanceBrief
+/** @typedef {Object} AnalyticsBrief
  *
  * @property {string} client - Client slug (e.g. "dmancuello")
- * @property {string} source - Who triggered: "cli" | "consultant-agent" | "dashboard" | "github-actions"
- * @property {string} mode - "metrics" | "market" | "report"
+ * @property {string} source - "cli" | "consultant-agent" | "dashboard" | "github-actions"
+ * @property {string} mode - "daily" | "weekly" | "biweekly" | "monthly" | "insights" | "custom" | "query"
  *
  * --- Business context ---
  * @property {string|null} [businessType] - "ecommerce" | "services" | "physical-retail" | "saas" | "it-services"
- * @property {number|null} [lookbackDays] - Days to analyze (defaults: metrics=7, market/report=30)
+ * @property {number|null} [lookbackDays] - Days to analyze (defaults per mode)
  *
- * --- Focus areas ---
- * @property {string[]|null} [focusAreas] - "cac" | "ltv" | "roas" | "conversion" | "margin" | "retention" | "growth"
+ * --- Custom mode ---
+ * @property {string|null} [customReportType] - "channel-deep-dive" | "cohort-analysis" | "funnel" | "ltv-cac" | "forecast" | "free-form"
+ * @property {object|null} [customFilters] - { channel, product, dateRange, cohort, etc. }
  *
- * --- Competitive context ---
- * @property {string[]|null} [competitors] - Competitor names or URLs for market analysis
+ * --- Query mode ---
+ * @property {string|null} [question] - Natural language question for "query" mode
  *
- * --- Revenue data ---
- * @property {object|null} [revenueData] - { totalRevenue, adSpend, cogs, operatingCosts }
+ * --- Focus areas (filters the narrative) ---
+ * @property {string[]|null} [focusAreas] - Subset of KPIs to emphasize
+ *   Values: "revenue" | "cac" | "ltv" | "roas" | "conversion" | "abandonment" | "traffic" | "retention" | "margin" | "growth"
+ *
+ * --- Input data (for Phase 1 simulation) ---
+ * @property {object|null} [revenueData] - Manually provided data: { totalRevenue, adSpend, orders, sessions, etc. }
  *
  * --- Instructions ---
  * @property {string|null} [instructions] - Free-text instructions from Consultant Agent or owner
@@ -51,24 +57,49 @@
 export const DEFAULT_BRIEF = {
   client: "dmancuello",
   source: "cli",
-  mode: "metrics",
-  businessType: null,
+  mode: "weekly",
+  businessType: "ecommerce",
   lookbackDays: null,
+  customReportType: null,
+  customFilters: null,
+  question: null,
   focusAreas: null,
-  competitors: null,
   revenueData: null,
   instructions: null,
 };
 
-const VALID_MODES = ["metrics", "market", "report"];
+const VALID_MODES = ["daily", "weekly", "biweekly", "monthly", "insights", "custom", "query"];
 const VALID_BUSINESS_TYPES = ["ecommerce", "services", "physical-retail", "saas", "it-services"];
-const VALID_FOCUS_AREAS = ["cac", "ltv", "roas", "conversion", "margin", "retention", "growth"];
+const VALID_FOCUS_AREAS = [
+  "revenue",
+  "cac",
+  "ltv",
+  "roas",
+  "conversion",
+  "abandonment",
+  "traffic",
+  "retention",
+  "margin",
+  "growth",
+];
+const VALID_CUSTOM_TYPES = [
+  "channel-deep-dive",
+  "cohort-analysis",
+  "funnel",
+  "ltv-cac",
+  "forecast",
+  "free-form",
+];
 
 /** Default lookback days per mode */
 const DEFAULT_LOOKBACK = {
-  metrics: 7,
-  market: 30,
-  report: 30,
+  daily: 1,
+  weekly: 7,
+  biweekly: 14,
+  monthly: 30,
+  insights: 30,
+  custom: 30,
+  query: 30,
 };
 
 /** Validates a brief and fills missing fields with defaults */
@@ -84,15 +115,29 @@ export function parseBrief(input) {
   }
 
   if (brief.businessType && !VALID_BUSINESS_TYPES.includes(brief.businessType)) {
-    throw new Error(`Invalid businessType "${brief.businessType}". Valid: ${VALID_BUSINESS_TYPES.join(", ")}`);
+    throw new Error(
+      `Invalid businessType "${brief.businessType}". Valid: ${VALID_BUSINESS_TYPES.join(", ")}`
+    );
   }
 
   if (brief.focusAreas) {
     for (const area of brief.focusAreas) {
       if (!VALID_FOCUS_AREAS.includes(area)) {
-        throw new Error(`Invalid focusArea "${area}". Valid: ${VALID_FOCUS_AREAS.join(", ")}`);
+        throw new Error(
+          `Invalid focusArea "${area}". Valid: ${VALID_FOCUS_AREAS.join(", ")}`
+        );
       }
     }
+  }
+
+  if (brief.mode === "custom" && brief.customReportType && !VALID_CUSTOM_TYPES.includes(brief.customReportType)) {
+    throw new Error(
+      `Invalid customReportType "${brief.customReportType}". Valid: ${VALID_CUSTOM_TYPES.join(", ")}`
+    );
+  }
+
+  if (brief.mode === "query" && !brief.question) {
+    throw new Error('Mode "query" requires a "question" field');
   }
 
   // Apply default lookback if not specified

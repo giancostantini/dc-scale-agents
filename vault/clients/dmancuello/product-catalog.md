@@ -1,8 +1,8 @@
 # Catalogo de Productos — DMancuello
 ## Productos con descripciones, precios y links directos de compra
 
-<!-- El Customer Service Agent usa este catalogo para recomendar productos a clientes.
-     Cada producto DEBE tener un URL directo para que el chatbot pueda enviar al cliente. -->
+<!-- Los agentes leen este catalogo para recomendar productos, generar contenido y analizar mix de ventas.
+     Cada producto debe tener URL directo para enlazar desde contenido o reportes. -->
 
 ### Productos
 
