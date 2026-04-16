@@ -4,6 +4,8 @@ import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
 import { produceVideo } from "./produce-video.js";
 import { produceVoice } from "./produce-voice.js";
+import { produceStatic } from "./produce-static.js";
+import { logAgentRun, logAgentError } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -498,7 +500,18 @@ export async function createContent(briefInput) {
   appendToVaultFile(`clients/${brief.client}/content-library.md`, entry);
   console.log(`Registered as Piece #${pieceId} in content-library.md`);
 
-  // Step 4b: Fase 3 — Generate voice with ElevenLabs (if enabled)
+  // Step 4b: Fase 3 — Produce static with Google AI / NanoBanana Pro (if enabled)
+  let staticResult = null;
+  if (brief.produceStatic && brief.pieceType !== "reel") {
+    try {
+      staticResult = await produceStatic(brief, output, pieceId);
+      console.log(`Static produced: ${staticResult.filePath}`);
+    } catch (err) {
+      console.error(`Static production failed: ${err.message}`);
+    }
+  }
+
+  // Step 4c: Fase 3 — Generate voice with ElevenLabs (if enabled)
   let voiceResult = null;
   if (brief.generateVoice && brief.pieceType === "reel") {
     try {
@@ -527,6 +540,12 @@ export async function createContent(briefInput) {
   }
 
   // Step 5: Notify via Telegram
+  const staticLabel = staticResult
+    ? `\n🖼️ *Static:* ${staticResult.fileName} (${staticResult.aspectRatio})`
+    : brief.produceStatic && brief.pieceType !== "reel"
+    ? "\n⚠️ *Static:* generación falló — revisar manualmente"
+    : "";
+
   const voiceLabel = voiceResult
     ? `\n🎙️ *Voz:* generada (${voiceResult.durationEstimateSeconds}s estimados)`
     : brief.generateVoice
@@ -554,7 +573,7 @@ _${getTodayFormatted()}_
 👤 *Cliente:* ${brief.client}
 📡 *Solicitado por:* ${sourceLabel}
 ${brief.angle ? `🎯 *Angulo:* ${brief.angle}` : ""}
-${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${voiceLabel}${videoLabel}
+${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${staticLabel}${voiceLabel}${videoLabel}
 📝 *Estado:* ${videoPath ? "VIDEO LISTO — revisar y aprobar publicación" : "DRAFT — revisar script y aprobar"}
 
 _vault/clients/${brief.client}/content-library.md_`
@@ -567,6 +586,7 @@ _vault/clients/${brief.client}/content-library.md_`
     pieceType: brief.pieceType,
     source: brief.source,
     output,
+    staticPath: staticResult?.filePath || null,
     voicePath: voiceResult?.filePath || null,
     videoPath,
     registeredAt: `vault/clients/${brief.client}/content-library.md`,
