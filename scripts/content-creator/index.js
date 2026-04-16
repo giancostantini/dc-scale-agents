@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
+import { produceVideo } from "./produce-video.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -496,7 +497,25 @@ export async function createContent(briefInput) {
   appendToVaultFile(`clients/${brief.client}/content-library.md`, entry);
   console.log(`Registered as Piece #${pieceId} in content-library.md`);
 
+  // Step 4b: Fase 2 — Produce video with Remotion (if enabled)
+  let videoPath = null;
+  if (brief.produceVideo && brief.pieceType === "reel") {
+    try {
+      videoPath = await produceVideo(brief, output, pieceId);
+      console.log(`Video produced: ${videoPath}`);
+    } catch (err) {
+      console.error(`Video production failed: ${err.message}`);
+      console.log("Script and storyboard saved. Produce manually with: cd remotion-studio && npm run studio");
+    }
+  }
+
   // Step 5: Notify via Telegram
+  const videoLabel = videoPath
+    ? `\n🎬 *Video:* ${videoPath.split("/").pop()}`
+    : brief.produceVideo
+    ? "\n⚠️ *Video:* producción falló — revisar manualmente"
+    : "";
+
   const sourceLabel = {
     cli: "CLI manual",
     "consultant-agent": "Agente Consultor",
@@ -512,8 +531,8 @@ _${getTodayFormatted()}_
 👤 *Cliente:* ${brief.client}
 📡 *Solicitado por:* ${sourceLabel}
 ${brief.angle ? `🎯 *Angulo:* ${brief.angle}` : ""}
-${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}
-📝 *Estado:* DRAFT — revisar y aprobar
+${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${videoLabel}
+📝 *Estado:* ${videoPath ? "VIDEO LISTO — revisar y aprobar publicación" : "DRAFT — revisar script y aprobar"}
 
 _vault/clients/${brief.client}/content-library.md_`
   );
@@ -525,6 +544,7 @@ _vault/clients/${brief.client}/content-library.md_`
     pieceType: brief.pieceType,
     source: brief.source,
     output,
+    videoPath,
     registeredAt: `vault/clients/${brief.client}/content-library.md`,
   };
 }
