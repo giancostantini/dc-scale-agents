@@ -1,0 +1,167 @@
+.topbar {
+  background: var(--deep-green);
+  color: var(--off-white);
+  padding: 18px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+}
+
+.brandText {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sand);
+}
+
+.search {
+  flex: 1;
+  max-width: 420px;
+  margin: 0 40px;
+  position: relative;
+}
+
+.search input {
+  width: 100%;
+  background: rgba(232, 228, 220, 0.06);
+  border: 1px solid rgba(196, 168, 130, 0.15);
+  padding: 10px 16px 10px 40px;
+  color: var(--off-white);
+  font-size: 13px;
+  font-weight: 300;
+  outline: none;
+  letter-spacing: 0.01em;
+  font-family: inherit;
+}
+
+.search input::placeholder {
+  color: rgba(232, 228, 220, 0.4);
+}
+
+.search::before {
+  content: "⌕";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sand);
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--off-white);
+  border: 1px solid rgba(196, 168, 130, 0.2);
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: rgba(196, 168, 130, 0.1);
+  border-color: var(--sand);
+}
+
+.btnPrimary {
+  background: var(--sand);
+  color: var(--deep-green);
+  border-color: var(--sand);
+  font-weight: 500;
+}
+
+.btnPrimary:hover {
+  background: var(--sand-light);
+}
+
+.badge {
+  background: var(--red-warn);
+  color: var(--off-white);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  margin-left: 8px;
+  border-left: 1px solid rgba(196, 168, 130, 0.15);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--forest);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: -0.02em;
+}
+
+.userName {
+  font-size: 12px;
+  color: var(--off-white);
+}
+
+.userRole {
+  font-size: 10px;
+  color: var(--sand);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    padding: 14px 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .search {
+    margin: 0;
+    order: 3;
+    max-width: 100%;
+  }
+}

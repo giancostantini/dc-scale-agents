@@ -1,0 +1,314 @@
+/* ============ Head ============ */
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 40px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.head h1 {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--deep-green);
+}
+
+.phaseBadge {
+  padding: 10px 16px;
+  background: var(--forest);
+  color: var(--sand);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.phaseBadgeExec {
+  background: var(--sand);
+  color: var(--deep-green);
+}
+
+/* ============ KPIs ============ */
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  margin-bottom: 32px;
+}
+
+.kpiCell {
+  padding: 24px 22px;
+  border-right: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.kpiCell:last-child {
+  border-right: none;
+}
+
+.kLabel {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.kValue {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.kDelta {
+  font-size: 11px;
+  color: var(--green-ok);
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.kDeltaDown {
+  color: var(--red-warn);
+}
+
+/* ============ Panels ============ */
+
+.panelGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.panelGrid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.panelGrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.panel {
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  padding: 28px;
+}
+
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.panelTitle {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.panelAction {
+  font-size: 11px;
+  color: var(--sand-dark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.panelAction:hover {
+  color: var(--deep-green);
+}
+
+/* ============ Buttons ============ */
+
+.btnSolid {
+  padding: 12px 22px;
+  background: var(--deep-green);
+  color: var(--off-white);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSolid:hover {
+  background: var(--forest);
+}
+
+.btnGhost {
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--deep-green);
+  border: 1px solid rgba(10, 26, 12, 0.15);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnGhost:hover {
+  background: var(--off-white);
+  border-color: var(--sand);
+}
+
+/* ============ Tables ============ */
+
+.table {
+  width: 100%;
+}
+
+.tableHead {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  display: grid;
+  gap: 16px;
+  font-weight: 600;
+}
+
+.tableRow {
+  display: grid;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.05);
+  font-size: 13px;
+  align-items: center;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+/* ============ Empty states ============ */
+
+.empty {
+  padding: 60px 40px;
+  text-align: center;
+  border: 1px dashed rgba(10, 26, 12, 0.12);
+  background: var(--white);
+}
+
+.emptyIcon {
+  font-size: 40px;
+  color: var(--sand-dark);
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.emptyTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--deep-green);
+  margin-bottom: 10px;
+}
+
+.emptyDesc {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 440px;
+  margin: 0 auto 24px;
+  line-height: 1.6;
+}
+
+/* ============ Progress bar ============ */
+
+.progressBar {
+  height: 6px;
+  background: var(--off-white);
+  margin: 12px 0 6px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--sand);
+  transition: width 0.4s;
+}
+
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.progressPct {
+  color: var(--sand-dark);
+  font-weight: 600;
+}
+
+/* ============ Pills ============ */
+
+.pill {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.pillGreen {
+  background: rgba(58, 139, 92, 0.18);
+  color: var(--green-ok);
+}
+
+.pillYellow {
+  background: rgba(201, 161, 74, 0.2);
+  color: var(--yellow-warn);
+}
+
+.pillRed {
+  background: rgba(176, 75, 58, 0.2);
+  color: var(--red-warn);
+}
+
+.pillGrey {
+  background: var(--off-white);
+  color: var(--text-muted);
+}
+
+@media (max-width: 1100px) {
+  .kpiGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .panelGrid,
+  .panelGrid3,
+  .panelGrid2 {
+    grid-template-columns: 1fr;
+  }
+}

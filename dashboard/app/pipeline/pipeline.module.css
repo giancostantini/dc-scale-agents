@@ -1,0 +1,312 @@
+.wrap {
+  padding: 48px 40px 80px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.1);
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+.sectionHead h1 {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--deep-green);
+}
+
+.meta {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.metaStrong {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--deep-green);
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+  text-transform: none;
+}
+
+/* ========= Campaigns ========= */
+
+.campaignsPanel {
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  border-left: 3px solid var(--sand);
+  padding: 28px;
+  margin-bottom: 28px;
+}
+
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.panelTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btnSolid {
+  padding: 10px 18px;
+  background: var(--deep-green);
+  color: var(--off-white);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSolid:hover {
+  background: var(--forest);
+}
+
+.campaignsEmpty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.campaignCard {
+  padding: 20px;
+  background: var(--off-white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  margin-bottom: 12px;
+}
+
+.campaignName {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+
+.campaignMeta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.campaignLabel {
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 10px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.campaignStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.statCell {
+  padding: 12px 16px;
+  border-right: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.statCell:last-child {
+  border-right: none;
+}
+
+.statLabel {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ========= Kanban ========= */
+
+.kanbanHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.kanbanHeader h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.kanbanCol {
+  background: var(--off-white);
+  padding: 20px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.kanbanColHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.kanbanColName {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.kanbanColCount {
+  background: var(--sand);
+  color: var(--deep-green);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.kanbanCard {
+  background: var(--white);
+  padding: 14px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--sand);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.kanbanCard:hover {
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(10, 26, 12, 0.06);
+}
+
+.kanbanCardDev {
+  border-left-color: var(--forest);
+}
+
+.kType {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.kName {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 2px;
+}
+
+.kSector {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.kValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--deep-green);
+  letter-spacing: -0.01em;
+}
+
+.kActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(10, 26, 12, 0.05);
+}
+
+.kBtn {
+  padding: 4px 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(10, 26, 12, 0.1);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.kBtn:hover {
+  color: var(--deep-green);
+  border-color: var(--sand);
+}
+
+.addLeadBtn {
+  margin-top: auto;
+  padding: 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  border: 1px dashed rgba(196, 168, 130, 0.4);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.addLeadBtn:hover {
+  border-color: var(--sand);
+  color: var(--deep-green);
+}
+
+@media (max-width: 1100px) {
+  .kanban {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .campaignMeta,
+  .campaignStats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

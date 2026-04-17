@@ -1,0 +1,164 @@
+/* ============ LOGIN VIEW ============ */
+.loginView {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--deep-green);
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.loginGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+  pointer-events: none;
+}
+
+.loginBox {
+  width: 100%;
+  max-width: 460px;
+  position: relative;
+  z-index: 2;
+}
+
+.loginBrand {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.logo {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--off-white);
+  line-height: 1.05;
+}
+
+.logoSoft {
+  font-weight: 300;
+  opacity: 0.55;
+  display: block;
+}
+
+.desc {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--sand);
+  margin-top: 20px;
+}
+
+.loginCard {
+  background: rgba(232, 228, 220, 0.04);
+  border: 1px solid rgba(196, 168, 130, 0.2);
+  padding: 48px;
+  backdrop-filter: blur(20px);
+}
+
+.loginCard h3 {
+  font-size: 24px;
+  color: var(--off-white);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--sand);
+  margin-bottom: 36px;
+}
+
+.field {
+  margin-bottom: 24px;
+}
+
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(196, 168, 130, 0.3);
+  padding: 12px 0;
+  color: var(--off-white);
+  font-size: 15px;
+  font-weight: 300;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--sand);
+}
+
+.field select option {
+  background: var(--deep-green);
+  color: var(--off-white);
+}
+
+.btnPrimary {
+  width: 100%;
+  padding: 16px;
+  background: var(--sand);
+  color: var(--deep-green);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btnPrimary:hover {
+  background: var(--sand-light);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loginHint {
+  margin-top: 24px;
+  padding: 14px 18px;
+  border: 1px solid rgba(196, 168, 130, 0.2);
+  font-size: 12px;
+  color: var(--off-white);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.loginHint strong {
+  color: var(--sand);
+  font-weight: 500;
+}
+
+.errorMsg {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: rgba(176, 75, 58, 0.15);
+  border-left: 2px solid var(--red-warn);
+  color: var(--off-white);
+  font-size: 12px;
+}

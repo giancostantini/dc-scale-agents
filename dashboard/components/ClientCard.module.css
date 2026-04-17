@@ -1,0 +1,81 @@
+.card {
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  padding: 40px 28px;
+  transition: all 0.25s;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  text-align: center;
+}
+
+.card:hover {
+  border-color: var(--sand);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(10, 26, 12, 0.08);
+}
+
+.statusBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--sand);
+}
+
+.statusActive {
+  background: var(--green-ok);
+}
+
+.statusOnboarding {
+  background: var(--yellow-warn);
+}
+
+.statusDev {
+  background: var(--forest);
+}
+
+.badge {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  font-weight: 600;
+  margin-bottom: 28px;
+}
+
+.badgeGp {
+  background: var(--off-white);
+  color: var(--forest);
+}
+
+.badgeDev {
+  background: var(--forest);
+  color: var(--sand);
+}
+
+.logoBig {
+  width: 82px;
+  height: 82px;
+  background: var(--deep-green);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: 22px;
+}
+
+.name {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--deep-green);
+}
