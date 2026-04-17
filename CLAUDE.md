@@ -5,7 +5,9 @@ AI agent system for D&C Scale Partners — growth marketing + automation agency.
 ## Quick context
 
 - **Agency:** D&C Scale Partners (Gianluca + Federico, co-founders)
-- **Active client:** DMancuello (Shopify eCommerce, artesanal de cuero, Uruguay)
+- **Active clients:**
+  - DMancuello (Shopify eCommerce, artesanal de cuero, Uruguay)
+  - WizTrip (agencia de viajes digital, plataforma IA + criterio experto, Uruguay — lanzamiento Abril 2026)
 - **Markets:** Uruguay + Latam (Colombia, Peru, Paraguay)
 - **Verticals:** (1) Marketing growth (content, SEO, ads), (2) Automatizacion (agentes IA operando en autopilot)
 
