@@ -34,14 +34,15 @@ Genera contenido SEO optimizado (articulos de blog, meta tags, descripciones de 
 1. `vault/CLAUDE.md` — contexto agencia
 2. `vault/clients/[client]/claude-client.md` — ADN de marca
 3. `vault/clients/[client]/strategy.md` — estrategia activa
-4. `vault/agents/seo/keyword-database.md` — keywords identificados y su rendimiento
-5. `vault/agents/seo/winning-pages.md` — paginas/articulos que mejor rankean
-6. `vault/clients/[client]/learning-log.md` — que funciono/que no
-7. `vault/clients/[client]/seo-library.md` — historico de piezas SEO generadas
+4. `vault/agents/seo/knowledge-base.md` — conceptos fundamentales (intent, SERP features, etc.)
+5. `vault/agents/seo/keyword-database.md` — keywords identificados y su rendimiento
+6. `vault/agents/seo/winning-pages.md` — paginas/articulos que mejor rankean
+7. `vault/clients/[client]/learning-log.md` — que funciono/que no
+8. `vault/clients/[client]/seo-library.md` — historico de piezas SEO generadas
 
 ## Reglas de oro
 1. Keyword research primero — nunca escribir sin saber que busca el usuario
-2. Intent match obligatorio — cada pieza debe mapear a un search intent claro (informacional, transaccional, navegacional)
+2. Intent match obligatorio — cada pieza debe mapear a un search intent claro (informacional, navegacional, transaccional, comercial/investigativo). Ver knowledge-base.md seccion 1.
 3. Un keyword principal + 3-5 keywords secundarios por articulo
 4. Estructura H1 > H2 > H3 siempre jerarquica y con keywords naturales
 5. Meta title: max 60 caracteres, keyword al inicio, brand al final
@@ -49,7 +50,7 @@ Genera contenido SEO optimizado (articulos de blog, meta tags, descripciones de 
 7. Contenido util primero — no keyword stuffing, escribir para humanos que buscan respuestas
 8. Links internos obligatorios — cada pieza debe linkear a minimo 2 paginas del sitio
 9. Parrafos cortos (max 3 lineas) + bullet points para scannability
-10. Featured snippet friendly — incluir definiciones, listas, tablas que Google pueda extraer
+10. SERP features first — antes de escribir, mapear que features domina la SERP del keyword (Featured Snippet, PAA, Mapas, Videos, Imagenes) y targetear explicitamente las que apliquen. Documentar en el output. Ver knowledge-base.md seccion 2.
 
 ## Formatos de articulo
 - **A) Guia Definitiva**: "Todo lo que necesitas saber sobre [X]" — long-form, 2000-2500 palabras, ideal para keywords informativos de alto volumen
