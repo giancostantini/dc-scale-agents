@@ -164,8 +164,23 @@ export default function NewCampaignModal({
       onClose();
       onCreated?.();
     } catch (err) {
-      console.error(err);
-      alert("Error al crear campaña. Revisá la consola.");
+      // Supabase errors have non-enumerable props → hay que serializarlos a mano
+      const detail = {
+        message: (err as { message?: string })?.message,
+        code: (err as { code?: string })?.code,
+        details: (err as { details?: string })?.details,
+        hint: (err as { hint?: string })?.hint,
+        stringified: JSON.stringify(err, Object.getOwnPropertyNames(err as object)),
+      };
+      console.error("🔴 Error al crear campaña:", detail);
+      console.error("Raw error object:", err);
+      alert(
+        `Error al crear campaña:\n\n` +
+        `Código: ${detail.code || "sin código"}\n` +
+        `Mensaje: ${detail.message || "sin mensaje"}\n` +
+        `Detalle: ${detail.details || "sin detalle"}\n\n` +
+        `(Ver consola para más info)`,
+      );
     } finally {
       setSaving(false);
     }
