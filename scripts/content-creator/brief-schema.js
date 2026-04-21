@@ -63,9 +63,10 @@
  * @property {string} [scheduleTime] - ISO 8601 datetime to schedule post (null = publish immediately)
  */
 
-/** Default brief — used when no brief file is provided */
+/** Default brief — used when no brief file is provided. `client` is null on
+ * purpose (generic-first): the CLI or dispatcher must always specify it. */
 export const DEFAULT_BRIEF = {
-  client: "dmancuello",
+  client: null,
   pieceType: "reel",
   source: "cli",
   objective: null,

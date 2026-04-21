@@ -13,6 +13,7 @@ import {
   updateAgentRun,
   registerAgentOutput,
   pushNotification,
+  fetchClient,
 } from "../lib/supabase.js";
 
 const AGENT = "content-creator";
@@ -112,10 +113,15 @@ function getTodayISO() {
 
 // --- Context Loader ---
 
-function loadClientContext(client) {
+async function loadClientContext(client) {
   console.log(`Loading vault context for client: ${client}`);
 
+  const [clientRow] = await Promise.all([fetchClient(client)]);
+
   const context = {
+    clientRow,
+    sector: clientRow?.sector ?? null,
+    modules: clientRow?.modules ?? null,
     agencyContext: readVaultFile("CLAUDE.md"),
     clientBrand: readVaultFile(`clients/${client}/claude-client.md`),
     strategy: readVaultFile(`clients/${client}/strategy.md`),
@@ -127,9 +133,20 @@ function loadClientContext(client) {
     contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
   };
 
-  const loaded = Object.entries(context).filter(([, v]) => v !== null).length;
-  const total = Object.keys(context).length;
-  console.log(`Vault context loaded: ${loaded}/${total} files found`);
+  const fileKeys = [
+    "agencyContext",
+    "clientBrand",
+    "strategy",
+    "contentCalendar",
+    "hookDatabase",
+    "winningFormats",
+    "learningLog",
+    "adsLibrary",
+    "contentLibrary",
+  ];
+  const loaded = fileKeys.filter((k) => context[k] !== null).length;
+  console.log(`Vault context loaded: ${loaded}/${fileKeys.length} files found`);
+  if (context.sector) console.log(`Client sector (from Supabase): ${context.sector}`);
 
   return context;
 }
@@ -251,7 +268,7 @@ ${directivesBlock}
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
 --- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "Sin contexto de marca cargado. Usa buenas practicas genericas para eCommerce artesanal de cuero."}
+${ctx.clientBrand || `Sin contexto de marca cargado. Sector: ${ctx.sector || "sin especificar"}. Usa buenas practicas genericas del sector.`}
 
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida aun."}
@@ -468,8 +485,8 @@ export async function createContent(briefInput) {
     `Content Creator Agent — ${brief.pieceType} for ${brief.client} (source: ${brief.source})`
   );
 
-  // Step 1: Load vault context
-  const ctx = loadClientContext(brief.client);
+  // Step 1: Load vault context + client row from Supabase
+  const ctx = await loadClientContext(brief.client);
 
   // Step 2: Load reference examples
   const examples = loadExampleReferences(brief.client, brief);

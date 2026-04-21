@@ -1,0 +1,312 @@
+/**
+ * POST /api/consultant
+ *
+ * In-process chat endpoint for the Consultant Agent. The Consultant is the
+ * single human-facing interface per client — it either answers directly from
+ * the client's Supabase context, or dispatches a specific agent (content
+ * creator, analytics, etc.) via repository_dispatch.
+ *
+ * For the MVP the Consultant is one-shot: the model either replies or asks
+ * to dispatch an agent. If it dispatches, we open an agent_runs row, fire
+ * the workflow, and reply with a confirmation. Multi-turn tool use (loop the
+ * tool result back to Claude) is deferred.
+ *
+ * Body:
+ *   clientId: string
+ *   messages: { role: "user" | "assistant"; content: string }[]
+ *
+ * Response:
+ *   { reply, dispatched?: { agent, runId }, usage, model }
+ */
+
+import Anthropic from "@anthropic-ai/sdk";
+import { NextRequest } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+
+const MODEL = "claude-opus-4-7";
+
+const DISPATCHABLE_AGENTS = [
+  "content-creator",
+  "content-strategy",
+  "reporting-performance",
+  "morning-briefing",
+  "seo",
+  "social-media-metrics",
+  "stock",
+  "logistics",
+] as const;
+
+type DispatchableAgent = (typeof DISPATCHABLE_AGENTS)[number];
+
+const SYSTEM_PROMPT = `Sos el Consultor de D&C Scale Partners para un cliente específico. Tu rol:
+
+1. Sos el ÚNICO punto de contacto humano con el dueño del negocio del cliente.
+2. Conocés el contexto del cliente (sector, fase, método, runs recientes).
+3. Respondés directo cuando la pregunta es de contexto/estado.
+4. Si el dueño pide algo operativo (generar contenido, analítica, SEO, logística, stock), dispatchás el agente correspondiente vía la tool \`run_agent\`.
+
+Reglas:
+- Tono rioplatense, directo, sin jerga corporativa ("transformar", "potenciar", "sinergia" están prohibidas).
+- Si falta info para dispatchar un agente, pedila al usuario en vez de inventarla.
+- Si ya hay un agent_run reciente que responde lo que piden, citalo en lugar de disparar uno nuevo.
+- Respuestas cortas por default (2-4 oraciones). El dueño está ocupado.
+
+Agentes que podés dispatchar:
+- content-creator: genera piezas (reel, static-ad, social-review, etc). Brief mínimo: pieceType, angle.
+- content-strategy: calendario semanal. Brief mínimo: ninguno (usa contexto del vault).
+- reporting-performance: analytics (daily, weekly, monthly, insights, query). Brief: mode, y si es query también question.
+- morning-briefing: briefing matutino. Brief: ninguno.
+- seo: keyword research, blog posts, meta tags. Brief: pieceType + targetKeyword o topic.
+- social-media-metrics: evalúa performance de piezas publicadas. Brief: mode.
+- stock: status / forecast / alert de inventario (solo ecommerce). Brief: mode.
+- logistics: schedule / dispatch / optimize envíos (solo ecommerce). Brief: mode.
+
+Si dispatchás, confirmá brevemente qué dispatchaste y qué esperar (tiempo estimado, dónde va a aparecer el output).`;
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface RequestBody {
+  clientId: string;
+  messages: ChatMessage[];
+}
+
+interface AgentRunRow {
+  agent: string;
+  status: string;
+  summary: string | null;
+  created_at: string;
+}
+
+interface ClientRow {
+  id: string;
+  name: string;
+  sector: string | null;
+  type: string | null;
+  phase: string | null;
+  method: string | null;
+  fee: number | null;
+}
+
+export async function POST(req: NextRequest) {
+  let body: RequestBody;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { clientId, messages } = body;
+  if (!clientId || !Array.isArray(messages) || messages.length === 0) {
+    return Response.json(
+      { error: "Missing required fields: clientId, messages[]" },
+      { status: 400 },
+    );
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return Response.json(
+      { error: "ANTHROPIC_API_KEY no configurada en Vercel env vars." },
+      { status: 500 },
+    );
+  }
+
+  const supabase = getSupabaseAdmin();
+
+  const [{ data: client }, { data: recentRuns }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, name, sector, type, phase, method, fee")
+      .eq("id", clientId)
+      .single<ClientRow>(),
+    supabase
+      .from("agent_runs")
+      .select("agent, status, summary, created_at")
+      .eq("client", clientId)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .returns<AgentRunRow[]>(),
+  ]);
+
+  if (!client) {
+    return Response.json({ error: `Client '${clientId}' not found` }, { status: 404 });
+  }
+
+  const contextBlock = buildContextBlock(client, recentRuns ?? []);
+
+  const anthropic = new Anthropic();
+
+  try {
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 1024,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+        {
+          type: "text",
+          text: contextBlock,
+        },
+      ],
+      tools: [
+        {
+          name: "run_agent",
+          description:
+            "Dispatch a specific agent via GitHub Actions. Use this when the owner asks for something operative (generate content, run analytics, SEO piece, check stock, etc.). Returns immediately; the agent runs in the background and its output will appear in the dashboard.",
+          input_schema: {
+            type: "object",
+            properties: {
+              agent: {
+                type: "string",
+                enum: [...DISPATCHABLE_AGENTS],
+                description: "The agent to dispatch.",
+              },
+              brief: {
+                type: "object",
+                description:
+                  "Agent-specific brief. Include only the fields the agent needs (e.g. pieceType + angle for content-creator, mode + question for reporting-performance query).",
+              },
+              reason: {
+                type: "string",
+                description: "One-sentence note on why this dispatch, shown to the owner.",
+              },
+            },
+            required: ["agent", "brief"],
+          },
+        },
+      ],
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    const toolBlock = response.content.find((b) => b.type === "tool_use");
+
+    let dispatched: { agent: string; runId: number } | null = null;
+
+    if (toolBlock && toolBlock.type === "tool_use" && toolBlock.name === "run_agent") {
+      const input = toolBlock.input as {
+        agent: DispatchableAgent;
+        brief: Record<string, unknown>;
+        reason?: string;
+      };
+
+      if (!DISPATCHABLE_AGENTS.includes(input.agent)) {
+        return Response.json(
+          { error: `Unknown agent '${input.agent}'` },
+          { status: 400 },
+        );
+      }
+
+      const { data: run, error: insertError } = await supabase
+        .from("agent_runs")
+        .insert({
+          client: clientId,
+          agent: input.agent,
+          status: "running",
+          summary: input.reason ?? "dispatched from consultant",
+          metadata: { brief: input.brief, source: "consultant", reason: input.reason },
+          performance: {},
+        })
+        .select()
+        .single();
+
+      if (insertError || !run) {
+        return Response.json(
+          { error: `Failed to open agent_runs row: ${insertError?.message ?? "unknown"}` },
+          { status: 500 },
+        );
+      }
+
+      try {
+        await dispatchAgentWorkflow({
+          eventType: input.agent,
+          payload: {
+            runId: run.id,
+            brief: { ...input.brief, client: clientId, source: "consultant", runId: run.id },
+          },
+        });
+        dispatched = { agent: input.agent, runId: run.id };
+      } catch (err) {
+        await supabase
+          .from("agent_runs")
+          .update({
+            status: "error",
+            summary: err instanceof Error ? err.message : "dispatch failed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", run.id);
+
+        return Response.json(
+          {
+            error: err instanceof Error ? err.message : "dispatch failed",
+            runId: run.id,
+          },
+          { status: 502 },
+        );
+      }
+    }
+
+    const reply =
+      textBlock && textBlock.type === "text"
+        ? textBlock.text.trim()
+        : dispatched
+        ? `Dispatché el agente ${dispatched.agent}. Te aviso cuando termine.`
+        : "Procesado.";
+
+    return Response.json({
+      reply,
+      dispatched,
+      usage: {
+        input: response.usage.input_tokens,
+        output: response.usage.output_tokens,
+        cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
+        cacheRead: response.usage.cache_read_input_tokens ?? 0,
+      },
+      model: response.model,
+    });
+  } catch (err) {
+    console.error("Consultant error:", err);
+    if (err instanceof Anthropic.AuthenticationError) {
+      return Response.json({ error: "ANTHROPIC_API_KEY inválida o revocada." }, { status: 401 });
+    }
+    if (err instanceof Anthropic.RateLimitError) {
+      return Response.json({ error: "Rate limit alcanzado. Esperá unos segundos." }, { status: 429 });
+    }
+    if (err instanceof Anthropic.APIError) {
+      return Response.json(
+        { error: `Claude API: ${err.message}` },
+        { status: err.status ?? 500 },
+      );
+    }
+    return Response.json({ error: "Error inesperado" }, { status: 500 });
+  }
+}
+
+function buildContextBlock(client: ClientRow, recentRuns: AgentRunRow[]): string {
+  const lines: string[] = ["CONTEXTO DEL CLIENTE:"];
+  lines.push(`- Nombre: ${client.name} (slug: ${client.id})`);
+  if (client.sector) lines.push(`- Sector: ${client.sector}`);
+  if (client.type) lines.push(`- Tipo de servicio: ${client.type === "gp" ? "Growth Partner" : "Desarrollo"}`);
+  if (client.phase) lines.push(`- Fase: ${client.phase}`);
+  if (client.method) lines.push(`- Método: ${client.method}`);
+  if (client.fee) lines.push(`- Fee mensual: USD ${client.fee}`);
+
+  if (recentRuns.length > 0) {
+    lines.push("");
+    lines.push("RUNS RECIENTES (últimas 10):");
+    for (const r of recentRuns) {
+      const when = new Date(r.created_at).toISOString().slice(0, 16).replace("T", " ");
+      lines.push(`- ${when} · ${r.agent} · ${r.status}${r.summary ? ` — ${r.summary}` : ""}`);
+    }
+  } else {
+    lines.push("");
+    lines.push("RUNS RECIENTES: ninguno todavía.");
+  }
+
+  return lines.join("\n");
+}

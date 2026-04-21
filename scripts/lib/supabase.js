@@ -42,6 +42,29 @@ async function insert(table, row) {
   return Array.isArray(data) ? data[0] : data;
 }
 
+async function selectOne(table, match, columns = "*") {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+
+  const params = new URLSearchParams([
+    ...Object.entries(match).map(([k, v]) => [k, `eq.${v}`]),
+    ["select", columns],
+    ["limit", "1"],
+  ]).toString();
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    method: "GET",
+    headers: headers(),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase select error on ${table}: ${err}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data) ? data[0] ?? null : data;
+}
+
 async function update(table, match, patch) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
 
@@ -62,6 +85,31 @@ async function update(table, match, patch) {
 
   const data = await res.json();
   return Array.isArray(data) ? data[0] : data;
+}
+
+// ---------------------------------------------------------------------------
+// clients (read-only convenience)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a client row from the dashboard schema. Returns null if missing or if
+ * Supabase isn't configured. Used by agents that need sector/modules/phase.
+ *
+ * @param {string} clientId
+ * @returns {Promise<Object|null>}
+ */
+export async function fetchClient(clientId) {
+  if (!clientId) return null;
+  try {
+    return await selectOne(
+      "clients",
+      { id: clientId },
+      "id,name,sector,type,phase,method,fee,modules"
+    );
+  } catch (err) {
+    console.warn(`[supabase] fetchClient failed (non-fatal): ${err.message}`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
