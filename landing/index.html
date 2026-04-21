@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dearmas Costantini — Tu socio de crecimiento en LATAM</title>
+<meta name="description" content="No somos una agencia. Somos una firma que se asocia a tu empresa para hacerla crecer. Agendá 30 minutos con los socios.">
+<meta property="og:title" content="Dearmas Costantini — Business Growth Partners · LATAM">
+<meta property="og:description" content="No entregamos informes. Ejecutamos. Agendá 30 minutos con los socios.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@200;300;400&family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Calendly widget (para popup button) -->
+<link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet">
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
+
+<style>
+  :root {
+    --bosque: #0A1A0C;
+    --noche: #0F1F12;
+    --selva: #1E3A28;
+    --pasto: #2C5038;
+    --arena: #C4A882;
+    --trigo: #D9C4A3;
+    --dorado: #9B8259;
+    --lino: #E8E4DC;
+    --marfil: #F5F2EC;
+    --neblina: #7A8A7E;
+    --white: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--marfil);
+    color: var(--bosque);
+    font-weight: 300;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .amp {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    color: var(--arena);
+    font-style: normal;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  ::selection { background: var(--arena); color: var(--bosque); }
+
+  /* ============ STICKY BOOK CTA (mobile) ============ */
+  .book-sticky {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    z-index: 90;
+    background: var(--arena);
+    color: var(--bosque);
+    padding: 16px 20px;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(10, 26, 12, 0.25);
+    display: none;
+  }
+
+  /* ============ NAV ============ */
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    background: transparent;
+  }
+
+  .nav.scrolled {
+    background: rgba(10, 26, 12, 0.9);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 14px 48px;
+    border-bottom: 1px solid rgba(196, 168, 130, 0.12);
+  }
+
+  .nav-brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--lino);
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .nav-brand .soft { font-weight: 300; opacity: 0.55; }
+  .nav-brand .tagline {
+    font-size: 8px;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--arena);
+    margin-top: 4px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+  }
+
+  .nav-links a {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232, 228, 220, 0.72);
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--arena); }
+
+  .nav-cta {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--bosque) !important;
+    background: var(--arena);
+    padding: 11px 22px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-cta:hover { background: var(--trigo); transform: translateY(-1px); }
+  .nav-cta .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--bosque);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ============ HERO ============ */
+  .hero {
+    min-height: 100vh;
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 160px 80px 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(196, 168, 130, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(196, 168, 130, 0.035) 1px, transparent 1px);
+    background-size: 80px 80px;
+    pointer-events: none;
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: 20%; right: -10%;
+    width: 780px; height: 780px;
+    background: radial-gradient(circle, rgba(196, 168, 130, 0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .hero-top {
+    position: relative; z-index: 2;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--arena);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-top::before {
+    content: '';
+    width: 8px; height: 8px;
+    background: var(--arena);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .hero-lockup {
+    position: relative; z-index: 2;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(196, 168, 130, 0.2);
+    display: inline-flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .hero-lockup .lockup-name {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--lino);
+    line-height: 1;
+  }
+  .hero-lockup .lockup-name .soft { font-weight: 300; opacity: 0.55; }
+  .hero-lockup .lockup-tagline {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+  }
+
+  .hero-mid { position: relative; z-index: 2; max-width: 1280px; }
+
+  .hero-title {
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-size: clamp(40px, 6.2vw, 108px);
+    white-space: nowrap;
+  }
+
+  .hero-title .line1 { color: var(--arena); display: block; font-weight: 700; }
+  .hero-title .line2 {
+    color: rgba(232, 228, 220, 0.55);
+    font-weight: 300;
+    display: block;
+  }
+  .hero-title .sand-accent { color: var(--arena); }
+
+  .hero-sub {
+    margin-top: 44px;
+    font-size: clamp(17px, 1.65vw, 21px);
+    font-weight: 300;
+    color: rgba(232, 228, 220, 0.82);
+    max-width: 700px;
+    line-height: 1.55;
+  }
+  .hero-sub strong { color: var(--lino); font-weight: 500; }
+
+  .hero-ctas {
+    margin-top: 52px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 32px;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    transition: all 0.25s;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--arena);
+    color: var(--bosque);
+  }
+  .btn-primary:hover {
+    background: var(--trigo);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(196, 168, 130, 0.25);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--lino);
+    border-color: rgba(232, 228, 220, 0.25);
+  }
+  .btn-ghost:hover { border-color: var(--arena); color: var(--arena); }
+
+  .btn .arrow { transition: transform 0.25s; }
+  .btn:hover .arrow { transform: translateX(4px); }
+
+  .hero-proof {
+    position: relative; z-index: 2;
+    margin-top: 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 12px;
+    color: rgba(232, 228, 220, 0.55);
+    letter-spacing: 0.05em;
+  }
+  .hero-proof .check {
+    color: var(--arena);
+    font-weight: 600;
+  }
+
+  .hero-bottom {
+    position: relative; z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+    padding-top: 40px;
+    border-top: 1px solid rgba(196, 168, 130, 0.18);
+    margin-top: 80px;
+  }
+
+  .hero-stat .stat-num {
+    font-size: clamp(32px, 3.2vw, 48px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--arena);
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+  .hero-stat .stat-label {
+    font-size: 12px;
+    color: rgba(232, 228, 220, 0.7);
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+  }
+
+  /* ============ SECTIONS ============ */
+  section {
+    padding: 120px 80px;
+    position: relative;
+  }
+
+  section.dark { background: var(--bosque); color: var(--lino); }
+  section.noche { background: var(--noche); color: var(--lino); }
+  section.selva { background: var(--selva); color: var(--lino); }
+  section.lino { background: var(--lino); }
+  section.marfil { background: var(--marfil); }
+
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--arena);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .label::before {
+    content: '';
+    width: 24px; height: 1px;
+    background: var(--arena);
+  }
+
+  h2 {
+    font-size: clamp(38px, 5.2vw, 72px);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+    margin-bottom: 48px;
+  }
+  h3 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 16px; }
+
+  p { font-size: 16px; line-height: 1.7; font-weight: 300; }
+
+  .lead {
+    font-size: clamp(20px, 1.9vw, 26px);
+    font-weight: 300;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+    max-width: 780px;
+  }
+  .lead strong { font-weight: 600; }
+
+  /* ============ POSITIONING ============ */
+  .concept {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 80px;
+    align-items: start;
+  }
+
+  .concept-quote {
+    margin-top: 40px;
+    padding: 32px 36px;
+    background: var(--lino);
+    border-left: 3px solid var(--arena);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.5;
+    position: relative;
+    font-style: italic;
+  }
+  .concept-quote::before {
+    content: '"';
+    position: absolute;
+    top: -8px; left: 18px;
+    font-family: Georgia, serif;
+    font-size: 72px;
+    color: var(--arena);
+    opacity: 0.35;
+    line-height: 1;
+    font-style: normal;
+  }
+
+  /* ============ PATHS ============ */
+  .paths {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  .path {
+    padding: 56px 48px;
+    min-height: 560px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 0.3s ease;
+  }
+  .path:hover { transform: translateY(-4px); }
+
+  .path-01 {
+    background: var(--marfil);
+    border-top: 3px solid var(--arena);
+  }
+  .path-02 {
+    background: var(--selva);
+    color: var(--lino);
+    border-top: 3px solid var(--arena);
+  }
+
+  .path-num {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 28px;
+  }
+  .path-02 .path-num { color: var(--arena); }
+
+  .path-title {
+    font-size: clamp(32px, 3.4vw, 44px);
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.02;
+    margin-bottom: 14px;
+  }
+
+  .path-sub {
+    font-size: 14px;
+    color: var(--neblina);
+    margin-bottom: 32px;
+    letter-spacing: 0.02em;
+  }
+  .path-02 .path-sub { color: rgba(232, 228, 220, 0.6); }
+
+  .path-desc {
+    font-size: 16px;
+    line-height: 1.6;
+    font-weight: 300;
+    margin-bottom: 32px;
+  }
+  .path-02 .path-desc { color: rgba(232, 228, 220, 0.85); }
+
+  .path-lead {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .path-02 .path-lead { color: var(--arena); }
+
+  .path-leader {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 24px;
+    letter-spacing: -0.01em;
+  }
+
+  .path-list {
+    list-style: none;
+    margin-top: auto;
+  }
+  .path-list li {
+    padding: 14px 0;
+    border-top: 1px solid rgba(10, 26, 12, 0.1);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .path-02 .path-list li { border-color: rgba(232, 228, 220, 0.12); }
+  .path-list li::before {
+    content: '';
+    width: 5px; height: 5px;
+    background: var(--arena);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .path-model {
+    margin-top: 32px;
+    padding: 24px 28px;
+    background: rgba(196, 168, 130, 0.1);
+    border-left: 2px solid var(--arena);
+  }
+  .path-02 .path-model {
+    background: rgba(196, 168, 130, 0.1);
+  }
+  .path-model .pm-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .path-02 .path-model .pm-eyebrow { color: var(--arena); }
+  .path-model .pm-structure {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .path-model .pm-structure .highlight {
+    color: var(--dorado);
+    font-weight: 700;
+  }
+  .path-02 .path-model .pm-structure .highlight { color: var(--arena); }
+  .path-model .pm-pitch {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--neblina);
+    font-style: italic;
+  }
+  .path-02 .path-model .pm-pitch { color: rgba(232, 228, 220, 0.7); }
+
+  /* ============ CASES ============ */
+  .cases-intro {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 80px;
+    align-items: end;
+    margin-bottom: 56px;
+  }
+
+  .cases-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding-top: 28px;
+    border-top: 1px solid rgba(10, 26, 12, 0.1);
+  }
+  .cases-meta .cm-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 36px;
+    color: var(--arena);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .cases-meta .cm-label {
+    font-size: 11px;
+    color: var(--neblina);
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+  }
+
+  .cases-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  .case {
+    background: var(--marfil);
+    padding: 0;
+    border-top: 3px solid var(--arena);
+    display: flex;
+    flex-direction: column;
+    min-height: 580px;
+    transition: transform 0.3s ease;
+  }
+  .case:hover { transform: translateY(-6px); }
+
+  .case.dark-case {
+    background: var(--bosque);
+    color: var(--lino);
+  }
+
+  .case-head {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  }
+  .case.dark-case .case-head { border-bottom-color: rgba(232, 228, 220, 0.1); }
+
+  .case-client {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .case-logo {
+    width: 52px; height: 52px;
+    background: var(--bosque);
+    color: var(--arena);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .case.dark-case .case-logo {
+    background: var(--arena);
+    color: var(--bosque);
+  }
+
+  .case-name {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .case-sector {
+    font-size: 11px;
+    color: var(--neblina);
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+  }
+  .case.dark-case .case-sector { color: rgba(232, 228, 220, 0.6); }
+
+  .case-tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    padding: 5px 10px;
+    border: 1px solid var(--arena);
+    margin-bottom: 20px;
+  }
+  .case.dark-case .case-tag { color: var(--arena); }
+
+  .case-metric {
+    font-size: clamp(40px, 3.6vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--bosque);
+  }
+  .case.dark-case .case-metric { color: var(--arena); }
+
+  .case-metric-label {
+    font-size: 13px;
+    color: var(--neblina);
+    margin-top: 10px;
+    line-height: 1.45;
+  }
+  .case.dark-case .case-metric-label { color: rgba(232, 228, 220, 0.7); }
+
+  .case-body {
+    padding: 32px 40px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .case-desc {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    color: rgba(10, 26, 12, 0.78);
+  }
+  .case.dark-case .case-desc { color: rgba(232, 228, 220, 0.8); }
+
+  .case-quote {
+    margin-top: auto;
+    padding: 20px 0 0;
+    border-top: 1px solid rgba(10, 26, 12, 0.08);
+    font-size: 14px;
+    font-style: italic;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .case.dark-case .case-quote { border-top-color: rgba(232, 228, 220, 0.1); }
+
+  .case-author {
+    margin-top: 14px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--dorado);
+    font-weight: 600;
+    font-style: normal;
+  }
+  .case.dark-case .case-author { color: var(--arena); }
+
+  /* ============ TESTIMONIAL (featured) ============ */
+  .testimonial {
+    margin-top: 56px;
+    padding: 60px 72px;
+    background: var(--bosque);
+    color: var(--lino);
+    border-left: 3px solid var(--arena);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .testimonial::before {
+    content: '"';
+    position: absolute;
+    top: -32px; left: 32px;
+    font-family: Georgia, serif;
+    font-size: 240px;
+    color: var(--arena);
+    opacity: 0.18;
+    line-height: 1;
+  }
+
+  .testimonial-text {
+    font-size: clamp(22px, 2.2vw, 32px);
+    font-weight: 300;
+    line-height: 1.35;
+    letter-spacing: -0.018em;
+    max-width: 960px;
+    position: relative;
+  }
+
+  .testimonial-text strong { font-weight: 600; color: var(--arena); }
+
+  .testimonial-author {
+    margin-top: 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+  }
+
+  .ta-avatar {
+    width: 48px; height: 48px;
+    background: var(--arena);
+    color: var(--bosque);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .ta-name {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .ta-role {
+    font-size: 11px;
+    color: var(--arena);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* ============ VALORES ============ */
+  .valores {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    background: rgba(10, 26, 12, 0.08);
+    border: 1px solid rgba(10, 26, 12, 0.08);
+    margin-top: 16px;
+  }
+  .valor {
+    background: var(--marfil);
+    padding: 56px 44px;
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+  }
+  .valor-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 72px;
+    color: var(--arena);
+    line-height: 1;
+    margin-bottom: 28px;
+  }
+  .valor-name {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 18px;
+  }
+  .valor-desc {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--neblina);
+    margin-top: auto;
+  }
+
+  /* ============ PROCESS ============ */
+  .process {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin-top: 16px;
+    border-top: 1px solid rgba(10, 26, 12, 0.12);
+    border-bottom: 1px solid rgba(10, 26, 12, 0.12);
+  }
+  .step {
+    padding: 48px 32px;
+    border-right: 1px solid rgba(10, 26, 12, 0.08);
+  }
+  .step:last-child { border-right: none; }
+  .step-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 48px;
+    color: var(--arena);
+    line-height: 1;
+    margin-bottom: 24px;
+  }
+  .step-title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: 10px;
+  }
+  .step-desc {
+    font-size: 14px;
+    color: var(--neblina);
+    line-height: 1.55;
+  }
+  .step-time {
+    display: inline-block;
+    margin-top: 14px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    padding: 4px 10px;
+    background: var(--lino);
+  }
+
+  /* ============ MODELO COMERCIAL ============ */
+  .models {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  .model {
+    padding: 48px 44px;
+    background: var(--bosque);
+    color: var(--lino);
+    border-top: 3px solid var(--arena);
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+  }
+
+  .model-01 {
+    background: var(--bosque);
+  }
+  .model-02 {
+    background: var(--selva);
+  }
+
+  .model-tag {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .model-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 28px;
+  }
+
+  .model-breakdown {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 28px;
+  }
+
+  .model-breakdown li {
+    padding: 18px 0;
+    border-top: 1px solid rgba(232, 228, 220, 0.12);
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  .model-breakdown li:last-child { border-bottom: 1px solid rgba(232, 228, 220, 0.12); }
+
+  .model-breakdown .mb-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 20px;
+    color: var(--arena);
+    line-height: 1;
+  }
+
+  .model-breakdown .mb-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .model-breakdown .mb-desc {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(232, 228, 220, 0.8);
+    font-weight: 300;
+  }
+
+  .model-pitch {
+    margin-top: auto;
+    padding: 20px 22px;
+    background: rgba(196, 168, 130, 0.1);
+    border-left: 2px solid var(--arena);
+    font-size: 15px;
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--lino);
+  }
+
+  /* ============ PARTNERS ============ */
+  .partners {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  .partner {
+    background: var(--marfil);
+    padding: 56px 48px;
+    border-left: 3px solid var(--arena);
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .partner-avatar {
+    width: 72px; height: 72px;
+    background: var(--bosque);
+    color: var(--arena);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+  }
+
+  .partner-name {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 8px;
+  }
+
+  .partner-role {
+    font-size: 12px;
+    color: var(--dorado);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  .partner-bio {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--bosque);
+    margin-bottom: 24px;
+  }
+
+  .partner-quote {
+    padding: 20px 22px;
+    background: var(--lino);
+    border-left: 2px solid var(--arena);
+    font-size: 15px;
+    line-height: 1.5;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--bosque);
+    margin-bottom: 24px;
+  }
+
+  .partner-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+  }
+
+  .skill {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 7px 13px;
+    background: var(--bosque);
+    color: var(--lino);
+    font-weight: 400;
+  }
+
+  /* ============ VERSUS TABLE ============ */
+  .versus {
+    margin-top: 16px;
+    border: 1px solid rgba(232, 228, 220, 0.14);
+  }
+  .versus-head {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    border-bottom: 1px solid rgba(232, 228, 220, 0.14);
+  }
+  .versus-head .v-cell {
+    padding: 28px 32px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .versus-head .v-dimension { color: rgba(232, 228, 220, 0.5); }
+  .versus-head .v-agency {
+    background: rgba(176, 75, 58, 0.08);
+    color: rgba(232, 228, 220, 0.75);
+    border-left: 1px solid rgba(232, 228, 220, 0.14);
+  }
+  .versus-head .v-dc {
+    background: rgba(196, 168, 130, 0.1);
+    color: var(--arena);
+    border-left: 1px solid rgba(232, 228, 220, 0.14);
+  }
+  .versus-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    border-bottom: 1px solid rgba(232, 228, 220, 0.08);
+  }
+  .versus-row:last-child { border-bottom: none; }
+  .versus-row .v-cell {
+    padding: 28px 32px;
+    font-size: 15px;
+    line-height: 1.5;
+    font-weight: 300;
+    color: rgba(232, 228, 220, 0.85);
+  }
+  .versus-row .v-dimension-cell {
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(232, 228, 220, 0.55);
+    font-weight: 500;
+  }
+  .versus-row .v-agency-cell {
+    border-left: 1px solid rgba(232, 228, 220, 0.08);
+    color: rgba(232, 228, 220, 0.5);
+    text-decoration: line-through;
+    text-decoration-color: rgba(176, 75, 58, 0.45);
+    text-decoration-thickness: 1px;
+  }
+  .versus-row .v-dc-cell {
+    border-left: 1px solid rgba(232, 228, 220, 0.08);
+    color: var(--lino);
+    font-weight: 400;
+  }
+  .versus-row .v-dc-cell strong { color: var(--arena); font-weight: 600; }
+  @media (max-width: 900px) {
+    .versus-head, .versus-row { grid-template-columns: 1fr; }
+    .versus-head .v-cell, .versus-row .v-cell { border-left: none !important; }
+    .versus-row .v-dimension-cell {
+      background: rgba(196, 168, 130, 0.08);
+      padding: 14px 24px;
+    }
+    .versus-row .v-cell { padding: 18px 24px; }
+    .versus-row .v-agency-cell::before {
+      content: 'Agencia tradicional · ';
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--red-warn, #B04B3A);
+      display: block;
+      margin-bottom: 4px;
+      text-decoration: none;
+    }
+    .versus-row .v-dc-cell::before {
+      content: 'DC · ';
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--arena);
+      display: block;
+      margin-bottom: 4px;
+    }
+  }
+
+  /* ============ DIFFERENTIATORS ============ */
+  .diffs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    margin-top: 16px;
+    border: 1px solid rgba(232, 228, 220, 0.12);
+  }
+  .diff {
+    padding: 56px 48px;
+    border-right: 1px solid rgba(232, 228, 220, 0.12);
+    border-bottom: 1px solid rgba(232, 228, 220, 0.12);
+    transition: background 0.3s;
+  }
+  .diff:hover { background: rgba(196, 168, 130, 0.04); }
+  .diff:nth-child(2n) { border-right: none; }
+  .diff:nth-last-child(-n+2) { border-bottom: none; }
+  .diff-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 56px;
+    color: var(--arena);
+    line-height: 1;
+    margin-bottom: 28px;
+  }
+  .diff-title {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+    color: var(--lino);
+  }
+  .diff-desc {
+    font-size: 15px;
+    color: rgba(232, 228, 220, 0.72);
+    line-height: 1.6;
+  }
+
+  /* ============ FAQ ============ */
+  .faq-list {
+    margin-top: 16px;
+    border-top: 1px solid rgba(10, 26, 12, 0.1);
+  }
+  .faq-item { border-bottom: 1px solid rgba(10, 26, 12, 0.1); }
+  .faq-q {
+    padding: 28px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    transition: color 0.2s;
+    gap: 24px;
+  }
+  .faq-q:hover { color: var(--dorado); }
+  .faq-toggle {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 28px;
+    color: var(--arena);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+  .faq-item.open .faq-toggle { transform: rotate(45deg); }
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, padding 0.35s ease;
+    font-size: 16px;
+    color: var(--neblina);
+    line-height: 1.65;
+    padding: 0;
+    max-width: 780px;
+  }
+  .faq-item.open .faq-a { max-height: 600px; padding: 0 0 28px; }
+
+  /* ============ FINAL CTA (Calendly) ============ */
+  .cta-final {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 140px 80px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-final::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+
+  .cta-final-glow {
+    position: absolute;
+    bottom: -40%; left: 50%;
+    transform: translateX(-50%);
+    width: 900px; height: 900px;
+    background: radial-gradient(circle, rgba(196, 168, 130, 0.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .cta-final-inner { position: relative; z-index: 2; max-width: 960px; margin: 0 auto; }
+
+  .cta-final-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+    margin-bottom: 32px;
+  }
+
+  .cta-final h2 {
+    color: var(--lino);
+    font-size: clamp(44px, 6vw, 84px);
+    margin-bottom: 24px;
+  }
+
+  .cta-final h2 .sand { color: var(--arena); }
+
+  .cta-final-sub {
+    font-size: 19px;
+    max-width: 680px;
+    margin: 0 auto 48px;
+    line-height: 1.55;
+    color: rgba(232, 228, 220, 0.78);
+  }
+
+  .cta-big {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 24px 52px;
+    background: var(--arena);
+    color: var(--bosque);
+    font-size: 14px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    transition: all 0.25s;
+    border: none;
+    cursor: pointer;
+  }
+
+  .cta-big:hover {
+    background: var(--trigo);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(196, 168, 130, 0.3);
+  }
+
+  .cta-meta {
+    margin-top: 48px;
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: rgba(232, 228, 220, 0.65);
+  }
+
+  .cta-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cta-meta .check { color: var(--arena); font-weight: 700; }
+
+  /* ============ FOOTER ============ */
+  footer {
+    padding: 80px;
+    background: var(--noche);
+    color: var(--lino);
+  }
+
+  .foot-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 48px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid rgba(232, 228, 220, 0.1);
+  }
+
+  .foot-brand {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+  .foot-brand .soft { font-weight: 300; opacity: 0.5; }
+
+  .foot-brand-tagline {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 500;
+    margin-bottom: 20px;
+  }
+
+  .foot-tag {
+    font-size: 14px;
+    color: rgba(232, 228, 220, 0.65);
+    max-width: 420px;
+    line-height: 1.55;
+    margin-bottom: 24px;
+  }
+
+  .foot-label {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--arena);
+    margin-bottom: 18px;
+  }
+  .foot-list { list-style: none; }
+  .foot-list li {
+    font-size: 14px;
+    padding: 7px 0;
+    color: rgba(232, 228, 220, 0.72);
+  }
+  .foot-list a:hover { color: var(--arena); }
+
+  .foot-bottom {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 36px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232, 228, 220, 0.4);
+  }
+
+  /* ============ AVAILABILITY BANNER ============ */
+  .availability-banner {
+    background: var(--arena);
+    color: var(--bosque);
+    padding: 12px 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 101;
+    flex-wrap: wrap;
+  }
+  .availability-banner .ab-dot {
+    width: 8px; height: 8px;
+    background: var(--bosque);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .availability-banner strong { font-weight: 700; }
+  .availability-banner .ab-cta {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ============ SKIN IN THE GAME ============ */
+  .skin-section {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 140px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+  .skin-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+  .skin-section .skin-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .skin-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+    margin-bottom: 32px;
+    font-weight: 600;
+  }
+  .skin-headline {
+    font-size: clamp(36px, 5.2vw, 68px);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    margin-bottom: 48px;
+    max-width: 1100px;
+  }
+  .skin-headline .sand { color: var(--arena); }
+  .skin-headline .strike {
+    text-decoration: line-through;
+    text-decoration-color: rgba(176, 75, 58, 0.6);
+    text-decoration-thickness: 3px;
+    opacity: 0.6;
+  }
+
+  .skin-question {
+    background: rgba(196, 168, 130, 0.08);
+    border-left: 4px solid var(--arena);
+    padding: 48px 56px;
+    margin: 48px 0;
+    border-radius: 0;
+    position: relative;
+  }
+  .skin-question::before {
+    content: '"';
+    position: absolute;
+    top: -20px;
+    left: 32px;
+    font-family: Georgia, serif;
+    font-size: 160px;
+    color: var(--arena);
+    opacity: 0.22;
+    line-height: 1;
+  }
+  .skin-question-label {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .skin-question-text {
+    font-size: clamp(24px, 2.8vw, 40px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: var(--lino);
+    position: relative;
+    max-width: 960px;
+  }
+  .skin-question-text strong {
+    font-weight: 800;
+    color: var(--arena);
+  }
+
+  .skin-explain {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin-top: 64px;
+    border-top: 1px solid rgba(196, 168, 130, 0.2);
+  }
+  .skin-explain-item {
+    padding: 40px 32px 40px 0;
+    border-right: 1px solid rgba(196, 168, 130, 0.12);
+  }
+  .skin-explain-item:last-child { border-right: none; padding-right: 0; }
+  .skin-explain-item:not(:first-child) { padding-left: 32px; }
+
+  .see-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 44px;
+    color: var(--arena);
+    line-height: 1;
+    margin-bottom: 20px;
+  }
+  .see-title {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: 12px;
+    color: var(--lino);
+  }
+  .see-desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(232, 228, 220, 0.7);
+  }
+
+  .skin-cta-row {
+    margin-top: 64px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding-top: 48px;
+    border-top: 1px solid rgba(196, 168, 130, 0.2);
+  }
+  .skin-cta-text {
+    flex: 1;
+    min-width: 280px;
+    font-size: 18px;
+    color: rgba(232, 228, 220, 0.85);
+    font-weight: 300;
+  }
+
+  /* ============ CUPO SECTION ============ */
+  .cupo-section {
+    background: var(--lino);
+    padding: 120px 80px;
+  }
+  .cupo-intro {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: end;
+    margin-bottom: 56px;
+  }
+  .cupo-grid-slots {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    gap: 8px;
+    margin: 48px 0 32px;
+  }
+  .slot {
+    aspect-ratio: 1;
+    background: var(--bosque);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+  }
+  .slot.available {
+    background: var(--arena);
+    animation: slotPulse 3s ease-in-out infinite;
+  }
+  @keyframes slotPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .slot .slot-num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 20px;
+    color: rgba(232, 228, 220, 0.35);
+  }
+  .slot.available .slot-num {
+    color: var(--bosque);
+    font-weight: 600;
+  }
+  .cupo-legend {
+    display: flex;
+    gap: 32px;
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--neblina);
+    letter-spacing: 0.02em;
+  }
+  .cupo-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cupo-legend .key {
+    width: 14px; height: 14px;
+    display: inline-block;
+  }
+  .cupo-legend .key-filled { background: var(--bosque); }
+  .cupo-legend .key-open { background: var(--arena); }
+
+  .cupo-summary {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 32px;
+    align-items: center;
+    padding: 32px 40px;
+    background: var(--bosque);
+    color: var(--lino);
+    margin-top: 48px;
+  }
+  .cupo-summary .cs-num {
+    font-size: 64px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--arena);
+  }
+  .cupo-summary .cs-text {
+    font-size: 16px;
+    line-height: 1.5;
+    color: rgba(232, 228, 220, 0.85);
+  }
+  .cupo-summary .cs-text strong { color: var(--lino); font-weight: 600; }
+
+  /* ============ INLINE CTA ============ */
+  .inline-cta {
+    margin-top: 72px;
+    padding: 36px 44px;
+    background: var(--bosque);
+    color: var(--lino);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    flex-wrap: wrap;
+    border-left: 3px solid var(--arena);
+  }
+  .inline-cta-text { flex: 1; min-width: 280px; }
+  .inline-cta-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .inline-cta-title {
+    font-size: clamp(20px, 2vw, 26px);
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    line-height: 1.3;
+  }
+
+  .inline-cta.light {
+    background: var(--lino);
+    color: var(--bosque);
+  }
+  .inline-cta.light .inline-cta-eyebrow { color: var(--dorado); }
+
+  /* Secciones que terminan con inline-cta: reducir padding inferior */
+  section.tight-bottom { padding-bottom: 40px; }
+  section.tight-bottom + section { padding-top: 80px; }
+
+  /* ============ REVEAL ANIM ============ */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 900px) {
+    .nav { padding: 14px 20px; }
+    .nav-links { gap: 0; }
+    .nav-links a:not(.nav-cta) { display: none; }
+    .nav-cta { padding: 10px 16px; font-size: 11px; }
+    .hero { padding: 110px 24px 140px; }
+    section { padding: 72px 24px; }
+    .cta-final { padding: 90px 24px; }
+    footer { padding: 48px 24px; }
+    .book-sticky { display: block; }
+    .concept, .cases-intro { grid-template-columns: 1fr; gap: 32px; }
+    .paths, .valores, .partners, .diffs, .cases-grid, .models { grid-template-columns: 1fr; }
+    .process { grid-template-columns: repeat(2, 1fr); }
+    .step { border-right: 1px solid rgba(10,26,12,0.08) !important; border-bottom: 1px solid rgba(10,26,12,0.08); }
+    .step:nth-child(2n) { border-right: none !important; }
+    .hero-bottom { grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 56px; }
+    .hero-stat .stat-num { font-size: 28px; }
+    .foot-grid { grid-template-columns: 1fr; gap: 32px; }
+    .foot-bottom { flex-direction: column; gap: 12px; }
+    .cases-meta { grid-template-columns: 1fr; gap: 16px; }
+    .diff:nth-child(2n) { border-right: none; }
+    .diff { border-right: none !important; }
+    .testimonial { padding: 48px 28px; }
+    .testimonial::before { font-size: 160px; top: -20px; left: 12px; }
+    .skin-section { padding: 80px 24px; }
+    .skin-question { padding: 32px 24px; }
+    .skin-explain { grid-template-columns: 1fr; }
+    .skin-explain-item { border-right: none !important; border-bottom: 1px solid rgba(196, 168, 130, 0.12); padding: 32px 0 !important; }
+    .skin-explain-item:last-child { border-bottom: none; }
+    .cupo-section { padding: 80px 24px; }
+    .cupo-intro { grid-template-columns: 1fr; gap: 32px; }
+    .cupo-grid-slots { grid-template-columns: repeat(6, 1fr); }
+    .cupo-summary { grid-template-columns: 1fr; text-align: center; padding: 28px; }
+    .cupo-summary .cs-num { font-size: 48px; }
+    .inline-cta { padding: 28px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+  NOTA PARA FEDERICO / GIANLUCA:
+  1. Reemplazar la URL de Calendly en los botones y en el popup
+     (buscar: "REEMPLAZAR_CALENDLY").
+  2. Los testimonios en los casos son placeholders editoriales
+     escritos a partir de las métricas del brand board.
+     Confirmar con los clientes reales antes de publicar en prod.
+  3. Marca: "Dearmas Costantini" sin ampersand — el & fue retirado
+     del logo según el nuevo brand board.
+============================================================= -->
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="nav">
+  <a href="#top" class="nav-brand">
+    <span>Dearmas <span class="soft">Costantini</span></span>
+    <span class="tagline">Business Growth Partners</span>
+  </a>
+  <div class="nav-links">
+    <a href="#caminos">Caminos</a>
+    <a href="#casos">Casos</a>
+    <a href="#skin">Modelo</a>
+    <a href="#cupo">Cupos</a>
+    <a href="#socios">Socios</a>
+    <a href="#faq">FAQ</a>
+    <a href="#agendar" class="nav-cta" onclick="openCalendly(event)">
+      <span class="dot"></span>
+      Agendar 30 min
+    </a>
+  </div>
+</nav>
+
+<!-- ============ STICKY MOBILE CTA ============ -->
+<a href="#agendar" class="book-sticky" onclick="openCalendly(event)">Agendar 30 min con los socios →</a>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="top">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-mid">
+    <h1 class="hero-title">
+      <span class="line1">Tu socio de crecimiento</span>
+      <span class="line2">en LATAM.</span>
+    </h1>
+    <p class="hero-sub">
+      No somos una agencia. Somos una firma que se asocia a tu empresa con <strong>ejecución directa</strong> y <strong>responsabilidad sobre los resultados</strong>. Estrategia digital para quien vende online. IA para quien opera offline.
+    </p>
+    <div class="hero-ctas">
+      <button class="btn btn-primary" onclick="openCalendly(event)">
+        Agendar 30 min con los socios <span class="arrow">→</span>
+      </button>
+      <a href="#casos" class="btn btn-ghost">
+        Ver casos reales
+      </a>
+    </div>
+    <div class="hero-proof">
+      <span class="check">✓</span> Reunión directa con Fede o Gian — no con un comercial · Sin compromiso
+    </div>
+  </div>
+
+  <div class="hero-bottom">
+    <div class="hero-stat">
+      <div class="stat-num">2</div>
+      <div class="stat-label">Socios involucrados<br>en todas las cuentas</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-num">5<span style="font-size: 0.65em;">+</span></div>
+      <div class="stat-label">Años ejecutando<br>en negocios reales</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-num">LATAM</div>
+      <div class="stat-label">Uruguay, Argentina,<br>Chile, México, Colombia</div>
+    </div>
+    <div class="hero-stat hero-stat-cupo">
+      <div class="stat-num"><span id="cupo-disponibles">3</span><span style="font-size: 0.5em; color: rgba(232,228,220,0.55); font-weight: 300;">/11</span></div>
+      <div class="stat-label"><span style="color: var(--arena); font-weight: 500;">Cupos disponibles</span><br>este año · atención directa</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ POSITIONING ============ -->
+<section class="marfil reveal">
+  <div class="concept">
+    <div>
+      <div class="label">Posicionamiento</div>
+      <h2>No es una agencia.<br>Es un socio.</h2>
+    </div>
+    <div>
+      <p class="lead">
+        Dearmas Costantini no vende servicios. Se asocia a las empresas como <strong>Growth Partner</strong> — diseña la estrategia, implementa los sistemas y asume la responsabilidad de que los resultados lleguen.
+      </p>
+      <div class="concept-quote">
+        DC nace de quienes ejecutan en lugar de informar, de quienes se asocian en lugar de vender servicios — y entendieron que el crecimiento no se terceriza, se construye en conjunto.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PATHS ============ -->
+<section class="lino reveal" id="caminos">
+  <div class="label">Cómo entramos</div>
+  <h2>Una firma,<br>dos tipos de negocio.</h2>
+
+  <div class="paths">
+    <div class="path path-01">
+      <div class="path-num">Camino 01</div>
+      <div class="path-title">Negocios<br>digitales.</div>
+      <div class="path-sub">E-commerce · Venta online</div>
+      <p class="path-desc">
+        Si tu negocio vende online, nos asociamos al crecimiento. Estrategia, performance y conversión, ejecutados por nosotros — sin tercerizar a terceros.
+      </p>
+      <div class="path-lead">Cómo trabajamos</div>
+      <div class="path-leader">Ambos socios en la cuenta · equipo dedicado ejecutando</div>
+      <ul class="path-list">
+        <li>Estrategia digital completa</li>
+        <li>Gestión de canales y performance</li>
+        <li>Optimización de conversión</li>
+        <li>Fede y Gian al tanto de cada decisión crítica</li>
+      </ul>
+      <div class="path-model">
+        <div class="pm-eyebrow">Cómo cobramos</div>
+        <div class="pm-structure">
+          Fee estructural mensual <span class="highlight">+ 2–4% de la facturación</span> — atado al objetivo de crecimiento.
+        </div>
+        <div class="pm-pitch">"¿Estás dispuesto a que tu negocio crezca un 30% solo por el 2% de la facturación?"</div>
+      </div>
+    </div>
+    <div class="path path-02">
+      <div class="path-num">Camino 02</div>
+      <div class="path-title">Negocios<br>tradicionales.</div>
+      <div class="path-sub">Operaciones offline</div>
+      <p class="path-desc">
+        Si tu negocio opera offline, diagnosticamos los procesos e implementamos IA a medida para automatizar lo que hoy consume tiempo y margen.
+      </p>
+      <div class="path-lead">Cómo trabajamos</div>
+      <div class="path-leader">Ambos socios en la cuenta · equipo técnico ejecutando</div>
+      <ul class="path-list">
+        <li>Diagnóstico de procesos internos</li>
+        <li>Implementación de IA a medida</li>
+        <li>Automatización de operaciones</li>
+        <li>Fede y Gian al tanto de cada decisión crítica</li>
+      </ul>
+      <div class="path-model">
+        <div class="pm-eyebrow">Cómo cobramos</div>
+        <div class="pm-structure">
+          <span class="highlight">Fee de instalación</span> + fee mensual de mantenimiento y soporte.
+        </div>
+        <div class="pm-pitch">Construimos, dejamos funcionando y nos quedamos como socios técnicos operando y mejorando la solución.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CASES ============ -->
+<section class="marfil reveal tight-bottom" id="casos">
+  <div class="cases-intro">
+    <div>
+      <div class="label">Casos de éxito</div>
+      <h2>Resultados reales.<br>Empresas reales.</h2>
+      <p class="lead" style="color: var(--neblina);">
+        No mostramos capturas de pantalla genéricas ni proyecciones. Mostramos lo que ejecutamos con clientes que hoy siguen creciendo con nosotros.
+      </p>
+    </div>
+    <div class="cases-meta">
+      <div>
+        <div class="cm-num">+180%</div>
+        <div class="cm-label">Ventas online<br>en 6 meses</div>
+      </div>
+      <div>
+        <div class="cm-num">3x</div>
+        <div class="cm-label">Conversión<br>con nuevo embudo</div>
+      </div>
+      <div>
+        <div class="cm-num">60%</div>
+        <div class="cm-label">Consultas resueltas<br>por IA sin operador</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cases-grid">
+    <!-- Caso 1 -->
+    <div class="case">
+      <div class="case-head">
+        <div class="case-client">
+          <div class="case-logo">GW</div>
+          <div>
+            <div class="case-name">Glassy Waves</div>
+            <div class="case-sector">Surf · Lifestyle · Uruguay</div>
+          </div>
+        </div>
+        <div class="case-tag">Camino 01 · Digital</div>
+        <div class="case-metric">+180%</div>
+        <div class="case-metric-label">Ventas online en los primeros 6 meses de sociedad.</div>
+      </div>
+      <div class="case-body">
+        <p class="case-desc">
+          Estrategia completa de e-commerce: replanteo de catálogo, performance en pago, optimización de checkout y contenido orgánico. Sin tercerizar — ejecutado por el equipo de DC.
+        </p>
+        <div class="case-quote">
+          "Empezamos sin saber qué pedirles. Terminamos con una operación digital que funciona sin que tengamos que pensar en ella."
+          <div class="case-author">— Fundador · Glassy Waves · referencia bajo pedido</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Caso 2 -->
+    <div class="case dark-case">
+      <div class="case-head">
+        <div class="case-client">
+          <div class="case-logo">WT</div>
+          <div>
+            <div class="case-name">Wiz Trip</div>
+            <div class="case-sector">Turismo · Viajes · Uruguay</div>
+          </div>
+        </div>
+        <div class="case-tag">Camino 01 · Digital</div>
+        <div class="case-metric">3x</div>
+        <div class="case-metric-label">Conversión tras rediseñar el embudo de venta digital.</div>
+      </div>
+      <div class="case-body">
+        <p class="case-desc">
+          Nuevo embudo, canal digital y estrategia LATAM. Tracking desde cero, optimización por cohorte y scaling con presupuesto controlado. El equipo del cliente no tuvo que contratar a nadie más.
+        </p>
+        <div class="case-quote">
+          "La diferencia es que no esperamos una presentación. Abrimos Slack y están ahí, haciendo."
+          <div class="case-author">— Equipo fundador · Wiz Trip</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Caso 3 -->
+    <div class="case">
+      <div class="case-head">
+        <div class="case-client">
+          <div class="case-logo">IA</div>
+          <div>
+            <div class="case-name">Caso IA · Retail</div>
+            <div class="case-sector">40 pedidos/día · LATAM</div>
+          </div>
+        </div>
+        <div class="case-tag">Camino 02 · IA</div>
+        <div class="case-metric">60%</div>
+        <div class="case-metric-label">Consultas resueltas por un agente IA sin intervención humana.</div>
+      </div>
+      <div class="case-body">
+        <p class="case-desc">
+          Operación con 40 pedidos diarios automatizada con un agente IA a medida. Integrado a WhatsApp y al sistema interno — diagnóstico, diseño e implementación en tiempo real, sin SaaS de terceros.
+        </p>
+        <div class="case-quote">
+          Cliente bajo NDA · referencia disponible en segunda reunión, firmando acuerdo de confidencialidad.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Featured manifesto (reemplaza testimonial placeholder) -->
+  <div class="testimonial">
+    <p class="testimonial-text">
+      No mostramos testimoniales de clientes que no autorizaron su publicación. <strong>Te los presentamos en la segunda reunión</strong> — con nombre, número y contexto real. Es parte de cómo trabajamos: sin inventar, sin inflar.
+    </p>
+    <div class="testimonial-author">
+      <div>
+        <div class="ta-name" style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--arena); font-weight: 600;">Política de referencias · DC</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="inline-cta">
+    <div class="inline-cta-text">
+      <div class="inline-cta-eyebrow">¿Querés referencias?</div>
+      <div class="inline-cta-title">Te las presentamos en una llamada de 30 minutos con los dos socios.</div>
+    </div>
+    <button class="btn btn-primary" onclick="openCalendly(event)">
+      Agendar 30 min <span class="arrow">→</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============ VALORES ============ -->
+<section class="reveal">
+  <div class="label">Valores</div>
+  <h2>Tres pilares.<br>No negociables.</h2>
+
+  <div class="valores">
+    <div class="valor">
+      <div class="valor-num">01</div>
+      <div class="valor-name">Ejecución</div>
+      <div class="valor-desc">Entregamos trabajo terminado, no recomendaciones. La diapositiva más valiosa es la que documenta un sistema ya funcionando en producción.</div>
+    </div>
+    <div class="valor">
+      <div class="valor-num">02</div>
+      <div class="valor-name">Responsabilidad</div>
+      <div class="valor-desc">Asumimos los resultados como propios. Si algo no funciona, lo arreglamos — no lo atribuimos al mercado, al timing o al brief.</div>
+    </div>
+    <div class="valor">
+      <div class="valor-num">03</div>
+      <div class="valor-name">Sociedad</div>
+      <div class="valor-desc">Trabajamos con pocas empresas a la vez. Los dos socios están en cada cuenta — con un equipo detrás que ejecuta, nunca una cadena de intermediarios.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CUPO · DISPONIBILIDAD ============ -->
+<section class="cupo-section reveal" id="cupo">
+  <div class="cupo-intro">
+    <div>
+      <div class="label">Cupos disponibles</div>
+      <h2>11 clientes totales.<br>3 cupos abiertos.</h2>
+    </div>
+    <p class="lead" style="color: var(--neblina);">
+      No escalamos con más juniors ni account managers. La firma opera con <strong>11 cuentas activas como máximo</strong> — es la única forma de que Fede y Gian estén en todas. Cuando se llena, cerramos inscripciones hasta que un cliente cierra su ciclo.
+    </p>
+  </div>
+
+  <div class="cupo-grid-slots" id="cupo-grid">
+    <div class="slot"><span class="slot-num">01</span></div>
+    <div class="slot"><span class="slot-num">02</span></div>
+    <div class="slot"><span class="slot-num">03</span></div>
+    <div class="slot"><span class="slot-num">04</span></div>
+    <div class="slot"><span class="slot-num">05</span></div>
+    <div class="slot"><span class="slot-num">06</span></div>
+    <div class="slot"><span class="slot-num">07</span></div>
+    <div class="slot"><span class="slot-num">08</span></div>
+    <div class="slot available"><span class="slot-num">09</span></div>
+    <div class="slot available"><span class="slot-num">10</span></div>
+    <div class="slot available"><span class="slot-num">11</span></div>
+  </div>
+
+  <div class="cupo-legend">
+    <span><span class="key key-filled"></span> Ocupado · cliente activo</span>
+    <span><span class="key key-open"></span> Disponible · ingreso evaluado caso por caso</span>
+  </div>
+
+  <div class="cupo-summary">
+    <div class="cs-num">3</div>
+    <div class="cs-text">
+      Quedan <strong>3 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
+    </div>
+    <button class="btn btn-primary" onclick="openCalendly(event)">
+      Agendar reunión <span class="arrow">→</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============ SKIN IN THE GAME ============ -->
+<section class="skin-section reveal" id="skin">
+  <div class="skin-inner">
+    <div class="skin-eyebrow">Skin in the game</div>
+    <h2 class="skin-headline">
+      No cobramos <span class="strike">por hora.</span><br>
+      <span class="strike">Ni por slides.</span><br>
+      Cobramos <span class="sand">cuando vos crecés.</span>
+    </h2>
+
+    <div class="skin-question">
+      <div class="skin-question-label">La pregunta que te hacemos en la primera llamada</div>
+      <div class="skin-question-text">
+        "¿Estás dispuesto a que tu negocio <strong>crezca un 30%</strong> solo por el <strong>2% de la facturación</strong>?"
+      </div>
+    </div>
+
+    <p style="font-size: 18px; line-height: 1.6; max-width: 860px; color: rgba(232, 228, 220, 0.85); font-weight: 300;">
+      Así funciona el riesgo compartido. Un fee estructural cubre al equipo que te dedicamos. El <strong style="color: var(--arena); font-weight: 600;">success fee (2–4% de la facturación)</strong> se libera <strong>solo si tu negocio crece al menos 30%</strong>, objetivo que acordamos al cerrar el diagnóstico. Si no crecemos, no ganamos el upside. Simple.
+    </p>
+
+    <div class="skin-explain">
+      <div class="skin-explain-item">
+        <div class="see-num">01</div>
+        <div class="see-title">Riesgo compartido</div>
+        <div class="see-desc">El éxito del proyecto está en nuestra cuenta tanto como en la tuya. Si no movés la aguja, no cobramos el upside — ningún proveedor tradicional opera así.</div>
+      </div>
+      <div class="skin-explain-item">
+        <div class="see-num">02</div>
+        <div class="see-title">Incentivos alineados</div>
+        <div class="see-desc">No ganamos por facturar más horas. Ganamos por hacerte crecer. Cada decisión que tomamos está filtrada por esa pregunta — no "¿cómo justificamos el retainer?".</div>
+      </div>
+      <div class="skin-explain-item">
+        <div class="see-num">03</div>
+        <div class="see-title">Filtro automático</div>
+        <div class="see-desc">Nos fuerza a tomar solo clientes donde <em>vemos</em> crecimiento real posible. Si no lo vemos, te lo decimos en la primera llamada. No arrancamos un contrato por cobrar un fee básico.</div>
+      </div>
+    </div>
+
+    <div class="skin-cta-row">
+      <div class="skin-cta-text">
+        Si la respuesta a la pregunta es <strong style="color: var(--arena);">sí</strong>, vale la pena una llamada de 30 minutos.
+      </div>
+      <button class="btn btn-primary" onclick="openCalendly(event)">
+        Agendar 30 min <span class="arrow">→</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROCESS ============ -->
+<section class="marfil reveal">
+  <div class="label">Proceso</div>
+  <h2>De primera llamada<br>a sociedad activa.</h2>
+
+  <div class="process">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">Llamada inicial</div>
+      <div class="step-desc">30 min con Fede y Gian — no con un comercial. Entendemos tu negocio y vemos si hay encaje.</div>
+      <div class="step-time">30 min</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">Diagnóstico</div>
+      <div class="step-desc">Revisamos números, procesos y canales. Identificamos qué mueve la aguja y qué no.</div>
+      <div class="step-time">1–2 semanas</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">Propuesta de sociedad</div>
+      <div class="step-desc">Plan concreto, alcance claro, modelo con incentivos alineados a resultados.</div>
+      <div class="step-time">3–5 días</div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-title">Ejecución</div>
+      <div class="step-desc">Nos sumamos al equipo. Implementamos, medimos y ajustamos en ciclos cortos.</div>
+      <div class="step-time">Ciclos de 30 días</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MODELO COMERCIAL ============ -->
+<section class="marfil reveal" id="modelo">
+  <div class="label">Modelo comercial</div>
+  <h2>Cómo cobramos.<br>Una estructura por camino.</h2>
+  <p class="lead" style="color: var(--neblina); margin-bottom: 16px;">
+    No cobramos por horas, ni por slides, ni por "servicios" aislados. Cada camino tiene <strong>una única modalidad</strong> — clara, con incentivos alineados y sin sorpresas.
+  </p>
+
+  <div class="models">
+    <div class="model model-01">
+      <div class="model-tag">Camino 01 · Digital</div>
+      <div class="model-title">Fee estructural<br>+ 2–4% facturación.</div>
+      <ul class="model-breakdown">
+        <li>
+          <div class="mb-num">01</div>
+          <div>
+            <div class="mb-label">Fee estructural mensual</div>
+            <div class="mb-desc">Cubre estructura del equipo asignado: pauta operativa, tracking, dashboards y reuniones.</div>
+          </div>
+        </li>
+        <li>
+          <div class="mb-num">02</div>
+          <div>
+            <div class="mb-label">2–4% de la facturación</div>
+            <div class="mb-desc">Se libera solo si se cumple el objetivo de crecimiento (mínimo 30%), acordado al cerrar el diagnóstico.</div>
+          </div>
+        </li>
+      </ul>
+      <div class="model-pitch">
+        "¿Estás dispuesto a que tu negocio crezca un 30% solo por el 2% de la facturación?"
+      </div>
+    </div>
+
+    <div class="model model-02">
+      <div class="model-tag">Camino 02 · IA / Offline</div>
+      <div class="model-title">Fee de instalación<br>+ mantenimiento mensual.</div>
+      <ul class="model-breakdown">
+        <li>
+          <div class="mb-num">01</div>
+          <div>
+            <div class="mb-label">Fee de instalación</div>
+            <div class="mb-desc">Único, al construir e implementar el sistema — agente IA, automatización e integración a tu operación.</div>
+          </div>
+        </li>
+        <li>
+          <div class="mb-num">02</div>
+          <div>
+            <div class="mb-label">Fee mensual de soporte</div>
+            <div class="mb-desc">Recurrente: operación, mejoras, ajustes y soporte continuo una vez que el sistema está en producción.</div>
+          </div>
+        </li>
+      </ul>
+      <div class="model-pitch">
+        Construimos, dejamos funcionando y nos quedamos como socios técnicos operando y mejorando la solución.
+      </div>
+    </div>
+  </div>
+
+  <div class="inline-cta light">
+    <div class="inline-cta-text">
+      <div class="inline-cta-eyebrow">Números concretos</div>
+      <div class="inline-cta-title">Te pasamos el fee exacto después del diagnóstico — nunca antes.</div>
+    </div>
+    <button class="btn btn-primary" onclick="openCalendly(event)">
+      Agendar diagnóstico <span class="arrow">→</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============ PARTNERS ============ -->
+<section class="lino reveal" id="socios">
+  <div class="label">Los socios</div>
+  <h2>Dos fundadores.<br>En todas las cuentas.</h2>
+  <p class="lead" style="color: var(--neblina); margin-bottom: 48px;">
+    Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong>. El día a día operativo puede pasar con un ejecutivo de cuenta del equipo, pero los socios firman, deciden y están al tanto de cada movimiento crítico.
+  </p>
+
+  <div class="partners">
+    <div class="partner">
+      <div class="partner-avatar">FD</div>
+      <div class="partner-name">Federico Dearmas</div>
+      <div class="partner-role">Socio fundador · Comercial y Marketing</div>
+      <p class="partner-bio">
+        Foco principal en desarrollo comercial, marketing y crecimiento digital. Está presente en todas las cuentas y es la voz principal cuando el desafío es digital — pero ambos socios aportan en cualquier decisión estratégica.
+      </p>
+      <div class="partner-quote">
+        "Tengo cinco años mirando cómo empresas buenas desperdician campañas digitales por falta de ejecución. Me obsesiona arreglar eso."
+      </div>
+      <div class="partner-skills">
+        <span class="skill">Comercial</span>
+        <span class="skill">Marketing</span>
+        <span class="skill">Performance</span>
+        <span class="skill">E-commerce</span>
+      </div>
+    </div>
+    <div class="partner">
+      <div class="partner-avatar">GC</div>
+      <div class="partner-name">Gianluca Costantini</div>
+      <div class="partner-role">Socio fundador · IA y Automatización</div>
+      <p class="partner-bio">
+        Foco principal en desarrollo de IA, automatización y sistemas a medida. Está presente en todas las cuentas y es la voz principal cuando el desafío es operativo — pero ambos socios aportan en cualquier decisión estratégica.
+      </p>
+      <div class="partner-quote">
+        "La IA no es el producto. Es la herramienta con la que hago que procesos lentos y caros se vuelvan baratos y rápidos — para cada cliente."
+      </div>
+      <div class="partner-skills">
+        <span class="skill">IA Custom</span>
+        <span class="skill">Automatización</span>
+        <span class="skill">Sistemas</span>
+        <span class="skill">Ops</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA inline después de partners -->
+  <div class="inline-cta">
+    <div class="inline-cta-text">
+      <div class="inline-cta-eyebrow">Hablá con los dos socios</div>
+      <div class="inline-cta-title">La primera llamada es con Fede y Gian — juntos.</div>
+    </div>
+    <button class="btn btn-primary" onclick="openCalendly(event)">
+      Agendar 30 min <span class="arrow">→</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="marfil reveal" id="faq">
+  <div class="label">Antes de la reunión</div>
+  <h2>Las dudas que<br>suelen aparecer.</h2>
+
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q">¿Cuánto cuesta el fee estructural? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">Depende del alcance y tamaño de tu operación — lo definimos al cerrar el diagnóstico, no antes. Rango de referencia: un fee estructural mensual acorde a un equipo senior asignado part-time a tu cuenta, más el 2–4% de la facturación atado al objetivo. Si tu ticket mensual está por debajo de ese rango, no somos la opción correcta y te lo decimos en la primera llamada.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Qué pasa si no crecemos 30%? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">El success fee (2–4%) no se libera. Vos pagás sólo el fee estructural que cubre la estructura del equipo. La lógica es clara: si no movimos la aguja, no ganamos el upside. Pero si el diagnóstico mostró que el techo era menor, redefinimos el objetivo antes de firmar — no dejamos metas imposibles para cobrar un fee básico.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Por qué no contratamos un equipo in-house directamente? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">Podés. Y en algunos casos es lo correcto — te lo decimos. La diferencia: un equipo in-house necesita 6–12 meses para hacer lo que nosotros ya hicimos 15 veces. Además, nosotros asumimos riesgo comercial (success fee) que ningún empleado va a asumir. Y para el camino IA, estás contratando a dos personas más por lo que cobra un proyecto nuestro.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Cuánto dura el contrato? ¿Puedo cortarlo? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">Mínimo 6 meses para el camino digital — antes de eso no hay forma de que veamos resultados reales. Después, renovación mensual con 30 días de preaviso para cualquiera de las dos partes. No hay fine print, no hay penalidades por salir. Si no funciona, nos vamos.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Qué pasa exactamente en la llamada de 30 minutos? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">Hablás con Federico y Gianluca — los dos socios, juntos. Hacemos preguntas concretas sobre tu operación, números y contexto. Si hay encaje, agendamos una segunda reunión para armar diagnóstico. Si no, te lo decimos. Sin presentaciones, sin deck comercial.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Siempre hablo con los socios o con un ejecutivo de cuenta? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">Los dos. Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong> — firman, deciden y están al tanto de cada decisión crítica. En el día a día operativo puede haber ida y vuelta con un ejecutivo de cuenta del equipo (es lo que permite escalar sin perder calidad), pero los socios nunca desaparecen. No es el modelo "account manager como traductor" de una agencia.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Trabajan con cualquier tipo de empresa? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">No. Tomamos pocos clientes a la vez y sólo si vemos encaje real — negocios digitales con tracción donde podemos mover la aguja, o negocios tradicionales donde la IA resuelve cuellos de botella concretos. Si no encajás, te lo decimos en la primera llamada.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Venden productos de IA? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">No. La IA es la herramienta con la que ejecutamos — no un SaaS que licenciamos. Implementamos sistemas a medida, integrados a tus procesos, que quedan funcionando en tu operación.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Dónde operan? <span class="faq-toggle">+</span></div>
+      <div class="faq-a">Toda LATAM. Federico opera desde Uruguay, Gianluca desde Argentina. Trabajamos con empresas en Uruguay, Argentina, Chile, Paraguay, México, Colombia y el resto de la región — sin fricción geográfica ni representantes locales.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="cta-final" id="agendar">
+  <div class="cta-final-glow"></div>
+  <div class="cta-final-inner">
+    <div class="cta-final-eyebrow">Empezá por una conversación</div>
+    <h2>
+      No tercerizás tu crecimiento.<br>
+      <span class="sand">Sumás socios.</span>
+    </h2>
+    <p class="cta-final-sub">
+      Agendá 30 minutos con Federico o Gianluca. Evaluamos si hay encaje y, si lo hay, seguimos. Si no, te ahorramos semanas.
+    </p>
+
+    <button class="cta-big" onclick="openCalendly(event)">
+      Agendar 30 min en el calendario <span>→</span>
+    </button>
+
+    <div class="cta-meta">
+      <span><span class="check">✓</span> Directo con los socios</span>
+      <span><span class="check">✓</span> Sin compromiso</span>
+      <span><span class="check">✓</span> Respuesta en 24 h</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="foot-grid">
+    <div>
+      <div class="foot-brand">Dearmas <span class="soft">Costantini</span></div>
+      <div class="foot-brand-tagline">Business Growth Partners · LATAM</div>
+      <p class="foot-tag">Nos asociamos a tu empresa para hacerla crecer — con ejecución directa y responsabilidad sobre los resultados.</p>
+      <button class="btn btn-primary" style="padding: 14px 24px; font-size: 12px;" onclick="openCalendly(event)">
+        Agendar reunión <span class="arrow">→</span>
+      </button>
+    </div>
+    <div>
+      <div class="foot-label">Navegación</div>
+      <ul class="foot-list">
+        <li><a href="#caminos">Caminos</a></li>
+        <li><a href="#casos">Casos</a></li>
+        <li><a href="#cupo">Cupos disponibles</a></li>
+        <li><a href="#skin">Skin in the game</a></li>
+        <li><a href="#modelo">Modelo comercial</a></li>
+        <li><a href="#socios">Socios</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="foot-label">Socios</div>
+      <ul class="foot-list">
+        <li>Federico Dearmas</li>
+        <li><a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a></li>
+        <li style="margin-top: 12px;">Gianluca Costantini</li>
+        <li><a href="mailto:gianluca@dearmascostantini.com">gianluca@dearmascostantini.com</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="foot-label">Región</div>
+      <ul class="foot-list">
+        <li>Uruguay · Argentina</li>
+        <li>Chile · Paraguay</li>
+        <li>México · Colombia</li>
+        <li>+ resto de LATAM</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <div>© 2026 Dearmas Costantini</div>
+    <div>Business Growth Partners · LATAM</div>
+  </div>
+</footer>
+
+<script>
+  // ============ Calendly ============
+  // REEMPLAZAR_CALENDLY: reemplazá esta URL con el Calendly real de Dearmas Costantini
+  const CALENDLY_URL = 'https://calendly.com/dearmascostantini/30min';
+
+  function openCalendly(e) {
+    if (e) e.preventDefault();
+    if (window.Calendly && window.Calendly.initPopupWidget) {
+      Calendly.initPopupWidget({ url: CALENDLY_URL });
+    } else {
+      // Fallback: abrir en nueva pestaña si el widget no cargó
+      window.open(CALENDLY_URL, '_blank', 'noopener');
+    }
+    return false;
+  }
+
+  // ============ Nav scroll ============
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 40) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  });
+
+  // ============ Reveal on scroll ============
+  const reveals = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(r => io.observe(r));
+
+  // ============ FAQ toggle ============
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.querySelector('.faq-q').addEventListener('click', () => {
+      item.classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>
