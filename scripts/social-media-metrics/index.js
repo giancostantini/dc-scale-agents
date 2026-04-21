@@ -2,14 +2,20 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
+
+const AGENT = "social-media-metrics";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // --- CLI parsing ---
 // Usage:
@@ -77,26 +83,6 @@ async function callClaude(prompt, maxTokens = 8192) {
 
   const data = await res.json();
   return data.content[0].text;
-}
-
-async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: "Markdown",
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram error ${res.status}: ${err}`);
-  }
 }
 
 function getTodayFormatted() {
@@ -571,55 +557,42 @@ export async function collectMetrics(briefInput) {
   );
   console.log("Wrote agent report.");
 
-  // Step 7: Notify via Telegram
-  const sourceLabel = {
-    cli: "CLI manual",
-    "consultant-agent": "Agente Consultor",
-    dashboard: "Dashboard",
-    "github-actions": "GitHub Actions (cron)",
-  }[brief.source] || brief.source;
+  // Register output + close run
+  const runId = brief.runId ?? null;
+  const shortSummary = `Métricas ${brief.mode} recolectadas para ${brief.client}`;
 
-  let telegramSummary;
-  if (brief.mode === "daily" && metricsData?.summary) {
-    telegramSummary = `*📊 Metrics Agent — Reporte Diario*
-_${getTodayFormatted()}_
+  await registerAgentOutput(runId, brief.client, AGENT, {
+    output_type: "report",
+    title: `Social Media Metrics — ${brief.mode} — ${getTodayFormatted()}`,
+    body_md: output,
+    structured: metricsData ?? { mode: brief.mode },
+  });
 
-👤 *Cliente:* ${brief.client}
-📡 *Solicitado por:* ${sourceLabel}
-📋 *Posts evaluados:* ${metricsData.summary.totalPosts}
-🏆 *Ganadores:* ${metricsData.summary.winners}
-📈 *Promedio:* ${metricsData.summary.average}
-📉 *Perdedores:* ${metricsData.summary.losers}
-🌐 *Mejor plataforma:* ${metricsData.summary.topPlatform}
-
-💡 *Insight:* ${metricsData.summary.keyInsight}
-
-_vault/clients/${brief.client}/metrics-log.md_`;
-  } else if (brief.mode === "weekly" && metricsData?.kpis) {
-    telegramSummary = `*📊 Metrics Agent — Reporte Semanal*
-_${getTodayFormatted()}_
-
-👤 *Cliente:* ${brief.client}
-📡 *Solicitado por:* ${sourceLabel}
-📋 *Total posts:* ${metricsData.kpis.totalPosts}
-👁 *Reach total:* ${metricsData.kpis.totalReach}
-💬 *Engagement promedio:* ${metricsData.kpis.avgEngagementRate}%
-💾 *Saves:* ${metricsData.kpis.totalSaves}
-🔄 *Shares:* ${metricsData.kpis.totalShares}
-${metricsData.recommendations ? `\n🎯 *Recomendaciones:*\n${metricsData.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}` : ""}
-
-_vault/clients/${brief.client}/metrics-log.md_`;
+  if (runId) {
+    await updateAgentRun(runId, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: output,
+      performance: { duration_ms: Date.now() - startTime },
+    });
   } else {
-    telegramSummary = `*📊 Metrics Agent — ${brief.mode}*
-_${getTodayFormatted()}_
-Cliente: ${brief.client} | Solicitado por: ${sourceLabel}
-Analisis completado. Ver metrics-log.md`;
+    await logAgentRun(
+      brief.client,
+      AGENT,
+      "success",
+      shortSummary,
+      { mode: brief.mode, source: brief.source },
+      { duration_ms: Date.now() - startTime },
+    );
   }
 
-  await sendTelegram(telegramSummary);
+  const notifBody = metricsData?.summary?.keyInsight
+    ?? (metricsData?.kpis ? `Engagement ${metricsData.kpis.avgEngagementRate}% · ${metricsData.kpis.totalPosts} posts` : shortSummary);
+  await pushNotification(brief.client, "info", `Métricas ${brief.mode} listas`, notifBody, {
+    agent: AGENT,
+    link: `/cliente/${brief.client}`,
+  });
 
-  // Step 8: Return result (for programmatic use by Consultant Agent)
-  await logAgentRun(brief.client, "social-media-metrics", "success", `Métricas recolectadas: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -644,14 +617,18 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  console.error("Social Media Metrics Agent failed:", err.message);
-  await logAgentError("unknown", "social-media-metrics", err, {});
-  try {
-    await sendTelegram(
-      `*❌ Social Media Metrics Agent — Error*\n\n\`${err.message}\``
-    );
-  } catch {
-    // Silent fail
+  console.error(`[${AGENT}] failed:`, err.message);
+  const fallbackBrief = (() => {
+    try {
+      return loadBriefFromArgs();
+    } catch {
+      return { client: "_unknown", runId: null };
+    }
+  })();
+  await logAgentError(fallbackBrief.client, AGENT, err, {});
+  if (fallbackBrief.runId) {
+    await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
   }
+  await pushNotification(fallbackBrief.client, "error", `Métricas fallaron`, err.message, { agent: AGENT });
   process.exit(1);
 });

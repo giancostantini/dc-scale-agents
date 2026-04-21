@@ -2,14 +2,20 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
+
+const AGENT = "stock";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // --- CLI parsing ---
 // Usage:
@@ -81,26 +87,6 @@ async function callClaude(prompt, maxTokens = 8192) {
 
   const data = await res.json();
   return data.content[0].text;
-}
-
-async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: "Markdown",
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram error ${res.status}: ${err}`);
-  }
 }
 
 function getTodayFormatted() {
@@ -787,76 +773,45 @@ export async function runStockAgent(briefInput) {
   );
   console.log("Wrote agent report.");
 
-  // Step 7: Notify via Telegram
-  const sourceLabel = {
-    cli: "CLI manual",
-    "consultant-agent": "Agente Consultor",
-    dashboard: "Dashboard",
-    "github-actions": "GitHub Actions",
-  }[brief.source] || brief.source;
+  // Register output + close run
+  const runId = brief.runId ?? null;
+  const shortSummary = `Stock ${brief.mode} ejecutado para ${brief.client}`;
 
-  const modeEmoji = {
-    status: "\u{1F4E6}",
-    forecast: "\u{1F52E}",
-    alert: "\u{1F6A8}",
-    report: "\u{1F4CA}",
-  };
+  await registerAgentOutput(runId, brief.client, AGENT, {
+    output_type: "report",
+    title: `Stock — ${brief.mode} — ${getTodayFormatted()}`,
+    body_md: output,
+    structured: stockData ?? { mode: brief.mode },
+  });
 
-  const modeLabel = {
-    status: "Status de Inventario",
-    forecast: "Forecast de Reposicion",
-    alert: "Alerta de Stock",
-    report: "Reporte Semanal",
-  };
-
-  let telegramSummary = `*${modeEmoji[brief.mode]} Stock Agent — ${modeLabel[brief.mode]}*
-_${getTodayFormatted()}_
-
-\u{1F464} *Cliente:* ${brief.client}
-\u{1F4E1} *Solicitado por:* ${sourceLabel}`;
-
-  if (stockData?.summary && brief.mode === "status") {
-    telegramSummary += `
-\u{1F4E6} *Productos:* ${stockData.summary.totalProducts}
-\u{2705} *Healthy:* ${stockData.summary.healthy}
-\u{26A0}\u{FE0F} *Low:* ${stockData.summary.low}
-\u{1F534} *Critical:* ${stockData.summary.critical}
-\u{274C} *Agotados:* ${stockData.summary.outOfStock}
-\u{1F4A1} *Insight:* ${stockData.summary.keyInsight}`;
+  if (runId) {
+    await updateAgentRun(runId, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: output,
+      performance: { duration_ms: Date.now() - startTime },
+    });
+  } else {
+    await logAgentRun(
+      brief.client,
+      AGENT,
+      "success",
+      shortSummary,
+      { mode: brief.mode, source: brief.source },
+      { duration_ms: Date.now() - startTime },
+    );
   }
 
-  if (stockData?.summary && brief.mode === "forecast") {
-    telegramSummary += `
-\u{1F534} *Inmediato:* ${stockData.summary.immediate}
-\u{1F7E1} *Pronto:* ${stockData.summary.soon}
-\u{1F7E2} *Planificado:* ${stockData.summary.planned}
-\u{2705} *Sin accion:* ${stockData.summary.noAction}
-\u{1F4A1} *Insight:* ${stockData.summary.keyInsight}`;
-  }
+  const notifBody = stockData?.summary?.keyInsight
+    ?? `Modo ${brief.mode} procesado`;
+  const notifLevel = stockData?.summary?.critical > 0 || stockData?.summary?.outOfStock > 0
+    ? "warning"
+    : "info";
+  await pushNotification(brief.client, notifLevel, `Stock ${brief.mode} listo`, notifBody, {
+    agent: AGENT,
+    link: `/cliente/${brief.client}`,
+  });
 
-  if (stockData?.summary && brief.mode === "alert") {
-    telegramSummary += `
-\u{1F6A8} *Alertas:* ${stockData.summary.totalAlerts}
-\u{1F534} *Criticas:* ${stockData.summary.critical}
-\u{26A0}\u{FE0F} *Warning:* ${stockData.summary.warning}
-\u{1F4A1} *Insight:* ${stockData.summary.keyInsight}`;
-  }
-
-  if (stockData?.kpis) {
-    telegramSummary += `
-\u{1F504} *Rotacion:* ${stockData.kpis.inventoryTurnover}
-\u{1F4C5} *Dias promedio stock:* ${stockData.kpis.averageDaysOfStock}
-\u{1F6D2} *Unidades vendidas:* ${stockData.kpis.totalUnitsSold}
-\u{1F3C6} *Top producto:* ${stockData.kpis.topSellingProduct}
-\u{1F422} *Mas lento:* ${stockData.kpis.slowestProduct}`;
-  }
-
-  telegramSummary += `\n\n_vault/clients/${brief.client}/stock-log.md_`;
-
-  await sendTelegram(telegramSummary);
-
-  // Step 8: Return result (for Consultant Agent)
-  await logAgentRun(brief.client, "stock", "success", `Stock ejecutado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -881,12 +836,18 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  console.error("Stock Agent failed:", err.message);
-  await logAgentError("unknown", "stock", err, {});
-  try {
-    await sendTelegram(`*\u{274C} Stock Agent — Error*\n\n\`${err.message}\``);
-  } catch {
-    /* silent */
+  console.error(`[${AGENT}] failed:`, err.message);
+  const fallbackBrief = (() => {
+    try {
+      return loadBriefFromArgs();
+    } catch {
+      return { client: "_unknown", runId: null };
+    }
+  })();
+  await logAgentError(fallbackBrief.client, AGENT, err, {});
+  if (fallbackBrief.runId) {
+    await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
   }
+  await pushNotification(fallbackBrief.client, "error", `Stock falló`, err.message, { agent: AGENT });
   process.exit(1);
 });

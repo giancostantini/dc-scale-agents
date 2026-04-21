@@ -2,14 +2,20 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
+
+const AGENT = "logistics";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO || "giancostantini/Growth";
 
@@ -83,26 +89,6 @@ async function callClaude(prompt, maxTokens = 8192) {
 
   const data = await res.json();
   return data.content[0].text;
-}
-
-async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: "Markdown",
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram error ${res.status}: ${err}`);
-  }
 }
 
 /**
@@ -804,21 +790,6 @@ export async function runLogisticsAgent(briefInput) {
   );
   console.log("Wrote agent report.");
 
-  // Step 8: Notify via Telegram
-  const sourceLabel = {
-    cli: "CLI manual",
-    "consultant-agent": "Agente Consultor",
-    dashboard: "Dashboard",
-    "github-actions": "GitHub Actions",
-  }[brief.source] || brief.source;
-
-  const modeEmoji = {
-    schedule: "\u{1F4C5}",
-    dispatch: "\u{1F69A}",
-    optimize: "\u26A1",
-    report: "\u{1F4CA}",
-  };
-
   const modeLabel = {
     schedule: "Planificacion de Envios",
     dispatch: "Despacho de Ordenes",
@@ -826,53 +797,48 @@ export async function runLogisticsAgent(briefInput) {
     report: "Reporte Logistico",
   };
 
-  let telegramSummary = `*${modeEmoji[brief.mode]} Logistics Agent — ${modeLabel[brief.mode]}*
-_${getTodayFormatted()}_
+  // Register output + close run
+  const runId = brief.runId ?? null;
+  const shortSummary = `Logistics ${brief.mode} ejecutado para ${brief.client}`;
 
-\u{1F464} *Cliente:* ${brief.client}
-\u{1F4E1} *Solicitado por:* ${sourceLabel}`;
+  await registerAgentOutput(runId, brief.client, AGENT, {
+    output_type: "report",
+    title: `Logistics — ${modeLabel[brief.mode] ?? brief.mode} — ${getTodayFormatted()}`,
+    body_md: output,
+    structured: {
+      mode: brief.mode,
+      logisticsData: logisticsData ?? null,
+      stockAgentResult: stockAgentResult ?? null,
+    },
+  });
 
-  if (logisticsData?.summary) {
-    telegramSummary += `
-\u{1F4CB} *Total ordenes:* ${logisticsData.summary.totalOrders}
-\u2705 *Listas:* ${logisticsData.summary.ordersReady}
-\u{1F6AB} *Bloqueadas:* ${logisticsData.summary.ordersBlocked}
-\u{1F4C6} *Proximo envio:* ${logisticsData.summary.nextShipmentDate}`;
+  if (runId) {
+    await updateAgentRun(runId, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: output,
+      performance: { duration_ms: Date.now() - startTime },
+    });
+  } else {
+    await logAgentRun(
+      brief.client,
+      AGENT,
+      "success",
+      shortSummary,
+      { mode: brief.mode, source: brief.source },
+      { duration_ms: Date.now() - startTime },
+    );
   }
 
-  if (logisticsData?.dispatches) {
-    telegramSummary += `
-\u{1F4E6} *Despachos:* ${logisticsData.dispatches.length} ordenes
-\u{1F4E6} *SKUs impactados:* ${logisticsData.stockImpact?.length || 0}`;
-  }
+  const notifBody = logisticsData?.summary?.nextShipmentDate
+    ? `Próximo envío: ${logisticsData.summary.nextShipmentDate}`
+    : `Modo ${brief.mode} procesado`;
+  const notifLevel = logisticsData?.summary?.ordersBlocked > 0 ? "warning" : "info";
+  await pushNotification(brief.client, notifLevel, `Logistics ${brief.mode} listo`, notifBody, {
+    agent: AGENT,
+    link: `/cliente/${brief.client}`,
+  });
 
-  if (logisticsData?.kpis) {
-    telegramSummary += `
-\u{1F69A} *Envios:* ${logisticsData.kpis.totalShipments}
-\u{1F3AF} *A tiempo:* ${logisticsData.kpis.onTimeRate}%
-\u{1F4B0} *Costo total:* $${logisticsData.kpis.totalShippingCost}
-\u{1F4B5} *Costo/orden:* $${logisticsData.kpis.costPerOrder}`;
-  }
-
-  if (logisticsData?.analysis) {
-    telegramSummary += `
-\u23F1 *Entrega prom:* ${logisticsData.analysis.avgDeliveryTimeDays} dias
-\u{1F3AF} *A tiempo:* ${logisticsData.analysis.onTimeDeliveryRate}%
-\u{1F4B0} *Costo prom:* $${logisticsData.analysis.avgShippingCost}
-\u{1F3C6} *Top carrier:* ${logisticsData.analysis.topCarrier}`;
-  }
-
-  if (stockAgentResult) {
-    telegramSummary += `
-\u{1F4E6} *Stock Agent:* ${stockAgentResult.triggered ? "Activado para reconciliar inventario" : "No se pudo activar"}`;
-  }
-
-  telegramSummary += `\n\n_vault/clients/${brief.client}/logistics-log.md_`;
-
-  await sendTelegram(telegramSummary);
-
-  // Step 9: Return result (for Consultant Agent)
-  await logAgentRun(brief.client, "logistics", "success", `Logistics ejecutado: modo ${brief.mode}.`, { mode: brief.mode, source: brief.source }, { duration_ms: Date.now() - startTime });
   return {
     mode: brief.mode,
     client: brief.client,
@@ -910,12 +876,18 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  console.error("Logistics Agent failed:", err.message);
-  await logAgentError("unknown", "logistics", err, {});
-  try {
-    await sendTelegram(`*\u274C Logistics Agent — Error*\n\n\`${err.message}\``);
-  } catch {
-    // Silent fail
+  console.error(`[${AGENT}] failed:`, err.message);
+  const fallbackBrief = (() => {
+    try {
+      return loadBriefFromArgs();
+    } catch {
+      return { client: "_unknown", runId: null };
+    }
+  })();
+  await logAgentError(fallbackBrief.client, AGENT, err, {});
+  if (fallbackBrief.runId) {
+    await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
   }
+  await pushNotification(fallbackBrief.client, "error", `Logistics falló`, err.message, { agent: AGENT });
   process.exit(1);
 });

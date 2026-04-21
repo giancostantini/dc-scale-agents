@@ -1,14 +1,34 @@
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
+const AGENT = "content-strategy";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-const CLIENT = process.argv[2] || "dmancuello";
+function loadBrief() {
+  const args = process.argv.slice(2);
+  const briefFlagIdx = args.indexOf("--brief");
+  if (briefFlagIdx !== -1 && args[briefFlagIdx + 1]) {
+    const path = resolve(process.cwd(), args[briefFlagIdx + 1]);
+    if (existsSync(path)) return JSON.parse(readFileSync(path, "utf-8"));
+  }
+  const positional = args.filter((a) => !a.startsWith("--"))[0];
+  return { client: positional || "dmancuello" };
+}
+
+const BRIEF = loadBrief();
+const CLIENT = BRIEF.client;
+const RUN_ID = BRIEF.runId ?? null;
 
 // --- Helpers ---
 
@@ -351,17 +371,61 @@ Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Lo
     "utf-8"
   );
 
-  await logAgentRun(CLIENT, "content-strategy", "success", `Calendario generado: ${briefs.length} briefs para semana ${week.isoStart}.`, { briefsGenerated: briefs.length, week: week.isoStart }, { duration_ms: Date.now() - startTime });
-  console.log("Content Strategy Agent completed successfully.");
+  const shortSummary = `Calendario generado: ${briefs.length} briefs para semana ${week.isoStart}`;
+
+  await registerAgentOutput(RUN_ID, CLIENT, AGENT, {
+    output_type: "calendar",
+    title: `Calendario semanal — ${week.isoStart} al ${week.isoEnd}`,
+    body_md: calendarMd,
+    structured: {
+      week: { start: week.isoStart, end: week.isoEnd },
+      briefsGenerated: briefs.length,
+      briefs: briefs.map((b) => ({
+        date: b.date,
+        pieceType: b.pieceType,
+        objective: b.objective,
+        angle: b.angle,
+        platform: b.platform,
+        funnelStage: b.funnelStage,
+      })),
+    },
+  });
+
+  if (RUN_ID) {
+    await updateAgentRun(RUN_ID, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: calendarMd,
+      performance: { duration_ms: Date.now() - startTime },
+    });
+  } else {
+    await logAgentRun(
+      CLIENT,
+      AGENT,
+      "success",
+      shortSummary,
+      { briefsGenerated: briefs.length, week: week.isoStart },
+      { duration_ms: Date.now() - startTime },
+    );
+  }
+
+  await pushNotification(CLIENT, "success", `Calendario semanal listo`, shortSummary, {
+    agent: AGENT,
+    link: `/cliente/${CLIENT}/biblioteca`,
+  });
+
+  console.log(`[${AGENT}] done. ${shortSummary}`);
   console.log(`Calendar: vault/clients/${CLIENT}/content-calendar.md`);
   console.log(`Briefs:   vault/clients/${CLIENT}/content-briefs/ (${briefs.length} files)`);
   console.log(`Report:   vault/clients/${CLIENT}/agent-reports/content-strategy-${week.isoStart}.json`);
-  console.log("\n--- Calendar ---\n");
-  console.log(calendarMd);
 }
 
 run().catch(async (err) => {
-  console.error("Content Strategy Agent failed:", err.message);
-  await logAgentError(CLIENT, "content-strategy", err, {});
+  console.error(`[${AGENT}] failed:`, err.message);
+  await logAgentError(CLIENT, AGENT, err, {});
+  if (RUN_ID) {
+    await updateAgentRun(RUN_ID, { status: "error", summary: err.message });
+  }
+  await pushNotification(CLIENT, "error", `Content strategy falló`, err.message, { agent: AGENT });
   process.exit(1);
 });

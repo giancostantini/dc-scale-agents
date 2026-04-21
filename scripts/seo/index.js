@@ -2,7 +2,15 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
+
+const AGENT = "seo";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -519,8 +527,45 @@ export async function createSEOPiece(briefInput) {
 
   console.log("\n" + summary);
 
-  // Step 5: Return result (for programmatic use by Consultant Agent)
-  await logAgentRun(brief.client, "seo", "success", `SEO #${pieceId} generado: ${brief.pieceType}.`, { pieceId, pieceType: brief.pieceType, source: brief.source }, { duration_ms: Date.now() - startTime });
+  // Step 5: Register output + close run
+  const runId = brief.runId ?? null;
+  const shortSummary = `SEO #${pieceId} generado (${brief.pieceType}) para ${brief.client}`;
+
+  await registerAgentOutput(runId, brief.client, AGENT, {
+    output_type: "seo-piece",
+    title: `SEO #${pieceId} — ${pieceTypeLabels[brief.pieceType] ?? brief.pieceType}`,
+    body_md: output,
+    structured: {
+      pieceId,
+      pieceType: brief.pieceType,
+      targetKeyword: brief.targetKeyword ?? null,
+      topic: brief.topic ?? null,
+    },
+  });
+
+  if (runId) {
+    await updateAgentRun(runId, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: summary,
+      performance: { duration_ms: Date.now() - startTime },
+    });
+  } else {
+    await logAgentRun(
+      brief.client,
+      AGENT,
+      "success",
+      shortSummary,
+      { pieceId, pieceType: brief.pieceType, source: brief.source },
+      { duration_ms: Date.now() - startTime },
+    );
+  }
+
+  await pushNotification(brief.client, "success", `SEO #${pieceId} listo`, summary, {
+    agent: AGENT,
+    link: `/cliente/${brief.client}/biblioteca`,
+  });
+
   return {
     pieceId,
     client: brief.client,
@@ -546,7 +591,18 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  console.error("SEO Agent failed:", err.message);
-  await logAgentError("unknown", "seo", err, {});
+  console.error(`[${AGENT}] failed:`, err.message);
+  const fallbackBrief = (() => {
+    try {
+      return loadBriefFromArgs();
+    } catch {
+      return { client: "_unknown", runId: null };
+    }
+  })();
+  await logAgentError(fallbackBrief.client, AGENT, err, {});
+  if (fallbackBrief.runId) {
+    await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
+  }
+  await pushNotification(fallbackBrief.client, "error", `SEO falló`, err.message, { agent: AGENT });
   process.exit(1);
 });

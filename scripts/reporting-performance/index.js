@@ -15,14 +15,20 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
-import { logAgentRun, logAgentError } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
+
+const AGENT = "reporting-performance";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // --- CLI parsing ---
 // Usage:
@@ -95,26 +101,6 @@ async function callClaude(prompt, maxTokens = 8192) {
 
   const data = await res.json();
   return data.content[0].text;
-}
-
-async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: "Markdown",
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram error ${res.status}: ${err}`);
-  }
 }
 
 function getTodayISO() {
@@ -587,55 +573,52 @@ export async function runAnalyticsAgent(briefInput) {
     }
   }
 
-  // Telegram notification (only for automated scheduled modes)
-  const shouldNotify = ["daily", "weekly", "biweekly", "monthly", "insights"].includes(brief.mode);
-  if (shouldNotify) {
-    const modeEmoji = {
-      daily: "☀️",
-      weekly: "📊",
-      biweekly: "📊",
-      monthly: "📈",
-      insights: "💡",
-    }[brief.mode];
+  const runId = brief.runId ?? null;
+  const shortSummary = `Analytics ${brief.mode} generado para ${brief.client}`;
 
-    let telegramSummary = `*${modeEmoji} Analytics — ${brief.mode.toUpperCase()}*\n_${getTodayFormatted()}_\n👤 *Cliente:* ${brief.client}\n`;
+  await registerAgentOutput(runId, brief.client, AGENT, {
+    output_type: "report",
+    title: `Analytics — ${brief.mode} — ${getTodayFormatted()}`,
+    body_md: output,
+    structured: structuredData ?? { mode: brief.mode },
+  });
 
-    if (structuredData) {
-      if (brief.mode === "daily" && structuredData.narrative) {
-        telegramSummary += `\n📝 ${structuredData.narrative}`;
-        if (structuredData.suggestedAction) {
-          telegramSummary += `\n🎯 *Accion sugerida:* ${structuredData.suggestedAction}`;
-        }
-      } else if (brief.mode === "insights" && structuredData.insights) {
-        const altas = structuredData.insights.filter((i) => i.priority === "ALTA");
-        telegramSummary += `\n💡 *${structuredData.insights.length} insights generados* (${altas.length} de prioridad ALTA)`;
-        if (altas.length > 0) {
-          telegramSummary += `\n\n*Top prioridad:*\n${altas.slice(0, 2).map((i) => `• ${i.title}\n  ${i.impactEstimate}`).join("\n")}`;
-        }
-      } else if (structuredData.healthScore) {
-        telegramSummary += `\n💚 *Health:* ${structuredData.healthScore}`;
-        if (structuredData.kpis?.revenue) {
-          telegramSummary += `\n💰 Revenue: $${structuredData.kpis.revenue}`;
-        }
-        if (structuredData.kpis?.roas) {
-          telegramSummary += `\n📊 ROAS: ${structuredData.kpis.roas}x`;
-        }
-      }
-    }
-
-    telegramSummary += `\n\n_vault/clients/${brief.client}/performance-log.md_`;
-    await sendTelegram(telegramSummary);
+  if (runId) {
+    await updateAgentRun(runId, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: output,
+      performance: { duration_ms: Date.now() - startTime },
+    });
+  } else {
+    await logAgentRun(
+      brief.client,
+      AGENT,
+      "success",
+      shortSummary,
+      { mode: brief.mode, source: brief.source },
+      { duration_ms: Date.now() - startTime }
+    );
   }
 
-  // Log to Supabase
-  await logAgentRun(
-    brief.client,
-    "reporting-performance",
-    "success",
-    `Analytics ${brief.mode} generado.`,
-    { mode: brief.mode, source: brief.source },
-    { duration_ms: Date.now() - startTime }
-  );
+  const shouldNotify = ["daily", "weekly", "biweekly", "monthly", "insights"].includes(brief.mode);
+  if (shouldNotify) {
+    let notifBody = shortSummary;
+    if (structuredData) {
+      if (brief.mode === "daily" && structuredData.narrative) {
+        notifBody = structuredData.narrative.slice(0, 240);
+      } else if (brief.mode === "insights" && structuredData.insights) {
+        const altas = structuredData.insights.filter((i) => i.priority === "ALTA");
+        notifBody = `${structuredData.insights.length} insights generados (${altas.length} prioridad ALTA)`;
+      } else if (structuredData.healthScore) {
+        notifBody = `Health: ${structuredData.healthScore}`;
+      }
+    }
+    await pushNotification(brief.client, "info", `Analytics ${brief.mode} listo`, notifBody, {
+      agent: AGENT,
+      link: `/cliente/${brief.client}`,
+    });
+  }
 
   return {
     mode: brief.mode,
@@ -661,12 +644,18 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  console.error("Analytics Agent failed:", err.message);
-  await logAgentError("unknown", "reporting-performance", err, {});
-  try {
-    await sendTelegram(`*\u{274C} Analytics Agent — Error*\n\n\`${err.message}\``);
-  } catch {
-    /* silent */
+  console.error(`[${AGENT}] failed:`, err.message);
+  const fallbackBrief = (() => {
+    try {
+      return loadBriefFromArgs();
+    } catch {
+      return { client: "_unknown", runId: null };
+    }
+  })();
+  await logAgentError(fallbackBrief.client, AGENT, err, {});
+  if (fallbackBrief.runId) {
+    await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
   }
+  await pushNotification(fallbackBrief.client, "error", `Analytics falló`, err.message, { agent: AGENT });
   process.exit(1);
 });

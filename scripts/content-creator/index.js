@@ -6,14 +6,21 @@ import { produceVideo } from "./produce-video.js";
 import { produceVoice } from "./produce-voice.js";
 import { produceStatic } from "./produce-static.js";
 import { publishContent } from "./produce-publish.js";
-import { logAgentRun, logAgentError, registerContentPiece } from "../lib/supabase.js";
+import {
+  logAgentRun,
+  logAgentError,
+  registerContentPiece,
+  updateAgentRun,
+  registerAgentOutput,
+  pushNotification,
+} from "../lib/supabase.js";
+
+const AGENT = "content-creator";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // --- CLI parsing ---
 // Usage:
@@ -78,26 +85,6 @@ async function callClaude(prompt, maxTokens = 4096) {
 
   const data = await res.json();
   return data.content[0].text;
-}
-
-async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: "Markdown",
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Telegram error ${res.status}: ${err}`);
-  }
 }
 
 function getNextPieceId(contentLibrary) {
@@ -554,76 +541,83 @@ export async function createContent(briefInput) {
     }
   }
 
-  // Step 6: Notify via Telegram
-  const staticLabel = staticResult
-    ? `\n🖼️ *Static:* ${staticResult.fileName} (${staticResult.aspectRatio})`
-    : brief.produceStatic && brief.pieceType !== "reel"
-    ? "\n⚠️ *Static:* generación falló — revisar manualmente"
-    : "";
-
-  const voiceLabel = voiceResult
-    ? `\n🎙️ *Voz:* generada (${voiceResult.durationEstimateSeconds}s estimados)`
-    : brief.generateVoice
-    ? "\n⚠️ *Voz:* generación falló — revisar manualmente"
-    : "";
-
-  const videoLabel = videoPath
-    ? `\n🎬 *Video:* ${videoPath.split("/").pop()}`
-    : brief.produceVideo
-    ? "\n⚠️ *Video:* producción falló — revisar manualmente"
-    : "";
-
-  const publishLabel = publishResults
-    ? publishResults
-        .map((r) =>
-          r.status === "published"
-            ? `\n✅ *${r.platform}:* publicado`
-            : `\n❌ *${r.platform}:* falló`
-        )
-        .join("")
-    : brief.autoPublish
-    ? "\n⚠️ *Publicación:* falló — revisar manualmente"
-    : "";
-
-  const sourceLabel = {
-    cli: "CLI manual",
-    "consultant-agent": "Agente Consultor",
-    dashboard: "Dashboard",
-    "strategy-agent": "Calendario",
-  }[brief.source] || brief.source;
-
-  await sendTelegram(
-    `*🎬 Content Creator — Pieza #${pieceId}*
-_${getTodayFormatted()}_
-
-📋 *Tipo:* ${brief.pieceType}
-👤 *Cliente:* ${brief.client}
-📡 *Solicitado por:* ${sourceLabel}
-${brief.angle ? `🎯 *Angulo:* ${brief.angle}` : ""}
-${brief.instructions ? `📝 *Instrucciones:* ${brief.instructions}` : ""}${staticLabel}${voiceLabel}${videoLabel}${publishLabel}
-📝 *Estado:* ${publishResults?.some((r) => r.status === "published") ? "PUBLICADO ✅" : videoPath || staticResult ? "LISTO — pendiente publicación" : "DRAFT — revisar script"}
-
-_vault/clients/${brief.client}/content-library.md_`
-  );
+  const isPublished = publishResults?.some((r) => r.status === "published");
+  const pieceStatus = isPublished
+    ? "published"
+    : videoPath || staticResult
+    ? "produced"
+    : "draft";
+  const shortSummary = `Pieza #${pieceId} ${brief.pieceType} — ${pieceStatus}`;
 
   // Step 7: Log to Supabase
-  await registerContentPiece({
-    client: brief.client,
-    piece_id: pieceId,
-    piece_type: brief.pieceType,
-    source: brief.source,
-    objective: brief.objective || null,
-    angle: brief.angle || null,
-    script_format: brief.scriptFormat || null,
-    emotional_trigger: brief.emotionalTrigger || null,
-    platforms: brief.crossPost?.length ? [brief._strategy?.platform, ...brief.crossPost].filter(Boolean) : [brief._strategy?.platform].filter(Boolean),
-    video_path: videoPath || null,
-    voice_path: voiceResult?.filePath || null,
-    static_path: staticResult?.filePath || null,
-    publish_results: publishResults || [],
-    status: publishResults?.some((r) => r.status === "published") ? "published" : videoPath || staticResult ? "produced" : "draft",
+  try {
+    await registerContentPiece({
+      client: brief.client,
+      piece_id: pieceId,
+      piece_type: brief.pieceType,
+      source: brief.source,
+      objective: brief.objective || null,
+      angle: brief.angle || null,
+      script_format: brief.scriptFormat || null,
+      emotional_trigger: brief.emotionalTrigger || null,
+      platforms: brief.crossPost?.length
+        ? [brief._strategy?.platform, ...brief.crossPost].filter(Boolean)
+        : [brief._strategy?.platform].filter(Boolean),
+      video_path: videoPath || null,
+      voice_path: voiceResult?.filePath || null,
+      static_path: staticResult?.filePath || null,
+      publish_results: publishResults || [],
+      status: pieceStatus,
+    });
+  } catch (err) {
+    console.warn(`[${AGENT}] registerContentPiece failed (non-fatal): ${err.message}`);
+  }
+
+  const runId = brief.runId ?? null;
+
+  await registerAgentOutput(runId, brief.client, AGENT, {
+    output_type: "content-piece",
+    title: `Pieza #${pieceId} — ${brief.pieceType}`,
+    body_md: output,
+    structured: {
+      pieceId,
+      pieceType: brief.pieceType,
+      angle: brief.angle ?? null,
+      objective: brief.objective ?? null,
+      status: pieceStatus,
+      videoPath: videoPath ?? null,
+      voicePath: voiceResult?.filePath ?? null,
+      staticPath: staticResult?.filePath ?? null,
+      publishResults: publishResults ?? [],
+    },
   });
-  await logAgentRun(brief.client, "content-creator", "success", `Pieza #${pieceId} generada: ${brief.pieceType}.`, { pieceId, pieceType: brief.pieceType, source: brief.source }, { duration_ms: Date.now() - startTime });
+
+  if (runId) {
+    await updateAgentRun(runId, {
+      status: "success",
+      summary: shortSummary,
+      summary_md: output,
+      performance: { duration_ms: Date.now() - startTime },
+    });
+  } else {
+    await logAgentRun(
+      brief.client,
+      AGENT,
+      "success",
+      shortSummary,
+      { pieceId, pieceType: brief.pieceType, source: brief.source },
+      { duration_ms: Date.now() - startTime },
+    );
+  }
+
+  await pushNotification(
+    brief.client,
+    isPublished ? "success" : "info",
+    `Pieza #${pieceId} ${isPublished ? "publicada" : "lista"}`,
+    `${brief.pieceType}${brief.angle ? ` · ${brief.angle}` : ""}`,
+    { agent: AGENT, link: `/cliente/${brief.client}/biblioteca` },
+  );
+
   return {
     pieceId,
     client: brief.client,
@@ -650,13 +644,14 @@ async function main() {
     console.log(result.output);
     console.log("\n" + "=".repeat(60));
   } catch (err) {
-    console.error("Content Creator failed:", err.message);
-    await logAgentError(brief.client, "content-creator", err, {});
-    try {
-      await sendTelegram(`*❌ Content Creator Agent — Error*\n\n\`${err.message}\``);
-    } catch {
-      // Silent fail
+    console.error(`[${AGENT}] failed:`, err.message);
+    await logAgentError(brief.client, AGENT, err, {});
+    if (brief.runId) {
+      await updateAgentRun(brief.runId, { status: "error", summary: err.message });
     }
+    await pushNotification(brief.client, "error", `Content Creator falló`, err.message, {
+      agent: AGENT,
+    });
     process.exit(1);
   }
 }
