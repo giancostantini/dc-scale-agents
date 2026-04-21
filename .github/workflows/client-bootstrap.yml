@@ -1,0 +1,77 @@
+name: Client Bootstrap — scaffold vault
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug'
+        required: true
+      name:
+        description: 'Client display name'
+        required: true
+      sector:
+        description: 'Sector'
+        required: false
+      country:
+        description: 'Country'
+        required: false
+        default: 'Uruguay'
+      type:
+        description: 'Service type'
+        required: false
+        default: 'gp'
+        type: choice
+        options:
+          - gp
+          - dev
+      fee:
+        description: 'Monthly fee USD'
+        required: false
+      method:
+        description: 'Method / modality'
+        required: false
+
+  repository_dispatch:
+    types: [client-bootstrap]
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run client-bootstrap
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+          else
+            cat > /tmp/brief.json << BRIEF_EOF
+          {
+            "client": "${{ inputs.client }}",
+            "name": "${{ inputs.name }}",
+            "sector": "${{ inputs.sector }}",
+            "country": "${{ inputs.country }}",
+            "type": "${{ inputs.type }}",
+            "fee": ${{ inputs.fee || 'null' }},
+            "method": "${{ inputs.method }}"
+          }
+          BRIEF_EOF
+          fi
+          node scripts/client-bootstrap/index.js --brief /tmp/brief.json
+
+      - name: Commit vault scaffolding
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Bootstrap vault para ${{ github.event.client_payload.brief.client || inputs.client }}"
+          git push

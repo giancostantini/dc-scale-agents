@@ -51,6 +51,26 @@ export default function NewClientModal({
         contactPhone,
         feeVariable: hasVariable ? variableType : undefined,
       });
+
+      // Fire-and-forget: scaffold the vault folder in the background. The
+      // dashboard doesn't wait for the GitHub workflow to finish — the user
+      // sees the client immediately and gets a notification when the vault
+      // is ready.
+      fetch("/api/clients/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: newClient.id,
+          name: newClient.name,
+          sector: sector.trim(),
+          country,
+          type,
+          fee: Number(fee),
+          method,
+          phase: newClient.phase,
+        }),
+      }).catch((err) => console.error("bootstrap dispatch failed:", err));
+
       reset();
       onClose();
       onCreated?.();

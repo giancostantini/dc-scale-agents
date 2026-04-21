@@ -19,6 +19,9 @@ on:
           - category-meta
           - content-brief
 
+  repository_dispatch:
+    types: [seo]
+
 jobs:
   generate-seo:
     runs-on: ubuntu-latest
@@ -34,7 +37,17 @@ jobs:
       - name: Generate SEO piece
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node scripts/seo/index.js ${{ inputs.client }} ${{ inputs.piece_type }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/seo/index.js --brief /tmp/brief.json
+          else
+            node scripts/seo/index.js ${{ inputs.client }} ${{ inputs.piece_type }}
+          fi
 
       - name: Commit seo-library update
         run: |

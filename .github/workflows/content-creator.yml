@@ -61,6 +61,8 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
           BLOTATO_API_KEY: ${{ secrets.BLOTATO_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           # If triggered by repository_dispatch (Consultant Agent / Dashboard), use the payload brief
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then

@@ -4,7 +4,15 @@ on:
   schedule:
     # Todos los dias a las 10:00 UTC (7:00 AM Uruguay)
     - cron: '0 10 * * *'
-  workflow_dispatch: # Permite ejecutar manualmente desde GitHub
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug'
+        required: false
+        default: 'dmancuello'
+
+  repository_dispatch:
+    types: [morning-briefing]
 
 jobs:
   briefing:
@@ -23,4 +31,12 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: node scripts/morning-briefing/index.js
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/morning-briefing/index.js --brief /tmp/brief.json
+          else
+            node scripts/morning-briefing/index.js ${{ inputs.client || 'dmancuello' }}
+          fi

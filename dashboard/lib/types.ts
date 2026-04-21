@@ -300,3 +300,74 @@ export interface Integration {
   status: "connected" | "pending" | "disconnected";
   account?: string;
 }
+
+// ==================== AGENTES ====================
+
+export type AgentRunStatus = "running" | "success" | "error";
+
+export interface AgentRun {
+  id: number;
+  client: string;
+  agent: string;
+  status: AgentRunStatus;
+  summary: string | null;
+  summary_md: string | null;
+  metadata: Record<string, unknown>;
+  performance: Record<string, unknown>;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export type AgentOutputType =
+  | "report"
+  | "content-piece"
+  | "diagnostic"
+  | "strategy"
+  | "brief"
+  | "analysis";
+
+export interface AgentOutput {
+  id: number;
+  run_id: number | null;
+  client: string;
+  agent: string;
+  output_type: AgentOutputType | string;
+  title: string | null;
+  body_md: string | null;
+  structured: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ContentPieceRow {
+  id: number;
+  client: string;
+  piece_id: string;
+  piece_type: string;
+  source: string | null;
+  objective: string | null;
+  angle: string | null;
+  script_format: string | null;
+  emotional_trigger: string | null;
+  platforms: string[] | null;
+  video_path: string | null;
+  voice_path: string | null;
+  static_path: string | null;
+  publish_results: unknown[];
+  status: "draft" | "published" | "evaluated" | string;
+  metrics: Record<string, unknown>;
+  created_at: string;
+}
+
+export type NotificationLevel = "info" | "success" | "warning" | "error";
+
+export interface Notification {
+  id: number;
+  client: string;
+  agent: string | null;
+  level: NotificationLevel;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
