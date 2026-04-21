@@ -285,21 +285,66 @@ interface CampaignRow {
   replied: number;
   meetings: number;
   created_at: string;
+  // Nuevas columnas (Fase 1)
+  countries: string[] | null;
+  regions: string[] | null;
+  cities: string[] | null;
+  industries: string[] | null;
+  company_size_min: number | null;
+  company_size_max: number | null;
+  revenue_range: string | null;
+  buying_signals: string[] | null;
+  excluded_companies: string[] | null;
+  roles: string[] | null;
+  seniorities: string[] | null;
+  cta: ProspectCampaign["cta"] | null;
+  cta_url: string | null;
+  message_tone: string | null;
+  value_angle: string | null;
+  daily_volume: number | null;
+  follow_ups: number | null;
 }
 
 function campaignFromRow(r: CampaignRow): ProspectCampaign {
   return {
     id: r.id,
     name: r.name,
-    country: r.country,
-    demographics: r.demographics,
-    clientType: r.client_type,
-    channels: r.channels,
     status: r.status,
+
+    countries: r.countries ?? (r.country ? [r.country] : []),
+    regions: r.regions ?? [],
+    cities: r.cities ?? [],
+
+    industries: r.industries ?? [],
+    companySizeMin: r.company_size_min ?? undefined,
+    companySizeMax: r.company_size_max ?? undefined,
+    revenueRange: r.revenue_range ?? undefined,
+    buyingSignals: r.buying_signals ?? [],
+    excludedCompanies: r.excluded_companies ?? [],
+
+    roles: r.roles ?? [],
+    seniorities: (r.seniorities ?? []) as ProspectCampaign["seniorities"],
+
+    cta: (r.cta ?? "calendly"),
+    ctaUrl: r.cta_url ?? undefined,
+    messageTone: r.message_tone ?? undefined,
+    valueAngle: r.value_angle ?? undefined,
+
+    dailyVolume: r.daily_volume ?? 30,
+    followUps: r.follow_ups ?? 3,
+
+    channels: r.channels,
+
     leadsFound: r.leads_found,
     contacted: r.contacted,
     replied: r.replied,
     meetings: r.meetings,
+
+    // compat display
+    country: r.country,
+    demographics: r.demographics,
+    clientType: r.client_type,
+
     createdAt: r.created_at,
   };
 }
@@ -321,15 +366,55 @@ export async function addCampaign(
   >,
 ): Promise<ProspectCampaign> {
   const supabase = getSupabase();
+
+  // Derivamos strings compat para las columnas legacy (country, demographics, client_type)
+  const countryLegacy = data.countries[0] ?? data.country ?? "—";
+  const demographicsLegacy =
+    data.demographics ||
+    [data.roles.join(", "), data.seniorities.join(", ")]
+      .filter(Boolean)
+      .join(" · ") ||
+    "—";
+  const clientTypeLegacy =
+    data.clientType ||
+    [
+      data.industries.join(", "),
+      data.companySizeMin && data.companySizeMax
+        ? `${data.companySizeMin}-${data.companySizeMax} empleados`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · ") ||
+    "—";
+
   const { data: inserted, error } = await supabase
     .from("prospect_campaigns")
     .insert({
+      // Legacy compat columns
       name: data.name,
-      country: data.country,
-      demographics: data.demographics,
-      client_type: data.clientType,
+      country: countryLegacy,
+      demographics: demographicsLegacy,
+      client_type: clientTypeLegacy,
       channels: data.channels,
       status: data.status,
+      // Nuevas columnas estructuradas
+      countries: data.countries,
+      regions: data.regions,
+      cities: data.cities,
+      industries: data.industries,
+      company_size_min: data.companySizeMin ?? null,
+      company_size_max: data.companySizeMax ?? null,
+      revenue_range: data.revenueRange ?? null,
+      buying_signals: data.buyingSignals,
+      excluded_companies: data.excludedCompanies,
+      roles: data.roles,
+      seniorities: data.seniorities,
+      cta: data.cta,
+      cta_url: data.ctaUrl ?? null,
+      message_tone: data.messageTone ?? null,
+      value_angle: data.valueAngle ?? null,
+      daily_volume: data.dailyVolume,
+      follow_ups: data.followUps,
     })
     .select()
     .single();

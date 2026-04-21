@@ -78,18 +78,65 @@ export interface Lead {
   meetingBooked?: boolean;
 }
 
+// Seniority alineado con Apollo.io
+export type Seniority =
+  | "founder"
+  | "c_suite"
+  | "vp"
+  | "head"
+  | "director"
+  | "manager"
+  | "senior"
+  | "entry";
+
+export type CampaignCTA = "calendly" | "landing" | "custom";
+
 export interface ProspectCampaign {
   id: string;
   name: string;
-  country: string;
-  demographics: string;
-  clientType: string;
-  channels: string[];
   status: "active" | "paused";
+
+  // Geografía (arrays para multi-selección)
+  countries: string[];
+  regions: string[];
+  cities: string[];
+
+  // Target company
+  industries: string[];
+  companySizeMin?: number;
+  companySizeMax?: number;
+  revenueRange?: string;
+  buyingSignals: string[];
+  excludedCompanies: string[];
+
+  // Target person
+  roles: string[];
+  seniorities: Seniority[];
+
+  // Messaging strategy
+  cta: CampaignCTA;
+  ctaUrl?: string;
+  messageTone?: string;
+  valueAngle?: string;
+
+  // Volume & pacing
+  dailyVolume: number;
+  followUps: number;
+
+  // Canales de contacto
+  channels: string[];
+
+  // Stats (runtime, actualizadas por el agente)
   leadsFound: number;
   contacted: number;
   replied: number;
   meetings: number;
+
+  // Compat: descripciones derivadas para display (DB legacy columns)
+  country: string;
+  demographics: string;
+  clientType: string;
+
   createdAt: string;
 }
 

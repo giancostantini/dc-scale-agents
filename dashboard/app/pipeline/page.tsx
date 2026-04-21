@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import NewLeadModal from "@/components/NewLeadModal";
 import NewCampaignModal from "@/components/NewCampaignModal";
+import MessagePreviewModal from "@/components/MessagePreviewModal";
 import {
   getLeads,
   getCampaigns,
@@ -37,6 +38,7 @@ export default function PipelinePage() {
     stage: "prospecto",
   });
   const [campaignModal, setCampaignModal] = useState(false);
+  const [previewCampaign, setPreviewCampaign] = useState<ProspectCampaign | null>(null);
 
   const refresh = useCallback(() => {
     getLeads().then(setLeads);
@@ -167,39 +169,94 @@ export default function PipelinePage() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => removeCampaign(cmp.id)}
-                    style={{
-                      color: "var(--red-warn)",
-                      fontSize: 11,
-                      letterSpacing: "0.05em",
-                      padding: "4px 8px",
-                      border: "1px solid rgba(176,75,58,0.2)",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      background: "transparent",
-                    }}
-                  >
-                    Archivar
-                  </button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => setPreviewCampaign(cmp)}
+                      style={{
+                        color: "var(--deep-green)",
+                        fontSize: 11,
+                        letterSpacing: "0.05em",
+                        padding: "4px 10px",
+                        border: "1px solid var(--sand)",
+                        background: "var(--off-white)",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontWeight: 500,
+                      }}
+                    >
+                      ⚡ Preview mensaje
+                    </button>
+                    <button
+                      onClick={() => removeCampaign(cmp.id)}
+                      style={{
+                        color: "var(--red-warn)",
+                        fontSize: 11,
+                        letterSpacing: "0.05em",
+                        padding: "4px 8px",
+                        border: "1px solid rgba(176,75,58,0.2)",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        background: "transparent",
+                      }}
+                    >
+                      Archivar
+                    </button>
+                  </div>
                 </div>
 
                 <div className={styles.campaignMeta}>
                   <div>
-                    <span className={styles.campaignLabel}>País</span>
-                    <div>{cmp.country}</div>
+                    <span className={styles.campaignLabel}>Geografía</span>
+                    <div>
+                      {cmp.countries.length > 0
+                        ? cmp.countries.join(", ")
+                        : cmp.country}
+                      {cmp.regions.length > 0 && (
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                          {cmp.regions.join(", ")}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <span className={styles.campaignLabel}>Demografía</span>
-                    <div>{cmp.demographics}</div>
+                    <span className={styles.campaignLabel}>Empresa</span>
+                    <div>
+                      {cmp.industries.length > 0
+                        ? cmp.industries.join(", ")
+                        : cmp.clientType}
+                      {cmp.companySizeMin && cmp.companySizeMax && (
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                          {cmp.companySizeMin}-{cmp.companySizeMax} empleados
+                          {cmp.revenueRange && ` · ${cmp.revenueRange}`}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <span className={styles.campaignLabel}>Tipo cliente</span>
-                    <div>{cmp.clientType}</div>
+                    <span className={styles.campaignLabel}>Decisor</span>
+                    <div>
+                      {cmp.roles.length > 0
+                        ? cmp.roles.slice(0, 3).join(", ")
+                        : cmp.demographics}
+                      {cmp.seniorities.length > 0 && (
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                          {cmp.seniorities.join(", ")}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <span className={styles.campaignLabel}>Canales</span>
-                    <div>{cmp.channels.join(" · ")}</div>
+                    <span className={styles.campaignLabel}>CTA + Canales</span>
+                    <div>
+                      {cmp.cta === "calendly"
+                        ? "📅 Calendly"
+                        : cmp.cta === "landing"
+                        ? "🔗 Landing"
+                        : "Custom"}
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        {cmp.channels.join(" + ")} · {cmp.dailyVolume}/día
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -342,6 +399,12 @@ export default function PipelinePage() {
         open={campaignModal}
         onClose={() => setCampaignModal(false)}
         onCreated={refresh}
+      />
+
+      <MessagePreviewModal
+        open={previewCampaign !== null}
+        campaign={previewCampaign}
+        onClose={() => setPreviewCampaign(null)}
       />
     </>
   );
