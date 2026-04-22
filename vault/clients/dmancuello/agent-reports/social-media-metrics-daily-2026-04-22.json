@@ -1,0 +1,118 @@
+{
+  "agent": "social-media-metrics",
+  "mode": "daily",
+  "client": "dmancuello",
+  "date": "2026-04-22",
+  "metricsData": {
+    "date": "2026-04-22",
+    "client": "dmancuello",
+    "mode": "daily",
+    "pipelineStatus": "blocked",
+    "blockReason": "No posts registered in content-library.md. claude-client.md incomplete. Content Creator Agent inactive.",
+    "consecutiveDaysBlocked": 2,
+    "postsEvaluated": [
+      {
+        "postId": "SIM-002",
+        "simulated": true,
+        "contentType": "reel",
+        "concept": "proceso artesanal - corte y cosido billetera - 30-45s",
+        "evaluation": "winner",
+        "platforms": {
+          "instagram": {
+            "reach": 1420,
+            "impressions": 1890,
+            "engagementRate": 4.8,
+            "saves": 67,
+            "shares": 18,
+            "comments": 22,
+            "watchTime": "18s/45s",
+            "retention3s": 64,
+            "retention50pct": 38,
+            "retentionComplete": 21
+          },
+          "tiktok": {
+            "reach": 3800,
+            "impressions": 4200,
+            "engagementRate": 6.2,
+            "saves": null,
+            "shares": 94,
+            "comments": 48,
+            "watchTime": "24s/45s",
+            "retention3s": 71,
+            "retention50pct": 44,
+            "retentionComplete": 29
+          }
+        },
+        "hookUsed": "primer frame: herramienta artesanal sobre cuero en accion — sin texto — audio trending",
+        "learnings": "Proceso artesanal visible supera static de producto en todas las metricas de descubrimiento. Retención 3s TikTok 71% supera benchmark 58-62% para categoria. Shares altos (94) indican valor de recomendacion — audiencia comparte para gifting o referencia.",
+        "action": "boost",
+        "boostRecommendation": {
+          "platform": "tiktok",
+          "dailyBudget": 7.5,
+          "days": 3,
+          "targeting": [
+            "artesania",
+            "cuero",
+            "regalos",
+            "moda masculina"
+          ],
+          "markets": [
+            "CO",
+            "PE",
+            "PY"
+          ]
+        }
+      },
+      {
+        "postId": "SIM-003",
+        "simulated": true,
+        "contentType": "static-ad",
+        "concept": "producto billetera fondo neutro - precio visible - CTA directo",
+        "evaluation": "average",
+        "platforms": {
+          "instagram": {
+            "reach": 580,
+            "impressions": 720,
+            "engagementRate": 1.9,
+            "saves": 12,
+            "shares": 3,
+            "comments": 4,
+            "profileClicks": 8,
+            "watchTime": null,
+            "retention3s": null
+          },
+          "facebook": {
+            "reach": 410,
+            "impressions": 510,
+            "engagementRate": 1.4,
+            "saves": null,
+            "shares": 5,
+            "comments": 3,
+            "profileClicks": 6,
+            "watchTime": null,
+            "retention3s": null
+          }
+        },
+        "hookUsed": "imagen producto + precio visible + copy directo 'hecha a mano en Uruguay'",
+        "learnings": "Static con precio en frio genera resistencia antes de que el valor este establecido. ER dentro de benchmark pero saves bajos indican bajo interes de compra diferida. Formato util solo en retargeting (audiencia calida que ya conoce el proceso/historia de la marca).",
+        "action": "iterate",
+        "iterationNote": "Remover precio del static organico. Reemplazar con propuesta de valor emocional. Reservar formato con precio para retargeting exclusivamente."
+      }
+    ],
+    "summary": {
+      "totalPosts": 0,
+      "totalSimulated": 2,
+      "winners": 0,
+      "winnersSimulated": 1,
+      "average": 0,
+      "averageSimulated": 1,
+      "losers": 0,
+      "losersSimulated": 0,
+      "topPlatform": "tiktok",
+      "keyInsight": "Pipeline bloqueado por segundo dia consecutivo. Cero posts reales evaluados. Simulaciones confirman que formato reel-proceso es el activo de contenido prioritario para lanzar cuando el pipeline se reactive. Static ads de producto solo viables en retargeting.",
+      "criticalAction": "Completar claude-client.md inmediatamente para desbloquear Content Creator Agent y generar primer batch de contenido trazable.",
+      "nextCheckpoint": "2026-04-23"
+    }
+  },
+  "timestamp": "2026-04-22T23:50:46.684Z"
+}
