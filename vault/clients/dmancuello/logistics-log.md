@@ -9,3 +9,9 @@
 
 ### Informacion de carriers
 <!-- Carrier | Contacto | Tiempo promedio entrega | Costo | Notas -->
+
+
+## Planificacion de Envios — 2026-04-22
+
+Mode: schedule
+Total ordenes: 0 | Listas: 0 | Bloqueadas: 0 | Proximo envio: null

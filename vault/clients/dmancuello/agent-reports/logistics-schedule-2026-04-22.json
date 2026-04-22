@@ -1,0 +1,113 @@
+{
+  "agent": "logistics",
+  "mode": "schedule",
+  "client": "dmancuello",
+  "date": "2026-04-22",
+  "logisticsData": {
+    "date": "2026-04-22",
+    "client": "dmancuello",
+    "mode": "schedule",
+    "agentStatus": "scaffold",
+    "dataAvailability": {
+      "ordersLog": false,
+      "stockLog": false,
+      "salesLog": false,
+      "carriersConfig": false,
+      "note": "System operational. Data population required to generate active plan."
+    },
+    "scheduledOrders": [],
+    "blockedOrders": [],
+    "summary": {
+      "totalOrders": 0,
+      "ordersReady": 0,
+      "ordersBlocked": 0,
+      "blockedReasons": [
+        "No orders registered in logistics-log.md",
+        "No stock data available in stock-log.md",
+        "No carrier configuration loaded",
+        "Shopify integration status unknown"
+      ],
+      "nextShipmentDate": null
+    },
+    "scaffoldConfig": {
+      "suggestedCarrierRules": [
+        {
+          "destination": "Uruguay",
+          "carrier": "Correo Uruguayo",
+          "fallback": "OCA Uruguay",
+          "priority": "cost"
+        },
+        {
+          "destination": "Colombia",
+          "carrier": "DHL Express",
+          "fallback": "FedEx",
+          "priority": "time"
+        },
+        {
+          "destination": "Peru",
+          "carrier": "DHL Express",
+          "fallback": "FedEx",
+          "priority": "time"
+        },
+        {
+          "destination": "Paraguay",
+          "carrier": "DHL Express",
+          "fallback": "regional_agent",
+          "priority": "time"
+        }
+      ],
+      "preparationTimeDays": {
+        "standard": 2,
+        "custom_engraved": 4,
+        "gift_packaging": 3
+      },
+      "stockAlertThresholds": {
+        "critical": 2,
+        "low": 5,
+        "reorderSuggested": 5
+      }
+    },
+    "actionsRequired": [
+      {
+        "id": "ACT-001",
+        "priority": "critical",
+        "action": "Load current inventory into stock-log.md",
+        "owner": "Gianluca / Federico",
+        "blocksAgent": true
+      },
+      {
+        "id": "ACT-002",
+        "priority": "critical",
+        "action": "Configure active carriers in logistics-log.md",
+        "owner": "Gianluca / DMancuello client",
+        "blocksAgent": true
+      },
+      {
+        "id": "ACT-003",
+        "priority": "high",
+        "action": "Define Shopify integration method (auto or manual order input)",
+        "owner": "Gianluca",
+        "blocksAgent": false
+      },
+      {
+        "id": "ACT-004",
+        "priority": "high",
+        "action": "Confirm international shipping scope (Uruguay only vs LATAM markets)",
+        "owner": "Gianluca / DMancuello client",
+        "blocksAgent": false
+      },
+      {
+        "id": "ACT-005",
+        "priority": "medium",
+        "action": "Load historical sales data into sales-log.md for velocity calculations",
+        "owner": "Federico / automation",
+        "blocksAgent": false
+      }
+    ],
+    "nextScheduledRun": null,
+    "generatedBy": "Logistics Agent — D&C Scale Partners",
+    "lookbackDays": 7
+  },
+  "stockAgentResult": null,
+  "timestamp": "2026-04-22T11:51:26.805Z"
+}
