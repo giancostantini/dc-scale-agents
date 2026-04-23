@@ -91,17 +91,32 @@ async function smokeGithub(): Promise<SmokeResult> {
     return { ok: false, message: "faltan GH_DISPATCH_TOKEN / GITHUB_OWNER / GITHUB_REPO" };
   }
   try {
-    // el endpoint /actions/permissions requiere actions:read — proxy válido
-    // para saber si el PAT tiene scope de Actions. Si no, devuelve 403.
+    // Probe real: POST a /dispatches con event_type que ningún workflow escucha.
+    // Si el token tiene Contents:write (fine-grained) o scope `repo` (classic),
+    // GitHub devuelve 204 sin gatillar nada. Esto es lo que realmente usa el
+    // dashboard para invocar agentes pesados, así que es el check más honesto.
     const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/actions/permissions`,
+      `https://api.github.com/repos/${owner}/${repo}/dispatches`,
       {
+        method: "POST",
         headers: {
           Accept: "application/vnd.github+json",
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          event_type: "_diag_probe",
+          client_payload: { probe: true, ts: Date.now() },
+        }),
       },
     );
+    if (res.status === 204) {
+      return {
+        ok: true,
+        status: 204,
+        message: `dispatch probe ok sobre ${owner}/${repo}`,
+      };
+    }
     if (res.status === 404) {
       return {
         ok: false,
@@ -109,15 +124,8 @@ async function smokeGithub(): Promise<SmokeResult> {
         message: `repo ${owner}/${repo} no encontrado (o token sin acceso)`,
       };
     }
-    if (!res.ok) {
-      const body = await res.text();
-      return { ok: false, status: res.status, message: body.slice(0, 200) };
-    }
-    return {
-      ok: true,
-      status: res.status,
-      message: `repo ${owner}/${repo} reachable con scope Actions`,
-    };
+    const body = await res.text();
+    return { ok: false, status: res.status, message: body.slice(0, 200) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "unknown error" };
   }
