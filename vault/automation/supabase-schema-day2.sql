@@ -86,9 +86,17 @@ begin
 end $$;
 
 -- ------------------------------------------------------------
--- Verificación
+-- Verificación — RLS habilitado + tabla existe
+-- (rowsecurity vive en pg_tables, NO en information_schema.tables)
 -- ------------------------------------------------------------
-select table_name, row_security
-from information_schema.tables
-where table_schema = 'public'
-  and table_name in ('content_insights','competitor_pieces','consultant_memory');
+select schemaname, tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+  and tablename in ('content_insights','competitor_pieces','consultant_memory');
+
+-- Policies creadas
+select tablename, policyname, cmd, roles
+from pg_policies
+where schemaname = 'public'
+  and tablename in ('content_insights','competitor_pieces','consultant_memory')
+order by tablename, policyname;
