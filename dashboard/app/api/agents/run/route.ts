@@ -1,17 +1,19 @@
 /**
  * POST /api/agents/run
  *
- * Opens an agent_runs row (status:'running') and dispatches a GitHub Actions
- * workflow that will execute the agent. The workflow is expected to close the
- * run (update status to 'success' or 'error') when it finishes.
+ * Opens an agent_runs row (status:'running'). For "fast" agents (quick, no
+ * Remotion/ElevenLabs/Blotato), runs the agent in-process on the Vercel
+ * function so the dashboard gets the output back in a few seconds. For
+ * heavier agents, dispatches a GitHub Actions workflow; the workflow closes
+ * the run (status success/error) when it finishes.
  *
  * Body:
  *   clientId: string         — e.g. "dmancuello"
  *   agent:    string         — event_type of the workflow (e.g. "content-creator")
  *   brief:    object         — agent-specific payload; runId is injected automatically
  *
- * Response:
- *   { runId, dispatched: true }
+ * Response (heavy agent):  { runId, dispatched: true }
+ * Response (fast agent):   { runId, dispatched: false, inProcess: true, result: {...} }
  */
 
 import { NextRequest } from "next/server";
@@ -22,6 +24,42 @@ interface RunRequest {
   clientId: string;
   agent: string;
   brief?: Record<string, unknown>;
+}
+
+/**
+ * Whitelist of agents that are safe to run in-process inside a Vercel
+ * serverless function. These must:
+ *   - finish well under the platform timeout (60s Hobby / 300s Pro)
+ *   - not rely on binaries like Remotion / ffmpeg
+ *   - not touch ElevenLabs, Blotato, or any heavy pipeline
+ *
+ * The value is the `agent:mode` or plain `agent` string used in requests.
+ * A module loader converts it to an import path.
+ */
+const FAST_AGENTS: Record<string, { module: string; exportName?: string }> = {
+  "morning-briefing": {
+    module: "../../../../../scripts/morning-briefing/index.js",
+  },
+  // reporting-performance only for cheap modes (query / insights). daily/weekly/monthly
+  // can still pass through GHA via a different `agent` key if needed.
+  "reporting-performance:query": {
+    module: "../../../../../scripts/reporting-performance/index.js",
+  },
+  "reporting-performance:insights": {
+    module: "../../../../../scripts/reporting-performance/index.js",
+  },
+};
+
+function resolveFastAgent(agent: string, brief: Record<string, unknown>) {
+  // direct match (e.g. "morning-briefing")
+  if (FAST_AGENTS[agent]) return { key: agent, spec: FAST_AGENTS[agent] };
+  // mode-scoped match (e.g. agent="reporting-performance", brief.mode="query")
+  const mode = typeof brief.mode === "string" ? brief.mode : null;
+  if (mode) {
+    const combined = `${agent}:${mode}`;
+    if (FAST_AGENTS[combined]) return { key: combined, spec: FAST_AGENTS[combined] };
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -62,6 +100,55 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const fastMatch = resolveFastAgent(agent, brief);
+
+  if (fastMatch) {
+    // Fast-path: run the agent in-process. The agent itself closes the run
+    // (updateAgentRun) and registers outputs, so we just relay the result.
+    try {
+      const mod = await import(fastMatch.spec.module);
+      const runFn = fastMatch.spec.exportName
+        ? mod[fastMatch.spec.exportName]
+        : mod.run;
+
+      if (typeof runFn !== "function") {
+        throw new Error(
+          `Fast agent '${fastMatch.key}' module has no 'run' export`,
+        );
+      }
+
+      const result = await runFn({
+        ...brief,
+        client: clientId,
+        runId: run.id,
+        source: "dashboard",
+      });
+
+      return Response.json({
+        runId: run.id,
+        dispatched: false,
+        inProcess: true,
+        result,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "in-process run failed";
+      await supabase
+        .from("agent_runs")
+        .update({
+          status: "error",
+          summary: message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", run.id);
+
+      return Response.json(
+        { error: message, runId: run.id },
+        { status: 500 },
+      );
+    }
+  }
+
+  // Heavy-path: dispatch to GitHub Actions.
   try {
     await dispatchAgentWorkflow({
       eventType: agent,

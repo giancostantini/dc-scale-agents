@@ -6,6 +6,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   dispatched?: { agent: string; runId: number } | null;
+  memorySaved?: { kind: string; content: string } | null;
 }
 
 interface ConsultantChatProps {
@@ -15,6 +16,7 @@ interface ConsultantChatProps {
 interface ConsultantResponse {
   reply: string;
   dispatched?: { agent: string; runId: number } | null;
+  memorySaved?: { kind: string; content: string } | null;
   error?: string;
 }
 
@@ -57,7 +59,12 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply, dispatched: data.dispatched ?? null },
+        {
+          role: "assistant",
+          content: data.reply,
+          dispatched: data.dispatched ?? null,
+          memorySaved: data.memorySaved ?? null,
+        },
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");
@@ -271,6 +278,20 @@ function Bubble({ message }: { message: ChatMessage }) {
           }}
         >
           → Dispatché · {message.dispatched.agent} · run #{message.dispatched.runId}
+        </div>
+      )}
+      {message.memorySaved && (
+        <div
+          style={{
+            alignSelf: "flex-start",
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            color: "var(--sand-dark)",
+            fontStyle: "italic",
+          }}
+          title={message.memorySaved.content}
+        >
+          ◇ Guardé esto en memoria ({message.memorySaved.kind})
         </div>
       )}
     </div>

@@ -42,6 +42,55 @@ async function insert(table, row) {
   return Array.isArray(data) ? data[0] : data;
 }
 
+async function selectMany(table, match = {}, columns = "*", options = {}) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+
+  const entries = [
+    ...Object.entries(match).map(([k, v]) => [k, `eq.${v}`]),
+    ["select", columns],
+  ];
+  if (options.order) entries.push(["order", options.order]);
+  if (options.limit) entries.push(["limit", String(options.limit)]);
+
+  const params = new URLSearchParams(entries).toString();
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    method: "GET",
+    headers: headers(),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase select-many error on ${table}: ${err}`);
+  }
+
+  return await res.json();
+}
+
+async function upsert(table, rows, onConflict) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+
+  const params = onConflict
+    ? `?on_conflict=${encodeURIComponent(onConflict)}`
+    : "";
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+    method: "POST",
+    headers: {
+      ...headers(),
+      Prefer: "return=representation,resolution=merge-duplicates",
+    },
+    body: JSON.stringify(rows),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase upsert error on ${table}: ${err}`);
+  }
+
+  return await res.json();
+}
+
 async function selectOne(table, match, columns = "*") {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
 
@@ -85,6 +134,33 @@ async function update(table, match, patch) {
 
   const data = await res.json();
   return Array.isArray(data) ? data[0] : data;
+}
+
+// ---------------------------------------------------------------------------
+// generic helpers (exported for agents that need read/write beyond the curated API)
+// ---------------------------------------------------------------------------
+
+/** Select many rows. `match` is an AND-joined eq filter. */
+export async function select(table, match = {}, columns = "*", options = {}) {
+  try {
+    return await selectMany(table, match, columns, options);
+  } catch (err) {
+    console.warn(`[supabase] select failed (non-fatal): ${err.message}`);
+    return [];
+  }
+}
+
+/**
+ * Upsert rows. `onConflict` should match a unique constraint (e.g.
+ * "client,dimension,value"). Returns the upserted rows or null on failure.
+ */
+export async function upsertRows(table, rows, onConflict) {
+  try {
+    return await upsert(table, rows, onConflict);
+  } catch (err) {
+    console.warn(`[supabase] upsertRows failed (non-fatal): ${err.message}`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

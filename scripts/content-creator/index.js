@@ -223,6 +223,24 @@ function buildPrompt(ctx, brief, examples) {
   if (brief.instructions)
     directives.push(`INSTRUCCIONES ADICIONALES: ${brief.instructions}`);
 
+  if (brief.prioritize && typeof brief.prioritize === "object") {
+    const p = brief.prioritize;
+    if (Array.isArray(p.hook) && p.hook.length) {
+      directives.push(
+        `HOOKS QUE FUNCIONARON HISTORICAMENTE (priorizá uno de estos o algo en la misma linea): ${p.hook.join(" | ")}`
+      );
+    }
+    if (Array.isArray(p.format) && p.format.length) {
+      directives.push(`FORMATOS TOP (usá uno salvo que el brief pida otra cosa): ${p.format.join(" | ")}`);
+    }
+    if (Array.isArray(p.angle) && p.angle.length) {
+      directives.push(`ANGULOS TOP (inspirarse): ${p.angle.join(" | ")}`);
+    }
+    if (Array.isArray(p.publish_time) && p.publish_time.length) {
+      directives.push(`MEJORES HORARIOS DE PUBLICACION: ${p.publish_time.join(", ")}`);
+    }
+  }
+
   const directivesBlock =
     directives.length > 0
       ? `--- DIRECCION CREATIVA (del ${brief.source === "consultant-agent" ? "Agente Consultor" : brief.source === "dashboard" ? "dueno del negocio" : "operador"}) ---\n${directives.join("\n")}`

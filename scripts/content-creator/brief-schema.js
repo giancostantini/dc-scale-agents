@@ -53,6 +53,13 @@
  * @property {string} [instructions] - Free-text instructions from Consultant Agent or business owner
  * @property {string} [calendarEntryId] - Links to a specific content-calendar.md entry
  *
+ * --- Performance-driven prioritization (injected by the Consultant from content_insights) ---
+ * @property {Object} [prioritize]
+ * @property {string[]} [prioritize.hook] - Top hooks by historical score
+ * @property {string[]} [prioritize.format] - Top formats by historical score
+ * @property {string[]} [prioritize.angle] - Top angles by historical score
+ * @property {string[]} [prioritize.publish_time] - Best historical publish times (HH:MM)
+ *
  * --- Production flags (future) ---
  * @property {boolean} [produceVideo] - false in Fase 1, true when Remotion is connected
  * @property {boolean} [produceStatic] - false in Fase 1, true when NanoBanana is connected
@@ -82,6 +89,7 @@ export const DEFAULT_BRIEF = {
   examples: [],
   instructions: null,
   calendarEntryId: null,
+  prioritize: null,
   produceVideo: false,
   produceStatic: false,
   generateVoice: false,

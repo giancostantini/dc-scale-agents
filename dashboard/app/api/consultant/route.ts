@@ -62,7 +62,12 @@ Agentes que podés dispatchar:
 - stock: status / forecast / alert de inventario (solo ecommerce). Brief: mode.
 - logistics: schedule / dispatch / optimize envíos (solo ecommerce). Brief: mode.
 
-Si dispatchás, confirmá brevemente qué dispatchaste y qué esperar (tiempo estimado, dónde va a aparecer el output).`;
+Si dispatchás, confirmá brevemente qué dispatchaste y qué esperar (tiempo estimado, dónde va a aparecer el output).
+
+Memoria progresiva:
+- Antes de responder recibís un bloque "MEMORIA DEL CLIENTE" con preferencias, restricciones, decisiones pasadas y aprendizajes. Usalos para afinar las respuestas y los briefs.
+- Cuando el dueño deje caer una preferencia nueva ("prefiero copy punchy", "no usar humor negro", "apuntá a compradoras 30-50"), una restricción ("no hablar de precios"), o una decisión importante, LLAMÁ a la tool \`save_memory\` para guardarla. No pidas permiso: guardala en silencio.
+- Importance guide: preferencia genérica=2, preferencia fuerte=3, constraint dura=4-5.`;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -115,7 +120,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  const [{ data: client }, { data: recentRuns }] = await Promise.all([
+  const [{ data: client }, { data: recentRuns }, memories] = await Promise.all([
     supabase
       .from("clients")
       .select("id, name, sector, type, phase, method, fee")
@@ -128,6 +133,7 @@ export async function POST(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(10)
       .returns<AgentRunRow[]>(),
+    recallMemories(supabase, clientId, 20),
   ]);
 
   if (!client) {
@@ -135,6 +141,7 @@ export async function POST(req: NextRequest) {
   }
 
   const contextBlock = buildContextBlock(client, recentRuns ?? []);
+  const memoryBlock = buildMemoryBlock(memories);
 
   const anthropic = new Anthropic();
 
@@ -151,6 +158,10 @@ export async function POST(req: NextRequest) {
         {
           type: "text",
           text: contextBlock,
+        },
+        {
+          type: "text",
+          text: memoryBlock,
         },
       ],
       tools: [
@@ -179,14 +190,61 @@ export async function POST(req: NextRequest) {
             required: ["agent", "brief"],
           },
         },
+        {
+          name: "save_memory",
+          description:
+            "Persist a piece of durable context about this client (preference, constraint, past decision, or learning). Call this silently when the owner drops a new preference or restriction; the next conversation starts with it loaded.",
+          input_schema: {
+            type: "object",
+            properties: {
+              kind: {
+                type: "string",
+                enum: ["preference", "constraint", "past_decision", "learning"],
+                description:
+                  "preference = gusto/tono/estilo del dueño; constraint = cosa que no se debe hacer; past_decision = decisión tomada y por qué; learning = aprendizaje de lo que funcionó o no.",
+              },
+              content: {
+                type: "string",
+                description: "La memoria en sí, en una oración. Escribí en primera persona (del cliente) cuando corresponda: 'Prefiero copy corto'.",
+              },
+              importance: {
+                type: "integer",
+                minimum: 1,
+                maximum: 5,
+                description: "1=trivia, 3=preferencia relevante, 5=regla dura inviolable.",
+              },
+            },
+            required: ["kind", "content"],
+          },
+        },
       ],
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
 
     const textBlock = response.content.find((b) => b.type === "text");
-    const toolBlock = response.content.find((b) => b.type === "tool_use");
+    const toolBlocks = response.content.filter((b) => b.type === "tool_use");
 
     let dispatched: { agent: string; runId: number } | null = null;
+    let memorySaved: { kind: string; content: string } | null = null;
+
+    // Handle save_memory first — it's silent and doesn't affect dispatch flow.
+    for (const block of toolBlocks) {
+      if (block.type === "tool_use" && block.name === "save_memory") {
+        const input = block.input as {
+          kind: "preference" | "constraint" | "past_decision" | "learning";
+          content: string;
+          importance?: number;
+        };
+        if (input.content && input.kind) {
+          await rememberMemory(supabase, clientId, input.kind, input.content, input.importance);
+          memorySaved = { kind: input.kind, content: input.content };
+        }
+      }
+    }
+
+    const toolBlock = toolBlocks.find(
+      (b) => b.type === "tool_use" && b.name === "run_agent",
+    );
 
     if (toolBlock && toolBlock.type === "tool_use" && toolBlock.name === "run_agent") {
       const input = toolBlock.input as {
@@ -202,6 +260,25 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Performance-based brief enrichment — for content-creator, inject
+      // `prioritize` from content_insights so each piece is optimized
+      // against what historically worked for this client. Also inject
+      // `examples[]` from recently captured competitor pieces.
+      const enrichedBrief: Record<string, unknown> = { ...input.brief };
+      if (input.agent === "content-creator") {
+        const [prioritize, competitorExamples] = await Promise.all([
+          loadPrioritizeFromInsights(supabase, clientId),
+          loadCompetitorExamples(supabase, clientId),
+        ]);
+        if (prioritize) enrichedBrief.prioritize = prioritize;
+        if (competitorExamples && competitorExamples.length > 0) {
+          const existing = Array.isArray(enrichedBrief.examples)
+            ? (enrichedBrief.examples as unknown[])
+            : [];
+          enrichedBrief.examples = [...existing, ...competitorExamples];
+        }
+      }
+
       const { data: run, error: insertError } = await supabase
         .from("agent_runs")
         .insert({
@@ -209,7 +286,7 @@ export async function POST(req: NextRequest) {
           agent: input.agent,
           status: "running",
           summary: input.reason ?? "dispatched from consultant",
-          metadata: { brief: input.brief, source: "consultant", reason: input.reason },
+          metadata: { brief: enrichedBrief, source: "consultant", reason: input.reason },
           performance: {},
         })
         .select()
@@ -227,7 +304,7 @@ export async function POST(req: NextRequest) {
           eventType: input.agent,
           payload: {
             runId: run.id,
-            brief: { ...input.brief, client: clientId, source: "consultant", runId: run.id },
+            brief: { ...enrichedBrief, client: clientId, source: "consultant", runId: run.id },
           },
         });
         dispatched = { agent: input.agent, runId: run.id };
@@ -261,6 +338,7 @@ export async function POST(req: NextRequest) {
     return Response.json({
       reply,
       dispatched,
+      memorySaved,
       usage: {
         input: response.usage.input_tokens,
         output: response.usage.output_tokens,
@@ -285,6 +363,199 @@ export async function POST(req: NextRequest) {
     }
     return Response.json({ error: "Error inesperado" }, { status: 500 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Consultant memory — progressive context written during conversation
+// ---------------------------------------------------------------------------
+
+interface MemoryRow {
+  id: number;
+  kind: "preference" | "constraint" | "past_decision" | "learning";
+  content: string;
+  importance: number | null;
+  created_at: string;
+}
+
+async function recallMemories(
+  supabase: SupabaseAdminClient,
+  clientId: string,
+  limit: number,
+): Promise<MemoryRow[]> {
+  const { data, error } = await supabase
+    .from("consultant_memory")
+    .select("id, kind, content, importance, created_at")
+    .eq("client", clientId)
+    .or("expires_at.is.null,expires_at.gt.now()")
+    .order("importance", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<MemoryRow[]>();
+
+  if (error || !data) return [];
+  return data;
+}
+
+async function rememberMemory(
+  supabase: SupabaseAdminClient,
+  clientId: string,
+  kind: MemoryRow["kind"],
+  content: string,
+  importance?: number,
+): Promise<void> {
+  const clampedImportance =
+    typeof importance === "number"
+      ? Math.max(1, Math.min(5, Math.round(importance)))
+      : 3;
+
+  await supabase.from("consultant_memory").insert({
+    client: clientId,
+    kind,
+    content: content.slice(0, 1000),
+    importance: clampedImportance,
+  });
+}
+
+function buildMemoryBlock(memories: MemoryRow[]): string {
+  if (memories.length === 0) {
+    return "MEMORIA DEL CLIENTE: (vacía — esta es la primera conversación relevante)";
+  }
+
+  const byKind: Record<string, MemoryRow[]> = {
+    preference: [],
+    constraint: [],
+    past_decision: [],
+    learning: [],
+  };
+  for (const m of memories) {
+    (byKind[m.kind] ?? (byKind[m.kind] = [])).push(m);
+  }
+
+  const labels: Record<string, string> = {
+    preference: "Preferencias",
+    constraint: "Restricciones (no cruzar)",
+    past_decision: "Decisiones pasadas",
+    learning: "Aprendizajes",
+  };
+
+  const sections: string[] = ["MEMORIA DEL CLIENTE:"];
+  for (const kind of ["constraint", "preference", "past_decision", "learning"] as const) {
+    const items = byKind[kind];
+    if (!items || items.length === 0) continue;
+    sections.push(`\n${labels[kind]}:`);
+    for (const m of items) {
+      const imp = m.importance ? ` [p${m.importance}]` : "";
+      sections.push(`- ${m.content}${imp}`);
+    }
+  }
+
+  return sections.join("\n");
+}
+
+interface InsightRow {
+  dimension: string;
+  value: string;
+  score: number | null;
+  sample_size: number | null;
+}
+
+type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
+
+/**
+ * Read top-5 insights per dimension for a client and return them as a
+ * `prioritize` object Content Creator understands. Returns null if the
+ * table is empty for this client.
+ */
+async function loadPrioritizeFromInsights(
+  supabase: SupabaseAdminClient,
+  clientId: string,
+): Promise<{
+  hook?: string[];
+  format?: string[];
+  angle?: string[];
+  publish_time?: string[];
+} | null> {
+  const { data, error } = await supabase
+    .from("content_insights")
+    .select("dimension, value, score, sample_size")
+    .eq("client", clientId)
+    .order("score", { ascending: false })
+    .limit(200)
+    .returns<InsightRow[]>();
+
+  if (error || !data || data.length === 0) return null;
+
+  const byDim = new Map<string, string[]>();
+  for (const row of data) {
+    if (!row.value) continue;
+    const arr = byDim.get(row.dimension) ?? [];
+    if (arr.length < 5) arr.push(row.value);
+    byDim.set(row.dimension, arr);
+  }
+
+  const prioritize: Record<string, string[]> = {};
+  for (const dim of ["hook", "format", "angle", "publish_time"]) {
+    const arr = byDim.get(dim);
+    if (arr && arr.length > 0) prioritize[dim] = arr;
+  }
+
+  return Object.keys(prioritize).length > 0 ? prioritize : null;
+}
+
+interface CompetitorPieceRow {
+  competitor: string;
+  platform: string | null;
+  url: string | null;
+  piece_type: string | null;
+  hook: string | null;
+  format: string | null;
+  notes: string | null;
+  captured_at: string;
+}
+
+/**
+ * Load up to 3 recent non-archived competitor pieces and shape them as
+ * Content Creator `examples[]` entries. These go into the brief so the
+ * piece is generated with reference material from real competition.
+ */
+async function loadCompetitorExamples(
+  supabase: SupabaseAdminClient,
+  clientId: string,
+): Promise<Array<{ type: string; url: string; notes: string }> | null> {
+  const { data, error } = await supabase
+    .from("competitor_pieces")
+    .select("competitor, platform, url, piece_type, hook, format, notes, captured_at")
+    .eq("client", clientId)
+    .eq("archived", false)
+    .order("captured_at", { ascending: false })
+    .limit(3)
+    .returns<CompetitorPieceRow[]>();
+
+  if (error || !data || data.length === 0) return null;
+
+  return data
+    .filter((row) => row.url)
+    .map((row) => {
+      const typeMap: Record<string, string> = {
+        reel: "video",
+        short: "video",
+        tiktok: "video",
+        static: "static",
+        carousel: "static",
+      };
+      const type =
+        (row.piece_type && typeMap[row.piece_type.toLowerCase()]) || "video";
+      const parts: string[] = [];
+      if (row.competitor) parts.push(`competidor: ${row.competitor}`);
+      if (row.format) parts.push(`formato: ${row.format}`);
+      if (row.hook) parts.push(`hook: "${row.hook}"`);
+      if (row.notes) parts.push(row.notes);
+      return {
+        type,
+        url: row.url as string,
+        notes: parts.join(" · ") || "Pieza de competencia capturada",
+      };
+    });
 }
 
 function buildContextBlock(client: ClientRow, recentRuns: AgentRunRow[]): string {

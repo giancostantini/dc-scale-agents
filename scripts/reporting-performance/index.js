@@ -13,7 +13,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
 import {
   logAgentRun,
@@ -643,19 +643,28 @@ async function main() {
   console.log("\n" + "=".repeat(60));
 }
 
-main().catch(async (err) => {
-  console.error(`[${AGENT}] failed:`, err.message);
-  const fallbackBrief = (() => {
-    try {
-      return loadBriefFromArgs();
-    } catch {
-      return { client: "_unknown", runId: null };
+// Export a programmatic alias so callers can use a uniform `run(brief)` signature.
+export const run = runAnalyticsAgent;
+
+// --- CLI entry point (only when invoked directly) ---
+
+const isMain = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+
+if (isMain) {
+  main().catch(async (err) => {
+    console.error(`[${AGENT}] failed:`, err.message);
+    const fallbackBrief = (() => {
+      try {
+        return loadBriefFromArgs();
+      } catch {
+        return { client: "_unknown", runId: null };
+      }
+    })();
+    await logAgentError(fallbackBrief.client, AGENT, err, {});
+    if (fallbackBrief.runId) {
+      await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
     }
-  })();
-  await logAgentError(fallbackBrief.client, AGENT, err, {});
-  if (fallbackBrief.runId) {
-    await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
-  }
-  await pushNotification(fallbackBrief.client, "error", `Analytics falló`, err.message, { agent: AGENT });
-  process.exit(1);
-});
+    await pushNotification(fallbackBrief.client, "error", `Analytics falló`, err.message, { agent: AGENT });
+    process.exit(1);
+  });
+}

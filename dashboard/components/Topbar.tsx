@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getCurrentProfile, signOut } from "@/lib/supabase/auth";
 import type { Profile } from "@/lib/supabase/auth";
+import NotificationBell from "./NotificationBell";
 import styles from "./Topbar.module.css";
 
 interface TopbarProps {
@@ -61,9 +62,7 @@ export default function Topbar({
         <button className={styles.btn} onClick={() => router.push("/finanzas")}>
           Finanzas
         </button>
-        <button className={styles.btn}>
-          Alertas <span className={styles.badge}>0</span>
-        </button>
+        <NotificationBell />
 
         {profile && (
           <div

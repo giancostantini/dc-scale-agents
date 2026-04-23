@@ -6,10 +6,14 @@
  * the briefing in agent_outputs so the dashboard can render it, and pushes a
  * notification to the bell.
  *
- * Usage:
+ * Usage (CLI):
  *   node scripts/morning-briefing/index.js --brief /tmp/brief.json
  *   node scripts/morning-briefing/index.js <client>           (legacy CLI)
  *   node scripts/morning-briefing/index.js                    (defaults dmancuello)
+ *
+ * Programmatic:
+ *   import { run } from "./index.js";
+ *   await run({ client: "dmancuello", runId: 42 });
  *
  * Brief shape:
  *   { client: string, runId?: number, mode?: string }
@@ -17,7 +21,7 @@
 
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import {
   logAgentRun,
   logAgentError,
@@ -40,7 +44,7 @@ function readVaultFile(relativePath) {
   }
 }
 
-function loadBrief() {
+function loadBriefFromArgs() {
   const args = process.argv.slice(2);
   const briefFlagIdx = args.indexOf("--brief");
   if (briefFlagIdx !== -1 && args[briefFlagIdx + 1]) {
@@ -78,9 +82,14 @@ async function callClaude(prompt) {
   return data.content[0].text;
 }
 
-async function run() {
+/**
+ * Main programmatic entry. Can be called from Vercel (in-process fast-path)
+ * or from the GHA workflow (CLI wrapper). Returns the generated briefing +
+ * summary so the caller can surface it immediately.
+ */
+export async function run(briefInput) {
   const startTime = Date.now();
-  const brief = loadBrief();
+  const brief = briefInput ?? loadBriefFromArgs();
   const { client, runId = null } = brief;
   console.log(`[${AGENT}] starting for client='${client}' runId=${runId}`);
 
@@ -165,23 +174,36 @@ Sé directo, útil y breve. Máximo 800 caracteres. Basate en el contexto del cl
   });
 
   console.log(`[${AGENT}] done.`);
+
+  return {
+    client,
+    runId,
+    body_md: briefing,
+    summary: shortSummary,
+  };
 }
 
-run().catch(async (err) => {
-  console.error(`[${AGENT}] failed:`, err.message);
-  const brief = (() => {
-    try {
-      return loadBrief();
-    } catch {
-      return { client: "_unknown" };
+// --- CLI entry point (only when invoked directly) ---
+
+const isMain = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+
+if (isMain) {
+  run().catch(async (err) => {
+    console.error(`[${AGENT}] failed:`, err.message);
+    const brief = (() => {
+      try {
+        return loadBriefFromArgs();
+      } catch {
+        return { client: "_unknown" };
+      }
+    })();
+    await logAgentError(brief.client, AGENT, err, {});
+    if (brief.runId) {
+      await updateAgentRun(brief.runId, { status: "error", summary: err.message });
     }
-  })();
-  await logAgentError(brief.client, AGENT, err, {});
-  if (brief.runId) {
-    await updateAgentRun(brief.runId, { status: "error", summary: err.message });
-  }
-  await pushNotification(brief.client, "error", `Morning briefing falló`, err.message, {
-    agent: AGENT,
+    await pushNotification(brief.client, "error", `Morning briefing falló`, err.message, {
+      agent: AGENT,
+    });
+    process.exit(1);
   });
-  process.exit(1);
-});
+}

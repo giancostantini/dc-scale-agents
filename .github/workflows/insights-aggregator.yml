@@ -1,0 +1,46 @@
+name: Insights Aggregator
+
+on:
+  schedule:
+    # Daily: 8 AM Montevideo (11:00 UTC) — runs after social-media-metrics
+    # refreshed piece metrics the night before.
+    - cron: '0 11 * * *'
+
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (empty = all clients)'
+        required: false
+
+  # Dashboard or Consultant can trigger manually
+  repository_dispatch:
+    types: [insights-aggregator]
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Aggregate content insights
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/insights-aggregator/index.js --brief /tmp/brief.json
+          else
+            CLIENT="${{ inputs.client }}"
+            if [ -n "$CLIENT" ]; then
+              node scripts/insights-aggregator/index.js "$CLIENT"
+            else
+              node scripts/insights-aggregator/index.js
+            fi
+          fi

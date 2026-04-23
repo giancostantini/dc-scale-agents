@@ -1,0 +1,44 @@
+name: Competitor Scanner
+
+on:
+  schedule:
+    # Mon/Wed/Fri at 11 AM Montevideo (14:00 UTC)
+    - cron: '0 14 * * 1,3,5'
+
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (empty = all clients)'
+        required: false
+
+  repository_dispatch:
+    types: [competitor-scanner]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Scan competitors across clients
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/competitor-scanner/index.js --brief /tmp/brief.json
+          else
+            CLIENT="${{ inputs.client }}"
+            if [ -n "$CLIENT" ]; then
+              node scripts/competitor-scanner/index.js "$CLIENT"
+            else
+              node scripts/competitor-scanner/index.js
+            fi
+          fi
