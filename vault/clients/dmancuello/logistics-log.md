@@ -15,3 +15,9 @@
 
 Mode: schedule
 Total ordenes: 0 | Listas: 0 | Bloqueadas: 0 | Proximo envio: null
+
+
+## Planificacion de Envios — 2026-04-23
+
+Mode: schedule
+Total ordenes: 0 | Listas: 0 | Bloqueadas: 0 | Proximo envio: null

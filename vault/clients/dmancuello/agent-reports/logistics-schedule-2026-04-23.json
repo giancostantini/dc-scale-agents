@@ -1,0 +1,80 @@
+{
+  "agent": "logistics",
+  "mode": "schedule",
+  "client": "dmancuello",
+  "date": "2026-04-23",
+  "logisticsData": {
+    "date": "2026-04-23",
+    "client": "dmancuello",
+    "mode": "schedule",
+    "scheduledOrders": [],
+    "blockedOrders": [],
+    "structuralBlockers": [
+      {
+        "id": "BLK-001",
+        "type": "no_orders",
+        "description": "No orders registered in logistics-log.md",
+        "source": "logistics-log.md → pending orders section empty",
+        "severity": "critical",
+        "requiredAction": "Connect Shopify order pipeline to logistics-log writer",
+        "owner": "gianluca"
+      },
+      {
+        "id": "BLK-002",
+        "type": "no_stock_data",
+        "description": "No inventory data available in stock-log.md",
+        "source": "stock-log.md → current inventory section empty",
+        "severity": "critical",
+        "requiredAction": "Load initial inventory from Shopify export or manual CSV",
+        "owner": "dmancuello + claude_code"
+      },
+      {
+        "id": "BLK-003",
+        "type": "no_carrier_config",
+        "description": "No carrier configuration loaded in logistics-log.md",
+        "source": "logistics-log.md → carrier information section empty",
+        "severity": "medium",
+        "requiredAction": "Define active carriers for Uruguay domestic and LAM international routes",
+        "owner": "dmancuello"
+      },
+      {
+        "id": "BLK-004",
+        "type": "shopify_integration_unknown",
+        "description": "Shopify store URL not loaded, integration status unknown",
+        "source": "claude-client.md → URL field empty",
+        "severity": "medium",
+        "requiredAction": "Confirm Shopify URL + API token + order webhook",
+        "owner": "gianluca"
+      }
+    ],
+    "summary": {
+      "totalOrders": 0,
+      "ordersReady": 0,
+      "ordersBlocked": 0,
+      "structuralBlockersCount": 4,
+      "criticalBlockers": 2,
+      "blockedReasons": [
+        "No orders registered in logistics-log.md",
+        "No stock data available in stock-log.md",
+        "No carrier configuration loaded",
+        "Shopify integration status unknown"
+      ],
+      "nextShipmentDate": null,
+      "agentStatus": "awaiting_data_input",
+      "recommendedNextAction": "Load Shopify orders export + inventory CSV in next working session"
+    },
+    "lookbackPeriod": {
+      "from": "2026-04-16",
+      "to": "2026-04-23",
+      "ordersFound": 0,
+      "salesMovementsFound": 0
+    },
+    "marketSignals": {
+      "note": "Learning log shows active purchase intent signals (high saves on Instagram, shares on TikTok for gifting). Real orders may exist in Shopify but are not synced to this system.",
+      "riskLevel": "medium",
+      "riskDescription": "Logistics may be managed manually in parallel without agent visibility"
+    }
+  },
+  "stockAgentResult": null,
+  "timestamp": "2026-04-23T11:53:06.043Z"
+}
