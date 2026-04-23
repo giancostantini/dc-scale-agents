@@ -28,7 +28,7 @@
 
 /** @typedef {Object} AnalyticsBrief
  *
- * @property {string} client - Client slug (e.g. "dmancuello")
+ * @property {string} client - Client slug (e.g. "<client-slug>") — required, no defaults
  * @property {string} source - "cli" | "consultant-agent" | "dashboard" | "github-actions"
  * @property {string} mode - "daily" | "weekly" | "biweekly" | "monthly" | "insights" | "custom" | "query"
  *
@@ -55,7 +55,7 @@
  */
 
 export const DEFAULT_BRIEF = {
-  client: "dmancuello",
+  client: null, // required at call-site — no default client
   source: "cli",
   mode: "weekly",
   businessType: "ecommerce",

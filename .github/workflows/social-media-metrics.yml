@@ -1,18 +1,17 @@
 name: Social Media Metrics Agent
 
 on:
-  schedule:
-    # Daily: 8 PM Montevideo (23:00 UTC)
-    - cron: '0 23 * * *'
-    # Weekly: Sundays 9 PM Montevideo (00:00 UTC Monday)
-    - cron: '0 0 * * 1'
+  # schedule deshabilitado hasta que haya clientes reales cargados via dashboard.
+  # Reactivar cuando exista al menos un cliente en la tabla `clients` de Supabase.
+  # schedule:
+  #   - cron: '0 23 * * *'   # daily 23:00 UTC — daily report
+  #   - cron: '0 0 * * 1'    # Monday 00:00 UTC — weekly report
 
   workflow_dispatch:
     inputs:
       client:
-        description: 'Client slug (e.g. dmancuello)'
+        description: 'Client slug'
         required: true
-        default: 'dmancuello'
       mode:
         description: 'Mode'
         required: true
@@ -46,22 +45,17 @@ jobs:
 
       - name: Ensure directories exist
         run: |
-          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client }}"
+          if [ -z "$CLIENT" ]; then
+            echo "::error::client slug missing from inputs and dispatch payload"
+            exit 1
+          fi
           mkdir -p "vault/clients/${CLIENT}/agent-reports"
 
-      - name: Determine mode for scheduled runs
+      - name: Determine mode
         id: mode
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            # Monday 00:00 UTC cron = weekly report
-            if [ "$(date -u +%u)" = "1" ] && [ "$(date -u +%H)" = "00" ]; then
-              echo "value=weekly" >> $GITHUB_OUTPUT
-            else
-              echo "value=daily" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "value=${{ inputs.mode || 'daily' }}" >> $GITHUB_OUTPUT
-          fi
+          echo "value=${{ inputs.mode || 'daily' }}" >> $GITHUB_OUTPUT
 
       - name: Collect and analyze metrics
         env:
@@ -75,14 +69,11 @@ jobs:
             echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
             node scripts/social-media-metrics/index.js --brief /tmp/brief.json
           else
-            MODE="${{ steps.mode.outputs.value }}"
-            CLIENT="${{ inputs.client || 'dmancuello' }}"
-
             cat > /tmp/brief.json << BRIEF_EOF
           {
-            "client": "${CLIENT}",
-            "mode": "${MODE}",
-            "source": "github-actions",
+            "client": "${{ inputs.client }}",
+            "mode": "${{ steps.mode.outputs.value }}",
+            "source": "dashboard",
             "lookbackDays": ${{ inputs.lookback_days || 'null' }},
             "instructions": "${{ inputs.instructions }}"
           }
@@ -95,5 +86,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add vault/
-          git diff --cached --quiet || git commit -m "Metrics Agent: ${{ steps.mode.outputs.value }} report for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git diff --cached --quiet || git commit -m "Metrics Agent: ${{ steps.mode.outputs.value }} report for ${{ inputs.client || github.event.client_payload.brief.client }}"
           git push

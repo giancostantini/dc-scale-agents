@@ -9,11 +9,12 @@
  * Usage (CLI):
  *   node scripts/morning-briefing/index.js --brief /tmp/brief.json
  *   node scripts/morning-briefing/index.js <client>           (legacy CLI)
- *   node scripts/morning-briefing/index.js                    (defaults dmancuello)
+ *
+ * El agente falla ruidoso si no recibe client slug — nunca hay default.
  *
  * Programmatic:
  *   import { run } from "./index.js";
- *   await run({ client: "dmancuello", runId: 42 });
+ *   await run({ client: "<client-slug>", runId: 42 });
  *
  * Brief shape:
  *   { client: string, runId?: number, mode?: string }
@@ -53,9 +54,9 @@ function loadBriefFromArgs() {
       return JSON.parse(readFileSync(path, "utf-8"));
     }
   }
-  // Legacy: positional client slug
+  // Legacy: positional client slug (sin default — fail loud si falta)
   const positional = args.filter((a) => !a.startsWith("--"))[0];
-  return { client: positional || "dmancuello" };
+  return { client: positional };
 }
 
 async function callClaude(prompt) {
@@ -91,6 +92,11 @@ export async function run(briefInput) {
   const startTime = Date.now();
   const brief = briefInput ?? loadBriefFromArgs();
   const { client, runId = null } = brief;
+  if (!client || typeof client !== "string" || !client.trim()) {
+    throw new Error(
+      `[${AGENT}] client slug missing — brief must include a 'client' string (no hay defaults)`,
+    );
+  }
   console.log(`[${AGENT}] starting for client='${client}' runId=${runId}`);
 
   const base = `clients/${client}`;

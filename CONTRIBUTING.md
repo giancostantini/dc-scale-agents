@@ -138,4 +138,4 @@ Sí, pero con cuidado. Los specs (`vault/agents/*/agent-spec.md`) son documentac
 Si, pero como PR separado con titulo tipo "Remove X agent". Hay que borrar: `scripts/X/`, `vault/agents/X/`, `.github/workflows/X.yml`, y el script en `package.json`.
 
 **¿Como pruebo un agente localmente sin tocar produccion?**
-Crea un cliente de prueba en `vault/clients/test/` y corre el agente con `node scripts/xxx/index.js test`. Nunca uses `dmancuello` para testing.
+Crea un cliente de prueba en `vault/clients/test/` y corre el agente con `node scripts/xxx/index.js test`. Nunca uses un slug de cliente real para testing.

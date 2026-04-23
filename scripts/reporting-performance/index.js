@@ -33,9 +33,9 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 // --- CLI parsing ---
 // Usage:
 //   node index.js --brief path/to/brief.json
-//   node index.js dmancuello daily
-//   node index.js dmancuello query "¿Qué canal tiene mejor ROAS?"
-//   node index.js                                  (defaults)
+//   node index.js <client-slug> daily
+//   node index.js <client-slug> query "¿Qué canal tiene mejor ROAS?"
+// Requiere client slug — falla si no se pasa.
 
 function loadBriefFromArgs() {
   const args = process.argv.slice(2);

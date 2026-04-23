@@ -1,18 +1,17 @@
 name: Stock Agent
 
 on:
-  schedule:
-    # Daily alert check at 9 AM Montevideo (12:00 UTC)
-    - cron: '0 12 * * *'
-    # Weekly report: Sunday 8 PM Montevideo (23:00 UTC)
-    - cron: '0 23 * * 0'
+  # schedule deshabilitado hasta que haya clientes reales cargados via dashboard.
+  # Reactivar cuando exista al menos un cliente en la tabla `clients` de Supabase.
+  # schedule:
+  #   - cron: '0 12 * * *'   # daily 12:00 UTC — alert mode
+  #   - cron: '0 23 * * 0'   # Sunday 23:00 UTC — report mode
 
   workflow_dispatch:
     inputs:
       client:
-        description: 'Client slug (e.g. dmancuello)'
+        description: 'Client slug'
         required: true
-        default: 'dmancuello'
       mode:
         description: 'Mode'
         required: true
@@ -62,21 +61,12 @@ jobs:
 
       - name: Ensure directories exist
         run: |
-          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
-          mkdir -p "vault/clients/${CLIENT}/agent-reports"
-
-      - name: Determine mode from schedule
-        id: mode
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            HOUR=$(date -u +%H)
-            DAY=$(date -u +%u)
-            if [ "$DAY" = "7" ] && [ "$HOUR" = "23" ]; then
-              echo "mode=report" >> $GITHUB_OUTPUT
-            else
-              echo "mode=alert" >> $GITHUB_OUTPUT
-            fi
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client }}"
+          if [ -z "$CLIENT" ]; then
+            echo "::error::client slug missing from inputs and dispatch payload"
+            exit 1
           fi
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
 
       - name: Run Stock Agent
         env:
@@ -88,15 +78,6 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
-            node scripts/stock/index.js --brief /tmp/brief.json
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            cat > /tmp/brief.json << BRIEF_EOF
-          {
-            "client": "dmancuello",
-            "mode": "${{ steps.mode.outputs.mode }}",
-            "source": "github-actions"
-          }
-          BRIEF_EOF
             node scripts/stock/index.js --brief /tmp/brief.json
           else
             cat > /tmp/brief.json << BRIEF_EOF
@@ -118,5 +99,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add vault/
-          git diff --cached --quiet || git commit -m "Stock Agent: ${{ inputs.mode || steps.mode.outputs.mode || github.event.client_payload.brief.mode || 'alert' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git diff --cached --quiet || git commit -m "Stock Agent: ${{ inputs.mode || github.event.client_payload.brief.mode || 'dispatch' }} for ${{ inputs.client || github.event.client_payload.brief.client }}"
           git push

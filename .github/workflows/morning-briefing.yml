@@ -1,15 +1,15 @@
-name: Morning Briefing — DMancuello
+name: Morning Briefing
 
 on:
-  schedule:
-    # Todos los dias a las 10:00 UTC (7:00 AM Uruguay)
-    - cron: '0 10 * * *'
+  # schedule deshabilitado hasta que haya clientes reales cargados via dashboard.
+  # Reactivar cuando exista al menos un cliente en la tabla `clients` de Supabase.
+  # schedule:
+  #   - cron: '0 10 * * *'  # 10:00 UTC = 7 AM Uruguay
   workflow_dispatch:
     inputs:
       client:
         description: 'Client slug'
-        required: false
-        default: 'dmancuello'
+        required: true
 
   repository_dispatch:
     types: [morning-briefing]
@@ -38,5 +38,5 @@ jobs:
             echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
             node scripts/morning-briefing/index.js --brief /tmp/brief.json
           else
-            node scripts/morning-briefing/index.js ${{ inputs.client || 'dmancuello' }}
+            node scripts/morning-briefing/index.js "${{ inputs.client }}"
           fi

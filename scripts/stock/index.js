@@ -20,8 +20,8 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 // --- CLI parsing ---
 // Usage:
 //   node index.js --brief path/to/brief.json      (full brief)
-//   node index.js dmancuello status                (shorthand: client + mode)
-//   node index.js                                  (defaults: status)
+//   node index.js <client-slug> status             (shorthand: client + mode)
+// Requiere client slug — falla si no se pasa.
 
 function loadBriefFromArgs() {
   const args = process.argv.slice(2);

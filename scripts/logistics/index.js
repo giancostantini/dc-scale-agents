@@ -22,8 +22,8 @@ const GITHUB_REPO = process.env.GITHUB_REPO || "giancostantini/Growth";
 // --- CLI parsing ---
 // Usage:
 //   node index.js --brief path/to/brief.json      (full brief)
-//   node index.js dmancuello schedule              (shorthand: client + mode)
-//   node index.js                                  (defaults: schedule)
+//   node index.js <client-slug> schedule           (shorthand: client + mode)
+// Requiere client slug — falla si no se pasa.
 
 function loadBriefFromArgs() {
   const args = process.argv.slice(2);

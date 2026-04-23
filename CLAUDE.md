@@ -5,18 +5,16 @@ AI agent system for D&C Scale Partners — growth marketing + automation agency.
 ## Quick context
 
 - **Agency:** D&C Scale Partners (Gianluca + Federico, co-founders)
-- **Active clients:**
-  - DMancuello (Shopify eCommerce, artesanal de cuero, Uruguay)
-  - WizTrip (agencia de viajes digital, plataforma IA + criterio experto, Uruguay — lanzamiento Abril 2026)
+- **Active clients:** (se cargan vía dashboard — `dashboard/` + tabla `clients` de Supabase. Ningún cliente debe estar hardcodeado en este repo.)
 - **Markets:** Uruguay + Latam (Colombia, Peru, Paraguay)
 - **Verticals:** (1) Marketing growth (content, SEO, ads), (2) Automatizacion (agentes IA operando en autopilot)
 
 ## Read these BEFORE making any changes
 
 1. [`vault/CLAUDE.md`](vault/CLAUDE.md) — **master agency context** (stack, principles, priorities)
-2. [`vault/clients/dmancuello/claude-client.md`](vault/clients/dmancuello/claude-client.md) — active client brand + strategy
-3. [`vault/agents/`](vault/agents/) — specs of the 7 production agents (one folder per agent)
-4. [`CONTRIBUTING.md`](CONTRIBUTING.md) — how we work together (branches, PRs, commits)
+2. [`vault/agents/`](vault/agents/) — specs of the 7 production agents (one folder per agent)
+3. [`CONTRIBUTING.md`](CONTRIBUTING.md) — how we work together (branches, PRs, commits)
+4. Contexto de cliente: `vault/clients/<client-slug>/claude-client.md` (se genera en el bootstrap desde `vault/automation/templates/`).
 
 ## Repo structure
 
@@ -39,7 +37,7 @@ AI agent system for D&C Scale Partners — growth marketing + automation agency.
 6. **Social Media Metrics** — per-piece content performance evaluation (feedback loop)
 7. **Stock + Logistics** — inventory + shipping (ecommerce with rotation)
 
-See `vault/automation/deployments/dmancuello/status.md` for current state.
+Cada cliente vive en `vault/clients/<client-slug>/` con su propio `claude-client.md`, `content-library.md`, `learning-log.md`, etc. El estado de despliegue por cliente va en `vault/automation/deployments/<client-slug>/status.md`.
 
 ## Tech stack
 
@@ -57,10 +55,11 @@ See `vault/automation/deployments/dmancuello/status.md` for current state.
 ## Commands
 
 ```bash
-# Run an agent locally (requires env vars set)
-node scripts/morning-briefing/index.js
-node scripts/content-creator/index.js dmancuello reel
-node scripts/reporting-performance/index.js dmancuello daily
+# Run an agent locally (requires env vars set + a brief JSON)
+# El client slug ya nunca se hardcodea — siempre viene del brief.
+node scripts/morning-briefing/index.js --brief /tmp/brief.json
+node scripts/content-creator/index.js --brief /tmp/brief.json
+node scripts/reporting-performance/index.js --brief /tmp/brief.json
 
 # Install deps
 npm install
@@ -72,7 +71,7 @@ npm install
 ## Before you code — principles
 
 1. **The vault is the source of truth.** Agents read from `vault/` and write back to it. Never hardcode client data in scripts.
-2. **Generic-first.** Any new feature must work for any client, not just DMancuello.
+2. **Generic-first.** Any new feature must work for any client. Cero defaults de cliente, cero fallbacks. Si el brief no trae `client`, el agente falla ruidoso.
 3. **Fail silently.** Errors notify via Telegram but don't break the pipeline for other clients.
 4. **Every agent logs to Supabase.** Use `scripts/lib/supabase.js` → `logAgentRun` / `logAgentError`.
 5. **Model ID is always `claude-sonnet-4-6`.** If you see an old ID, update it.

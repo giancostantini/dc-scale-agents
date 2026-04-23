@@ -12,7 +12,10 @@
  *   SUPABASE_KEY  — service_role key (NOT anon key — agents run server-side)
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+// Strip trailing slash so `${SUPABASE_URL}/rest/v1/...` never becomes `//rest/...`
+// (PostgREST devuelve PGRST125 "Invalid path specified in request URL" si hay
+// doble slash — error silencioso que mata todos los writes de los agentes).
+const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/+$/, "");
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 function headers() {
@@ -195,7 +198,7 @@ export async function fetchClient(clientId) {
 /**
  * Log a successful or in-progress agent run.
  *
- * @param {string} client        - Client slug (e.g. "dmancuello")
+ * @param {string} client        - Client slug (e.g. "<client-slug>")
  * @param {string} agent         - Agent name (e.g. "content-creator")
  * @param {"success"|"error"|"running"} status
  * @param {string} summary       - Short human-readable description

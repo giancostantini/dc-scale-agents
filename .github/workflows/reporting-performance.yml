@@ -1,20 +1,18 @@
 name: Analytics Agent (Reporting Performance)
 
 on:
-  schedule:
-    # Daily pulse: every day 9 AM Montevideo (12:00 UTC)
-    - cron: '0 12 * * *'
-    # Weekly: Monday 8 AM Montevideo (11:00 UTC)
-    - cron: '0 11 * * 1'
-    # Monthly: 1st of month 9 AM Montevideo (12:00 UTC)
-    - cron: '0 12 1 * *'
+  # schedule deshabilitado hasta que haya clientes reales cargados via dashboard.
+  # Reactivar cuando exista al menos un cliente en la tabla `clients` de Supabase.
+  # schedule:
+  #   - cron: '0 12 * * *'   # daily 12:00 UTC
+  #   - cron: '0 11 * * 1'   # weekly (Monday) 11:00 UTC
+  #   - cron: '0 12 1 * *'   # monthly (1st) 12:00 UTC
 
   workflow_dispatch:
     inputs:
       client:
-        description: 'Client slug (e.g. dmancuello)'
+        description: 'Client slug'
         required: true
-        default: 'dmancuello'
       mode:
         description: 'Mode'
         required: true
@@ -66,27 +64,12 @@ jobs:
 
       - name: Ensure directories exist
         run: |
-          CLIENT="${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
-          mkdir -p "vault/clients/${CLIENT}/agent-reports"
-
-      - name: Determine mode from schedule
-        id: mode
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            DAY=$(date -u +%d)
-            DOW=$(date -u +%u)
-            HOUR=$(date -u +%H)
-            # Monthly on day 1 at 12 UTC
-            if [ "$DAY" = "01" ] && [ "$HOUR" = "12" ]; then
-              echo "mode=monthly" >> $GITHUB_OUTPUT
-            # Weekly on Monday (DOW=1) at 11 UTC
-            elif [ "$DOW" = "1" ] && [ "$HOUR" = "11" ]; then
-              echo "mode=weekly" >> $GITHUB_OUTPUT
-            else
-              # Default to daily
-              echo "mode=daily" >> $GITHUB_OUTPUT
-            fi
+          CLIENT="${{ inputs.client || github.event.client_payload.brief.client }}"
+          if [ -z "$CLIENT" ]; then
+            echo "::error::client slug missing from inputs and dispatch payload"
+            exit 1
           fi
+          mkdir -p "vault/clients/${CLIENT}/agent-reports"
 
       - name: Run Analytics Agent
         env:
@@ -98,16 +81,6 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
-            node scripts/reporting-performance/index.js --brief /tmp/brief.json
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            cat > /tmp/brief.json << BRIEF_EOF
-          {
-            "client": "dmancuello",
-            "mode": "${{ steps.mode.outputs.mode }}",
-            "source": "github-actions",
-            "businessType": "ecommerce"
-          }
-          BRIEF_EOF
             node scripts/reporting-performance/index.js --brief /tmp/brief.json
           else
             cat > /tmp/brief.json << BRIEF_EOF
@@ -129,5 +102,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add vault/
-          git diff --cached --quiet || git commit -m "Analytics Agent: ${{ inputs.mode || steps.mode.outputs.mode || github.event.client_payload.brief.mode || 'daily' }} for ${{ inputs.client || github.event.client_payload.brief.client || 'dmancuello' }}"
+          git diff --cached --quiet || git commit -m "Analytics Agent: ${{ inputs.mode || github.event.client_payload.brief.mode || 'daily' }} for ${{ inputs.client || github.event.client_payload.brief.client }}"
           git push

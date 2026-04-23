@@ -19,7 +19,7 @@
 
 /** @typedef {Object} MetricsBrief
  *
- * @property {string} client - Client slug (e.g. "dmancuello")
+ * @property {string} client - Client slug (e.g. "<client-slug>") — required, no defaults
  * @property {string} source - Who triggered: "cli" | "consultant-agent" | "dashboard" | "github-actions"
  * @property {string} mode - "daily" | "weekly"
  * @property {number} [lookbackDays] - How many days back to collect metrics (default: 1 for daily, 7 for weekly)
@@ -28,7 +28,7 @@
  */
 
 export const DEFAULT_BRIEF = {
-  client: "dmancuello",
+  client: null, // required at call-site — no default client
   source: "cli",
   mode: "daily",
   lookbackDays: null,

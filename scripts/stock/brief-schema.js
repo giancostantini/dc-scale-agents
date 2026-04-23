@@ -28,7 +28,7 @@
 
 /** @typedef {Object} StockBrief
  *
- * @property {string} client - Client slug (e.g. "dmancuello")
+ * @property {string} client - Client slug (e.g. "<client-slug>") — required, no defaults
  * @property {string} source - Who triggered: "cli" | "consultant-agent" | "dashboard" | "github-actions"
  * @property {string} mode - "status" | "forecast" | "alert" | "report"
  *
@@ -48,7 +48,7 @@
  */
 
 export const DEFAULT_BRIEF = {
-  client: "dmancuello",
+  client: null, // required at call-site — no default client
   source: "cli",
   mode: "status",
   products: null,

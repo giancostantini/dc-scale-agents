@@ -1,15 +1,15 @@
-name: Content Strategy — DMancuello
+name: Content Strategy
 
 on:
-  schedule:
-    # Todos los lunes a las 11:00 UTC (8:00 AM Uruguay)
-    - cron: '0 11 * * 1'
+  # schedule deshabilitado hasta que haya clientes reales cargados via dashboard.
+  # Reactivar cuando exista al menos un cliente en la tabla `clients` de Supabase.
+  # schedule:
+  #   - cron: '0 11 * * 1'  # lunes 11:00 UTC = 8 AM Uruguay
   workflow_dispatch:
     inputs:
       client:
-        description: 'Client slug (e.g. dmancuello)'
-        required: false
-        default: 'dmancuello'
+        description: 'Client slug'
+        required: true
 
   repository_dispatch:
     types: [content-strategy]
@@ -38,7 +38,7 @@ jobs:
             echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
             node scripts/content-strategy/index.js --brief /tmp/brief.json
           else
-            node scripts/content-strategy/index.js ${{ github.event.inputs.client || 'dmancuello' }}
+            node scripts/content-strategy/index.js "${{ inputs.client }}"
           fi
 
       - name: Commit calendar and briefs

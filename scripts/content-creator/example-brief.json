@@ -1,14 +1,14 @@
 {
-  "client": "dmancuello",
+  "client": "<client-slug>",
   "pieceType": "reel",
   "source": "consultant-agent",
   "objective": "sales",
   "scriptFormat": "double-drop",
   "emotionalTrigger": "awe",
-  "hookStyle": "mostrar el proceso artesanal en close-up extremo",
-  "tone": "premium pero cercano, no corporativo",
-  "angle": "el tiempo que lleva hacer un producto artesanal vs. uno industrial",
-  "targetAudience": "mujeres 28-45, valoran lo hecho a mano, dispuestas a pagar mas por calidad",
+  "hookStyle": "hook de ejemplo — reemplazar por el del cliente",
+  "tone": "tono de ejemplo — reemplazar por el del cliente",
+  "angle": "angulo de ejemplo — reemplazar por el del cliente",
+  "targetAudience": "audiencia de ejemplo — reemplazar por la del cliente",
   "cta": "Visita nuestra tienda — link en bio",
   "voice": {
     "provider": "elevenlabs",
@@ -17,31 +17,26 @@
     "language": "es"
   },
   "visual": {
-    "style": "artisanal",
-    "palette": ["#8B4513", "#F5F0EB", "#2C1810"],
+    "style": "minimal",
+    "palette": ["#000000", "#FFFFFF"],
     "aspectRatio": "9:16"
   },
   "examples": [
     {
       "type": "video",
       "url": "https://www.instagram.com/reel/example123/",
-      "notes": "Copiar el ritmo de edicion de los primeros 3 segundos y el uso de close-ups"
+      "notes": "Copiar el ritmo de edicion de los primeros 3 segundos"
     },
     {
       "type": "static",
-      "filePath": "vault/clients/dmancuello/references/competidor-ad-01.png",
+      "filePath": "vault/clients/<client-slug>/references/competidor-ad-01.png",
       "notes": "Usar este estilo de tipografia y layout como referencia"
     }
   ],
-  "instructions": "El cliente quiere enfocarse esta semana en mostrar el proceso de fabricacion. Usar cuero como protagonista visual.",
+  "instructions": "Reemplazar por instrucciones concretas del Consultor / dashboard.",
   "calendarEntryId": null,
   "produceVideo": false,
   "produceStatic": false,
   "generateVoice": false,
   "autoPublish": false
-
-  // Para activar produccion completa:
-  // "generateVoice": true  → genera MP3 con ElevenLabs
-  // "produceVideo": true   → renderiza MP4 con Remotion (incluye el audio)
-  // "autoPublish": true    → publica con Blotato (Fase 4)
 }

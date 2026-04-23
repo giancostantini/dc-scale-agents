@@ -76,7 +76,7 @@ Tema central: [tema de la semana]
 - `TELEGRAM_CHAT_ID`
 
 ## Ejecucion manual
-- Terminal: `npm run content-strategy` o `node scripts/content-strategy/index.js dmancuello`
+- Terminal: `npm run content-strategy` o `node scripts/content-strategy/index.js <client-slug>`
 - GitHub: Actions > Content Strategy > Run workflow
 
 ## Integracion con otros agentes

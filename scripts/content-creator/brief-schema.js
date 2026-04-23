@@ -15,7 +15,7 @@
 /**
  * @typedef {Object} ContentBrief
  *
- * @property {string} client - Client slug (e.g. "dmancuello")
+ * @property {string} client - Client slug (e.g. "<client-slug>") — required, no defaults
  * @property {string} pieceType - "reel" | "static-ad" | "social-review" | "headline-ad" | "collage-ad" | "carousel"
  * @property {string} source - Who triggered this: "cli" | "consultant-agent" | "dashboard" | "strategy-agent"
  *

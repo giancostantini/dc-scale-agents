@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       client:
-        description: 'Client slug (e.g. dmancuello)'
+        description: 'Client slug'
         required: true
-        default: 'dmancuello'
       piece_type:
         description: 'Piece type'
         required: true

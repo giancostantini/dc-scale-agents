@@ -8,7 +8,7 @@
  * the run (status success/error) when it finishes.
  *
  * Body:
- *   clientId: string         — e.g. "dmancuello"
+ *   clientId: string         — e.g. "<client-slug>"
  *   agent:    string         — event_type of the workflow (e.g. "content-creator")
  *   brief:    object         — agent-specific payload; runId is injected automatically
  *

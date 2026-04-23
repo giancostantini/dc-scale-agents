@@ -23,12 +23,19 @@ function loadBrief() {
     if (existsSync(path)) return JSON.parse(readFileSync(path, "utf-8"));
   }
   const positional = args.filter((a) => !a.startsWith("--"))[0];
-  return { client: positional || "dmancuello" };
+  return { client: positional };
 }
 
 const BRIEF = loadBrief();
 const CLIENT = BRIEF.client;
 const RUN_ID = BRIEF.runId ?? null;
+
+if (!CLIENT || typeof CLIENT !== "string" || !CLIENT.trim()) {
+  console.error(
+    `[${AGENT}] client slug missing — brief must include a 'client' string (no hay defaults)`,
+  );
+  process.exit(1);
+}
 
 // --- Helpers ---
 

@@ -14,7 +14,7 @@
 /**
  * @typedef {Object} SEOBrief
  *
- * @property {string} client - Client slug (e.g. "dmancuello")
+ * @property {string} client - Client slug (e.g. "<client-slug>") — required, no defaults
  * @property {string} pieceType - "blog-post" | "keyword-research" | "product-meta" | "category-meta" | "content-brief"
  * @property {string} source - Who triggered this: "cli" | "consultant-agent" | "dashboard" | "strategy-agent"
  *
@@ -33,7 +33,7 @@
 
 /** Default brief */
 export const DEFAULT_BRIEF = {
-  client: "dmancuello",
+  client: null, // required at call-site — no default client
   pieceType: "blog-post",
   source: "cli",
   targetKeyword: null,

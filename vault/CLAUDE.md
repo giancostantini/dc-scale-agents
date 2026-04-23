@@ -1,5 +1,5 @@
 # D&C Scale Partners — Contexto Maestro
-Ultima actualizacion: 2026-04-06
+Ultima actualizacion: 2026-04-23
 
 ## Quienes somos
 Agencia con dos verticales:
@@ -9,10 +9,9 @@ Agencia con dos verticales:
 Gianluca Costantini (estrategia y arquitectura de agentes) + Federico (dashboards y frontend).
 
 ## Estado actual del negocio
-- Cliente activo: DMancuello (eCommerce artesanal de cuero, Uruguay, Shopify)
-- Fase DMancuello: Por definir
-- Prioridad #1 hoy: Construir la infraestructura base (vault + repo + primer agente)
-- Mercados objetivo: Colombia, Peru, Paraguay
+- Clientes activos: (se cargan vía dashboard — ninguno debe estar hardcodeado en este repo)
+- Prioridad #1 hoy: sistema production-ready para el primer cliente real (dashboard-first, Consultor MVP, agentes limpios sin defaults)
+- Mercados objetivo: Uruguay + Latam (Colombia, Peru, Paraguay)
 
 ## Como trabajo yo (Gianluca)
 - Prefiero avanzar hacia adelante, no retroceder
@@ -47,7 +46,9 @@ Gianluca Costantini (estrategia y arquitectura de agentes) + Federico (dashboard
 7. Datos crudos van a Supabase, aprendizajes cualitativos van a la vault
 
 ## Clientes activos y su contexto
-- DMancuello: ver /clients/dmancuello/claude-client.md
+- Cada cliente se crea vía dashboard → bootstrap automático en `vault/clients/<client-slug>/`
+- Los agentes leen el contexto desde ahí (`claude-client.md`, `content-library.md`, `learning-log.md`, `metrics-log.md`)
+- Nunca referenciar un cliente concreto desde este archivo — es el contexto de agencia, no de cliente
 
 ## Vertical de Marketing — Prioridades de agentes
 1. Content Creator Agent (PRIORIDAD MAXIMA)
@@ -68,8 +69,8 @@ Gianluca Costantini (estrategia y arquitectura de agentes) + Federico (dashboard
 - Dashboard IA con chatbot
 
 ## Vertical de Automatizacion — Prioridades de construccion
-1. Infraestructura base (vault + repo + Supabase)
-2. Morning Briefing para DMancuello (valida el pipeline)
+1. Infraestructura base (vault + repo + Supabase consolidado)
+2. Morning Briefing (validación inicial del pipeline — cliente cargado via dashboard)
 3. Sistema de prospeccion (Apollo + Prospeo + scoring + micro-diagnostico)
 4. Dashboards (cliente + interno)
 5. Onboarding automatizado + generador de propuestas

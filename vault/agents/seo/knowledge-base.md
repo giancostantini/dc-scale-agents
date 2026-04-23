@@ -10,7 +10,7 @@ La razon o proposito que tiene un usuario al hacer una consulta. No son solo las
 | Intencion | Ejemplo de busqueda | Contenido ideal | Objetivo de negocio |
 |-----------|---------------------|-----------------|---------------------|
 | **Informacional** | "Que es SEO", "como cuidar cuero" | Articulos, guias, videos, FAQs, snippets destacados | Generar confianza y captar leads |
-| **Navegacional** | "Sitio oficial Nike", "dmancuello instagram" | Home, landing de marca, sitelinks | Facilitar acceso directo |
+| **Navegacional** | "Sitio oficial Nike", "<marca> instagram" | Home, landing de marca, sitelinks | Facilitar acceso directo |
 | **Transaccional** | "Comprar zapatillas Nike", "billetera cuero precio" | Pagina de producto con CTA claro, marketplaces | Venta directa |
 | **Comercial (investigativa)** | "Nike vs Adidas", "mejor billetera cuero" | Reviews, comparativas, testimonios, rankings | Influir la decision de compra |
 
