@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   getClient,
   getObjectives,
-  deleteClient,
   getProdCampaigns,
   getTasks,
 } from "@/lib/storage";
@@ -24,7 +23,6 @@ export default function ClienteDashboard({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
   const [client, setClient] = useState<Client | null | undefined>(undefined);
   const [objectives, setObjectives] = useState<ClientObjectives | undefined>();
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
@@ -47,13 +45,6 @@ export default function ClienteDashboard({
     });
   }, [id]);
 
-  async function handleDelete() {
-    if (!client) return;
-    if (!confirm(`¿Eliminar "${client.name}"? Esto no se puede deshacer.`)) return;
-    await deleteClient(client.id);
-    router.push("/hub");
-  }
-
   if (client === undefined) return null;
   if (client === null) return null;
 
@@ -63,10 +54,9 @@ export default function ClienteDashboard({
       objectives={objectives}
       campaigns={campaigns}
       isDirector={isDirector}
-      onDelete={handleDelete}
     />
   ) : (
-    <DevDashboard client={client} tasks={tasks} onDelete={handleDelete} />
+    <DevDashboard client={client} tasks={tasks} />
   );
 }
 
@@ -77,13 +67,11 @@ function GPDashboard({
   objectives,
   campaigns,
   isDirector,
-  onDelete,
 }: {
   client: Client;
   objectives?: ClientObjectives;
   campaigns: ProductionCampaign[];
   isDirector: boolean;
-  onDelete: () => void;
 }) {
   const router = useRouter();
   const k = client.kpis;
@@ -302,18 +290,6 @@ function GPDashboard({
         <button className={ui.btnGhost} onClick={() => router.push("/hub")}>
           ← Volver al hub
         </button>
-        {isDirector && (
-          <button
-            className={ui.btnGhost}
-            style={{
-              color: "var(--red-warn)",
-              borderColor: "rgba(176,75,58,0.3)",
-            }}
-            onClick={onDelete}
-          >
-            Eliminar cliente
-          </button>
-        )}
       </div>
     </>
   );
@@ -324,11 +300,9 @@ function GPDashboard({
 function DevDashboard({
   client,
   tasks,
-  onDelete,
 }: {
   client: Client;
   tasks: DevTask[];
-  onDelete: () => void;
 }) {
   const router = useRouter();
   const done = tasks.filter((t) => t.status === "done").length;
@@ -505,13 +479,6 @@ function DevDashboard({
       <div style={{ marginTop: 40, display: "flex", gap: 10 }}>
         <button className={ui.btnGhost} onClick={() => router.push("/hub")}>
           ← Volver al hub
-        </button>
-        <button
-          className={ui.btnGhost}
-          style={{ color: "var(--red-warn)", borderColor: "rgba(176,75,58,0.3)" }}
-          onClick={onDelete}
-        >
-          Eliminar cliente
         </button>
       </div>
     </>

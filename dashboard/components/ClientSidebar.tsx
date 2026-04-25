@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { deleteClient } from "@/lib/storage";
 import type { Client } from "@/lib/types";
 import styles from "./ClientSidebar.module.css";
 
@@ -17,12 +18,51 @@ export default function ClientSidebar({ client }: { client: Client }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isDirector, setIsDirector] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     getCurrentProfile().then((p) => {
       if (p) setIsDirector(p.role === "director");
     });
   }, []);
+
+  async function handleDeleteClient() {
+    if (deleting) return;
+    // Doble confirmación para acción destructiva: confirmar y luego pedir
+    // que el director tipee el nombre del cliente como salvaguarda.
+    if (
+      !confirm(
+        `¿Estás seguro que querés eliminar al cliente "${client.name}"?\n\n` +
+          `Esto borra el cliente y TODO lo asociado: objetivos, notas, ` +
+          `tareas, campañas, contenido, integraciones, eventos del calendario, ` +
+          `pagos y rules de routing.\n\n` +
+          `Esta acción NO se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    const typed = window.prompt(
+      `Para confirmar, tipeá el nombre del cliente exacto:\n\n${client.name}`,
+    );
+    if (typed === null) return; // cancelado
+    if (typed.trim() !== client.name) {
+      alert("El nombre no coincide. Eliminación cancelada.");
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteClient(client.id);
+      router.push("/hub");
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      console.error("deleteClient error:", err);
+      alert(
+        `No se pudo eliminar el cliente.\n${e.code ?? ""} ${e.message ?? ""}`,
+      );
+      setDeleting(false);
+    }
+  }
 
   const base = `/cliente/${client.id}`;
 
@@ -93,6 +133,24 @@ export default function ClientSidebar({ client }: { client: Client }) {
         <div className={styles.label}>Gestión</div>
         {gestion.map(renderItem)}
       </div>
+
+      {isDirector && (
+        <div className={`${styles.section} ${styles.dangerSection}`}>
+          <div className={`${styles.label} ${styles.dangerLabel}`}>
+            Zona crítica
+          </div>
+          <button
+            className={styles.deleteBtn}
+            onClick={handleDeleteClient}
+            disabled={deleting}
+            title="Solo directores pueden eliminar un cliente"
+          >
+            <span className={styles.icon}>×</span>
+            {deleting ? "Eliminando…" : "Eliminar cliente"}
+            <span className={styles.directorTag}>DIRECTOR</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
