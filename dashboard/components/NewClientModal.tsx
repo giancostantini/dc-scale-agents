@@ -28,7 +28,11 @@ export default function NewClientModal({
   const [fee, setFee] = useState("");
   const [method, setMethod] = useState("Método completo");
   const [hasVariable, setHasVariable] = useState(false);
-  const [variableType, setVariableType] = useState("20% sobre ROAS > 4x");
+  // Tramos escalonados: el primero suele ser el "piso" y los siguientes
+  // se activan si el negocio escala (ej: 15% si crece 30%, 20% si crece 50%, etc.)
+  const [variableTiers, setVariableTiers] = useState<string[]>([
+    "15% sobre revenue growth si supera 30%",
+  ]);
   const [saving, setSaving] = useState(false);
 
   if (!open) return null;
@@ -49,7 +53,12 @@ export default function NewClientModal({
         contactName,
         contactEmail,
         contactPhone,
-        feeVariable: hasVariable ? variableType : undefined,
+        feeVariable: hasVariable
+          ? variableTiers
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .join(" · ") || undefined
+          : undefined,
       });
 
       // Fire-and-forget: scaffold the vault folder in the background. The
@@ -93,7 +102,22 @@ export default function NewClientModal({
     setFee("");
     setMethod("Método completo");
     setHasVariable(false);
+    setVariableTiers(["15% sobre revenue growth si supera 30%"]);
     setType("gp");
+  }
+
+  function updateTier(idx: number, value: string) {
+    setVariableTiers((prev) => prev.map((t, i) => (i === idx ? value : t)));
+  }
+
+  function addTier() {
+    setVariableTiers((prev) => [...prev, ""]);
+  }
+
+  function removeTier(idx: number) {
+    setVariableTiers((prev) =>
+      prev.length === 1 ? prev : prev.filter((_, i) => i !== idx),
+    );
   }
 
   return (
@@ -241,13 +265,111 @@ export default function NewClientModal({
             />
             <span>Fee variable por resultados</span>
           </label>
+
           {hasVariable && (
-            <input
-              style={{ marginTop: 12 }}
-              placeholder="Ej: 15% sobre revenue growth · $50 por lead calificado"
-              value={variableType}
-              onChange={(e) => setVariableType(e.target.value)}
-            />
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginBottom: 12,
+                  lineHeight: 1.5,
+                }}
+              >
+                Definí uno o más tramos escalonados. Si el negocio crece, suma
+                tramos extra (ej: 15% al superar 30%, 20% al superar 50%).
+              </div>
+
+              {variableTiers.map((tier, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 10,
+                    paddingBottom: 8,
+                    borderBottom: "1px solid rgba(10,26,12,0.08)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 600,
+                      minWidth: 56,
+                    }}
+                  >
+                    Tramo {idx + 1}
+                  </span>
+                  <input
+                    style={{
+                      flex: 1,
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid rgba(10,26,12,0.15)",
+                      padding: "10px 0",
+                      color: "var(--deep-green)",
+                      fontSize: 14,
+                      fontWeight: 300,
+                      outline: "none",
+                      fontFamily: "inherit",
+                    }}
+                    placeholder={
+                      idx === 0
+                        ? "Ej: 15% sobre revenue growth si supera 30%"
+                        : idx === 1
+                        ? "Ej: 20% sobre revenue growth si supera 50%"
+                        : "Ej: 25% sobre revenue growth si supera 80%"
+                    }
+                    value={tier}
+                    onChange={(e) => updateTier(idx, e.target.value)}
+                  />
+                  {variableTiers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeTier(idx)}
+                      title="Quitar tramo"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        border: "1px solid rgba(176,75,58,0.2)",
+                        background: "transparent",
+                        color: "var(--red-warn)",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        fontFamily: "inherit",
+                        lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addTier}
+                style={{
+                  marginTop: 6,
+                  padding: "8px 14px",
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  color: "var(--deep-green)",
+                  background: "var(--off-white)",
+                  border: "1px dashed var(--sand)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                + Agregar tramo escalado
+              </button>
+            </div>
           )}
         </div>
 
