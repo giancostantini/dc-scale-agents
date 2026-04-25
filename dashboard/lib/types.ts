@@ -30,6 +30,38 @@ export interface ClientModules {
   seo?: boolean;
   email?: boolean;
   analytics?: boolean;
+  ugc?: boolean;
+  cro?: boolean;
+  reporting?: boolean;
+}
+
+// Onboarding completo del cliente (wizard de creación).
+// Se guarda en la columna `onboarding jsonb` de la tabla `clients`.
+export interface ClientOnboarding {
+  // Contrato
+  contractDuration?: "6" | "12" | "18" | "24" | "open" | string;
+  contractFile?: string;          // placeholder por ahora (filename)
+  startDate?: string;             // YYYY-MM-DD
+  endDate?: string;
+  feeVariableTiers?: string[];    // tramos escalonados de fee variable
+
+  // Kickoff
+  kickoffFile?: string;           // placeholder
+  propuesta?: string;
+  audiencia?: string;
+  tono?: string;
+  competidores?: string;
+  objetivosIniciales?: string;
+
+  // Branding
+  brandingFiles?: string[];       // placeholders
+
+  // Presupuestos default
+  budgetMarketing?: number;
+  budgetProduccion?: number;
+
+  // Dev
+  devProjectType?: string;
 }
 
 export interface Sprint {
@@ -51,6 +83,7 @@ export interface Client {
   kpis?: ClientKPIs;
   progress?: number;
   sprints?: Sprint[];
+  onboarding?: ClientOnboarding;
 }
 
 // ==================== PIPELINE / CRM ====================

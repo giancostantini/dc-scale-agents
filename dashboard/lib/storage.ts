@@ -6,6 +6,7 @@
 import { getSupabase } from "./supabase/client";
 import type {
   Client,
+  ClientOnboarding,
   Lead,
   ProspectCampaign,
   CalEvent,
@@ -74,6 +75,7 @@ interface ClientRow {
   contact_email: string | null;
   contact_phone: string | null;
   country: string | null;
+  onboarding: ClientOnboarding | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -91,6 +93,7 @@ function clientFromRow(r: ClientRow): Client {
     kpis: (r.kpis ?? undefined) as Client["kpis"],
     progress: r.progress ?? undefined,
     sprints: r.sprints ?? undefined,
+    onboarding: r.onboarding ?? undefined,
   };
 }
 
@@ -122,7 +125,7 @@ export async function getClient(id: string): Promise<Client | undefined> {
   return clientFromRow(data as ClientRow);
 }
 
-export async function addClient(data: {
+export interface AddClientInput {
   name: string;
   sector: string;
   country: string;
@@ -133,7 +136,11 @@ export async function addClient(data: {
   contactEmail?: string;
   contactPhone?: string;
   feeVariable?: string;
-}): Promise<Client> {
+  modules?: Partial<Client["modules"]>;
+  onboarding?: ClientOnboarding;
+}
+
+export async function addClient(data: AddClientInput): Promise<Client> {
   const supabase = getSupabase();
 
   // Generar ID único basado en el nombre
@@ -144,6 +151,18 @@ export async function addClient(data: {
   while (existing.some((c) => c.id === id)) {
     id = `${baseId}-${suffix++}`;
   }
+
+  // Default modules según tipo, mergeando con lo que mande el wizard
+  const defaultGpModules = {
+    meta: true,
+    google: true,
+    content: true,
+    analytics: true,
+  };
+  const modulesValue: Record<string, boolean> | null =
+    data.type === "gp"
+      ? { ...defaultGpModules, ...(data.modules ?? {}) }
+      : null;
 
   const newRow: Partial<ClientRow> = {
     id,
@@ -158,10 +177,7 @@ export async function addClient(data: {
         : "On-boarding · Diagnóstico",
     fee: data.fee,
     method: data.method,
-    modules:
-      data.type === "gp"
-        ? { meta: true, google: true, content: true, analytics: true }
-        : null,
+    modules: modulesValue,
     kpis:
       data.type === "gp"
         ? { roas: "—", leads: 0, cac: "—", invested: "—", revenue: "—", conv: "—" }
@@ -179,6 +195,7 @@ export async function addClient(data: {
     contact_email: data.contactEmail ?? null,
     contact_phone: data.contactPhone ?? null,
     country: data.country,
+    onboarding: data.onboarding ?? {},
   };
 
   const { data: inserted, error } = await supabase
