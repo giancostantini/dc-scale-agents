@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addClient } from "@/lib/storage";
-import { makeWizardSessionId } from "@/lib/upload";
+import { deleteFile, makeWizardSessionId } from "@/lib/upload";
 import Dropzone from "./Dropzone";
 import type {
   BudgetTier,
@@ -131,8 +131,8 @@ export default function NewClientModal({
 
   // Step 4 — kickoff + branding (uploads reales a Supabase Storage)
   // El wizardId es un folder único por modal-abierto. Si el usuario
-  // cancela, los archivos quedan huérfanos en el bucket (cleanup
-  // posterior). Se regenera en reset().
+  // cancela, handleClose() borra los archivos uploadeados antes de
+  // cerrar (ver abajo). Se regenera en reset().
   const [wizardId, setWizardId] = useState(() => makeWizardSessionId());
   const [kickoffFile, setKickoffFile] = useState<OnboardingFile | null>(null);
   const [brandingFiles, setBrandingFiles] = useState<OnboardingFile[]>([]);
@@ -206,6 +206,20 @@ export default function NewClientModal({
   }
   function prev() {
     setStep((s) => Math.max(s - 1, 1));
+  }
+
+  // Cleanup: si el usuario cierra sin finalizar, borrar los archivos
+  // uploadeados al bucket. Fire-and-forget — el modal cierra inmediato
+  // y los deletes corren en background. Cada wizardId es único, así que
+  // no hay riesgo de pisar archivos de otra sesión.
+  function handleClose() {
+    const orphanPaths: string[] = [];
+    if (kickoffFile?.path) orphanPaths.push(kickoffFile.path);
+    for (const f of brandingFiles) orphanPaths.push(f.path);
+    if (orphanPaths.length > 0) {
+      Promise.allSettled(orphanPaths.map((p) => deleteFile(p))).catch(() => {});
+    }
+    onClose();
   }
 
   async function finalize() {
@@ -287,10 +301,10 @@ export default function NewClientModal({
   return (
     <div
       className={styles.backdrop}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
       <div className={styles.modal}>
-        <button className={styles.close} onClick={onClose}>
+        <button className={styles.close} onClick={handleClose}>
           ×
         </button>
 
@@ -850,7 +864,12 @@ export default function NewClientModal({
               emptyHint="Brief del cliente, historia, situación actual, objetivos"
               files={kickoffFile ? [kickoffFile] : []}
               onAdd={(uploaded) => setKickoffFile(uploaded[0] ?? null)}
-              onRemove={() => setKickoffFile(null)}
+              onRemove={() => {
+                if (kickoffFile?.path) {
+                  deleteFile(kickoffFile.path).catch(() => {});
+                }
+                setKickoffFile(null);
+              }}
             />
 
             <div style={{ marginTop: 24 }}>
@@ -868,9 +887,10 @@ export default function NewClientModal({
                 onAdd={(uploaded) =>
                   setBrandingFiles((prev) => [...prev, ...uploaded])
                 }
-                onRemove={(path) =>
-                  setBrandingFiles((prev) => prev.filter((f) => f.path !== path))
-                }
+                onRemove={(path) => {
+                  deleteFile(path).catch(() => {});
+                  setBrandingFiles((prev) => prev.filter((f) => f.path !== path));
+                }}
               />
             </div>
 
@@ -1198,7 +1218,7 @@ export default function NewClientModal({
               ← Atrás
             </button>
           ) : (
-            <button className={styles.btnGhost} onClick={onClose}>
+            <button className={styles.btnGhost} onClick={handleClose}>
               Cancelar
             </button>
           )}
