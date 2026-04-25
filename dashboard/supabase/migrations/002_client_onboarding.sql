@@ -28,7 +28,7 @@ ALTER TABLE public.clients
 --   "tono": "Cercano · Profesional",
 --   "competidores": "Empresa A, Empresa B",
 --   "objetivosIniciales": "Leads 180/mes · ROAS 5x · ...",
---   "budgetMarketing": 5000,
---   "budgetProduccion": 1500,
+--   "budgetMarketing":  { "fixed": 5000, "revenuePct": 10 },
+--   "budgetProduccion": { "fixed": 1500, "revenuePct": 3  },
 --   "devProjectType": "Chatbot"       -- solo si type = 'dev'
 -- }

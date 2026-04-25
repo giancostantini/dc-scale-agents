@@ -56,12 +56,20 @@ export interface ClientOnboarding {
   // Branding
   brandingFiles?: string[];       // placeholders
 
-  // Presupuestos default
-  budgetMarketing?: number;
-  budgetProduccion?: number;
+  // Presupuestos default — soportan piso fijo + % sobre revenue.
+  // Interpretación sugerida: el cliente garantiza al menos `fixed` USD/mes
+  // de presupuesto, y si el revenue crece, escala al `revenuePct`% del
+  // revenue (lo que sea mayor).
+  budgetMarketing?: BudgetTier;
+  budgetProduccion?: BudgetTier;
 
   // Dev
   devProjectType?: string;
+}
+
+export interface BudgetTier {
+  fixed?: number;        // mínimo garantizado USD/mes
+  revenuePct?: number;   // % sobre revenue mensual
 }
 
 export interface Sprint {

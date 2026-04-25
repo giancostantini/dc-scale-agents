@@ -3,8 +3,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addClient } from "@/lib/storage";
-import type { ClientOnboarding, ClientType } from "@/lib/types";
+import type { BudgetTier, ClientOnboarding, ClientType } from "@/lib/types";
 import styles from "./NewClientModal.module.css";
+
+// Convierte los strings de los inputs a un BudgetTier estructurado.
+// Si ambos campos están vacíos devuelve undefined (no guardamos nada).
+function makeBudgetTier(
+  fixedStr: string,
+  pctStr: string,
+): BudgetTier | undefined {
+  const fixed = fixedStr ? Number(fixedStr) : undefined;
+  const revenuePct = pctStr ? Number(pctStr) : undefined;
+  if (
+    (fixed === undefined || Number.isNaN(fixed)) &&
+    (revenuePct === undefined || Number.isNaN(revenuePct))
+  ) {
+    return undefined;
+  }
+  const out: BudgetTier = {};
+  if (fixed !== undefined && !Number.isNaN(fixed)) out.fixed = fixed;
+  if (revenuePct !== undefined && !Number.isNaN(revenuePct))
+    out.revenuePct = revenuePct;
+  return out;
+}
 
 interface NewClientModalProps {
   open: boolean;
@@ -103,8 +124,10 @@ export default function NewClientModal({
   const [tono, setTono] = useState("");
   const [competidores, setCompetidores] = useState("");
   const [objetivosIniciales, setObjetivosIniciales] = useState("");
-  const [budgetMarketing, setBudgetMarketing] = useState("");
-  const [budgetProduccion, setBudgetProduccion] = useState("");
+  const [budgetMarketingFixed, setBudgetMarketingFixed] = useState("");
+  const [budgetMarketingPct, setBudgetMarketingPct] = useState("");
+  const [budgetProduccionFixed, setBudgetProduccionFixed] = useState("");
+  const [budgetProduccionPct, setBudgetProduccionPct] = useState("");
 
   // Step 5 — alcance
   const [modules, setModules] = useState<ModulesState>(DEFAULT_MODULES);
@@ -141,8 +164,10 @@ export default function NewClientModal({
     setTono("");
     setCompetidores("");
     setObjetivosIniciales("");
-    setBudgetMarketing("");
-    setBudgetProduccion("");
+    setBudgetMarketingFixed("");
+    setBudgetMarketingPct("");
+    setBudgetProduccionFixed("");
+    setBudgetProduccionPct("");
     setModules(DEFAULT_MODULES);
     setDevProjectType("");
   }
@@ -198,12 +223,8 @@ export default function NewClientModal({
         tono: tono.trim() || undefined,
         competidores: competidores.trim() || undefined,
         objetivosIniciales: objetivosIniciales.trim() || undefined,
-        budgetMarketing: budgetMarketing
-          ? Number(budgetMarketing) || undefined
-          : undefined,
-        budgetProduccion: budgetProduccion
-          ? Number(budgetProduccion) || undefined
-          : undefined,
+        budgetMarketing: makeBudgetTier(budgetMarketingFixed, budgetMarketingPct),
+        budgetProduccion: makeBudgetTier(budgetProduccionFixed, budgetProduccionPct),
         devProjectType:
           type === "dev" && devProjectType ? devProjectType : undefined,
       };
@@ -964,26 +985,38 @@ export default function NewClientModal({
             <div className={styles.sectionLabel}>
               Presupuestos (default para el cliente)
             </div>
-            <div className={styles.fieldGrid2}>
-              <div className={styles.field}>
-                <label>Presupuesto marketing (ads mensual)</label>
-                <input
-                  type="number"
-                  value={budgetMarketing}
-                  onChange={(e) => setBudgetMarketing(e.target.value)}
-                  placeholder="5000"
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Presupuesto producción/campañas</label>
-                <input
-                  type="number"
-                  value={budgetProduccion}
-                  onChange={(e) => setBudgetProduccion(e.target.value)}
-                  placeholder="1500"
-                />
-              </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                marginBottom: 16,
+                lineHeight: 1.5,
+              }}
+            >
+              Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
+              Si el negocio escala, el presupuesto crece automáticamente con el
+              revenue manteniendo el mínimo garantizado.
             </div>
+
+            <BudgetField
+              label="Presupuesto marketing (ads mensual)"
+              fixed={budgetMarketingFixed}
+              setFixed={setBudgetMarketingFixed}
+              pct={budgetMarketingPct}
+              setPct={setBudgetMarketingPct}
+              fixedPlaceholder="5000"
+              pctPlaceholder="10"
+            />
+
+            <BudgetField
+              label="Presupuesto producción/campañas"
+              fixed={budgetProduccionFixed}
+              setFixed={setBudgetProduccionFixed}
+              pct={budgetProduccionPct}
+              setPct={setBudgetProduccionPct}
+              fixedPlaceholder="1500"
+              pctPlaceholder="3"
+            />
 
             <div className={styles.sectionLabel}>
               Objetivos iniciales (editables luego por el director)
@@ -1251,10 +1284,16 @@ export default function NewClientModal({
 
                 <SummaryCell label="Presupuestos">
                   <div>
-                    Marketing: <strong>${budgetMarketing || "—"}</strong>
+                    Marketing:{" "}
+                    <strong>
+                      {formatBudget(budgetMarketingFixed, budgetMarketingPct)}
+                    </strong>
                   </div>
                   <div>
-                    Producción: <strong>${budgetProduccion || "—"}</strong>
+                    Producción:{" "}
+                    <strong>
+                      {formatBudget(budgetProduccionFixed, budgetProduccionPct)}
+                    </strong>
                   </div>
                 </SummaryCell>
 
@@ -1371,4 +1410,147 @@ function SummaryCell({
       {children}
     </div>
   );
+}
+
+// Input compuesto: piso fijo + % sobre revenue.
+function BudgetField({
+  label,
+  fixed,
+  setFixed,
+  pct,
+  setPct,
+  fixedPlaceholder,
+  pctPlaceholder,
+}: {
+  label: string;
+  fixed: string;
+  setFixed: (v: string) => void;
+  pct: string;
+  setPct: (v: string) => void;
+  fixedPlaceholder?: string;
+  pctPlaceholder?: string;
+}) {
+  return (
+    <div
+      style={{
+        marginBottom: 18,
+        padding: 16,
+        background: "var(--off-white)",
+        borderLeft: "3px solid var(--sand)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          marginBottom: 12,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+        }}
+      >
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--text-muted)",
+              fontWeight: 600,
+              marginBottom: 6,
+            }}
+          >
+            Mínimo fijo (USD/mes)
+          </label>
+          <input
+            type="number"
+            value={fixed}
+            onChange={(e) => setFixed(e.target.value)}
+            placeholder={fixedPlaceholder}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              borderBottom: "1px solid rgba(10,26,12,0.2)",
+              padding: "8px 0",
+              color: "var(--deep-green)",
+              fontSize: 15,
+              fontWeight: 300,
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--text-muted)",
+              fontWeight: 600,
+              marginBottom: 6,
+            }}
+          >
+            % sobre revenue
+          </label>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              borderBottom: "1px solid rgba(10,26,12,0.2)",
+            }}
+          >
+            <input
+              type="number"
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              placeholder={pctPlaceholder}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                padding: "8px 0",
+                color: "var(--deep-green)",
+                fontSize: 15,
+                fontWeight: 300,
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 14,
+                color: "var(--text-muted)",
+                marginLeft: 6,
+              }}
+            >
+              %
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Formatea para el summary final ("US$5.000 + 10% revenue", "—", etc).
+function formatBudget(fixedStr: string, pctStr: string): string {
+  const fixed = fixedStr ? Number(fixedStr) : NaN;
+  const pct = pctStr ? Number(pctStr) : NaN;
+  const parts: string[] = [];
+  if (!Number.isNaN(fixed)) parts.push(`US$ ${fixed.toLocaleString()}`);
+  if (!Number.isNaN(pct)) parts.push(`${pct}% revenue`);
+  return parts.length === 0 ? "—" : parts.join(" + ");
 }
