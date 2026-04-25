@@ -51,7 +51,15 @@
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--sand);
-  margin-top: 20px;
+  margin-top: 24px;
+}
+
+.descSecondary {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(232, 228, 220, 0.4);
+  margin-top: 6px;
 }
 
 .loginCard {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { getCurrentProfile, signOut } from "@/lib/supabase/auth";
 import type { Profile } from "@/lib/supabase/auth";
 import NotificationBell from "./NotificationBell";
+import Lockup from "./Lockup";
 import styles from "./Topbar.module.css";
 
 interface TopbarProps {
@@ -34,10 +35,7 @@ export default function Topbar({
     <header className={styles.topbar}>
       <button className={styles.brand} onClick={() => router.push("/hub")}>
         <span className={styles.dot} />
-        <span className={styles.brandText}>
-          Dearmas <span className="amp">&</span>{" "}
-          <span className="soft">Costantini</span>
-        </span>
+        <Lockup size="md" />
       </button>
 
       <div className={styles.search}>

@@ -38,18 +38,26 @@ body {
   min-height: 100vh;
 }
 
-/* ============ AMPERSAND — la firma de marca ============ */
+/* ============ TIPOGRAFÍA · Brand Board 2026 ============
+   La firma visual ya no es el "&" en DM Sans. Ahora es el
+   contraste tipográfico Bold/Light del lockup `Dearmas Costantini`,
+   gestionado por el componente <Lockup />. Ver components/Lockup.tsx.
+   ======================================================= */
+
+/* `.amp` queda como utilitario decorativo (NO firma de marca).
+   Útil para conectores tipo "Captación & ventas" donde el `&` es
+   parte del lenguaje y no de la identidad. */
 .amp {
-  font-family: var(--font-dm-sans), sans-serif;
-  font-weight: 200;
   color: var(--sand);
+  font-weight: 300;
   font-style: normal;
 }
 
-/* ============ UTILITIES GLOBALES ============ */
+/* `.soft` — usado por el "Costantini" del lockup y otros textos
+   secundarios. El brand board fija el contraste en 55% de opacidad. */
 .soft {
   font-weight: 300;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 /* ============ BASICS ============ */

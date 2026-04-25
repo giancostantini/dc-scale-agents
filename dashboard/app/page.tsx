@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, hasSession } from "@/lib/supabase/auth";
+import Lockup from "@/components/Lockup";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
@@ -59,11 +60,9 @@ export default function LoginPage() {
       <div className={styles.loginGrid} />
       <div className={styles.loginBox}>
         <div className={styles.loginBrand}>
-          <div className={styles.logo}>
-            Dearmas <span className="amp">&</span>
-            <span className={styles.logoSoft}>Costantini</span>
-          </div>
-          <div className={styles.desc}>Scale · Sistema de Gestión</div>
+          <Lockup size="lg" variant="stacked" />
+          <div className={styles.desc}>Business Growth Partners · LATAM</div>
+          <div className={styles.descSecondary}>Scale · Sistema de Gestión</div>
         </div>
 
         <form className={styles.loginCard} onSubmit={handleSubmit}>
@@ -106,7 +105,7 @@ export default function LoginPage() {
           {error && <div className={styles.errorMsg}>{error}</div>}
 
           <div className={styles.loginHint}>
-            Acceso restringido al equipo de D<span className="amp">&</span>C.
+            Acceso restringido al equipo de Dearmas Costantini.
           </div>
         </form>
       </div>

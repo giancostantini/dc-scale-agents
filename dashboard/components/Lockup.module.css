@@ -1,0 +1,55 @@
+/* ============ LOCKUP · Brand Board 2026 ============
+   Firma visual: contraste tipográfico Bold/Light entre
+   "Dearmas" y "Costantini". Mismo color, mismo tracking,
+   distinto peso y opacidad.
+   ==================================================== */
+
+.lockup {
+  font-family: var(--font-inter), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  color: inherit;
+  display: inline-block;
+}
+
+.lockup.stacked {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.dearmas {
+  font-weight: 700;
+}
+
+.costantini {
+  font-weight: 300;
+  /* 55% de opacidad sobre el mismo color base — la firma del lockup. */
+  opacity: 0.55;
+}
+
+.tagline {
+  display: block;
+  font-size: 0.32em;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 0.55em;
+  color: var(--sand);
+  opacity: 0.9;
+}
+
+/* Monograma — el isotipo DC, usado donde no entra el lockup completo. */
+.monogram {
+  font-family: var(--font-inter), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: inherit;
+}
+
+/* ============ TAMAÑOS ============ */
+.size-sm  { font-size: 14px; }
+.size-md  { font-size: 18px; }
+.size-lg  { font-size: 36px; }
+.size-hero { font-size: clamp(48px, 7vw, 96px); letter-spacing: -0.035em; }
