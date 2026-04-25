@@ -9,12 +9,14 @@ import {
   getTasks,
 } from "@/lib/storage";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { listAssignmentsForClient, listProfiles } from "@/lib/team";
 import type {
   Client,
   ClientObjectives,
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
+import type { ClientAssignment, Profile } from "@/lib/supabase/auth";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ClienteDashboard({
@@ -27,6 +29,10 @@ export default function ClienteDashboard({
   const [objectives, setObjectives] = useState<ClientObjectives | undefined>();
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [tasks, setTasks] = useState<DevTask[]>([]);
+  const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
+  const [profilesById, setProfilesById] = useState<Map<string, Profile>>(
+    new Map(),
+  );
   const [isDirector, setIsDirector] = useState(false);
 
   useEffect(() => {
@@ -36,12 +42,16 @@ export default function ClienteDashboard({
       getProdCampaigns(id),
       getTasks(id),
       getCurrentProfile(),
-    ]).then(([c, o, p, t, profile]) => {
+      listAssignmentsForClient(id),
+      listProfiles(),
+    ]).then(([c, o, p, t, profile, asigs, profiles]) => {
       setClient(c ?? null);
       setObjectives(o);
       setCampaigns(p);
       setTasks(t);
       setIsDirector(profile?.role === "director");
+      setAssignments(asigs);
+      setProfilesById(new Map(profiles.map((pr) => [pr.id, pr])));
     });
   }, [id]);
 
@@ -54,9 +64,16 @@ export default function ClienteDashboard({
       objectives={objectives}
       campaigns={campaigns}
       isDirector={isDirector}
+      assignments={assignments}
+      profilesById={profilesById}
     />
   ) : (
-    <DevDashboard client={client} tasks={tasks} />
+    <DevDashboard
+      client={client}
+      tasks={tasks}
+      assignments={assignments}
+      profilesById={profilesById}
+    />
   );
 }
 
@@ -67,11 +84,15 @@ function GPDashboard({
   objectives,
   campaigns,
   isDirector,
+  assignments,
+  profilesById,
 }: {
   client: Client;
   objectives?: ClientObjectives;
   campaigns: ProductionCampaign[];
   isDirector: boolean;
+  assignments: ClientAssignment[];
+  profilesById: Map<string, Profile>;
 }) {
   const router = useRouter();
   const k = client.kpis;
@@ -92,6 +113,8 @@ function GPDashboard({
           {client.phase}
         </div>
       </div>
+
+      <TeamPanel assignments={assignments} profilesById={profilesById} />
 
       <div className={ui.kpiGrid}>
         <div className={ui.kpiCell}>
@@ -300,9 +323,13 @@ function GPDashboard({
 function DevDashboard({
   client,
   tasks,
+  assignments,
+  profilesById,
 }: {
   client: Client;
   tasks: DevTask[];
+  assignments: ClientAssignment[];
+  profilesById: Map<string, Profile>;
 }) {
   const router = useRouter();
   const done = tasks.filter((t) => t.status === "done").length;
@@ -320,6 +347,8 @@ function DevDashboard({
         </div>
         <div className={ui.phaseBadge}>{client.phase}</div>
       </div>
+
+      <TeamPanel assignments={assignments} profilesById={profilesById} />
 
       <div className={ui.panel} style={{ marginBottom: 24 }}>
         <div className={ui.panelHead}>
@@ -482,5 +511,126 @@ function DevDashboard({
         </button>
       </div>
     </>
+  );
+}
+
+// ==================== TEAM PANEL ====================
+
+function TeamPanel({
+  assignments,
+  profilesById,
+}: {
+  assignments: ClientAssignment[];
+  profilesById: Map<string, Profile>;
+}) {
+  const router = useRouter();
+  const sorted = [...assignments].sort((a, b) =>
+    a.role_in_client.localeCompare(b.role_in_client),
+  );
+
+  return (
+    <div className={ui.panel} style={{ marginBottom: 24 }}>
+      <div className={ui.panelHead}>
+        <div className={ui.panelTitle}>Equipo del cliente</div>
+        <button
+          className={ui.panelAction}
+          onClick={() => router.push("/equipo")}
+        >
+          Gestionar →
+        </button>
+      </div>
+      {sorted.length === 0 ? (
+        <div
+          style={{
+            padding: 20,
+            textAlign: "center",
+            fontSize: 13,
+            color: "var(--text-muted)",
+          }}
+        >
+          Sin equipo asignado · Asignar desde{" "}
+          <strong
+            style={{ color: "var(--sand-dark)", cursor: "pointer" }}
+            onClick={() => router.push("/equipo")}
+          >
+            /equipo
+          </strong>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {sorted.map((a) => {
+            const profile = profilesById.get(a.user_id);
+            const initials = profile?.initials ?? "??";
+            const name = profile?.name ?? "Usuario sin nombre";
+            return (
+              <div
+                key={`${a.user_id}-${a.role_in_client}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: 12,
+                  border: "1px solid rgba(10,26,12,0.08)",
+                  cursor: profile ? "pointer" : "default",
+                }}
+                onClick={() =>
+                  profile && router.push(`/equipo/${profile.id}`)
+                }
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    background: "var(--sand)",
+                    color: "var(--deep-green)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    letterSpacing: "0.05em",
+                    flexShrink: 0,
+                  }}
+                >
+                  {initials}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 500,
+                      marginTop: 2,
+                    }}
+                  >
+                    {a.role_in_client}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
