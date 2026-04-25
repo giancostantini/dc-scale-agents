@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { getClient, getProdCampaigns } from "@/lib/storage";
 import type { Client, ProductionCampaign } from "@/lib/types";
+import OnboardingFilesPanel from "@/components/OnboardingFilesPanel";
 import ui from "@/components/ClientUI.module.css";
 
 const GP_FOLDERS = [
@@ -70,6 +71,8 @@ export default function BibliotecaPage({ params }: { params: Promise<{ id: strin
           <div className={ui.kValue} style={{ fontSize: 16 }}>Hoy</div>
         </div>
       </div>
+
+      <OnboardingFilesPanel onboarding={client.onboarding} />
 
       <div className={ui.panel} style={{ marginBottom: 24 }}>
         <div className={ui.panelHead}>

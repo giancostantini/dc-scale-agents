@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import NewExpenseModal from "@/components/NewExpenseModal";
+import PayrollGenerateButton from "@/components/PayrollGenerateButton";
 import {
   getClients,
   getExpenses,
@@ -12,7 +13,7 @@ import {
   deleteExpense,
   getLeads,
 } from "@/lib/storage";
-import { hasSession } from "@/lib/supabase/auth";
+import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
 import type { Client, Expense, InvoicePayment, Lead } from "@/lib/types";
 import styles from "./finanzas.module.css";
 
@@ -31,6 +32,7 @@ const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
 export default function FinanzasPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
+  const [isDirector, setIsDirector] = useState(false);
   const [page, setPage] = useState<FinPage>("dashboard");
   const [clients, setClients] = useState<Client[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -53,6 +55,7 @@ export default function FinanzasPage() {
       }
       setAuthChecked(true);
       refresh();
+      getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
     });
   }, [router, refresh]);
 
@@ -171,6 +174,9 @@ export default function FinanzasPage() {
                     refresh();
                   }
                 }}
+                isDirector={isDirector}
+                month={MONTH_ISO()}
+                onRefresh={refresh}
               />
             )}
             {page === "clientes" && (
@@ -394,9 +400,22 @@ function IngresosView({ clients, payments, onTogglePaid, mrr }: {
   );
 }
 
-function EgresosView({ expenses, totalExpenses, onAdd, onDelete }: {
-  expenses: Expense[]; totalExpenses: number;
-  onAdd: () => void; onDelete: (id: string) => void;
+function EgresosView({
+  expenses,
+  totalExpenses,
+  onAdd,
+  onDelete,
+  isDirector,
+  month,
+  onRefresh,
+}: {
+  expenses: Expense[];
+  totalExpenses: number;
+  onAdd: () => void;
+  onDelete: (id: string) => void;
+  isDirector: boolean;
+  month: string;
+  onRefresh: () => void;
 }) {
   const byCategory = expenses.reduce((acc, e) => {
     acc[e.category] = (acc[e.category] || 0) + e.amount;
@@ -408,7 +427,20 @@ function EgresosView({ expenses, totalExpenses, onAdd, onDelete }: {
       <Header
         eyebrow="Finanzas · Egresos"
         title="Egresos"
-        action={<button className={styles.btnPrimary} onClick={onAdd}>+ Registrar egreso</button>}
+        action={
+          <div style={{ display: "flex", gap: 10 }}>
+            {isDirector && (
+              <PayrollGenerateButton
+                className={styles.btnPrimary}
+                month={month}
+                onCreated={onRefresh}
+              />
+            )}
+            <button className={styles.btnPrimary} onClick={onAdd}>
+              + Registrar egreso
+            </button>
+          </div>
+        }
       />
 
       <div className={styles.kpis}>

@@ -4,6 +4,7 @@
 // casi no tenga que cambiar — solo agregar `await`.
 
 import { getSupabase } from "./supabase/client";
+import { listProfiles } from "./team";
 import type {
   Client,
   ClientOnboarding,
@@ -568,6 +569,74 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
 export async function deleteExpense(id: string): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("expenses").delete().eq("id", id);
+}
+
+// Genera expenses (categoría=equipo) para todos los miembros del equipo
+// con payment_type ∈ {fijo, mixto} y payment_amount > 0, en el mes dado.
+//
+// Idempotente: detecta duplicados por (concept, mes). Correrlo dos veces
+// el mismo mes no crea expenses extra; los conceptos canónicos son
+// `Nómina · ${profile.name}`.
+//
+// Si payment_currency != USD, se inserta el monto sin conversión (se asume
+// que el usuario ya lo configuró en USD). No es ideal pero es suficiente.
+export async function generateTeamPayroll(monthYYYYMM: string): Promise<{
+  created: number;
+  skipped: number;
+  eligible: number;
+}> {
+  const profiles = await listProfiles();
+  const eligible = profiles.filter(
+    (p) =>
+      (p.payment_type === "fijo" || p.payment_type === "mixto") &&
+      typeof p.payment_amount === "number" &&
+      (p.payment_amount as number) > 0,
+  );
+  if (eligible.length === 0) {
+    return { created: 0, skipped: 0, eligible: 0 };
+  }
+
+  const [yearStr, monthStr] = monthYYYYMM.split("-");
+  const year = Number(yearStr);
+  const monthNum = Number(monthStr);
+  const monthStart = `${monthYYYYMM}-01`;
+  // Último día del mes = primer día del mes siguiente - 1ms.
+  const nextMonthFirst = new Date(
+    Date.UTC(monthNum === 12 ? year + 1 : year, monthNum === 12 ? 0 : monthNum, 1),
+  );
+  const lastDay = new Date(nextMonthFirst.getTime() - 86400000);
+  const monthEnd = lastDay.toISOString().slice(0, 10);
+
+  const supabase = getSupabase();
+  const { data: existing } = await supabase
+    .from("expenses")
+    .select("concept")
+    .eq("category", "equipo")
+    .gte("date", monthStart)
+    .lte("date", monthEnd);
+  const existingConcepts = new Set(
+    (existing as Array<{ concept: string }> | null ?? []).map((e) => e.concept),
+  );
+
+  let created = 0;
+  let skipped = 0;
+  for (const p of eligible) {
+    const concept = `Nómina · ${p.name}`;
+    if (existingConcepts.has(concept)) {
+      skipped++;
+      continue;
+    }
+    await addExpense({
+      date: monthEnd,
+      concept,
+      category: "equipo",
+      assignedTo: "Interno",
+      amount: p.payment_amount as number,
+    });
+    created++;
+  }
+
+  return { created, skipped, eligible: eligible.length };
 }
 
 // ==================== PAYMENTS ====================
