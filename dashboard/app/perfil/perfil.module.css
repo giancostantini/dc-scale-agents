@@ -1,0 +1,337 @@
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 56px 96px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 48px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  padding-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.head h1 {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.email {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ============ PANEL ============ */
+.panel {
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  padding: 32px;
+  margin-bottom: 24px;
+}
+
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.06);
+}
+
+.panelTitle {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+}
+
+.dim {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.linkBtn {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--deep-green);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.linkBtn:hover {
+  color: var(--sand-dark);
+}
+
+/* ============ KV (key-value pairs) ============ */
+.kvGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px 40px;
+}
+
+.kv {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kvLabel {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.kvValue {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--deep-green);
+}
+
+.dirBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--deep-green);
+  color: var(--sand);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* ============ FIELDS ============ */
+.fieldGrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.15);
+  padding: 10px 0;
+  color: var(--deep-green);
+  font-size: 15px;
+  font-weight: 300;
+  outline: none;
+  font-family: inherit;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--sand);
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+/* ============ PAGO ============ */
+.paymentBox {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.paymentAmount {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: var(--deep-green);
+}
+
+.paymentMeta {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--off-white);
+  border-left: 3px solid var(--sand);
+  font-style: italic;
+}
+
+/* ============ ASSIGNMENTS LIST ============ */
+.assignList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assignCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--off-white);
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.assignCard:hover {
+  border-color: var(--sand);
+  background: var(--ivory);
+}
+
+.assignInitials {
+  width: 38px;
+  height: 38px;
+  background: var(--deep-green);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assignName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--deep-green);
+}
+
+.assignSector {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.assignRole {
+  padding: 4px 10px;
+  background: var(--white);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--sand-dark);
+}
+
+.assignArrow {
+  font-size: 16px;
+  color: var(--sand-dark);
+}
+
+/* ============ NOTES ============ */
+.notes {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--deep-green);
+  white-space: pre-wrap;
+}
+
+/* ============ BUTTONS ============ */
+.btnGhost {
+  padding: 10px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid rgba(10, 26, 12, 0.1);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btnGhost:hover {
+  color: var(--deep-green);
+  border-color: var(--deep-green);
+}
+
+.btnSolid {
+  padding: 10px 22px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--off-white);
+  background: var(--deep-green);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSolid:hover {
+  background: var(--forest);
+}
+
+.btnSolid:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 800px) {
+  .wrap {
+    padding: 32px 24px 64px;
+  }
+  .head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .head h1 {
+    font-size: 32px;
+  }
+  .kvGrid,
+  .fieldGrid2 {
+    grid-template-columns: 1fr;
+  }
+}

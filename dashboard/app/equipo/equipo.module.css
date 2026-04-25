@@ -1,0 +1,219 @@
+.wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 56px 56px 96px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  padding-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.head h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.banner {
+  padding: 14px 18px;
+  background: var(--off-white);
+  border-left: 3px solid var(--sand);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+/* ============ LIST ============ */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 48px minmax(180px, 1.4fr) 1fr 110px 100px 130px 30px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.05);
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.15s;
+}
+
+.row:hover {
+  border-color: var(--sand);
+  background: var(--ivory);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--deep-green);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.info {
+  min-width: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--deep-green);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.youTag {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  background: var(--off-white);
+  padding: 2px 6px;
+}
+
+.email {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position {
+  font-size: 13px;
+  color: var(--deep-green);
+  font-weight: 400;
+}
+
+.roleCol {
+  display: flex;
+  justify-content: center;
+}
+
+.dirBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--deep-green);
+  color: var(--sand);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.teamBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--off-white);
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.assignCount {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.payment {
+  font-size: 13px;
+  color: var(--deep-green);
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.arrow {
+  font-size: 14px;
+  color: var(--sand-dark);
+}
+
+/* ============ BUTTONS ============ */
+.btnGhost {
+  padding: 10px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid rgba(10, 26, 12, 0.1);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btnGhost:hover {
+  color: var(--deep-green);
+  border-color: var(--deep-green);
+}
+
+.btnSolid {
+  padding: 10px 22px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--off-white);
+  background: var(--deep-green);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSolid:hover {
+  background: var(--forest);
+}
+
+@media (max-width: 1100px) {
+  .row {
+    grid-template-columns: 40px 1fr 80px 80px 24px;
+    gap: 12px;
+  }
+  .position,
+  .payment {
+    display: none;
+  }
+}

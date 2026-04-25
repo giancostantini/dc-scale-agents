@@ -1,0 +1,262 @@
+.back {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  padding: 6px 0;
+}
+
+.back:hover {
+  color: var(--deep-green);
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  background: var(--deep-green);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.youTag {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+}
+
+.banner {
+  padding: 14px 18px;
+  background: var(--off-white);
+  border-left: 3px solid var(--sand);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 24px 0;
+}
+
+/* ============ PANEL ============ */
+.panel {
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  padding: 28px 32px;
+  margin-bottom: 20px;
+}
+
+.panelHead {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.06);
+}
+
+.fieldGrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.fieldGrid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.15);
+  padding: 8px 0;
+  color: var(--deep-green);
+  font-size: 14px;
+  font-weight: 300;
+  outline: none;
+  font-family: inherit;
+}
+
+.field input:focus,
+.field select:focus,
+.textarea:focus {
+  border-color: var(--sand);
+}
+
+.field input:disabled,
+.field select:disabled,
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.textarea {
+  resize: vertical;
+  border: 1px solid rgba(10, 26, 12, 0.12);
+  padding: 12px;
+  background: var(--ivory);
+  width: 100%;
+}
+
+.saveRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
+.empty {
+  padding: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--off-white);
+  border-left: 3px solid var(--sand);
+  font-style: italic;
+}
+
+/* ============ ASSIGNMENTS ============ */
+.assignList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assignRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--off-white);
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.assignRow:hover {
+  border-color: var(--sand);
+}
+
+.assignInitials {
+  width: 36px;
+  height: 36px;
+  background: var(--deep-green);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assignName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--deep-green);
+}
+
+.assignSector {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.assignRole {
+  padding: 4px 10px;
+  background: var(--white);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--sand-dark);
+}
+
+.assignSince {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.removeBtn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(176, 75, 58, 0.2);
+  background: transparent;
+  color: var(--red-warn);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.removeBtn:hover {
+  background: rgba(176, 75, 58, 0.08);
+}
+
+/* ============ ADD ASSIGNMENT ============ */
+.addAsg {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(10, 26, 12, 0.06);
+}
+
+.addAsgRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.input {
+  background: var(--ivory);
+  border: 1px solid rgba(10, 26, 12, 0.12);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--deep-green);
+  font-family: inherit;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--sand);
+}
+
+.asgError {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(176, 75, 58, 0.1);
+  border-left: 3px solid var(--red-warn);
+  color: var(--red-warn);
+  font-size: 12px;
+}
+
+@media (max-width: 800px) {
+  .fieldGrid2,
+  .fieldGrid3 {
+    grid-template-columns: 1fr;
+  }
+  .addAsgRow {
+    grid-template-columns: 1fr;
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getCurrentProfile, signOut } from "@/lib/supabase/auth";
+import { getCurrentProfile } from "@/lib/supabase/auth";
 import type { Profile } from "@/lib/supabase/auth";
 import NotificationBell from "./NotificationBell";
 import Lockup from "./Lockup";
@@ -25,11 +25,6 @@ export default function Topbar({
   useEffect(() => {
     getCurrentProfile().then(setProfile);
   }, []);
-
-  async function handleSignOut() {
-    await signOut();
-    router.replace("/");
-  }
 
   return (
     <header className={styles.topbar}>
@@ -60,21 +55,26 @@ export default function Topbar({
         <button className={styles.btn} onClick={() => router.push("/finanzas")}>
           Finanzas
         </button>
+        <button className={styles.btn} onClick={() => router.push("/equipo")}>
+          Equipo
+        </button>
         <NotificationBell />
 
         {profile && (
-          <div
+          <button
             className={styles.user}
-            title="Click para cerrar sesión"
-            onClick={handleSignOut}
+            title="Ir a mi perfil"
+            onClick={() => router.push("/perfil")}
             style={{ cursor: "pointer" }}
           >
             <div className={styles.avatar}>{profile.initials}</div>
             <div>
               <div className={styles.userName}>{profile.name}</div>
-              <div className={styles.userRole}>{profile.role}</div>
+              <div className={styles.userRole}>
+                {profile.role === "director" ? "Director" : profile.position || "Equipo"}
+              </div>
             </div>
-          </div>
+          </button>
         )}
       </div>
     </header>
