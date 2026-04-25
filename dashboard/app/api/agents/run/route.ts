@@ -19,6 +19,7 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+import { loadClientVaultContext } from "@/lib/vault-loader";
 
 interface RunRequest {
   clientId: string;
@@ -106,7 +107,21 @@ export async function POST(req: NextRequest) {
     // Fast-path: run the agent in-process. The agent itself closes the run
     // (updateAgentRun) and registers outputs, so we just relay the result.
     try {
-      const mod = await import(fastMatch.spec.module);
+      // Precargamos el vault del cliente vía GitHub Contents API. Sin esto,
+      // el agente intenta `readFileSync` sobre `vault/...` que NO está
+      // bundleado en Vercel (next.config.ts solo trazea ../scripts/**), y
+      // termina con prompt vacío de contexto.
+      const [mod, vaultContext] = await Promise.all([
+        import(fastMatch.spec.module),
+        loadClientVaultContext(clientId).catch((err) => {
+          console.warn(
+            `[agents/run] loadClientVaultContext falló para ${clientId}:`,
+            err.message,
+          );
+          return null;
+        }),
+      ]);
+
       const runFn = fastMatch.spec.exportName
         ? mod[fastMatch.spec.exportName]
         : mod.run;
@@ -122,6 +137,7 @@ export async function POST(req: NextRequest) {
         client: clientId,
         runId: run.id,
         source: "dashboard",
+        vaultContext,
       });
 
       return Response.json({

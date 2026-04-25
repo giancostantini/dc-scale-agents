@@ -23,6 +23,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+import { loadClientVaultContext, buildVaultBlock } from "@/lib/vault-loader";
 
 const MODEL = "claude-opus-4-7";
 
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  const [{ data: client }, { data: recentRuns }, memories] = await Promise.all([
+  const [{ data: client }, { data: recentRuns }, memories, vault] = await Promise.all([
     supabase
       .from("clients")
       .select("id, name, sector, type, phase, method, fee")
@@ -134,6 +135,12 @@ export async function POST(req: NextRequest) {
       .limit(10)
       .returns<AgentRunRow[]>(),
     recallMemories(supabase, clientId, 20),
+    // Vault — cargado del repo via GitHub Contents API. Si falla la red,
+    // seguimos sin vault para no romper el chat (degraded mode).
+    loadClientVaultContext(clientId).catch((err) => {
+      console.warn("[consultant] loadClientVaultContext falló:", err.message);
+      return { claudeClient: null, strategy: null, learningLog: null, callsLog: null };
+    }),
   ]);
 
   if (!client) {
@@ -142,6 +149,7 @@ export async function POST(req: NextRequest) {
 
   const contextBlock = buildContextBlock(client, recentRuns ?? []);
   const memoryBlock = buildMemoryBlock(memories);
+  const vaultBlock = buildVaultBlock(vault);
 
   const anthropic = new Anthropic();
 
@@ -153,6 +161,13 @@ export async function POST(req: NextRequest) {
         {
           type: "text",
           text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+        {
+          // Vault del cliente — narrativa rica (brandbook, estrategia, calls).
+          // Cacheable porque cambia cada minutos, no entre turnos del chat.
+          type: "text",
+          text: vaultBlock,
           cache_control: { type: "ephemeral" },
         },
         {
@@ -260,24 +275,17 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Performance-based brief enrichment — for content-creator, inject
-      // `prioritize` from content_insights so each piece is optimized
-      // against what historically worked for this client. Also inject
-      // `examples[]` from recently captured competitor pieces.
-      const enrichedBrief: Record<string, unknown> = { ...input.brief };
-      if (input.agent === "content-creator") {
-        const [prioritize, competitorExamples] = await Promise.all([
-          loadPrioritizeFromInsights(supabase, clientId),
-          loadCompetitorExamples(supabase, clientId),
-        ]);
-        if (prioritize) enrichedBrief.prioritize = prioritize;
-        if (competitorExamples && competitorExamples.length > 0) {
-          const existing = Array.isArray(enrichedBrief.examples)
-            ? (enrichedBrief.examples as unknown[])
-            : [];
-          enrichedBrief.examples = [...existing, ...competitorExamples];
-        }
-      }
+      // Brief enrichment basado en datos históricos del cliente. Cada agente
+      // recibe lo que le sirve: content-creator y content-strategy reciben
+      // `prioritize` (top hooks/formats/angles); content-creator también
+      // recibe `examples[]` con piezas de competencia. social-media-metrics
+      // recibe `historicalBaseline` para detectar outliers.
+      const enrichedBrief = await enrichBriefForAgent(
+        supabase,
+        clientId,
+        input.agent,
+        input.brief,
+      );
 
       const { data: run, error: insertError } = await supabase
         .from("agent_runs")
@@ -556,6 +564,88 @@ async function loadCompetitorExamples(
         notes: parts.join(" · ") || "Pieza de competencia capturada",
       };
     });
+}
+
+/**
+ * Enriquece el brief de un agente con datos históricos del cliente.
+ *
+ * - content-creator    → prioritize (top hooks/formats/angles) + examples[]
+ *                        (piezas de competencia)
+ * - content-strategy   → prioritize (qué formatos / horarios funcionaron mejor)
+ * - social-media-metrics → historicalBaseline (score promedio para outliers)
+ * - resto              → sin enrichment (devuelve copia del brief original)
+ *
+ * Cada agente decide en su prompt si usar o no el campo enriquecido. Los
+ * agentes que ignoran el campo no rompen — es opt-in del lado del agente.
+ */
+async function enrichBriefForAgent(
+  supabase: SupabaseAdminClient,
+  clientId: string,
+  agent: string,
+  brief: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const enriched: Record<string, unknown> = { ...brief };
+
+  if (agent === "content-creator") {
+    const [prioritize, competitorExamples] = await Promise.all([
+      loadPrioritizeFromInsights(supabase, clientId),
+      loadCompetitorExamples(supabase, clientId),
+    ]);
+    if (prioritize) enriched.prioritize = prioritize;
+    if (competitorExamples && competitorExamples.length > 0) {
+      const existing = Array.isArray(enriched.examples)
+        ? (enriched.examples as unknown[])
+        : [];
+      enriched.examples = [...existing, ...competitorExamples];
+    }
+    return enriched;
+  }
+
+  if (agent === "content-strategy") {
+    const prioritize = await loadPrioritizeFromInsights(supabase, clientId);
+    if (prioritize) enriched.prioritize = prioritize;
+    return enriched;
+  }
+
+  if (agent === "social-media-metrics") {
+    const baseline = await loadHistoricalBaseline(supabase, clientId);
+    if (baseline) enriched.historicalBaseline = baseline;
+    return enriched;
+  }
+
+  return enriched;
+}
+
+/**
+ * Score promedio histórico del cliente, agregado de `content_insights`.
+ * Sirve a social-media-metrics para detectar outliers (piezas que
+ * superan ampliamente la baseline = ganadoras).
+ */
+async function loadHistoricalBaseline(
+  supabase: SupabaseAdminClient,
+  clientId: string,
+): Promise<{ avgScore: number; sampleSize: number } | null> {
+  const { data, error } = await supabase
+    .from("content_insights")
+    .select("score, sample_size")
+    .eq("client", clientId)
+    .returns<Array<{ score: number | null; sample_size: number | null }>>();
+
+  if (error || !data || data.length === 0) return null;
+
+  let weightedSum = 0;
+  let totalSamples = 0;
+  for (const row of data) {
+    if (typeof row.score !== "number" || typeof row.sample_size !== "number") continue;
+    weightedSum += row.score * row.sample_size;
+    totalSamples += row.sample_size;
+  }
+  if (totalSamples === 0) return null;
+
+  return {
+    avgScore: Number((weightedSum / totalSamples).toFixed(2)),
+    sampleSize: totalSamples,
+  };
 }
 
 function buildContextBlock(client: ClientRow, recentRuns: AgentRunRow[]): string {

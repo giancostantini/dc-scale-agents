@@ -91,7 +91,7 @@ async function callClaude(prompt) {
 export async function run(briefInput) {
   const startTime = Date.now();
   const brief = briefInput ?? loadBriefFromArgs();
-  const { client, runId = null } = brief;
+  const { client, runId = null, vaultContext = null } = brief;
   if (!client || typeof client !== "string" || !client.trim()) {
     throw new Error(
       `[${AGENT}] client slug missing — brief must include a 'client' string (no hay defaults)`,
@@ -99,9 +99,15 @@ export async function run(briefInput) {
   }
   console.log(`[${AGENT}] starting for client='${client}' runId=${runId}`);
 
+  // Si el caller (Vercel fast-path) precargó el vault via GitHub API, usalo.
+  // Si no (GHA con repo en filesystem), leelo de disco.
   const base = `clients/${client}`;
-  const clientContext = readVaultFile(`${base}/claude-client.md`);
-  const learningLog = readVaultFile(`${base}/learning-log.md`);
+  const clientContext =
+    vaultContext?.claudeClient ?? readVaultFile(`${base}/claude-client.md`);
+  const learningLog =
+    vaultContext?.learningLog ?? readVaultFile(`${base}/learning-log.md`);
+  // metrics-log y content-calendar no vienen en vaultContext — se leen
+  // del disco si está disponible (GHA), o quedan null (Vercel fast-path).
   const metricsLog = readVaultFile(`${base}/metrics-log.md`);
   const contentCalendar = readVaultFile(`${base}/content-calendar.md`);
 

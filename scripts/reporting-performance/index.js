@@ -118,19 +118,25 @@ function getTodayFormatted() {
 
 // --- Context Loader ---
 
-function loadClientContext(client) {
+function loadClientContext(client, vaultContext = null) {
   console.log(`Loading vault context for client: ${client}`);
 
+  // Si vaultContext viene precargado (Vercel fast-path), usalo para los
+  // archivos clave. El resto se leen del filesystem (GHA) o quedan null
+  // (Vercel — esos archivos no se incluyen en el bundle).
   const context = {
     agencyContext: readVaultFile("CLAUDE.md"),
-    clientBrand: readVaultFile(`clients/${client}/claude-client.md`),
-    strategy: readVaultFile(`clients/${client}/strategy.md`),
+    clientBrand:
+      vaultContext?.claudeClient ?? readVaultFile(`clients/${client}/claude-client.md`),
+    strategy:
+      vaultContext?.strategy ?? readVaultFile(`clients/${client}/strategy.md`),
     performanceLog: readVaultFile(`clients/${client}/performance-log.md`),
     metricsLog: readVaultFile(`clients/${client}/metrics-log.md`),
     adsLog: readVaultFile(`clients/${client}/ads-log.md`),
     salesLog: readVaultFile(`clients/${client}/sales-log.md`),
     contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
-    learningLog: readVaultFile(`clients/${client}/learning-log.md`),
+    learningLog:
+      vaultContext?.learningLog ?? readVaultFile(`clients/${client}/learning-log.md`),
     productCatalog: readVaultFile(`clients/${client}/product-catalog.md`),
   };
 
@@ -509,7 +515,9 @@ export async function runAnalyticsAgent(briefInput) {
     `Analytics Agent — ${brief.mode} for ${brief.client} (source: ${brief.source})`
   );
 
-  const ctx = loadClientContext(brief.client);
+  // vaultContext viene del fast-path en Vercel (precargado via GitHub API).
+  // En GHA no viene — se lee del filesystem.
+  const ctx = loadClientContext(brief.client, briefInput?.vaultContext ?? null);
 
   // Build prompt based on mode
   let prompt;

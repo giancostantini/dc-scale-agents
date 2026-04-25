@@ -103,13 +103,20 @@ function getTodayISO() {
 function loadClientContext(client) {
   console.log(`Loading vault context for client: ${client}`);
 
+  // content-library.md es donde Content Creator registra cada pieza con
+  // status PENDING + métricas vacías. Acá lo aliasamos como `socialMediaLog`
+  // (porque extractPostsNeedingMetrics lo busca con ese nombre) y como
+  // `contentLibrary` (porque el prompt lo lee así). Una sola lectura, dos
+  // referencias — antes había una doble lectura por copy-paste.
+  const contentLibraryRaw = readVaultFile(`clients/${client}/content-library.md`);
+
   const context = {
     agencyContext: readVaultFile("CLAUDE.md"),
     clientBrand: readVaultFile(`clients/${client}/claude-client.md`),
     strategy: readVaultFile(`clients/${client}/strategy.md`),
-    contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
+    contentLibrary: contentLibraryRaw,
     contentCalendar: readVaultFile(`clients/${client}/content-calendar.md`),
-    socialMediaLog: readVaultFile(`clients/${client}/content-library.md`),
+    socialMediaLog: contentLibraryRaw,
     metricsLog: readVaultFile(`clients/${client}/metrics-log.md`),
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
     hookDatabase: readVaultFile(`clients/${client}/hook-database.md`),
@@ -187,6 +194,14 @@ ${ctx.hookDatabase || "Sin hook database."}
 
 --- LEARNING LOG ---
 ${ctx.learningLog || "Sin learning log."}
+
+${
+  brief.historicalBaseline
+    ? `--- BASELINE HISTÓRICO (engagement promedio del cliente) ---
+Score promedio: ${brief.historicalBaseline.avgScore} (sobre ${brief.historicalBaseline.sampleSize} piezas registradas)
+Usá esta baseline para detectar OUTLIERS: piezas que superen ampliamente el promedio son ganadoras (worth replicar); piezas muy por debajo merecen análisis específico de qué falló.`
+    : ""
+}
 
 ${brief.instructions ? `--- INSTRUCCIONES ADICIONALES ---\n${brief.instructions}` : ""}
 
@@ -321,10 +336,7 @@ ${ctx.strategy || "Sin estrategia definida."}
 --- CALENDARIO DE CONTENIDO ---
 ${ctx.contentCalendar || "Sin calendario de contenido."}
 
---- SOCIAL MEDIA LOG COMPLETO ---
-${ctx.socialMediaLog || "Sin publicaciones registradas."}
-
---- CONTENT LIBRARY ---
+--- CONTENT LIBRARY (registro de piezas con métricas) ---
 ${ctx.contentLibrary || "Sin content library."}
 
 --- METRICAS HISTORICAS ---
@@ -335,6 +347,14 @@ ${ctx.hookDatabase || "Sin hook database."}
 
 --- LEARNING LOG ---
 ${ctx.learningLog || "Sin learning log."}
+
+${
+  brief.historicalBaseline
+    ? `--- BASELINE HISTÓRICO (engagement promedio del cliente) ---
+Score promedio: ${brief.historicalBaseline.avgScore} (sobre ${brief.historicalBaseline.sampleSize} piezas registradas)
+Usá esta baseline para detectar OUTLIERS: piezas que superen ampliamente el promedio son ganadoras (worth replicar); piezas muy por debajo merecen análisis específico de qué falló.`
+    : ""
+}
 
 ${brief.instructions ? `--- INSTRUCCIONES ADICIONALES ---\n${brief.instructions}` : ""}
 

@@ -118,9 +118,36 @@ function getWeekRange() {
 
 // --- Main ---
 
+/**
+ * Formatea el objeto `prioritize` (top hooks/formats/angles/publish_times)
+ * como bullets por dimensión para inyectar en el prompt.
+ */
+function formatPrioritize(prioritize) {
+  if (!prioritize || typeof prioritize !== "object") return "";
+  const labels = {
+    hook: "Hooks que mejor performan",
+    format: "Formatos ganadores",
+    angle: "Ángulos top",
+    publish_time: "Horarios de publicación con mejor engagement",
+  };
+  const sections = [];
+  for (const [dim, label] of Object.entries(labels)) {
+    const values = prioritize[dim];
+    if (Array.isArray(values) && values.length > 0) {
+      sections.push(`${label}: ${values.slice(0, 5).join(" · ")}`);
+    }
+  }
+  return sections.join("\n");
+}
+
 async function run() {
   const startTime = Date.now();
   console.log(`Content Strategy Agent — generating calendar for ${CLIENT}...`);
+
+  // Brief enrichment — el Consultor (o el dashboard) puede mandar `prioritize`
+  // con top hooks/formats/angles que funcionaron históricamente. Si viene,
+  // lo inyectamos al prompt para que el calendario los priorice.
+  const prioritize = BRIEF.prioritize || null;
 
   // Read all vault context
   const agencyContext = readVaultFile("CLAUDE.md");
@@ -184,6 +211,15 @@ ${winningFormats || "Sin formatos ganadores registrados."}
 
 --- HOOK DATABASE ---
 ${hookDatabase || "Sin hooks registrados."}
+
+${
+  prioritize
+    ? `--- PRIORIDADES (datos reales del cliente — top performers históricos) ---
+${formatPrioritize(prioritize)}
+
+Estos hooks/formatos/ángulos/horarios funcionaron mejor que la baseline. Sesgá el calendario hacia ellos cuando aplique al objetivo de la pieza.`
+    : ""
+}
 
 ---
 

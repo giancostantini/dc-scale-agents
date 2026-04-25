@@ -5,37 +5,35 @@ import ui from "@/components/ClientUI.module.css";
 import ConsultantChat from "@/components/ConsultantChat";
 import AgentCard from "@/components/AgentCard";
 import RunOutputDrawer from "@/components/RunOutputDrawer";
+import ScaffoldingState from "@/components/ScaffoldingState";
 import { getClient } from "@/lib/storage";
-import { AGENT_CATALOG, filterAgentsForClient, getRecentRuns, runAgent } from "@/lib/agents";
+import { AGENT_CATALOG, filterAgentsForClient, runAgent } from "@/lib/agents";
 import type { AgentDef } from "@/lib/agents";
 import type { AgentRun, Client } from "@/lib/types";
+import { useAgentRuns } from "@/lib/use-agent-runs";
 
 export default function AgentesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [client, setClient] = useState<Client | null>(null);
-  const [runs, setRuns] = useState<AgentRun[]>([]);
+  const [clientLoading, setClientLoading] = useState(true);
   const [selectedRun, setSelectedRun] = useState<AgentRun | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+
+  // Realtime de runs — reemplaza el polling 15s. Latencia <500ms cuando un
+  // run pasa de running → success, sin necesidad de reload manual.
+  const { items: runs } = useAgentRuns({ clientId: id, limit: 30 });
 
   useEffect(() => {
     let cancelled = false;
-    const load = () => {
-      Promise.all([getClient(id), getRecentRuns(id)]).then(([c, r]) => {
-        if (cancelled) return;
-        setClient(c ?? null);
-        setRuns(r);
-      });
-    };
-    load();
-    const interval = setInterval(load, 15000);
+    getClient(id).then((c) => {
+      if (cancelled) return;
+      setClient(c ?? null);
+      setClientLoading(false);
+    });
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
-  }, [id, refreshTick]);
-
-  const refresh = () => setRefreshTick((t) => t + 1);
+  }, [id]);
 
   const agents = filterAgentsForClient(AGENT_CATALOG, client?.modules, client?.sector);
 
@@ -44,13 +42,22 @@ export default function AgentesPage({ params }: { params: Promise<{ id: string }
     if (!lastRunByAgent.has(r.agent)) lastRunByAgent.set(r.agent, r);
   }
 
+  // ¿El bootstrap del cliente todavía está corriendo o falló? Si nunca lo
+  // ejecutamos, asumimos que fue antes de que tracking-eara este flow
+  // (clientes preexistentes) y mostramos el grid normal. Si está running
+  // o errored, mostramos el ScaffoldingState.
+  const bootstrapRun = runs.find((r) => r.agent === "client-bootstrap");
+  const isBootstrapping =
+    !!bootstrapRun && (bootstrapRun.status === "running" || bootstrapRun.status === "error");
+
   async function handleRun(agent: AgentDef) {
     const result = await runAgent(id, agent.key, agent.defaultBrief);
     if ("error" in result) {
       setToast(`Error: ${result.error}`);
     } else {
+      // No hace falta refresh manual — useAgentRuns recibe el INSERT por
+      // Realtime y lo agrega a la lista solo.
       setToast(`${agent.name} dispatchado · run #${result.runId}`);
-      refresh();
     }
     setTimeout(() => setToast(null), 4000);
   }
@@ -69,102 +76,116 @@ export default function AgentesPage({ params }: { params: Promise<{ id: string }
         por el estado del cliente. Los agentes disponibles se filtran según los módulos contratados.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.2fr)", gap: 24, marginBottom: 32 }}>
-        <ConsultantChat clientId={id} />
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
-          {agents.map((a) => (
-            <AgentCard
-              key={a.key}
-              agent={a}
-              lastRun={lastRunByAgent.get(a.key)}
-              onRun={handleRun}
-              onOpenRun={setSelectedRun}
-            />
-          ))}
+      {isBootstrapping && client ? (
+        <ScaffoldingState
+          clientName={client.name}
+          status={bootstrapRun.status as "running" | "error"}
+          errorMessage={bootstrapRun.summary}
+        />
+      ) : clientLoading ? (
+        <div style={{ padding: 40, color: "var(--text-muted)", fontSize: 13 }}>
+          Cargando cliente…
         </div>
-      </div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.2fr)", gap: 24, marginBottom: 32 }}>
+            <ConsultantChat clientId={id} />
 
-      <div className={ui.panel}>
-        <div className={ui.panelHead}>
-          <div className={ui.panelTitle}>Runs recientes</div>
-          <div className={ui.panelAction}>Últimos 30</div>
-        </div>
-        {runs.length === 0 ? (
-          <div style={{ fontSize: 13, color: "var(--text-muted)", padding: 16 }}>
-            Todavía no hay runs para este cliente.
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "140px 1fr 100px 160px",
-                gap: 16,
-                padding: "10px 0",
-                borderBottom: "1px solid rgba(10,26,12,0.08)",
-                fontSize: 10,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 600,
-              }}
-            >
-              <span>Agente</span>
-              <span>Resumen</span>
-              <span>Status</span>
-              <span>Cuándo</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
+              {agents.map((a) => (
+                <AgentCard
+                  key={a.key}
+                  agent={a}
+                  lastRun={lastRunByAgent.get(a.key)}
+                  onRun={handleRun}
+                  onOpenRun={setSelectedRun}
+                />
+              ))}
             </div>
-            {runs.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setSelectedRun(r)}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "140px 1fr 100px 160px",
-                  gap: 16,
-                  padding: "12px 0",
-                  borderBottom: "1px solid rgba(10,26,12,0.05)",
-                  fontSize: 13,
-                  textAlign: "left",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  color: "inherit",
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>{r.agent}</span>
-                <span style={{ color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.summary_md ?? r.summary ?? "—"}
-                </span>
-                <span>
-                  <span
-                    className={
-                      r.status === "success"
-                        ? `${ui.pill} ${ui.pillGreen}`
-                        : r.status === "error"
-                        ? `${ui.pill} ${ui.pillRed}`
-                        : `${ui.pill} ${ui.pillYellow}`
-                    }
-                  >
-                    {r.status}
-                  </span>
-                </span>
-                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-                  {new Date(r.created_at).toLocaleString("es-UY", {
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </button>
-            ))}
           </div>
-        )}
-      </div>
+
+          <div className={ui.panel}>
+            <div className={ui.panelHead}>
+              <div className={ui.panelTitle}>Runs recientes</div>
+              <div className={ui.panelAction}>Últimos 30</div>
+            </div>
+            {runs.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--text-muted)", padding: 16 }}>
+                Todavía no hay runs para este cliente.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "140px 1fr 100px 160px",
+                    gap: 16,
+                    padding: "10px 0",
+                    borderBottom: "1px solid rgba(10,26,12,0.08)",
+                    fontSize: 10,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>Agente</span>
+                  <span>Resumen</span>
+                  <span>Status</span>
+                  <span>Cuándo</span>
+                </div>
+                {runs.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setSelectedRun(r)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "140px 1fr 100px 160px",
+                      gap: 16,
+                      padding: "12px 0",
+                      borderBottom: "1px solid rgba(10,26,12,0.05)",
+                      fontSize: 13,
+                      textAlign: "left",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      color: "inherit",
+                    }}
+                  >
+                    <span style={{ fontWeight: 500 }}>{r.agent}</span>
+                    <span style={{ color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.summary_md ?? r.summary ?? "—"}
+                    </span>
+                    <span>
+                      <span
+                        className={
+                          r.status === "success"
+                            ? `${ui.pill} ${ui.pillGreen}`
+                            : r.status === "error"
+                            ? `${ui.pill} ${ui.pillRed}`
+                            : `${ui.pill} ${ui.pillYellow}`
+                        }
+                      >
+                        {r.status}
+                      </span>
+                    </span>
+                    <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                      {new Date(r.created_at).toLocaleString("es-UY", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       <RunOutputDrawer run={selectedRun} onClose={() => setSelectedRun(null)} />
 

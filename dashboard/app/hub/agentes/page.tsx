@@ -1,27 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import RunOutputDrawer from "@/components/RunOutputDrawer";
-import { getAllRecentRuns } from "@/lib/agents";
 import { hasSession } from "@/lib/supabase/auth";
 import { getClients } from "@/lib/storage";
 import type { AgentRun, Client } from "@/lib/types";
+import { useAgentRuns } from "@/lib/use-agent-runs";
 
 export default function HubAgentesPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
-  const [runs, setRuns] = useState<AgentRun[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedRun, setSelectedRun] = useState<AgentRun | null>(null);
   const [filter, setFilter] = useState<"all" | "running" | "success" | "error">("all");
 
-  const refresh = useCallback(async () => {
-    const [r, c] = await Promise.all([getAllRecentRuns(100), getClients()]);
-    setRuns(r);
-    setClients(c);
-  }, []);
+  // Realtime cross-client (sin filtro por client) — reemplaza el polling 20s.
+  const { items: runs } = useAgentRuns({ limit: 100 });
 
   useEffect(() => {
     hasSession().then((has) => {
@@ -30,15 +26,9 @@ export default function HubAgentesPage() {
         return;
       }
       setAuthChecked(true);
-      void refresh();
+      void getClients().then(setClients);
     });
-  }, [router, refresh]);
-
-  useEffect(() => {
-    if (!authChecked) return;
-    const i = setInterval(() => void refresh(), 20000);
-    return () => clearInterval(i);
-  }, [authChecked, refresh]);
+  }, [router]);
 
   const clientNameById = useMemo(() => {
     const m = new Map<string, string>();
