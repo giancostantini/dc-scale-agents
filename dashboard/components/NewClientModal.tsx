@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addClient } from "@/lib/storage";
-import type { BudgetTier, ClientOnboarding, ClientType } from "@/lib/types";
+import { makeWizardSessionId } from "@/lib/upload";
+import Dropzone from "./Dropzone";
+import type {
+  BudgetTier,
+  ClientOnboarding,
+  ClientType,
+  OnboardingFile,
+} from "@/lib/types";
 import styles from "./NewClientModal.module.css";
 
 // Convierte los strings de los inputs a un BudgetTier estructurado.
@@ -116,18 +123,19 @@ export default function NewClientModal({
     "15% sobre revenue growth si supera 30%",
   ]);
 
-  // Step 4 — kickoff + branding
-  const [kickoffFile, setKickoffFile] = useState<string | null>(null);
-  const [brandingFiles, setBrandingFiles] = useState<string[]>([]);
-  const [propuesta, setPropuesta] = useState("");
-  const [audiencia, setAudiencia] = useState("");
-  const [tono, setTono] = useState("");
-  const [competidores, setCompetidores] = useState("");
-  const [objetivosIniciales, setObjetivosIniciales] = useState("");
+  // Step 3 — presupuestos (movidos acá, son contractuales)
   const [budgetMarketingFixed, setBudgetMarketingFixed] = useState("");
   const [budgetMarketingPct, setBudgetMarketingPct] = useState("");
   const [budgetProduccionFixed, setBudgetProduccionFixed] = useState("");
   const [budgetProduccionPct, setBudgetProduccionPct] = useState("");
+
+  // Step 4 — kickoff + branding (uploads reales a Supabase Storage)
+  // El wizardId es un folder único por modal-abierto. Si el usuario
+  // cancela, los archivos quedan huérfanos en el bucket (cleanup
+  // posterior). Se regenera en reset().
+  const [wizardId, setWizardId] = useState(() => makeWizardSessionId());
+  const [kickoffFile, setKickoffFile] = useState<OnboardingFile | null>(null);
+  const [brandingFiles, setBrandingFiles] = useState<OnboardingFile[]>([]);
 
   // Step 5 — alcance
   const [modules, setModules] = useState<ModulesState>(DEFAULT_MODULES);
@@ -157,17 +165,13 @@ export default function NewClientModal({
     setContractFile(null);
     setHasVariable(false);
     setVariableTiers(["15% sobre revenue growth si supera 30%"]);
-    setKickoffFile(null);
-    setBrandingFiles([]);
-    setPropuesta("");
-    setAudiencia("");
-    setTono("");
-    setCompetidores("");
-    setObjetivosIniciales("");
     setBudgetMarketingFixed("");
     setBudgetMarketingPct("");
     setBudgetProduccionFixed("");
     setBudgetProduccionPct("");
+    setWizardId(makeWizardSessionId());
+    setKickoffFile(null);
+    setBrandingFiles([]);
     setModules(DEFAULT_MODULES);
     setDevProjectType("");
   }
@@ -218,11 +222,6 @@ export default function NewClientModal({
           : undefined,
         kickoffFile: kickoffFile ?? undefined,
         brandingFiles: brandingFiles.length ? brandingFiles : undefined,
-        propuesta: propuesta.trim() || undefined,
-        audiencia: audiencia.trim() || undefined,
-        tono: tono.trim() || undefined,
-        competidores: competidores.trim() || undefined,
-        objetivosIniciales: objetivosIniciales.trim() || undefined,
         budgetMarketing: makeBudgetTier(budgetMarketingFixed, budgetMarketingPct),
         budgetProduccion: makeBudgetTier(budgetProduccionFixed, budgetProduccionPct),
         devProjectType:
@@ -722,6 +721,43 @@ export default function NewClientModal({
               )}
             </div>
 
+            {/* Presupuestos (movidos del step 4 — son contractuales) */}
+            <div className={styles.sectionLabel}>
+              Presupuestos default del cliente
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                marginBottom: 16,
+                lineHeight: 1.5,
+              }}
+            >
+              Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
+              Si el negocio escala, el presupuesto crece automáticamente con el
+              revenue manteniendo el mínimo garantizado.
+            </div>
+
+            <BudgetField
+              label="Presupuesto marketing (ads mensual)"
+              fixed={budgetMarketingFixed}
+              setFixed={setBudgetMarketingFixed}
+              pct={budgetMarketingPct}
+              setPct={setBudgetMarketingPct}
+              fixedPlaceholder="5000"
+              pctPlaceholder="10"
+            />
+
+            <BudgetField
+              label="Presupuesto producción/campañas"
+              fixed={budgetProduccionFixed}
+              setFixed={setBudgetProduccionFixed}
+              pct={budgetProduccionPct}
+              setPct={setBudgetProduccionPct}
+              fixedPlaceholder="1500"
+              pctPlaceholder="3"
+            />
+
             <div
               style={{
                 marginTop: 20,
@@ -796,244 +832,51 @@ export default function NewClientModal({
                   color: "rgba(232,228,220,0.9)",
                 }}
               >
-                La información que cargues acá{" "}
-                <strong style={{ color: "var(--sand)" }}>
-                  alimenta los agentes IA, define los objetivos, establece los
-                  presupuestos y construye los reportes
-                </strong>
-                . Cuanto más completo, mejor.
+                Subí el <strong style={{ color: "var(--sand)" }}>kickoff</strong>{" "}
+                y el <strong style={{ color: "var(--sand)" }}>branding</strong>{" "}
+                del cliente. Toda la info estratégica (propuesta, audiencia,
+                tono, competidores, objetivos) ya vive en el kickoff — los
+                agentes lo leen directo de ahí. Acá no preguntamos lo mismo
+                dos veces.
               </div>
             </div>
 
             <div className={styles.sectionLabel}>Documento de Kickoff</div>
-            <div
-              onClick={() =>
-                setKickoffFile(
-                  `kickoff_${(name || "cliente")
-                    .toLowerCase()
-                    .replace(/\s+/g, "_")}.pdf`,
-                )
-              }
-              style={{
-                border: "2px dashed rgba(10,26,12,0.15)",
-                padding: 24,
-                textAlign: "center",
-                cursor: "pointer",
-                marginBottom: 20,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 28,
-                  color: "var(--sand-dark)",
-                  marginBottom: 8,
-                }}
-              >
-                ▢
-              </div>
-              {kickoffFile ? (
-                <>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "var(--deep-green)",
-                    }}
-                  >
-                    ✓ {kickoffFile}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--sand-dark)",
-                      marginTop: 4,
-                    }}
-                  >
-                    Kickoff cargado · Los agentes lo leerán
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>
-                    Subir documento de kickoff
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      marginTop: 4,
-                    }}
-                  >
-                    PDF / DOCX · Brief del cliente, historia, situación actual,
-                    objetivos
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className={styles.sectionLabel}>
-              Branding completo del cliente
-            </div>
-            <div
-              onClick={() =>
-                setBrandingFiles((prev) => [
-                  ...prev,
-                  `branding_file_${prev.length + 1}.zip`,
-                ])
-              }
-              style={{
-                border: "2px dashed rgba(10,26,12,0.15)",
-                padding: 24,
-                textAlign: "center",
-                cursor: "pointer",
-                marginBottom: 20,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 28,
-                  color: "var(--sand-dark)",
-                  marginBottom: 8,
-                }}
-              >
-                ◆
-              </div>
-              {brandingFiles.length > 0 ? (
-                <>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "var(--deep-green)",
-                    }}
-                  >
-                    ✓ {brandingFiles.length} archivo
-                    {brandingFiles.length > 1 ? "s" : ""} cargado
-                    {brandingFiles.length > 1 ? "s" : ""}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--sand-dark)",
-                      marginTop: 4,
-                    }}
-                  >
-                    Click para agregar más
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>
-                    Subir branding
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      marginTop: 4,
-                    }}
-                  >
-                    Manual de marca · Logos · Paleta · Tipografías · Tono de
-                    voz
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className={styles.sectionLabel}>
-              Datos clave del negocio (input manual)
-            </div>
-            <div className={styles.fieldGrid2}>
-              <div className={styles.field}>
-                <label>Propuesta de valor</label>
-                <textarea
-                  rows={2}
-                  value={propuesta}
-                  onChange={(e) => setPropuesta(e.target.value)}
-                  placeholder="Qué ofrece · Por qué es diferente"
-                  style={{ resize: "vertical" }}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Audiencia objetivo</label>
-                <textarea
-                  rows={2}
-                  value={audiencia}
-                  onChange={(e) => setAudiencia(e.target.value)}
-                  placeholder="Quién compra · Perfil · Dolor"
-                  style={{ resize: "vertical" }}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Tono de comunicación</label>
-                <input
-                  value={tono}
-                  onChange={(e) => setTono(e.target.value)}
-                  placeholder="Ej: Cercano · Profesional · Directo"
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Competidores principales</label>
-                <input
-                  value={competidores}
-                  onChange={(e) => setCompetidores(e.target.value)}
-                  placeholder="Ej: Empresa A, Empresa B"
-                />
-              </div>
-            </div>
-
-            <div className={styles.sectionLabel}>
-              Presupuestos (default para el cliente)
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                marginBottom: 16,
-                lineHeight: 1.5,
-              }}
-            >
-              Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
-              Si el negocio escala, el presupuesto crece automáticamente con el
-              revenue manteniendo el mínimo garantizado.
-            </div>
-
-            <BudgetField
-              label="Presupuesto marketing (ads mensual)"
-              fixed={budgetMarketingFixed}
-              setFixed={setBudgetMarketingFixed}
-              pct={budgetMarketingPct}
-              setPct={setBudgetMarketingPct}
-              fixedPlaceholder="5000"
-              pctPlaceholder="10"
+            <Dropzone
+              folder={`${wizardId}/kickoff`}
+              accept=".pdf,.doc,.docx"
+              icon="▢"
+              emptyTitle="Arrastrá el PDF/DOCX o hacé click"
+              emptyHint="Brief del cliente, historia, situación actual, objetivos"
+              files={kickoffFile ? [kickoffFile] : []}
+              onAdd={(uploaded) => setKickoffFile(uploaded[0] ?? null)}
+              onRemove={() => setKickoffFile(null)}
             />
 
-            <BudgetField
-              label="Presupuesto producción/campañas"
-              fixed={budgetProduccionFixed}
-              setFixed={setBudgetProduccionFixed}
-              pct={budgetProduccionPct}
-              setPct={setBudgetProduccionPct}
-              fixedPlaceholder="1500"
-              pctPlaceholder="3"
-            />
-
-            <div className={styles.sectionLabel}>
-              Objetivos iniciales (editables luego por el director)
-            </div>
-            <div className={styles.field}>
-              <textarea
-                rows={3}
-                value={objetivosIniciales}
-                onChange={(e) => setObjetivosIniciales(e.target.value)}
-                placeholder="Ej: Leads 180/mes · ROAS 5x · Revenue $25k · CAC $20"
-                style={{ resize: "vertical" }}
+            <div style={{ marginTop: 24 }}>
+              <div className={styles.sectionLabel}>
+                Branding completo del cliente
+              </div>
+              <Dropzone
+                folder={`${wizardId}/branding`}
+                multiple
+                accept=".pdf,.zip,.png,.jpg,.jpeg,.svg,.ai,.eps"
+                icon="◆"
+                emptyTitle="Arrastrá los archivos o hacé click"
+                emptyHint="Manual de marca, logos, paleta, tipografías, tono de voz"
+                files={brandingFiles}
+                onAdd={(uploaded) =>
+                  setBrandingFiles((prev) => [...prev, ...uploaded])
+                }
+                onRemove={(path) =>
+                  setBrandingFiles((prev) => prev.filter((f) => f.path !== path))
+                }
               />
             </div>
 
             <div
               style={{
-                marginTop: 8,
+                marginTop: 24,
                 padding: "16px 20px",
                 background: "var(--off-white)",
                 borderLeft: "3px solid var(--green-ok)",
@@ -1055,12 +898,9 @@ export default function NewClientModal({
               <div style={{ color: "var(--text-muted)", lineHeight: 1.7 }}>
                 → Kickoff y branding indexados en Biblioteca
                 <br />
-                → Agentes IA (Creativo, Ads, SEO, Email, Social, Analytics)
-                alimentados
+                → Agentes IA leen el kickoff y se alimentan de su contenido
                 <br />
-                → Objetivos pre-cargados listos para que el director ajuste
-                <br />
-                → Presupuesto mensual configurado en Paid Media
+                → Branding disponible para todo el equipo
                 <br />
                 → Acceso del cliente al portal de solo lectura generado
               </div>

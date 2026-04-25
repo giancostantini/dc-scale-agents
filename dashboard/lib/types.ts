@@ -35,31 +35,36 @@ export interface ClientModules {
   reporting?: boolean;
 }
 
+// Metadata de un archivo subido al bucket "client-onboarding".
+// Antes guardábamos solo el filename como placeholder; ahora guardamos
+// path completo (para descargar después) + name original + bytes.
+export interface OnboardingFile {
+  path: string;                   // path en el bucket
+  name: string;                   // filename original del usuario
+  size: number;                   // bytes
+  type?: string;                  // MIME
+  url?: string;                   // public URL si el bucket es público
+}
+
 // Onboarding completo del cliente (wizard de creación).
 // Se guarda en la columna `onboarding jsonb` de la tabla `clients`.
 export interface ClientOnboarding {
   // Contrato
   contractDuration?: "6" | "12" | "18" | "24" | "open" | string;
-  contractFile?: string;          // placeholder por ahora (filename)
+  contractFile?: OnboardingFile | string; // string para compat con datos viejos
   startDate?: string;             // YYYY-MM-DD
   endDate?: string;
   feeVariableTiers?: string[];    // tramos escalonados de fee variable
 
-  // Kickoff
-  kickoffFile?: string;           // placeholder
-  propuesta?: string;
-  audiencia?: string;
-  tono?: string;
-  competidores?: string;
-  objetivosIniciales?: string;
+  // Kickoff (el documento contiene propuesta/audiencia/tono/competidores/etc).
+  kickoffFile?: OnboardingFile | string;
 
-  // Branding
-  brandingFiles?: string[];       // placeholders
+  // Branding (manual de marca, logos, paleta, tipografías, voz).
+  brandingFiles?: (OnboardingFile | string)[];
 
   // Presupuestos default — soportan piso fijo + % sobre revenue.
-  // Interpretación sugerida: el cliente garantiza al menos `fixed` USD/mes
-  // de presupuesto, y si el revenue crece, escala al `revenuePct`% del
-  // revenue (lo que sea mayor).
+  // Vive en el step "Contrato" del wizard; es información contractual,
+  // no estratégica.
   budgetMarketing?: BudgetTier;
   budgetProduccion?: BudgetTier;
 
