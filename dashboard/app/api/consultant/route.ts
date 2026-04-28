@@ -139,7 +139,13 @@ export async function POST(req: NextRequest) {
     // seguimos sin vault para no romper el chat (degraded mode).
     loadClientVaultContext(clientId).catch((err) => {
       console.warn("[consultant] loadClientVaultContext falló:", err.message);
-      return { claudeClient: null, strategy: null, learningLog: null, callsLog: null };
+      return {
+        claudeClient: null,
+        strategy: null,
+        learningLog: null,
+        callsLog: null,
+        brand: {},
+      };
     }),
   ]);
 

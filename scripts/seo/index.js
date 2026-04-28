@@ -9,6 +9,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
 
 const AGENT = "seo";
 
@@ -104,6 +105,14 @@ function getTodayISO() {
 function loadClientContext(client) {
   console.log(`Loading vault context for client: ${client}`);
 
+  // Brand: SEO necesita positioning (target keywords semánticos),
+  // voice-operational (tono de blog posts), y restrictions (qué evitar).
+  const brand = loadBrandFiles(VAULT, client, [
+    "positioning",
+    "voice-operational",
+    "restrictions",
+  ]);
+
   const context = {
     agencyContext: readVaultFile("CLAUDE.md"),
     clientBrand: readVaultFile(`clients/${client}/claude-client.md`),
@@ -112,6 +121,8 @@ function loadClientContext(client) {
     winningPages: readVaultFile("agents/seo/winning-pages.md"),
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
     seoLibrary: readVaultFile(`clients/${client}/seo-library.md`),
+    brand,
+    brandBlock: buildBrandBlock(brand),
   };
 
   const loaded = Object.entries(context).filter(([, v]) => v !== null).length;
@@ -161,8 +172,10 @@ ${directivesBlock}
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "Sin contexto de marca cargado. Usa buenas practicas genericas para eCommerce artesanal de cuero."}
+--- MARCA DEL CLIENTE (overview) ---
+${ctx.clientBrand || "Sin contexto de marca cargado. Usa buenas practicas SEO genericas del sector."}
+
+${ctx.brandBlock}
 
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida aun."}
@@ -247,8 +260,10 @@ FECHA: ${getTodayFormatted()}
 ${brief.topic ? `TEMA A INVESTIGAR: ${brief.topic}` : "TEMA: Analizar el nicho completo del cliente e identificar los mejores clusters de keywords."}
 ${brief.instructions ? `INSTRUCCIONES: ${brief.instructions}` : ""}
 
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "Sin contexto. eCommerce artesanal de cuero, Uruguay."}
+--- MARCA DEL CLIENTE (overview) ---
+${ctx.clientBrand || "Sin contexto de marca cargado."}
+
+${ctx.brandBlock}
 
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida."}
@@ -295,8 +310,10 @@ FECHA: ${getTodayFormatted()}
 ${brief.productSlug ? `PRODUCTO: ${brief.productSlug}` : "PRODUCTOS: Todos los productos principales del cliente."}
 ${brief.instructions ? `INSTRUCCIONES: ${brief.instructions}` : ""}
 
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "eCommerce artesanal de cuero, Uruguay."}
+--- MARCA DEL CLIENTE (overview) ---
+${ctx.clientBrand || "Sin contexto de marca cargado."}
+
+${ctx.brandBlock}
 
 ---
 
@@ -336,8 +353,10 @@ ${brief.targetKeyword ? `KEYWORD TARGET: ${brief.targetKeyword}` : ""}
 ${brief.topic ? `TEMA: ${brief.topic}` : ""}
 ${brief.instructions ? `INSTRUCCIONES: ${brief.instructions}` : ""}
 
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "eCommerce artesanal de cuero, Uruguay."}
+--- MARCA DEL CLIENTE (overview) ---
+${ctx.clientBrand || "Sin contexto de marca cargado."}
+
+${ctx.brandBlock}
 
 --- ESTRATEGIA ---
 ${ctx.strategy || "Sin estrategia definida."}
@@ -393,8 +412,10 @@ FECHA: ${getTodayFormatted()}
 ${brief.categorySlug ? `CATEGORIA: ${brief.categorySlug}` : "CATEGORIAS: Todas las categorias principales del cliente."}
 ${brief.instructions ? `INSTRUCCIONES: ${brief.instructions}` : ""}
 
---- MARCA DEL CLIENTE ---
-${ctx.clientBrand || "eCommerce artesanal de cuero, Uruguay."}
+--- MARCA DEL CLIENTE (overview) ---
+${ctx.clientBrand || "Sin contexto de marca cargado."}
+
+${ctx.brandBlock}
 
 ---
 

@@ -9,6 +9,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
 
 const AGENT = "social-media-metrics";
 
@@ -110,6 +111,14 @@ function loadClientContext(client) {
   // referencias — antes había una doble lectura por copy-paste.
   const contentLibraryRaw = readVaultFile(`clients/${client}/content-library.md`);
 
+  // Brand: SMM evalúa si las piezas respetan tono y formato. Necesita las 3
+  // dimensiones para juzgar: voz operativa, voz del personaje, formatos.
+  const brand = loadBrandFiles(VAULT, client, [
+    "voice-operational",
+    "voice-character",
+    "content-formats",
+  ]);
+
   const context = {
     agencyContext: readVaultFile("CLAUDE.md"),
     clientBrand: readVaultFile(`clients/${client}/claude-client.md`),
@@ -120,6 +129,8 @@ function loadClientContext(client) {
     metricsLog: readVaultFile(`clients/${client}/metrics-log.md`),
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
     hookDatabase: readVaultFile(`clients/${client}/hook-database.md`),
+    brand,
+    brandBlock: buildBrandBlock(brand),
   };
 
   const loaded = Object.entries(context).filter(([, v]) => v !== null).length;
@@ -174,8 +185,10 @@ LOOKBACK: ultimos ${brief.lookbackDays} dia(s)
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
---- MARCA DEL CLIENTE ---
+--- MARCA DEL CLIENTE (overview) ---
 ${ctx.clientBrand || "Sin contexto de marca."}
+
+${ctx.brandBlock}
 
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida."}
@@ -327,8 +340,10 @@ PERIODO: ultimos ${brief.lookbackDays} dias
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
---- MARCA DEL CLIENTE ---
+--- MARCA DEL CLIENTE (overview) ---
 ${ctx.clientBrand || "Sin contexto de marca."}
+
+${ctx.brandBlock}
 
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida."}

@@ -136,6 +136,13 @@ export default function NewClientModal({
   const [wizardId, setWizardId] = useState(() => makeWizardSessionId());
   const [kickoffFile, setKickoffFile] = useState<OnboardingFile | null>(null);
   const [brandingFiles, setBrandingFiles] = useState<OnboardingFile[]>([]);
+  // Brandbook (texto + URL master) — esto es lo que alimenta a los agentes.
+  // El processor lo divide en 8 archivos del brand/ (ver scripts/brandbook-processor).
+  const [brandbookText, setBrandbookText] = useState("");
+  const [brandbookUrl, setBrandbookUrl] = useState("");
+  const [brandbookPdfExtracting, setBrandbookPdfExtracting] = useState(false);
+  const [brandbookPdfError, setBrandbookPdfError] = useState<string | null>(null);
+  const [brandbookPdfProgress, setBrandbookPdfProgress] = useState<string | null>(null);
 
   // Step 5 — alcance
   const [modules, setModules] = useState<ModulesState>(DEFAULT_MODULES);
@@ -172,6 +179,11 @@ export default function NewClientModal({
     setWizardId(makeWizardSessionId());
     setKickoffFile(null);
     setBrandingFiles([]);
+    setBrandbookText("");
+    setBrandbookUrl("");
+    setBrandbookPdfExtracting(false);
+    setBrandbookPdfError(null);
+    setBrandbookPdfProgress(null);
     setModules(DEFAULT_MODULES);
     setDevProjectType("");
   }
@@ -277,6 +289,13 @@ export default function NewClientModal({
           fee: Number(fee),
           method,
           phase: newClient.phase,
+          // Si el usuario pegó/extrajo un brandbook, lo mandamos también.
+          // El bootstrap dispatcha al brandbook-processor en paralelo al
+          // client-bootstrap para que los 8 archivos del brand/ queden
+          // listos en ~30-60s después de crear el cliente.
+          brandbookText:
+            brandbookText.trim().length >= 200 ? brandbookText : undefined,
+          brandbookUrl: brandbookUrl.trim() || undefined,
         }),
       }).catch((err) => console.error("bootstrap dispatch failed:", err));
 
@@ -874,15 +893,15 @@ export default function NewClientModal({
 
             <div style={{ marginTop: 24 }}>
               <div className={styles.sectionLabel}>
-                Branding completo del cliente
+                Branding — assets visuales (logo, paleta, fonts, mockups)
               </div>
               <Dropzone
                 folder={`${wizardId}/branding`}
                 multiple
-                accept=".pdf,.zip,.png,.jpg,.jpeg,.svg,.ai,.eps"
+                accept=".pdf,.zip,.png,.jpg,.jpeg,.svg,.ai,.eps,.otf,.ttf"
                 icon="◆"
                 emptyTitle="Arrastrá los archivos o hacé click"
-                emptyHint="Manual de marca, logos, paleta, tipografías, tono de voz"
+                emptyHint="Logo vectorial, paleta exportada, tipografías, mockups (hasta 50 MB c/u)"
                 files={brandingFiles}
                 onAdd={(uploaded) =>
                   setBrandingFiles((prev) => [...prev, ...uploaded])
@@ -892,6 +911,179 @@ export default function NewClientModal({
                   setBrandingFiles((prev) => prev.filter((f) => f.path !== path));
                 }}
               />
+            </div>
+
+            {/* ===== BRANDBOOK (texto que alimenta a los agentes) ===== */}
+            <div
+              style={{
+                marginTop: 32,
+                padding: 24,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 600,
+                  marginBottom: 6,
+                }}
+              >
+                ▸ Brandbook · texto que leen los agentes
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                  lineHeight: 1.6,
+                  marginBottom: 18,
+                }}
+              >
+                Pegá acá el texto completo del brandbook (positioning, tono, voz,
+                paleta, restricciones). Los agentes generan contenido respetando esto.
+                Cuando crees el cliente, se procesa automáticamente y queda
+                accesible/editable en{" "}
+                <strong style={{ color: "var(--deep-green)" }}>
+                  /cliente/[slug]/brandbook
+                </strong>.
+              </div>
+
+              <div className={styles.sectionLabel}>
+                Subir PDF (extracción automática)
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  disabled={brandbookPdfExtracting}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setBrandbookPdfError(null);
+                    if (file.size > 100 * 1024 * 1024) {
+                      setBrandbookPdfError(
+                        `Tu PDF pesa ${(file.size / (1024 * 1024)).toFixed(0)} MB. Es muy grande para procesar en el browser. Abrilo en ChatGPT/Claude/Gemini ("extraé todo el texto") y pegá el resultado en el textarea de abajo.`,
+                      );
+                      return;
+                    }
+                    setBrandbookPdfExtracting(true);
+                    setBrandbookPdfProgress("Cargando PDF…");
+                    try {
+                      const { extractPdfText } = await import("@/lib/pdf-extract");
+                      const text = await extractPdfText(file, (msg) =>
+                        setBrandbookPdfProgress(msg),
+                      );
+                      setBrandbookText(text);
+                      setBrandbookPdfProgress(null);
+                    } catch (err) {
+                      const msg =
+                        err instanceof Error ? err.message : "Error desconocido";
+                      setBrandbookPdfError(`No se pudo extraer el texto: ${msg}`);
+                      setBrandbookPdfProgress(null);
+                    } finally {
+                      setBrandbookPdfExtracting(false);
+                    }
+                  }}
+                  style={{ fontSize: 13 }}
+                />
+              </div>
+              {brandbookPdfProgress && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--sand-dark)",
+                    marginBottom: 8,
+                  }}
+                >
+                  {brandbookPdfProgress}
+                </div>
+              )}
+              {brandbookPdfError && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--red-warn)",
+                    marginBottom: 8,
+                    padding: "8px 12px",
+                    background: "rgba(176,75,58,0.08)",
+                    borderLeft: "2px solid var(--red-warn)",
+                  }}
+                >
+                  {brandbookPdfError}
+                </div>
+              )}
+
+              <div
+                className={styles.sectionLabel}
+                style={{ marginTop: 16 }}
+              >
+                Texto del brandbook
+              </div>
+              <textarea
+                rows={10}
+                value={brandbookText}
+                disabled={brandbookPdfExtracting}
+                onChange={(e) => setBrandbookText(e.target.value)}
+                placeholder="Pegá acá el texto del brandbook completo: positioning, tono de voz, paleta hex, tipografías, restricciones, formatos de contenido…"
+                style={{
+                  width: "100%",
+                  fontFamily: "inherit",
+                  fontSize: 13,
+                  padding: 12,
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  background: "var(--white)",
+                  resize: "vertical",
+                  lineHeight: 1.5,
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 6,
+                }}
+              >
+                {brandbookText.length === 0
+                  ? "Vacío — los agentes van a operar sin contexto de marca."
+                  : brandbookText.length < 200
+                  ? `Muy corto (${brandbookText.length} chars) · mínimo 200 para procesar`
+                  : `${brandbookText.length.toLocaleString("es-UY")} caracteres · listo para procesar`}
+              </div>
+
+              <div
+                className={styles.sectionLabel}
+                style={{ marginTop: 18 }}
+              >
+                Link al PDF master (opcional)
+              </div>
+              <input
+                type="url"
+                value={brandbookUrl}
+                onChange={(e) => setBrandbookUrl(e.target.value)}
+                placeholder="https://drive.google.com/…  o  https://www.dropbox.com/…"
+                style={{
+                  width: "100%",
+                  fontFamily: "inherit",
+                  fontSize: 13,
+                  padding: "10px 12px",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  background: "var(--white)",
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 6,
+                }}
+              >
+                Para PDFs gigantes (&gt;100 MB) que no entran al wizard. Es solo
+                referencia humana — los agentes usan el texto de arriba.
+              </div>
             </div>
 
             <div
@@ -916,11 +1108,12 @@ export default function NewClientModal({
                 ⚡ Al crear el cliente se hace automático:
               </div>
               <div style={{ color: "var(--text-muted)", lineHeight: 1.7 }}>
-                → Kickoff y branding indexados en Biblioteca
+                → Kickoff y assets de branding indexados en Biblioteca
                 <br />
-                → Agentes IA leen el kickoff y se alimentan de su contenido
+                → Brandbook (texto) procesado en 8 archivos por sección
+                (positioning, voz, paleta, restricciones…) que leen los agentes
                 <br />
-                → Branding disponible para todo el equipo
+                → Agentes IA generan contenido respetando tono, paleta y guard rails
                 <br />
                 → Acceso del cliente al portal de solo lectura generado
               </div>

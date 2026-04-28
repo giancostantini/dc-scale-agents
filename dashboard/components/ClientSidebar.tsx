@@ -85,6 +85,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
 
   const gestion: NavItem[] = [
     { href: `${base}/biblioteca`,    icon: "▢", label: "Biblioteca" },
+    { href: `${base}/brandbook`,     icon: "◐", label: "Brandbook" },
     ...(client.type === "gp"
       ? [
           { href: `${base}/agentes`,  icon: "⚡", label: "Agentes IA" },

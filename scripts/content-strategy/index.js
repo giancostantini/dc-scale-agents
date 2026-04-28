@@ -8,6 +8,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -149,6 +150,15 @@ async function run() {
   // lo inyectamos al prompt para que el calendario los priorice.
   const prioritize = BRIEF.prioritize || null;
 
+  // Brand: Content Strategy necesita positioning + voice-decision +
+  // content-formats para armar el calendario respetando la marca.
+  const brand = loadBrandFiles(VAULT, CLIENT, [
+    "positioning",
+    "voice-decision",
+    "content-formats",
+  ]);
+  const brandBlock = buildBrandBlock(brand);
+
   // Read all vault context
   const agencyContext = readVaultFile("CLAUDE.md");
   const clientContext = readVaultFile(`clients/${CLIENT}/claude-client.md`);
@@ -185,8 +195,10 @@ ${daysJSON}
 --- CONTEXTO DE LA AGENCIA ---
 ${agencyContext || "Sin contexto de agencia."}
 
---- CONTEXTO DEL CLIENTE ---
+--- CONTEXTO DEL CLIENTE (overview) ---
 ${clientContext || "Sin contexto de cliente cargado aun."}
+
+${brandBlock}
 
 --- ESTRATEGIA ACTIVA ---
 ${strategy || "Sin estrategia definida aun."}

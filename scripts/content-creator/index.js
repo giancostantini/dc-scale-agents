@@ -6,6 +6,7 @@ import { produceVideo } from "./produce-video.js";
 import { produceVoice } from "./produce-voice.js";
 import { produceStatic } from "./produce-static.js";
 import { publishContent } from "./produce-publish.js";
+import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
 import {
   logAgentRun,
   logAgentError,
@@ -118,6 +119,10 @@ async function loadClientContext(client) {
 
   const [clientRow] = await Promise.all([fetchClient(client)]);
 
+  // Brand: Content Creator necesita TODO el brandbook (genera piezas con
+  // tono, voz, paleta, restricciones, formatos).
+  const brand = loadBrandFiles(VAULT, client, "*");
+
   const context = {
     clientRow,
     sector: clientRow?.sector ?? null,
@@ -131,6 +136,8 @@ async function loadClientContext(client) {
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
     adsLibrary: readVaultFile(`clients/${client}/ads-library.md`),
     contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
+    brand,
+    brandBlock: buildBrandBlock(brand),
   };
 
   const fileKeys = [
@@ -285,8 +292,10 @@ ${directivesBlock}
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
---- MARCA DEL CLIENTE ---
+--- MARCA DEL CLIENTE (overview) ---
 ${ctx.clientBrand || `Sin contexto de marca cargado. Sector: ${ctx.sector || "sin especificar"}. Usa buenas practicas genericas del sector.`}
+
+${ctx.brandBlock}
 
 --- ESTRATEGIA ACTIVA ---
 ${ctx.strategy || "Sin estrategia definida aun."}

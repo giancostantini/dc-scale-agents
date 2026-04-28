@@ -1,0 +1,59 @@
+name: Brandbook Processor
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug'
+        required: true
+      reprocess:
+        description: 'Re-procesar (archiva versión actual antes de sobrescribir)'
+        required: false
+        default: 'false'
+        type: boolean
+
+  # Consultant Agent o Dashboard pueden disparar via API
+  repository_dispatch:
+    types: [brandbook-processor]
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          # token con permiso de push para que el job pueda commitear el brand/
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Process brandbook
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Brief completo desde el dashboard via repository_dispatch
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/brandbook-processor/index.js --brief /tmp/brief.json
+          else
+            # Manual dispatch — requiere que el brandbookText venga en algún lado.
+            # Para uso humano vía dashboard ya hay un wizard. Este path es para
+            # pruebas con un archivo local; no lo soportamos sin texto.
+            echo "::error::Manual dispatch sin brandbookText no soportado. Usá el wizard del dashboard o repository_dispatch con brief completo."
+            exit 1
+          fi
+
+      - name: Commit brand/ files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/clients/*/brand/
+          git diff --cached --quiet || git commit -m "Brandbook Processor: brand/ para ${{ github.event.client_payload.brief.client || inputs.client }}"
+          git push

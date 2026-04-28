@@ -19,6 +19,12 @@ interface BootstrapBody {
   fee?: number;
   method?: string;
   phase?: string;
+  /** Texto crudo del brandbook que el usuario pegó/extrajo en el wizard.
+   *  Si viene (≥200 chars), dispatchamos también el brandbook-processor en
+   *  paralelo. Si no viene, los agentes operan sin contexto de marca hasta
+   *  que se procese desde la pantalla del cliente. */
+  brandbookText?: string;
+  brandbookUrl?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -94,5 +100,69 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return Response.json({ runId: run.id, dispatched: true });
+  // ── Brandbook processor (si el wizard mandó texto del brandbook) ─────────
+  // Esto corre EN PARALELO al client-bootstrap. Cuando ambos workflows
+  // terminan (~30-60s), el cliente queda con vault scaffold + brand/.
+  let brandbookRunId: number | null = null;
+  if (
+    typeof body.brandbookText === "string" &&
+    body.brandbookText.trim().length >= 200
+  ) {
+    const { data: bbRun } = await supabase
+      .from("agent_runs")
+      .insert({
+        client: clientId,
+        agent: "brandbook-processor",
+        status: "running",
+        summary: "procesando brandbook desde wizard",
+        metadata: {
+          source: "dashboard",
+          brandbookUrl: body.brandbookUrl ?? null,
+          chars: body.brandbookText.length,
+        },
+        performance: {},
+      })
+      .select()
+      .single();
+
+    if (bbRun) {
+      brandbookRunId = bbRun.id;
+      try {
+        await dispatchAgentWorkflow({
+          eventType: "brandbook-processor",
+          payload: {
+            runId: bbRun.id,
+            brief: {
+              client: clientId,
+              brandbookText: body.brandbookText,
+              brandbookUrl: body.brandbookUrl ?? null,
+              source: "dashboard",
+              reprocess: false,
+              runId: bbRun.id,
+            },
+          },
+        });
+      } catch (err) {
+        console.warn(
+          "[bootstrap] brandbook-processor dispatch failed:",
+          err instanceof Error ? err.message : err,
+        );
+        await supabase
+          .from("agent_runs")
+          .update({
+            status: "error",
+            summary:
+              err instanceof Error ? err.message : "dispatch failed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", bbRun.id);
+      }
+    }
+  }
+
+  return Response.json({
+    runId: run.id,
+    dispatched: true,
+    brandbookRunId,
+  });
 }
