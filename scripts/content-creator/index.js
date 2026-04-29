@@ -331,6 +331,21 @@ REGLAS DE ORO (SIEMPRE APLICAR):
 7. Un trigger emocional por video (enojo/asombro/empatia/miedo)
 8. CTA unico y directo al final — nunca dos acciones
 
+REGLAS DE ASSETS VISUALES:
+9. Si el cliente tiene un asset library (sección \`brand/assets.md\` arriba),
+   referenciá los assets por su **canonical name exacto** (ej: \`wizzo-color-magia\`,
+   \`logotipo-blanco\`, \`curva-w-violeta\`). NO inventes nombres ni paths.
+10. Para mascot/personaje: usá la expresión correcta según el momento emocional
+    del frame (ver descripciones de uso en assets.md). Ejemplos:
+    - revelación / "el pique de Wizzo" → \`<mascot>-color-magia\`
+    - cierre celebratorio → \`<mascot>-color-festejo\` o \`<mascot>-color-baile\`
+    - advertencia / trampa turística → \`<mascot>-color-error\`
+    - apertura de pieza → \`<mascot>-color-saludo\`
+11. Si necesitás un asset que NO está en assets.md, listalo al final como
+    \`MISSING_ASSET: <descripción>\` para que el equipo sepa qué subir.
+12. En cada frame del Storyboard, donde uses un asset visual, indicá:
+    \`Asset: <canonical-name>\` (NO un path, NO una URL).
+
 FORMATOS DE SCRIPT:
 A) "Double Drop" (ideal para ads de conversion):
    Problema → Solucion parcial → Problema peor → Solucion final + CTA
@@ -400,7 +415,8 @@ El texto completo que se enviara a ElevenLabs, con marcas de pausa y enfasis.
 - script_format: [A/B/C]
 - emotional_trigger: [cual]
 - estimated_duration_seconds: [numero]
-- assets_needed: [lista de assets: fotos, capturas, musica, voz]
+- assets_used: [lista de canonical names del asset library que el script referencia, e.g. wizzo-color-magia, logotipo-blanco, curva-w-violeta]
+- assets_missing: [lista de assets que serían ideales pero NO están en el library; cada uno como "tipo: descripción", e.g. "footage: persona caminando callejuela Trastevere POV"]
 - music_style: [genero/mood para buscar en Pixabay]
 
 Se directo, creativo, y especifico al contexto del cliente.`;

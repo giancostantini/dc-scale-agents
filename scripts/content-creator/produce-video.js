@@ -15,6 +15,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
+import { syncClientAssets, buildAssetMapBlock } from "../lib/asset-sync.js";
+import { loadBrandFiles } from "../lib/brand-loader.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REMOTION_DIR = resolve(__dirname, "../../remotion-studio");
@@ -48,10 +50,33 @@ async function callClaude(prompt, maxTokens = 8000) {
 
 // --- Remotion code generation prompt ---
 
-function buildRemotionPrompt(storyboard, brief, compositionId) {
-  const brandColors = brief.visual?.palette || ["#8B4513", "#F5F0EB", "#2C1810", "#FFFFFF"];
-  const style = brief.visual?.style || "artisanal";
+function buildVisualIdentitySnippet(client) {
+  // Lee visual-identity.md y restrictions.md del brand/ del cliente para
+  // inyectar la identidad visual REAL en el prompt de Remotion. Esto reemplaza
+  // los hardcodes anteriores ("artisanal" + paleta marrón random).
+  const brand = loadBrandFiles(VAULT, client, [
+    "visual-identity",
+    "restrictions",
+    "voice-decision",
+  ]);
+  const parts = [];
+  if (brand["visual-identity"]) {
+    parts.push("--- IDENTIDAD VISUAL DEL CLIENTE (extraído del brandbook) ---");
+    parts.push(brand["visual-identity"]);
+  }
+  if (brand["restrictions"]) {
+    parts.push("");
+    parts.push("--- RESTRICCIONES VISUALES (qué NUNCA hacer) ---");
+    parts.push(brand["restrictions"]);
+  }
+  return parts.length > 0
+    ? parts.join("\n")
+    : `--- IDENTIDAD VISUAL ---\n(Cliente sin brand/visual-identity.md cargado — usar paleta y fonts genéricas modernas)`;
+}
+
+function buildRemotionPrompt(storyboard, brief, compositionId, assetBlock) {
   const voicePath = brief._voicePath || null;
+  const visualIdentity = buildVisualIdentitySnippet(brief.client);
 
   return `You are an expert Remotion (React video framework) developer.
 
@@ -59,19 +84,21 @@ Generate a complete, production-ready Remotion composition based on this storybo
 
 COMPOSITION ID: ${compositionId}
 CLIENT: ${brief.client}
-VISUAL STYLE: ${style}
-BRAND COLORS: ${brandColors.join(", ")}
 ASPECT RATIO: 9:16 (1080x1920 — vertical video for Instagram Reels / TikTok)
 FPS: 30
 SAFE ZONE: No text/important elements in top 150px or bottom 250px (platform UI)
 
+${visualIdentity}
+
 --- STORYBOARD ---
 ${storyboard}
 
---- AVAILABLE TEMPLATES ---
+${assetBlock}
+
+--- AVAILABLE REMOTION TEMPLATES ---
 Import from these paths (they are already created):
 - "../templates/TextOverlay" → TextOverlay component
-  Props: text, fontSize, fontWeight, color, top, bottom, left, right, align, animation ("fade-in"|"slide-up"|"scale-in"|"none"), delay, backgroundColor, padding, maxWidth
+  Props: text, fontSize, fontWeight, color, top, bottom, left, right, align, animation ("fade-in"|"slide-up"|"scale-in"|"none"), delay, backgroundColor, padding, maxWidth, fontFamily (string)
 
 - "../templates/ImageScene" → ImageScene component
   Props: src, objectFit, animation ("zoom-in"|"zoom-out"|"pan-right"|"pan-left"|"none"), overlayColor, overlayOpacity, brightness
@@ -85,7 +112,7 @@ Import from these paths (they are already created):
 - "../templates/SafeZone" → SafeZone component (wraps content within safe area)
   Props: children, showGuides
 
-From remotion, use: AbsoluteFill, Sequence, useCurrentFrame, interpolate, Audio, Video, Img, spring
+From remotion, use: AbsoluteFill, Sequence, useCurrentFrame, interpolate, Audio, Video, Img, staticFile, spring
 
 --- AUDIO ---
 ${voicePath
@@ -94,17 +121,36 @@ Include it using: <Audio src="${voicePath}" /> inside the main composition (outs
 The audio track runs for the full duration of the video.`
   : "No voice audio available. Use only music/SFX if needed (reference Pixabay royalty-free)."}
 
+--- FONTS DEL BRANDBOOK ---
+Las fonts oficiales del cliente están cargadas via @remotion/google-fonts y se importan así al inicio del archivo:
+
+  import { loadFont as loadBricolage } from "@remotion/google-fonts/BricolageGrotesque";
+  import { loadFont as loadHostGrotesk } from "@remotion/google-fonts/HostGrotesk";
+
+  const { fontFamily: bricolage } = loadBricolage();
+  const { fontFamily: hostGrotesk } = loadHostGrotesk();
+
+Después usalas en \`fontFamily\` de cada \`<TextOverlay>\` o estilo. Por convención del brandbook:
+- **Bricolage Grotesque (bold)** → Títulos / hooks / "EL PIQUE DE WIZZO"
+- **Host Grotesk** → Texto corrido, subtítulos, CTAs largos
+
+Si el storyboard menciona "Noto Natalisq" para detalle editorial, también cargá:
+  import { loadFont as loadNoto } from "@remotion/google-fonts/NotoSerifDisplay";
+  const { fontFamily: notoSerif } = loadNoto();
+
+(Noto Natalisq exacto NO está en Google Fonts; usá Noto Serif Display como fallback de carácter editorial similar.)
+
 --- RULES ---
 1. All text MUST be inside <SafeZone> — never place text outside safe zone
 2. Background images use <ImageScene> OUTSIDE SafeZone (full bleed)
-3. Use brand colors for text and backgrounds
+3. Use ONLY hex codes from the IDENTIDAD VISUAL section above. Don't invent palette.
 4. First 3 seconds (frames 0-90): 6+ visual changes for pattern interruption
 5. Text hook must appear within first 30 frames (1 second)
 6. Each scene transition should use either hard cut, FadeTransition, or FlashTransition
-7. If no image assets available, use ColorScene with brand gradient
-8. Font: use system fonts — 'Inter', 'Helvetica Neue', Arial, sans-serif
-9. Generate realistic placeholder image paths like: /assets/[client]/scene-01.jpg
-   (these will be replaced with real assets before rendering)
+7. If no image assets available for a frame, use ColorScene with brand gradient using palette hex
+8. Cuando referencies un asset del library (logos, mascot, patterns), usá EXACTAMENTE el publicPath listado en ASSETS DISPONIBLES arriba con \`staticFile(...)\`. NO inventes paths.
+9. Si el storyboard menciona un asset que NO está en ASSETS DISPONIBLES, sustituílo por un placeholder visual razonable (ColorScene + texto descriptivo) y agregá un comentario \`// TODO MISSING ASSET: <descripción>\` en el código.
+10. Font sizes: títulos hook 64-80px, subtítulos 36-48px, cuerpo 24-32px (escalas del brandbook).
 
 --- OUTPUT FORMAT ---
 Output ONLY a single TypeScript/TSX file. No explanations, no markdown fences.
@@ -112,15 +158,20 @@ The file must:
 - Be a valid React/Remotion component
 - Export a default component named ${compositionId}
 - Export a const COMPOSITION_CONFIG with: { id, width: 1080, height: 1920, fps: 30, durationInFrames }
-- Use only the templates listed above + Remotion core imports
+- Use only the templates listed above + Remotion core imports + @remotion/google-fonts imports
 
 Example structure:
 import React from "react";
-import { AbsoluteFill, Sequence, useCurrentFrame, interpolate } from "remotion";
-import { TextOverlay } from "../templates/TextOverlay";
-import { ImageScene } from "../templates/ImageScene";
-import { SafeZone } from "../templates/SafeZone";
-import { FadeTransition } from "../templates/Transition";
+import { AbsoluteFill, Sequence, useCurrentFrame, interpolate, staticFile, Img } from "remotion";
+import { loadFont as loadBricolage } from "@remotion/google-fonts/BricolageGrotesque";
+import { loadFont as loadHostGrotesk } from "@remotion/google-fonts/HostGrotesk";
+import { TextOverlay } from "../../templates/TextOverlay";
+import { ImageScene } from "../../templates/ImageScene";
+import { SafeZone } from "../../templates/SafeZone";
+import { FadeTransition } from "../../templates/Transition";
+
+const { fontFamily: bricolage } = loadBricolage();
+const { fontFamily: hostGrotesk } = loadHostGrotesk();
 
 export const COMPOSITION_CONFIG = {
   id: "${compositionId}",
@@ -194,13 +245,34 @@ export async function produceVideo(brief, storyboard, pieceId) {
   );
   mkdirSync(compositionDir, { recursive: true });
 
-  // 3. Create assets directory for client if not exists
+  // 3. Sync assets desde Supabase Storage al filesystem de Remotion. El
+  //    sync devuelve un map { canonicalName → publicPath } que después
+  //    se inyecta al prompt para que Claude sepa qué assets puede usar
+  //    y con qué path exacto.
   const assetsDir = resolve(REMOTION_DIR, `public/assets/${brief.client}`);
-  mkdirSync(assetsDir, { recursive: true });
+  console.log(`Sincronizando assets del cliente desde Supabase Storage...`);
+  let assetMap = {};
+  try {
+    const sync = await syncClientAssets(brief.client, assetsDir);
+    assetMap = sync.assetMap;
+    console.log(
+      `Assets sincronizados: ${sync.downloaded} descargados, ${Object.keys(assetMap).length} disponibles`,
+    );
+  } catch (err) {
+    console.warn(
+      `[produce-video] sync de assets falló (continuamos sin assets): ${err.message}`,
+    );
+  }
+  const assetBlock = buildAssetMapBlock(assetMap);
 
   // 4. Generate Remotion components via Claude
   console.log("Generating Remotion components...");
-  const remotionPrompt = buildRemotionPrompt(storyboard, brief, compositionId);
+  const remotionPrompt = buildRemotionPrompt(
+    storyboard,
+    brief,
+    compositionId,
+    assetBlock,
+  );
   const remotionCode = await callClaude(remotionPrompt);
 
   // 5. Write the composition file

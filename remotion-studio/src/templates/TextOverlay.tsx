@@ -3,7 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 interface TextOverlayProps {
   text: string;
   fontSize?: number;
-  fontWeight?: "normal" | "bold" | "900";
+  fontWeight?: "normal" | "bold" | "900" | number;
   color?: string;
   top?: string | number;
   bottom?: string | number;
@@ -15,6 +15,11 @@ interface TextOverlayProps {
   backgroundColor?: string;
   padding?: number;
   maxWidth?: string;
+  /** Font family — usar las que carga @remotion/google-fonts en la composición.
+   *  Si no se pasa, usa stack genérico Inter/Helvetica. */
+  fontFamily?: string;
+  /** Letter spacing custom (default -0.02em). */
+  letterSpacing?: string;
 }
 
 export const TextOverlay: React.FC<TextOverlayProps> = ({
@@ -32,6 +37,8 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({
   backgroundColor,
   padding = 0,
   maxWidth = "85%",
+  fontFamily,
+  letterSpacing = "-0.02em",
 }) => {
   const frame = useCurrentFrame();
   const adjustedFrame = Math.max(0, frame - delay);
@@ -85,12 +92,14 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({
       >
         <span
           style={{
-            fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
+            fontFamily:
+              fontFamily ||
+              "'Inter', 'Helvetica Neue', Arial, sans-serif",
             fontSize,
             fontWeight,
             color,
             lineHeight: 1.2,
-            letterSpacing: "-0.02em",
+            letterSpacing,
             backgroundColor: backgroundColor || "transparent",
             padding: backgroundColor ? `${padding}px ${padding * 1.5}px` : 0,
             borderRadius: backgroundColor ? 8 : 0,
