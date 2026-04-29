@@ -286,3 +286,288 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #002 — reel
+Date: 2026-04-29 | Source: dashboard | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: defaults (no specific direction)
+
+### Generated Content
+# Reel/TikTok — WizTrip
+**Pieza:** WIZZO_PIQUE_001
+**Fecha:** miércoles, 29 de abril de 2026
+**Formato:** Contenido PIQUES (voz Wizzo)
+
+---
+
+## Resumen
+
+- **Objetivo:** Viral / valor — posicionar a Wizzo como el copiloto experto, generar awareness de marca y comunidad en la fase de lanzamiento. No es conversión directa — es el anzuelo de confianza que baja la objeción #1 (presencialidad / confianza en marca nueva).
+- **Formato de script elegido:** B — "Direct Value". Justificación: estamos en semana de lanzamiento, sin historial de hooks ganadores. El formato educativo/compartible construye comunidad rápido y no requiere gasto en ads para funcionar. Cada "pique" compartido es CAC cero.
+- **Trigger emocional:** Asombro + indignación leve ("me estaban robando y no lo sabía"). El combo más poderoso para viajeros con criterio — exactamente el target de WizTrip.
+- **Plataformas destino:** TikTok + Instagram Reels (mismo cut, captions distintos)
+- **Duración estimada:** 28–32 segundos
+
+---
+
+## Triple Hook
+
+- **Visual:** Plano de manos de una persona sosteniendo el teléfono — en pantalla se ve una búsqueda de vuelos con precio inflado visible. Fondo borroso de aeropuerto o sala de espera. Movimiento real, no pose.
+- **Textual:** `Pagaste de más. Así siempre.`
+- **Verbal:** *"Si reservaste un vuelo en los últimos 6 meses, probablemente pagaste de más. Y no fue mala suerte."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s-3s] — HOOK
+  Visual: Plano detalle de manos sosteniendo celular. Pantalla del teléfono 
+          muestra una búsqueda de vuelos con precio visible (ej. USD 890 
+          Montevideo-Madrid). La persona apenas mueve el dedo, como comparando.
+          Fondo desenfocado de aeropuerto o ventana con avión. 
+          Luz natural. Movimiento real, nada posado.
+  Texto en pantalla: "Pagaste de más. Así siempre."
+          Posición: centro-inferior del tercio medio. 
+          Fuente: Bricolage Bold. Tamaño: 72px. Color: #FAB402 (Wizzo Gold).
+          Drop shadow sutil: #222524 a 2px.
+  Narración: "Si reservaste un vuelo en los últimos 6 meses, 
+              probablemente pagaste de más. Y no fue mala suerte."
+  Música/SFX: Silencio los primeros 1.5s. Entrada suave de beat lo-fi 
+              percusivo (sin melodía dominante) al segundo 1.5.
+  Transición: Hard cut → Escena 2
+
+Escena 2 [3s-9s] — EL PROBLEMA (sin solución aún)
+  Visual: Split rápido de 3 micro-clips (1.5s cada uno):
+          a) Persona mirando pantalla con expresión de confusión/frustración 
+             (no modelo — expresión genuina).
+          b) Captura de pantalla de un comparador de vuelos con 47 resultados 
+             desordenados.
+          c) Persona con auriculares en aeropuerto, cara de cansancio.
+          Todos los clips: encuadres naturales, movimiento, luz real.
+  Texto en pantalla: 
+          Clip a → "47 resultados. 0 respuestas." 
+          Clip b → [sin texto, la imagen habla sola]
+          Clip c → "Eso es el ruido."
+          Fuente: Host Grotesk Medium. Tamaño: 56px. Color: #FFF2CA (crema).
+          Posición: tercio inferior, centrado.
+  Narración: "Abrís un comparador. Te aparecen cincuenta opciones.
+              Cerrás la app. Abrís otra. Cerrás esa también.
+              Eso no es investigar — eso es el ruido."
+  Música/SFX: Beat lo-fi continúa, sin cambio.
+  Transición: Hard cut → Escena 3
+
+Escena 3 [9s-16s] — EL PIQUE (la solución con criterio)
+  Visual: Aparece Wizzo — puede ser el isotipo animado de Wizzo o 
+          una ilustración en trazo orgánico sobre fondo violeta #4C167C.
+          El personaje señala con la mano (expresión "Magia" o "Pensando").
+          Alternativa si no hay asset Wizzo listo: texto en pantalla sobre 
+          fondo violeta sólido con trazo de la curva-W animada entrando.
+  Texto en pantalla: "EL PIQUE DE WIZZO"
+          Fuente: Bricolage Bold. Tamaño: 80px. Color: #FAB402.
+          Subtítulo: "Madrid · Mayo 2026"
+          Fuente: Host Grotesk Regular. Tamaño: 44px. Color: #FFF2CA.
+          Posición: centro del frame.
+  Narración: "Wizzo Pick para Mayo: Montevideo–Madrid.
+              El martes al mediodía cuesta entre un 18 y 22 por ciento menos
+              que el viernes a la tarde. Mismo avión. Misma aerolínea.
+              Solo cambia el momento en que apretás comprar."
+  Música/SFX: El beat sube levemente en volumen y energía. 
+              SFX sutil de "ping" o "chime" al aparecer "EL PIQUE DE WIZZO".
+  Transición: Slide lateral → Escena 4
+
+Escena 4 [16s-24s] — LA EVIDENCIA / INSIDER TRUTH
+  Visual: Captura de pantalla real (o mockup con datos reales) comparando 
+          precio martes vs. viernes. Diferencia marcada con círculo o 
+          highlight en color #FAB402. No texto de diseño — se ve como 
+          una captura de pantalla real, auténtica.
+          Mano real entrando al frame señalando la diferencia (igual que 
+          en la Escena 1 — consistencia visual).
+  Texto en pantalla: "USD 180 de diferencia. Mismo vuelo."
+          Fuente: Bricolage Bold. Tamaño: 64px. Color: #E5F53F (verde-amarillo).
+          Posición: tercio superior del frame, izquierda.
+  Narración: "Eso son ciento ochenta dólares que se quedan en tu bolsillo.
+              O que vas a gastar en cenar bien toda una semana en Madrid.
+              No es suerte — es el pique justo en el momento justo."
+  Música/SFX: Beat mantiene energía. Posible SFX de "whoosh" en la 
+              aparición del texto de precio.
+  Transición: Hard cut → Escena 5
+
+Escena 5 [24s-30s] — CIERRE + CTA
+  Visual: Logo WizTrip (logotipo completo) sobre fondo #4C167C (violeta).
+          La curva-W del logo se anima entrando desde la izquierda.
+          Debajo del logo: handle @wiztrip.travel.
+          Esquina inferior: ilustración pequeña de Wizzo (isotipo o sticker).
+  Texto en pantalla: 
+          Línea 1: "¿Cuándo viajás?"
+          Línea 2: "Pedí tu pique ↓"
+          Fuente L1: Bricolage Bold. Tamaño: 72px. Color: #FAB402.
+          Fuente L2: Host Grotesk Medium. Tamaño: 48px. Color: #FFF2CA.
+          Posición: centro del frame, bajo el logo.
+  Narración: "En WizTrip te damos el pique justo para que siempre 
+              viajés con ventaja. Elegiste bien."
+  Música/SFX: Beat baja en volumen, fade out suave. 
+              Último SFX: el mismo "ping/chime" de la aparición de Wizzo.
+  Transición: —— (último frame, fade a negro de 0.3s)
+```
+
+---
+
+## Storyboard de producción
+
+**Specs técnicos globales:**
+- Resolución: `1080 × 1920 px` (9:16 vertical)
+- Frame rate: 30fps
+- Safe zone superior: 150px reservados (UI TikTok/IG) → **ningún texto por encima de Y=150**
+- Safe zone inferior: 250px reservados (barra de UI, captions, botones) → **ningún texto por debajo de Y=1670**
+- Zona activa de texto: `Y: 150 → Y: 1670`
+
+---
+
+**Frame 1 — Hook [0s–3s]**
+```
+Fondo: footage real o foto de manos con celular
+Overlay: ninguno (imagen limpia, sin filtros pesados)
+Texto: "Pagaste de más. Así siempre."
+  - Posición: X: 540 (centrado), Y: 1100
+  - Fuente: Bricolage Grotesque Bold
+  - Tamaño: 72px
+  - Color: #FAB402
+  - Sombra: #222524, offset 2px, blur 4px
+  - Animación: fade-in en 0.2s al frame 0.3s
+Duración total frame: 3s
+```
+
+**Frame 2a/2b/2c — Problema [3s–9s]**
+```
+Duración cada subframe: 1.5s + 0.1s transición hard cut
+
+Subframe 2a [3s–4.6s]:
+  - Imagen: persona mirando pantalla, expresión genuina de frustración
+  - Texto: "47 resultados. 0 respuestas."
+    Posición: X: 540, Y: 1400
+    Fuente: Host Grotesk Medium | 56px | #FFF2CA
+    Animación: slide-up 0.15s
+
+Subframe 2b [4.7s–6.2s]:
+  - Imagen: captura de comparador de vuelos desordenado
+  - Sin texto superpuesto
+  - Overlay leve: tinte oscuro #222524 al 20% para legibilidad
+
+Subframe 2c [6.3s–9s]:
+  - Imagen: persona en aeropuerto, auriculares, cara de cansancio
+  - Texto: "Eso es el ruido."
+    Posición: X: 540, Y: 1450
+    Fuente: Host Grotesk Medium | 56px | #FFF2CA
+    Animación: fade-in 0.2s
+```
+
+**Frame 3 — El Pique [9s–16s]**
+```
+Fondo: #4C167C (violeta sólido) con curva-W en trazo #FAB402, 
+       opacidad 15%, como textura de fondo.
+
+Animación de entrada de Wizzo (asset ilustración):
+  - Wizzo entra desde fuera del frame derecho → posición final: 
+    X: 750, Y: 600 (tercio superior derecho)
+  - Animación: slide + bounce suave, 0.4s
+
+Texto principal "EL PIQUE DE WIZZO":
+  - Posición: X: 540, Y: 900 (centrado)
+  - Fuente: Bricolage Grotesque Bold
+  - Tamaño: 80px
+  - Color: #FAB402
+  - Animación: zoom-in desde 60% → 100% en 0.3s + fade-in
+
+Subtítulo "Madrid · Mayo 2026":
+  - Posición: X: 540, Y: 1000
+  - Fuente: Host Grotesk Regular
+  - Tamaño: 44px
+  - Color: #FFF2CA
+  - Animación: fade-in con delay 0.3s respecto al título
+
+SFX timing: el "chime" suena exactamente en el momento en que 
+            "EL PIQUE DE WIZZO" llega a 100% de escala.
+```
+
+**Frame 4 — Evidencia [16s–24s]**
+```
+Fondo: captura de pantalla mockup de búsqueda de vuelos
+       (diseñada en Remotion como componente visual, datos reales)
+       Overlay leve: gradiente oscuro en top 20% y bottom 20%
+
+Highlight de precio:
+  - Círculo/ring en #FAB402, grosor 3px, animado entrando (scale 0→1, 0.3s)
+  - Sobre el precio del martes (el más bajo)
+
+Mano: asset PNG de mano señalando (dedo índice), 
+      entra desde derecha, posición final X: 800, Y: 700
+      Animación: slide-in 0.3s
+
+Texto "USD 180 de diferencia. Mismo vuelo.":
+  - Posición: X: 200, Y: 280 (tercio superior izquierda, dentro de safe zone)
+  - Fuente: Bricolage Grotesque Bold
+  - Tamaño: 64px
+  - Color: #E5F53F (verde-amarillo vibrante)
+  - Background pill: #222524 a 85% opacidad, border-radius 12px, 
+    padding 12px 20px (para legibilidad sobre imagen)
+  - Animación: slide-down desde Y: 200 → Y: 280 en 0.3s
+```
+
+**Frame 5 — Cierre + CTA [24s–30s]**
+```
+Fondo: #4C167C sólido
+
+Logo WizTrip (logotipo completo, versión crema/blanco):
+  - Posición: X: 540 (centrado), Y: 680
+  - Ancho: 340px (proporcional)
+  - Animación: la curva-W del logo hace un draw stroke de izquierda 
+    a derecha en 0.5s, luego fade-in del resto del logotipo
+
+Handle "@wiztrip.travel":
+  - Posición: X: 540, Y: 790
+  - Fuente: Host Grotesk Regular | 38px | #B99FFF (lavanda)
+  - Animación: fade-in con delay 0.5s
+
+Texto "¿Cuándo viajás?":
+  - Posición: X: 540, Y: 1050
+  - Fuente: Bricolage Grotesque Bold | 72px | #FAB402
+  - Animación: fade-in con delay 0.7s
+
+Texto "Pedí tu pique ↓":
+  - Posición: X: 540, Y: 1160
+  - Fuente: Host Grotesk Medium | 48px | #FFF2CA
+  - Animación: fade-in con delay 0.9s
+  - La flecha ↓ hace un pequeño bounce loop (translateY -5px → 0 cada 0.8s)
+
+Wizzo isotipo (esquina inferior derecha, decorativo):
+  - Posición: X: 900, Y: 1500
+  - Tamaño: 120px
+  - Animación: scale 0→1 con bounce, delay 0.6s
+  - Nota: debe quedar DENTRO de safe zone. Y: 1500 está dentro de Y: 1670.
+
+Fade out final
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
