@@ -12,11 +12,17 @@
  *   SUPABASE_KEY  — service_role key (NOT anon key — agents run server-side)
  */
 
-// Strip trailing slash so `${SUPABASE_URL}/rest/v1/...` never becomes `//rest/...`
-// (PostgREST devuelve PGRST125 "Invalid path specified in request URL" si hay
-// doble slash — error silencioso que mata todos los writes de los agentes).
-const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/+$/, "");
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+// Strip whitespace + trailing slash. PostgREST devuelve PGRST125 "Invalid
+// path specified in request URL" si la URL termina en `/` (porque luego
+// concatenamos `/rest/v1/...` produciendo doble slash) o si tiene whitespace
+// invisible al final. Esto es un error silencioso que mata todos los writes
+// de los agentes.
+//
+// El `.trim()` es crítico: sin él, un secret pegado con un newline o espacio
+// al final no es capturado por la regex de slashes (29-Apr-2026 incident:
+// run #8 de content-creator falló 5 escrituras consecutivas con PGRST125).
+const SUPABASE_URL = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+const SUPABASE_KEY = process.env.SUPABASE_KEY?.trim();
 
 function headers() {
   return {

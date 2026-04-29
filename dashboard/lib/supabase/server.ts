@@ -14,8 +14,14 @@ let _client: SupabaseClient | null = null;
  */
 export function getSupabaseAdmin(): SupabaseClient {
   if (!_client) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Defensive trim — un secret pegado con whitespace al final genera errores
+    // silenciosos (PGRST125 si hay slash trailing). El cliente supabase-js
+    // normaliza URLs, pero mejor saneamos antes de pasarlo.
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(
+      /\/+$/,
+      "",
+    );
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
     if (!url || !key) {
       throw new Error(
         "Supabase admin env vars missing. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
