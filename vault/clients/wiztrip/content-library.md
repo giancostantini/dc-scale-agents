@@ -1526,3 +1526,282 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #006 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Comer en Madrid sin caer en trampa turística — formato Piques | Instructions: Usar el asset library completo. Wizzo en su expresión Magia para el momento del Pique (wiztrip/mascot/color/Color_magia.svg o Trazo/Sticker_magia según frame). Logo blanco (Logo_Blanco.svg / Logo_Tag_Blanco.svg) para frames sobre fondo violeta #4C167C. Usar las fonts custom del library (Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu) en lugar de Google Fonts. Respetar formato Piques del brandbook y voz Wizzo (humano, cercano, con criterio, sin superlativos genéricos).
+
+### Generated Content
+# REEL/TIKTOK — WizTrip
+**"Comer en Madrid sin caer en trampa turística"**
+Formato: Piques · Fecha de producción: 30/04/2026
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Valor + Viralidad (educativo, guardado, compartido) |
+| **Formato de script** | B — "Direct Value" · Razón: el formato Piques es contenido de criterio experto, no conversión directa. El usuario guarda el video antes de ir a Madrid. Eso es exactamente lo que queremos. |
+| **Trigger emocional** | Enojo / indignación → "me estuvieron estafando sin saberlo" |
+| **Plataformas destino** | TikTok principal · Instagram Reels secundario |
+| **Duración estimada** | 45–50 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Wizzo aparece con expresión `Color_magia.svg` sobre fondo violeta `#4C167C`, señalando con el dedo hacia cámara. En el centro, texto animado entra de golpe.
+- **Textual:** `"Madrid te cobra el doble por esto."`
+- **Verbal:** *"Si vas a Madrid y comés en Plaza Mayor… te lo digo yo: caíste en la trampa."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s-3s] — HOOK / PATTERN INTERRUPT
+  Visual: Fondo violeta puro #4C167C. Wizzo entra desde abajo (slide-up)
+          en expresión magia (Color_magia.svg). Dedo apuntando a cámara.
+          Corte de zoom leve (push-in 5%).
+  Texto en pantalla: "Madrid te cobra el doble por esto."
+          → Bricolage Grotesque ExtraBold · 72px · #FAB402
+          → Centrado · Y: 38% de pantalla
+          → Animación: aparición letra por letra (stagger 40ms) + leve shake
+  Narración: "Si vas a Madrid y comés en Plaza Mayor…
+              te lo digo yo: caíste en la trampa."
+  Música/SFX: SFX de reveal mágico corto (whoosh + baja tono) al aparecer Wizzo
+  Transición: Hard cut
+
+Escena 2 [3s-8s] — ESTABLECE EL PROBLEMA
+  Visual: Fondo #4C167C. Texto aparece solo, grande.
+          Wizzo se achica a esquina inferior derecha (sticker pequeño,
+          Sticker_magia.svg) como "comentarista".
+          Aparece etiqueta: "TRAMPA TURÍSTICA" con ícono de alerta.
+  Texto en pantalla: "TRAMPA TURÍSTICA #1"
+          → Label tag: fondo #FAB402 · texto #4C167C
+          → Bricolage Grotesque Bold · 48px
+          → Centrado · Y: 30%
+          Subtexto: "Plaza Mayor y Puerta del Sol"
+          → Host Grotesk Regular · 28px · #FFF2CA · Y: 40%
+  Narración: "Los restaurantes de Plaza Mayor y Puerta del Sol
+              cobran el doble que cualquier lugar a tres cuadras.
+              El menú del día en esa zona: 20 euros. Calidad: turística."
+  Música/SFX: Beat urbano lo-fi, bajo y constante. Comienza acá.
+  Transición: Wipe horizontal rápido (izquierda → derecha)
+
+Escena 3 [8s-18s] — PIQUE #1 (EL GIRO)
+  Visual: Fondo cambia a #222524 (humanidad/oscuro).
+          Aparece línea curva derivada de la W → Curva_lila.svg —
+          entra desde el lado izquierdo, anima hasta cubrir el tercio
+          inferior del frame como "base" visual.
+          Wizzo en esquina inferior derecha, Sticker_magia.svg.
+          Texto principal entra con slide desde abajo.
+  Texto en pantalla: "EL PIQUE"
+          → Bricolage Grotesque ExtraBold · 64px · #FAB402
+          → Y: 28% · centrado
+          Subtexto: "Barrio de las Letras → Calle del León"
+          → Host Grotesk Medium · 30px · #B99FFF · Y: 40%
+          Tag destino: "Madrid 🇪🇸"
+          → Host Grotesk Bold · 22px · #FFF2CA · Y: 24% · alineado izquierda
+  Narración: "Mi pique: Barrio de las Letras, calle del León,
+              cualquier taberna sin menú en inglés en la puerta.
+              Menú del día: 11 euros. Tres platos, vino incluido.
+              Comen locales, no turistas."
+  Música/SFX: Beat continuo. SFX sutil de "ding" al aparecer "EL PIQUE"
+  Transición: Hard cut
+
+Escena 4 [18s-28s] — PIQUE #2
+  Visual: Fondo #4C167C.
+          Curva_neon.svg entra desde esquina superior derecha
+          como elemento decorativo (no ocupa texto).
+          Wizzo permanece en esquina inferior derecha.
+  Texto en pantalla: "TRAMPA TURÍSTICA #2"
+          → Label tag: fondo #FAB402 · texto #4C167C
+          → Bricolage Grotesque Bold · 48px · Y: 28%
+          Subtexto: "Churros en cualquier lugar del centro"
+          → Host Grotesk Regular · 26px · #FFF2CA · Y: 38%
+  Narración: "Los churros. El clásico error.
+              En el centro te venden churros recalentados por 8 euros.
+              Hay una sola dirección que vale: San Ginés.
+              Esa está desde 1894. Esa no es trampa — esa es historia."
+  Música/SFX: Beat continuo.
+  Transición: Zoom out rápido + hard cut
+
+Escena 5 [28s-38s] — PIQUE #3 (el más fuerte — guardar esto)
+  Visual: Fondo #222524.
+          Wizzo sube a expresión festejo → Sticker_festejo.svg —
+          tamaño grande (ocupa 30% del frame, lado derecho).
+          Varita_color.svg aparece como elemento decorativo flotante
+          (animación: float suave, 2s loop) en esquina superior izquierda.
+          Estrella_color.svg como detalle en esquina superior derecha.
+  Texto en pantalla: "EL PIQUE DE WIZZO ✦"
+          → Bricolage Grotesque ExtraBold · 56px · #FAB402
+          → Y: 26% · centrado
+          Subtexto: "Mercado de San Fernando · Lavapiés"
+          → Host Grotesk Medium · 28px · #B99FFF · Y: 36%
+          Frase: '"Ni un turista. Solo locales."'
+          → Host Grotesk Italic (HostGrotesk-Italic.ttf) · 22px · #FFF2CA
+          → Y: 44% · centrado · entre comillas
+  Narración: "El pique que nadie te cuenta: Mercado de San Fernando,
+              en Lavapiés.
+              Tapas desde 2 euros. Vino de la zona. Gente del barrio.
+              No vas a ver un tour operator en 500 metros.
+              Ese es el Madrid real."
+  Música/SFX: Beat sube levemente en energía. SFX estrella/magia al aparecer "EL PIQUE DE WIZZO"
+  Transición: Hard cut limpio
+
+Escena 6 [38s-44s] — CIERRE / CTA
+  Visual: Fondo violeta #4C167C.
+          Logo_Blanco.svg centrado en el frame, Y: 35%.
+          Wizzo vuelve a expresión magia → Color_magia.svg —
+          esquina inferior derecha, tamaño mediano.
+          Curva_lila.svg como elemento de fondo, baja opacidad (20%).
+  Texto en pantalla: "Viajá con ventaja."
+          → Bricolage Grotesque Bold · 52px · #FAB402 · Y: 55%
+          Subtexto: "@wiztrip.travel · wiz-trip.com"
+          → Host Grotesk Regular · 22px · #FFF2CA · Y: 63%
+  Narración: "Guardalo antes de que te vaya a Madrid.
+              Esto es lo que hace Wizzo: filtrar el ruido
+              para que vos llegues con ventaja.
+              Elegiste bien."
+  Música/SFX: Beat fade out suave. Último SFX de cierre (magic chime).
+  Transición: Fade to black (0.5s)
+```
+
+---
+
+## Storyboard de producción
+
+> Resolución: **1080 × 1920 px (9:16)**
+> Safe zone texto: margen superior **150 px** · margen inferior **250 px**
+> Todas las fuentes son las del asset library (NO Google Fonts).
+
+---
+
+### Frame 1 — Hook (0s–3s)
+
+```
+┌─────────────────────────────────┐  ← 1080px
+│         [safe zone top]         │  ← 0–150px — libre
+│                                 │
+│   "Madrid te cobra el doble     │  ← Y: 38% (~730px)
+│        por esto."               │    Bricolage ExtraBold · 72px · #FAB402
+│                                 │    Centrado · sombra suave #000 20%
+│                                 │
+│  [WIZZO - Color_magia.svg]      │  ← Centrado-bajo, Y: 55–85%
+│   Asset: wiztrip/mascot/        │    Wizzo ocupa ~40% del ancho
+│   color/Color_magia.svg         │    Animación: slide-up desde Y:110% → Y:55%
+│                                 │    Duración: 0.4s · ease-out
+│         [safe zone bot]         │  ← 1670–1920px — libre
+└─────────────────────────────────┘
+  Fondo: #4C167C sólido
+  Animación texto: stagger letra a letra · 40ms/char · ease-in-out
+  Animación Wizzo: spring physics (mass: 1, stiffness: 200, damping: 20)
+```
+
+---
+
+### Frame 2 — Trampa #1 (3s–8s)
+
+```
+┌─────────────────────────────────┐
+│         [safe zone top]         │
+│                                 │
+│  ┌──────────────────────────┐   │  ← Y: 28% (~538px)
+│  │  TRAMPA TURÍSTICA #1     │   │    Badge: bg #FAB402 · texto #4C167C
+│  └──────────────────────────┘   │    Bricolage Bold · 48px
+│                                 │    Border-radius: 12px · padding: 16x32px
+│  "Plaza Mayor y Puerta del Sol" │  ← Y: 40% (~768px)
+│                                 │    Host Grotesk Regular · 28px · #FFF2CA
+│                                 │
+│  [WIZZO - Sticker_magia.svg]    │  ← Esquina inferior derecha
+│   Asset: wiztrip/mascot/        │    X: 80% · Y: 70–88%
+│   sticker/Sticker_magia.svg     │    Escala: 0.22 del frame
+│                                 │    Animación: scale-in (0 → 1) · 0.3s
+│         [safe zone bot]         │
+└─────────────────────────────────┘
+  Fondo: #4C167C sólido
+  Wipe-in del badge: izquierda → derecha · 0.4s
+  SFX: whoosh sutil en entrada del badge
+```
+
+---
+
+### Frame 3 — Pique #1 (8s–18s)
+
+```
+┌─────────────────────────────────┐
+│         [safe zone top]         │
+│                                 │
+│  "Madrid 🇪🇸"                   │  ← Y: 24% (~461px) · izquierda · X:5%
+│                                 │    Host Grotesk Bold · 22px · #FFF2CA
+│  "EL PIQUE"                     │  ← Y: 30% (~576px) · centrado
+│                                 │    Bricolage ExtraBold · 64px · #FAB402
+│  "Barrio de las Letras →        │  ← Y: 40% (~768px) · centrado
+│   Calle del León"               │    Host Grotesk Medium · 30px · #B99FFF
+│                                 │
+│  [Curva_lila.svg]               │  ← Y: 65–80% del frame
+│   Asset: wiztrip/curvas/        │    Ancho: 100% · opacidad: 60%
+│   Curva_lila.svg                │    Animación: slide-in desde X:-100% · 0.5s
+│                                 │
+│  [WIZZO - Sticker_magia.svg]    │  ← X:78% · Y:72–88%
+│                                 │    Escala: 0.18
+│         [safe zone bot]         │
+└─────────────────────────────────┘
+  Fondo: #222524 sólido
+  Texto "EL PIQUE": aparece con scale (0.5→1) + fade · 0.35s · ease-out
+  Subtexto: fade-in después de 0.2s delay
+  SFX: ding suave (C5, 80ms) al aparecer "EL PIQUE"
+```
+
+---
+
+### Frame 4 — Trampa #2 (18s–28s)
+
+```
+┌─────────────────────────────────┐
+│         [safe zone top]         │
+│                                 │
+│  [Curva_neon.svg — decorativa]  │  ← Esquina sup. derecha · Y:10–25%
+│   Asset: wiztrip/curvas/        │    Escala: 0.35 · opacidad: 50%
+│   Curva_neon.svg                │    Animación: rotate-in 90° → 0° · 0.4s
+│                                 │
+│  ┌──────────────────────────┐   │  ← Y: 30% (~576px)
+│  │  TRAMPA TURÍSTICA #2     │   │    Badge: bg #FAB402 · texto #4C167C
+│  └──────────────────────────┘   │    Bricolage Bold · 48px
+│                                 │
+│  "Churros en cualquier          │  ← Y: 40% (~768px) · centrado
+│   lugar del centro"             │    Host Grotesk Regular · 26px · #FFF2CA
+│                                 │
+│  [WIZZO - Sticker_magia.svg]    │  ← X:78% · Y:72–88% · escala: 0.18
+│         [safe zone bot]         │
+└─────────────────────────────────┘
+  Fondo: #4C167C sólido
+  Zoom-out de entrada (zoom
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
