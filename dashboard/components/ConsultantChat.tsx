@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAgentRuns } from "@/lib/use-agent-runs";
 import type { AgentRun } from "@/lib/types";
 
 interface ChatMessage {
@@ -22,6 +21,10 @@ interface ChatMessage {
 
 interface ConsultantChatProps {
   clientId: string;
+  /** Lista de runs del cliente. Viene del padre (que ya subscribe via
+   *  useAgentRuns). Pasarla como prop evita doble subscription al mismo
+   *  channel Realtime — eso crashea la página. */
+  runs: AgentRun[];
   /** Callback cuando el usuario clickea "Ver detalle" en un mensaje de
    *  completion. El padre debe abrir el RunOutputDrawer del run. */
   onSelectRun?: (run: AgentRun) => void;
@@ -36,6 +39,7 @@ interface ConsultantResponse {
 
 export default function ConsultantChat({
   clientId,
+  runs,
   onSelectRun,
 }: ConsultantChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -48,10 +52,6 @@ export default function ConsultantChat({
   // completados (para no duplicar el mensaje de completion).
   const dispatchedRunIdsRef = useRef<Set<number>>(new Set());
   const completedShownRef = useRef<Set<number>>(new Set());
-
-  // Realtime subscription a agent_runs del cliente. Cuando un run que
-  // dispatchamos pasa a success/error, mostramos un mensaje de completion.
-  const { items: runs } = useAgentRuns({ clientId, limit: 30 });
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
