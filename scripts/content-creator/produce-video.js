@@ -106,6 +106,48 @@ function validateRemotionCode(code, compositionId) {
   }
 }
 
+/**
+ * Intenta parsear el TSX con esbuild para detectar errores de sintaxis ANTES
+ * de invocar `npx remotion render`. esbuild viene como transitive dep de
+ * @remotion/bundler — usamos un import dinámico para no agregar dep nueva
+ * y para que el agente siga funcionando si en algún ambiente raro no está.
+ *
+ * Retorna null si el TSX parsea limpio, o un string con el error formateado
+ * (incluye línea:columna y un fragmento del código alrededor del error).
+ */
+async function tryParseTsx(code, file) {
+  let esbuild;
+  try {
+    esbuild = await import("esbuild");
+  } catch {
+    console.warn("[produce-video] esbuild no disponible — saltamos pre-validación de TSX");
+    return null;
+  }
+  try {
+    await esbuild.transform(code, {
+      loader: "tsx",
+      sourcefile: file,
+    });
+    return null;
+  } catch (err) {
+    // err.errors es un array de { text, location: { line, column, lineText, file } }
+    const errors = Array.isArray(err.errors) ? err.errors : [];
+    if (errors.length === 0) return err.message || String(err);
+    const formatted = errors
+      .slice(0, 3)
+      .map((e) => {
+        const loc = e.location;
+        if (!loc) return e.text;
+        const fileLine = loc.file
+          ? `${loc.file.split(/[\\/]/).pop()}:${loc.line}:${loc.column}`
+          : `:${loc.line}:${loc.column}`;
+        return `${fileLine}: ${e.text}\n  ${loc.lineText || ""}`;
+      })
+      .join("\n\n");
+    return formatted;
+  }
+}
+
 async function callClaude(prompt, maxTokens = 8000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -415,6 +457,26 @@ export async function produceVideo(brief, storyboard, pieceId) {
   // 5b. Write the composition file
   writeFileSync(compositionFile, remotionCode, "utf-8");
   console.log(`Composition written: ${compositionFile} (${remotionCode.length} chars)`);
+
+  // 5c. Pre-validar el TSX con esbuild antes de invocar el bundler de Remotion.
+  //     Si Claude generó código con error de sintaxis (e.g. arrow function rota,
+  //     type annotation mal puesto, destructuring sin cerrar), esbuild nos da
+  //     línea:columna exactas y un mensaje accionable. Sin este chequeo, el
+  //     bundler de Remotion termina en setup-cache.js con un stack de Node
+  //     opaco. esbuild es transitive de @remotion/bundler — ya está instalado.
+  const parseError = await tryParseTsx(remotionCode, compositionFile);
+  if (parseError) {
+    const err = new Error(
+      `Composition TSX inválida (parse fail): ${parseError}\n` +
+      `Esto significa que Claude emitió código con un error de sintaxis. ` +
+      `El TSX exacto está adjunto en el output del run para que veas qué pasó.`,
+    );
+    err._stage = "parse";
+    err._stderr = null;
+    err._compositionTsx = remotionCode;
+    err._compositionFile = compositionFile;
+    throw err;
+  }
 
   // 6. Register in Root.tsx
   const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
