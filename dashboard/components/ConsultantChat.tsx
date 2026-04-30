@@ -18,6 +18,11 @@ interface ChatMessage {
     videoPieceId?: string | null;
     /** Si produceVideo falló, mensaje de error legible. */
     videoError?: string | null;
+    /** stderr crudo del bundler/render (sin ANSI). El TSX en sí no viaja al
+     *  chat por tamaño; solo el flag indica que hay disponible. */
+    videoErrorStderr?: string | null;
+    /** Indica si el output tiene compositionTsx para abrir desde el drawer. */
+    hasCompositionTsx?: boolean;
   } | null;
 }
 
@@ -149,26 +154,42 @@ export default function ConsultantChat({
   useEffect(() => {
     if (!hydrated) return;
 
-    async function enrichWithVideoInfo(
-      runId: number,
-    ): Promise<{ videoPieceId: string | null; videoError: string | null }> {
+    async function enrichWithVideoInfo(runId: number): Promise<{
+      videoPieceId: string | null;
+      videoError: string | null;
+      videoErrorStderr: string | null;
+      hasCompositionTsx: boolean;
+    }> {
+      const fallback = {
+        videoPieceId: null,
+        videoError: null,
+        videoErrorStderr: null,
+        hasCompositionTsx: false,
+      };
       try {
         const res = await fetch(`/api/agents/runs/${runId}/output`);
-        if (!res.ok) return { videoPieceId: null, videoError: null };
+        if (!res.ok) return fallback;
         const data = await res.json();
         const structured = data?.output?.structured;
+        if (!structured || typeof structured !== "object") return fallback;
+
         const pieceId =
-          structured && typeof structured.pieceId === "string"
-            ? structured.pieceId
-            : null;
+          typeof structured.pieceId === "string" ? structured.pieceId : null;
         const videoPieceId = pieceId && structured.videoPath ? pieceId : null;
         const videoError =
-          typeof structured?.videoError === "string"
+          typeof structured.videoError === "string"
             ? structured.videoError
             : null;
-        return { videoPieceId, videoError };
+        const videoErrorStderr =
+          typeof structured.videoErrorStderr === "string"
+            ? structured.videoErrorStderr
+            : null;
+        const hasCompositionTsx =
+          typeof structured.compositionTsx === "string" &&
+          structured.compositionTsx.length > 0;
+        return { videoPieceId, videoError, videoErrorStderr, hasCompositionTsx };
       } catch {
-        return { videoPieceId: null, videoError: null };
+        return fallback;
       }
     }
 
@@ -180,7 +201,7 @@ export default function ConsultantChat({
 
       completedShownRef.current.add(run.id);
 
-      void enrichWithVideoInfo(run.id).then(({ videoPieceId, videoError }) => {
+      void enrichWithVideoInfo(run.id).then((enriched) => {
         setMessages((prev) => [
           ...prev,
           {
@@ -191,8 +212,7 @@ export default function ConsultantChat({
               agent: run.agent,
               status: run.status as "success" | "error",
               summary: run.summary ?? null,
-              videoPieceId,
-              videoError,
+              ...enriched,
             },
           },
         ]);
@@ -655,7 +675,7 @@ function CompletionBubble({
         </div>
       )}
       {completion.videoError && (
-        <div
+        <details
           style={{
             fontSize: 11,
             color: "var(--red-warn)",
@@ -664,11 +684,30 @@ function CompletionBubble({
             padding: "6px 10px",
             borderLeft: "2px solid var(--red-warn)",
           }}
-          title={completion.videoError}
         >
-          ⚠ Video falló: {completion.videoError.slice(0, 140)}
-          {completion.videoError.length > 140 ? "…" : ""}
-        </div>
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+            ⚠ Video falló: {completion.videoError.slice(0, 240)}
+            {completion.videoError.length > 240 ? "…" : ""}
+          </summary>
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              marginTop: 8,
+              fontFamily: "ui-monospace, monospace",
+              fontSize: 10,
+              maxHeight: 280,
+              overflow: "auto",
+              padding: "6px 8px",
+              background: "rgba(176,75,58,0.04)",
+            }}
+          >
+            {completion.videoError}
+            {completion.videoErrorStderr
+              ? "\n\n--- stderr ---\n" + completion.videoErrorStderr
+              : ""}
+          </pre>
+        </details>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
         {videoUrl ? (
@@ -729,6 +768,29 @@ function CompletionBubble({
         >
           📄 Abrir script generado
         </button>
+        {completion.hasCompositionTsx && (
+          <button
+            type="button"
+            onClick={() => onViewRun(completion.runId)}
+            title="Ver el TSX que generó Claude y el stderr completo de Remotion"
+            style={{
+              padding: "6px 12px",
+              background: "transparent",
+              color: completion.videoError
+                ? "var(--red-warn)"
+                : "var(--sand-dark)",
+              border: `1px solid ${completion.videoError ? "rgba(176,75,58,0.4)" : "rgba(10,26,12,0.15)"}`,
+              fontSize: 10,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            🔧 Ver TSX y stderr
+          </button>
+        )}
       </div>
     </div>
   );

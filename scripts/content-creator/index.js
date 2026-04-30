@@ -575,15 +575,26 @@ export async function createContent(briefInput) {
   // Voice is generated first so Remotion can include it in the composition
   let videoPath = null;
   let videoError = null;
+  let videoErrorStderr = null;
+  let videoErrorStage = null;
+  let compositionTsx = null;
+  let compositionFile = null;
   if (brief.produceVideo && brief.pieceType === "reel") {
     try {
       const briefWithVoice = voiceResult
         ? { ...brief, _voicePath: voiceResult.remotionPath }
         : brief;
-      videoPath = await produceVideo(briefWithVoice, output, pieceId);
+      const result = await produceVideo(briefWithVoice, output, pieceId);
+      videoPath = result.outputPath;
+      compositionTsx = result.compositionTsx ?? null;
+      compositionFile = result.compositionFile ?? null;
       console.log(`Video produced: ${videoPath}`);
     } catch (err) {
       videoError = err.message;
+      videoErrorStderr = err._stderr ?? null;
+      videoErrorStage = err._stage ?? null;
+      compositionTsx = err._compositionTsx ?? null;
+      compositionFile = err._compositionFile ?? null;
       console.error(`Video production failed: ${videoError}`);
       console.log("Produce manually with: cd remotion-studio && npm run studio");
     }
@@ -648,6 +659,10 @@ export async function createContent(briefInput) {
       status: pieceStatus,
       videoPath: videoPath ?? null,
       videoError: videoError ?? null,
+      videoErrorStderr: videoErrorStderr ?? null,
+      videoErrorStage: videoErrorStage ?? null,
+      compositionTsx: compositionTsx ?? null,
+      compositionFile: compositionFile ?? null,
       voicePath: voiceResult?.filePath ?? null,
       staticPath: staticResult?.filePath ?? null,
       publishResults: publishResults ?? [],

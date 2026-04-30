@@ -24,6 +24,130 @@ const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
+// Strip ANSI escape sequences (color/SGR codes) del stderr/stdout antes de
+// guardarlo en JSON o mostrarlo en la UI. Cubre CSI (ESC [...letter) y OSC
+// (ESC ] ... BEL/ST). Helper inline; si lo necesitamos en otro agente lo
+// movemos a scripts/lib/ansi.js.
+// eslint-disable-next-line no-control-regex
+const ANSI_REGEX = /\x1B(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(?:\x07|\x1B\\))/g;
+function stripAnsi(s) {
+  if (!s) return "";
+  return String(s).replace(ANSI_REGEX, "");
+}
+
+/**
+ * Pelamos markdown fences que Claude a veces emite a pesar del prompt
+ * "Output ONLY a single TypeScript/TSX file. No explanations, no markdown
+ * fences." Cubrimos los casos:
+ *   ```tsx\n<código>\n```
+ *   ```typescript\n<código>\n```
+ *   ```\n<código>\n```
+ *   "Acá tenés el componente:\n```tsx\n<código>\n```"  (con preámbulo)
+ *
+ * Si el TSX no viene con fences, devolvemos tal cual (trim solo).
+ * Si vienen MÚLTIPLES bloques de código, agarramos el más largo (que es
+ * el componente principal — los otros suelen ser snippets de explicación).
+ */
+function sanitizeRemotionCode(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+
+  // Detectar todos los bloques ```...``` y elegir el más largo.
+  const fenceRegex = /```(?:tsx|typescript|ts|jsx|js)?\s*\n([\s\S]*?)\n```/gi;
+  const blocks = [];
+  let match;
+  while ((match = fenceRegex.exec(trimmed)) !== null) {
+    blocks.push(match[1]);
+  }
+  if (blocks.length > 0) {
+    blocks.sort((a, b) => b.length - a.length);
+    return blocks[0].trim();
+  }
+
+  // Si empieza con ``` sin closing (caso degenerado), pelar la primera línea
+  // ``` y el cierre si lo hay.
+  if (trimmed.startsWith("```")) {
+    const firstNl = trimmed.indexOf("\n");
+    let body = firstNl >= 0 ? trimmed.slice(firstNl + 1) : trimmed;
+    if (body.endsWith("```")) body = body.slice(0, -3);
+    return body.trim();
+  }
+
+  return trimmed;
+}
+
+/**
+ * Validación mínima del TSX antes de pasarlo al bundler. Si Claude devolvió
+ * texto narrativo, JSON, o un fragmento que no parece un módulo TS válido,
+ * fallamos rápido con un error accionable en vez de esperar que esbuild
+ * explote en setup-cache.js con un mensaje opaco.
+ */
+function validateRemotionCode(code, compositionId) {
+  if (!code || code.length < 100) {
+    throw new Error(
+      `Composition TSX vacía o demasiado corta (${code?.length ?? 0} chars). ` +
+      `Claude probablemente devolvió texto narrativo en vez de código.`,
+    );
+  }
+  const hasImport = /\bimport\b/.test(code);
+  const hasExport = /\bexport\b/.test(code);
+  if (!hasImport || !hasExport) {
+    throw new Error(
+      `Composition TSX no parece módulo válido (import: ${hasImport}, export: ${hasExport}). ` +
+      `Primeros 200 chars: ${code.slice(0, 200)}`,
+    );
+  }
+  if (!code.includes(compositionId)) {
+    throw new Error(
+      `Composition TSX no exporta el component "${compositionId}". ` +
+      `Esperábamos un export default o nombrado con ese ID. Claude devolvió ` +
+      `un componente con otro nombre o estructura. Primeros 300 chars: ${code.slice(0, 300)}`,
+    );
+  }
+}
+
+/**
+ * Intenta parsear el TSX con esbuild para detectar errores de sintaxis ANTES
+ * de invocar `npx remotion render`. esbuild viene como transitive dep de
+ * @remotion/bundler — usamos un import dinámico para no agregar dep nueva
+ * y para que el agente siga funcionando si en algún ambiente raro no está.
+ *
+ * Retorna null si el TSX parsea limpio, o un string con el error formateado
+ * (incluye línea:columna y un fragmento del código alrededor del error).
+ */
+async function tryParseTsx(code, file) {
+  let esbuild;
+  try {
+    esbuild = await import("esbuild");
+  } catch {
+    console.warn("[produce-video] esbuild no disponible — saltamos pre-validación de TSX");
+    return null;
+  }
+  try {
+    await esbuild.transform(code, {
+      loader: "tsx",
+      sourcefile: file,
+    });
+    return null;
+  } catch (err) {
+    // err.errors es un array de { text, location: { line, column, lineText, file } }
+    const errors = Array.isArray(err.errors) ? err.errors : [];
+    if (errors.length === 0) return err.message || String(err);
+    const formatted = errors
+      .slice(0, 3)
+      .map((e) => {
+        const loc = e.location;
+        if (!loc) return e.text;
+        const fileLine = loc.file
+          ? `${loc.file.split(/[\\/]/).pop()}:${loc.line}:${loc.column}`
+          : `:${loc.line}:${loc.column}`;
+        return `${fileLine}: ${e.text}\n  ${loc.lineText || ""}`;
+      })
+      .join("\n\n");
+    return formatted;
+  }
+}
+
 async function callClaude(prompt, maxTokens = 8000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -310,12 +434,49 @@ export async function produceVideo(brief, storyboard, pieceId) {
     compositionId,
     assetBlock,
   );
-  const remotionCode = await callClaude(remotionPrompt);
+  const rawRemotionCode = await callClaude(remotionPrompt);
 
-  // 5. Write the composition file
+  // 5. Sanitize + validate. Si Claude emitió markdown fences los pelamos;
+  //    si emitió texto narrativo o algo sin imports/exports, fallamos rápido
+  //    con error accionable en vez de dejar que esbuild explote más adelante.
+  //    En cualquier falla acá, adjuntamos el TSX raw al Error para que el
+  //    drawer del dashboard lo muestre (y veas exactamente qué emitió Claude).
   const compositionFile = resolve(compositionDir, "index.tsx");
+  let remotionCode;
+  try {
+    remotionCode = sanitizeRemotionCode(rawRemotionCode);
+    validateRemotionCode(remotionCode, compositionId);
+  } catch (err) {
+    err._stage = "validate";
+    err._stderr = null;
+    err._compositionTsx = rawRemotionCode;
+    err._compositionFile = compositionFile;
+    throw err;
+  }
+
+  // 5b. Write the composition file
   writeFileSync(compositionFile, remotionCode, "utf-8");
-  console.log(`Composition written: ${compositionFile}`);
+  console.log(`Composition written: ${compositionFile} (${remotionCode.length} chars)`);
+
+  // 5c. Pre-validar el TSX con esbuild antes de invocar el bundler de Remotion.
+  //     Si Claude generó código con error de sintaxis (e.g. arrow function rota,
+  //     type annotation mal puesto, destructuring sin cerrar), esbuild nos da
+  //     línea:columna exactas y un mensaje accionable. Sin este chequeo, el
+  //     bundler de Remotion termina en setup-cache.js con un stack de Node
+  //     opaco. esbuild es transitive de @remotion/bundler — ya está instalado.
+  const parseError = await tryParseTsx(remotionCode, compositionFile);
+  if (parseError) {
+    const err = new Error(
+      `Composition TSX inválida (parse fail): ${parseError}\n` +
+      `Esto significa que Claude emitió código con un error de sintaxis. ` +
+      `El TSX exacto está adjunto en el output del run para que veas qué pasó.`,
+    );
+    err._stage = "parse";
+    err._stderr = null;
+    err._compositionTsx = remotionCode;
+    err._compositionFile = compositionFile;
+    throw err;
+  }
 
   // 6. Register in Root.tsx
   const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
@@ -339,29 +500,42 @@ export async function produceVideo(brief, storyboard, pieceId) {
   console.log("Preview available at http://localhost:3000 (run: npm run studio)");
 
   try {
-    // stdio "pipe" para capturar stderr — antes era "inherit" y el catch solo
-    // recibía "Command failed: npx remotion render ..." sin la causa real.
-    // El log del runner se sigue viendo en console.log debajo (se imprime el
-    // stderr de Remotion entero al final si el render falla).
     const renderResult = execSync(
       `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
       { cwd: REMOTION_DIR, stdio: "pipe", timeout: 300000, encoding: "utf-8" },
     );
     if (renderResult) console.log(renderResult);
     console.log(`Video rendered: ${outputPath}`);
-    return outputPath;
+    return { outputPath, compositionTsx: remotionCode, compositionFile };
   } catch (err) {
-    // err.stderr / err.stdout existen cuando stdio es "pipe". Los volcamos
-    // al log para que aparezcan en GHA, y guardamos los últimos 500 chars
-    // del stderr en err.message para que el frontend pueda mostrarlo.
-    const stderr = err.stderr ? err.stderr.toString() : "";
-    const stdout = err.stdout ? err.stdout.toString() : "";
+    // El bundler de Remotion imprime la causa al INICIO del stderr (e.g.
+    // "Could not resolve '@remotion/google-fonts/Foo'") y luego pinta el
+    // stack de Node. El final del stderr es ruido — por eso buscamos la
+    // primera línea con "error" para enmarcar 20 líneas desde ahí.
+    const rawStderr = err.stderr ? err.stderr.toString() : "";
+    const rawStdout = err.stdout ? err.stdout.toString() : "";
+    const stderr = stripAnsi(rawStderr);
+    const stdout = stripAnsi(rawStdout);
     if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
     if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
-    const tail = stderr.trim().split("\n").slice(-8).join("\n").slice(-500);
-    throw new Error(
-      `Remotion render failed: ${tail || err.message}\n` +
+
+    const lines = stderr.trim().split(/\r?\n/);
+    const firstErrorIdx = lines.findIndex((l) =>
+      /\b(error|Error|Failed|failed)\b/.test(l),
+    );
+    const window = firstErrorIdx >= 0
+      ? lines.slice(firstErrorIdx, firstErrorIdx + 20)
+      : lines.slice(-20);
+    const message = window.join("\n").slice(0, 3000) || err.message;
+
+    const richError = new Error(
+      `Remotion render failed: ${message}\n` +
       `Para reproducir local: cd remotion-studio && npm run studio`,
     );
+    richError._stage = "render";
+    richError._stderr = stderr.slice(0, 6000);
+    richError._compositionTsx = remotionCode;
+    richError._compositionFile = compositionFile;
+    throw richError;
   }
 }
