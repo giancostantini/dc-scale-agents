@@ -2059,3 +2059,331 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #008 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: comer en Madrid sin caer en trampa turística | Instructions: Usar el asset library completo. Wizzo en su expresión Magia para el momento del Pique. Logo blanco para frames sobre violeta #4C167C. Usar las fonts custom (Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu) que están en el library en lugar de Google Fonts.
+
+### Generated Content
+# Reel/TikTok — WizTrip
+**"Comer en Madrid sin caer en trampa turística"**
+📅 30 de abril de 2026 · Producción: Remotion + ElevenLabs
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Valor + Viral (awareness + comunidad) |
+| **Formato de script** | B — "Direct Value" · Razón: el ángulo es educativo-insider, no conversión directa. Un tip concreto de Wizzo sobre Madrid genera guardados, shares y establece autoridad. Es el formato firma del contenido Piques. |
+| **Trigger emocional** | **Enojo + Alivio** — primero activo la rabia de haber sido engañado (trampa turística), después el alivio de tener el pique real. |
+| **Plataformas destino** | Instagram Reels + TikTok |
+| **Duración estimada** | 42 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Primer frame: fondo violeta `#4C167C` sólido, Wizzo en expresión Magia (`Color_magia.svg`) aparece desde abajo con un pop. Encima, texto grande que cae con impacto.
+- **Textual:** `Madrid te tiene trampeado.` (6 palabras)
+- **Verbal:** *"Si fuiste a Madrid y comiste cerca de la Puerta del Sol… te robaron."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s-2s] — PATTERN INTERRUPTION / HOOK
+  Visual: Fondo violeta puro #4C167C.
+          Wizzo (Color_magia.svg) sube desde abajo con spring animation,
+          llega a posición central-inferior.
+          Texto hero cae desde arriba con bounce.
+  Texto en pantalla:
+          "Madrid te tiene trampeado."
+          · Font: BricolageGrotesque_72pt-ExtraBold.ttf
+          · Color: #FAB402 (Wizzo Gold)
+          · Tamaño: 88px
+          · Posición: centro pantalla, y=680px
+          · Animación: slide-down desde y=200px, easing: spring(stiffness:180, damping:12)
+  Narración: "Si fuiste a Madrid y comiste cerca de la Puerta del Sol…
+              te robaron."
+  Música/SFX: silencio total los primeros 0.8s → entrada de beat percusivo seco
+  Transición: hard cut
+
+---
+
+Escena 2 [2s-5s] — DOLOR / PROBLEMA
+  Visual: Corte a fondo crema #FFF2CA.
+          Aparece el sombrero de turista (Sombrero_color.svg) animado,
+          sacudiéndose (rotate ±5deg, 0.3s loop).
+          Sobre él, texto en dos líneas apiladas.
+  Texto en pantalla:
+          Línea 1: "Menú turístico."
+          Línea 2: "€18. Sin sabor. Sin alma."
+          · Font línea 1: BricolageGrotesque_48pt-Bold.ttf · Color: #222524 · 64px
+          · Font línea 2: HostGrotesk-Regular.ttf · Color: #4C167C · 36px
+          · Posición: centro, y=820px
+          · Animación: fade-in por línea, 0.3s delay entre cada una
+  Narración: "Menú turístico, 18 euros, ni una calamar que valga la pena.
+              Eso pasa cuando no tenés el pique correcto."
+  Música/SFX: beat se mantiene, agrega nota grave de "error" (low thud, sutil)
+  Transición: whip-left
+
+---
+
+Escena 3 [5s-8s] — AGITACIÓN / AMPLIFICACIÓN DEL DOLOR
+  Visual: Fondo #4C167C.
+          Texto entra en stagger rápido, cada línea con 0.15s de delay.
+          Sin mascot — solo tipografía pura, impacto visual.
+  Texto en pantalla:
+          "Los locales no comen ahí."
+          · Font: BricolageGrotesque_48pt-ExtraBold.ttf
+          · Color: #E5F53F (Cielo/Neon)
+          · Tamaño: 72px
+          · Posición: centro, y=900px
+          · Animación: cada palabra entra de golpe, 0.12s entre palabras
+  Narración: "Los madrileños no pisan esos lugares. Son trampas para turistas,
+              y el que te llevó ahí sabía perfectamente lo que estaba haciendo."
+  Música/SFX: beat sube un layer, más urgente
+  Transición: hard cut
+
+---
+
+Escena 4 [8s-12s] — GIRO / "PERO HAY UNA FORMA"
+  Visual: Fondo blanco-crema #FFF2CA.
+          Curva decorativa lila (Curva_lila.svg) entra desde izquierda,
+          traversa la pantalla horizontalmente en y=960px.
+          Sobre la curva, texto aparece como si la curva lo "dejara escrito".
+  Texto en pantalla:
+          "Hay una forma de comer bien."
+          · Font: BricolageGrotesque_48pt-Bold.ttf
+          · Color: #4C167C
+          · Tamaño: 56px
+          · Posición: sobre la curva, centro, y=900px
+          · Animación: text revela de izquierda a derecha synced con la curva
+  Narración: "Pero hay una forma de comer en Madrid como si vivieras ahí
+              hace diez años."
+  Música/SFX: beat hace pausa de 0.5s → entrada de melodía cálida encima del beat
+  Transición: smooth fade-through-white (0.3s)
+
+---
+
+Escena 5 [12s-28s] — PIQUE / VALOR REAL (corazón del video)
+  Visual: Fondo violeta #4C167C.
+          Wizzo (Color_magia.svg) en posición inferior-derecha, tamaño mediano.
+          Badge "WIZZO PICK 🔮" entra desde arriba izquierda con pop.
+          Los 3 piques aparecen en stagger, uno a uno, cada uno con ícono.
+  Texto en pantalla — estructura de lista:
+
+          [Badge superior izquierda, y=380px]:
+          "WIZZO PICK"
+          · Font: BricolageGrotesque_24pt-ExtraBold.ttf
+          · Color: #222524 · Fondo: #FAB402 · Padding: 12px 20px · Border-radius: 8px
+          · Tamaño: 28px
+
+          [Pique 1, y=520px]:
+          "🍤  Mercado de San Fernando"
+          Subtext: "Lavapiés. Raciones a €3. Sin carta para turistas."
+          · Font título: BricolageGrotesque_36pt-Bold.ttf · Color: #FAB402 · 42px
+          · Font subtext: HostGrotesk-Regular.ttf · Color: #B99FFF · 28px
+
+          [Pique 2, y=700px]:
+          "🥩  Bar Txistu"
+          Subtext: "Chamberí. Pintxos de los que no tienen foto en Google Maps."
+          · Mismos estilos, mismo delay de entrada
+
+          [Pique 3, y=880px]:
+          "☕  Café Comercial"
+          Subtext: "Bilbao. El desayuno que el madrileño pide los domingos."
+          · Mismos estilos
+
+          Todos con animación: slide-up desde +40px + fade-in, 0.4s delay entre cada uno.
+
+  Narración: "Primer pique: Mercado de San Fernando, en Lavapiés.
+              Raciones a tres euros, ambiente de barrio, cero carta plastificada.
+              Segundo: Bar Txistu, en Chamberí. Pintxos que no están en ningún
+              ranking de TripAdvisor pero que los madrileños repiten cada semana.
+              Y tercero: Café Comercial, en Bilbao. El desayuno de domingo
+              que la ciudad se guarda para ella sola."
+  Música/SFX: melodía cálida se asienta, beat suave de fondo
+  Transición: whip-right
+
+---
+
+Escena 6 [28s-33s] — REFUERZO / CIERRE DE WIZZO
+  Visual: Fondo violeta #4C167C.
+          Wizzo (Color_magia.svg) centrado, más grande (ocupa 55% del ancho).
+          Texto aparece arriba de Wizzo.
+  Texto en pantalla:
+          "Moverse como un local."
+          "Ese es el pique."
+          · Font línea 1: BricolageGrotesque_48pt-ExtraBold.ttf · Color: #FAB402 · 56px
+          · Font línea 2: HostGrotesk-Bold.ttf · Color: #FFF2CA · 36px
+          · Posición: y=480px y y=560px respectivamente
+          · Animación: línea 1 entra con scale 1.2→1.0 + fade · línea 2 fade-in puro
+  Narración: "Moverse como un local. Ese es siempre el pique.
+              Y yo lo tengo para cada ciudad."
+  Música/SFX: melodía alcanza punto de resolución, sube levemente
+  Transición: cross-dissolve a escena 7
+
+---
+
+Escena 7 [33s-38s] — "ELEGISTE BIEN" / TRUST MOMENT
+  Visual: Fondo crema #FFF2CA.
+          Wizzo (Sticker_bien.svg) en esquina inferior derecha, pequeño.
+          Texto central con Noto Nastaliq como acento editorial.
+          Curva celeste (Curva_celeste.svg) como elemento decorativo inferior.
+  Texto en pantalla:
+          "Elegiste bien."
+          · Font: NotoNastaliqUrdu-Bold.ttf (como acento editorial/firma)
+          · Color: #4C167C
+          · Tamaño: 64px
+          · Posición: centro, y=860px
+          · Animación: fade-in lento (0.6s), sin movimiento — peso visual
+  Narración: "Elegiste bien."
+             [pausa 0.4s]
+  Música/SFX: beat drop suave — un único acorde de resolución
+  Transición: hard cut a escena final
+
+---
+
+Escena 8 [38s-42s] — CTA FINAL
+  Visual: Fondo violeta #4C167C.
+          Logo blanco (Logo_Blanco.svg) centrado, arriba.
+          Texto CTA debajo.
+          Estrella dorada (Estrella_color.svg) aparece como detalle en esquina superior derecha.
+  Texto en pantalla:
+          [Logo · y=560px · ancho: 220px]
+          Logo_Blanco.svg
+
+          [CTA · y=740px]:
+          "Guardá esto antes de ir a Madrid."
+          · Font: BricolageGrotesque_48pt-Bold.ttf
+          · Color: #FAB402
+          · Tamaño: 44px
+          · Posición: centro, con padding 48px laterales
+          · Animación: fade-up desde y+20px, 0.4s
+
+          [Subtext · y=820px]:
+          "@wiztrip.travel"
+          · Font: HostGrotesk-Regular.ttf · Color: #B99FFF · 30px
+  Narración: "Guardalo. La próxima vez que vayas a Madrid,
+              yo ya tengo el pique listo para vos."
+  Música/SFX: fade out de música en los últimos 1.5s
+  Transición: —
+```
+
+---
+
+## Storyboard de producción
+
+**Especificaciones base Remotion:**
+- Resolución: `1080 × 1920` (9:16 vertical)
+- FPS: 30
+- Safe zone superior: `y > 150px` para texto
+- Safe zone inferior: `y < 1670px` para texto
+- Duración total: `42s = 1260 frames`
+
+---
+
+### Frame 1 — Escena 1 [F0–F60]
+
+```
+Asset: wiztrip/mascot/color/Color_magia.svg
+  Position: x=540 (centro), y=1400→1200 (spring anim)
+  Scale: 0→1.0 con spring(stiffness:180, damping:14)
+  Z-index: 2
+
+Fondo:
+  Background: #4C167C (fill completo)
+
+Texto hero "Madrid te tiene trampeado.":
+  Font: BricolageGrotesque_72pt-ExtraBold.ttf
+  Size: 88px · Weight: ExtraBold · LineHeight: 1.0
+  Color: #FAB402
+  Position: x=center, y=600→680 (slide-down + bounce)
+  MaxWidth: 900px · TextAlign: center
+  Animation: translateY(-200px→0) + spring(stiffness:160, damping:10)
+  Frame start: F0
+
+Nota Remotion:
+  useCurrentFrame() → interpolate(frame, [0,20], [200, 0]) para el slide
+  spring({ frame, fps: 30, config: { stiffness: 180, damping: 14 } })
+```
+
+---
+
+### Frame 2 — Escena 2 [F60–F150]
+
+```
+Asset: wiztrip/ilustraciones/color/Sombrero_color.svg
+  Position: x=540 (centro), y=680
+  Scale: 0.8
+  Animation: rotate(-5deg→+5deg), loop 0.3s, keyframes alternos
+
+Fondo: #FFF2CA
+
+Texto línea 1 "Menú turístico.":
+  Font: BricolageGrotesque_48pt-Bold.ttf
+  Size: 64px · Color: #222524
+  Position: x=center, y=820
+  Animation: fade-in F60→F70
+
+Texto línea 2 "€18. Sin sabor. Sin alma.":
+  Font: HostGrotesk-Regular.ttf (path: HostGrotesk-Regular.ttf)
+  Size: 36px · Color: #4C167C
+  Position: x=center, y=900
+  Animation: fade-in F70→F82 (delay +0.4s relativo a línea 1)
+```
+
+---
+
+### Frame 3 — Escena 3 [F150–F240]
+
+```
+Fondo: #4C167C
+
+Texto "Los locales no comen ahí." — word-by-word reveal:
+  Font: BricolageGrotesque_48pt-ExtraBold.ttf
+  Size: 72px · Color: #E5F53F
+  Position: x=center, y=860 · MaxWidth: 900px · TextAlign: center
+  Animation Remotion:
+    ["Los","locales","no","comen","ahí."]
+    Cada palabra: opacity 0→1 en frame correspondiente
+    delay entre palabras: 4 frames (0.13s)
+    Scale entrada: 1.1→1.0 con spring suave
+```
+
+---
+
+### Frame 4 — Escena 4 [F240–F360]
+
+```
+Asset: wiztrip/curvas/Curva_lila.svg
+  Position: x=0→1080 
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
