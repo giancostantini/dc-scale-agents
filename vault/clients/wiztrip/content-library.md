@@ -2387,3 +2387,328 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #009 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Comer en Madrid sin caer en trampa turística — formato Piques | Instructions: Usar el asset library completo. Wizzo en su expresión Magia (Color_magia.svg) para el momento del Pique. Logo blanco (Logo_Blanco.svg / Logo_Tag_Blanco.svg) para frames sobre violeta #4C167C. Usar las fonts custom del library (Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu) en lugar de Google Fonts.
+
+### Generated Content
+# Reel/TikTok — WizTrip
+**"Comer en Madrid sin caer en trampa turística"**
+Formato Piques · Wizzo · 30 abril 2026
+
+---
+
+## Resumen
+
+| Campo | Valor |
+|---|---|
+| **Objetivo** | Viral / Valor — generar saves, shares y reconocimiento de marca como fuente experta. Conversión indirecta (awareness de Wizzo como copiloto). |
+| **Formato de script** | **B — Direct Value** · Porque el formato Piques es educativo por naturaleza: Wizzo da 3 piques concretos sobre Madrid, con honestidad de insider. No hay producto que vender directamente — hay criterio que demostrar. El valor percibido genera la confianza que después convierte. |
+| **Trigger emocional** | **Enojo + asombro** — el espectador se identifica ("me estafaron en ese restaurante") y luego siente alivio-asombro ("¿esto existe y no lo sabía?"). Doble disparo emocional. |
+| **Plataformas destino** | Instagram Reels + TikTok |
+| **Duración estimada** | 42–48 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Wizzo (`Color_magia.svg`) aparece sobre fondo violeta `#4C167C` con una señal de ⚠️ animada y el texto "MADRID" en dorado. En el extremo inferior derecha, un plato de paella genérica con un tachón rojo encima. La primera imagen rompe el scroll porque usa el contraste violeta/dorado que no es común en el feed de viajes (normalmente azul cielo, blanco, playa).
+- **Textual:** **"Madrid te está cagando el viaje"** *(6 palabras — máximo impacto, tono de insider honesto)*
+- **Verbal:** *"Si vas a Madrid y comés en los restaurantes de la Puerta del Sol... te la dieron."*
+
+---
+
+## Script completo
+
+```
+═══════════════════════════════════════════════════════════
+ESCENA 1 [0s–1.5s] — PATTERN INTERRUPTION / HOOK
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Fondo violeta sólido #4C167C, full bleed.
+  Wizzo (Color_magia.svg) entra desde abajo con animación
+  spring (overshoot 10%) — queda centrado, ligeramente
+  desplazado a la izquierda.
+  A la derecha: texto "MADRID" en Bricolage Grotesque ExtraBold,
+  72pt, color #FAB402, aparece con scale in (0→1, 0.3s ease-out).
+  Simultáneo: ícono de plato de comida con tachón rojo animado
+  entra desde la derecha (slide-in 0.2s).
+  En la esquina inferior izquierda, el Logo_Blanco.svg aparece
+  con fade in (opacity 0→1, 0.4s) — posición respeta safe zone.
+
+Texto en pantalla:
+  "MADRID TE ESTÁ CAGANDO EL VIAJE"
+  Fuente: BricolageGrotesque_72pt-ExtraBold.ttf
+  Tamaño: 54px (ajustado para caber en safe zone horizontal)
+  Color: #FAB402 (dorado)
+  Posición: Centro-superior, top: 200px
+  Animación: letra por letra, entrada rápida 0.05s por letra
+
+Narración:
+  "Si vas a Madrid y comés en los restaurantes de la Puerta
+  del Sol... te la dieron."
+
+Música/SFX:
+  Beat trap/hip-hop urbano con bpm moderado (90–100bpm),
+  drop en el momento que aparece "MADRID".
+  SFX: sonido de "error" tipo buzzer suave cuando aparece
+  el tachón rojo.
+
+Transición:
+  Hard cut (0 frames de transición — agresivo, llama la atención)
+
+
+═══════════════════════════════════════════════════════════
+ESCENA 2 [1.5s–3s] — AGITACIÓN DEL PROBLEMA
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Corte a: fondo #222524 (casi negro).
+  Aparecen 3 íconos en secuencia rápida (0.15s entre cada uno):
+  1. 🍷 + "Sangría a 18€" — texto en HostGrotesk-Bold, color #E5F53F
+  2. 🥘 + "Paella del menú turístico" — idem
+  3. 📸 + "Foto con el chef incluida" — idem
+  Cada línea entra con slide-left instantáneo.
+  Wizzo aparece en esquina inferior derecha pequeño,
+  en versión Sticker_error.svg — gesto de desaprobación.
+
+Texto en pantalla:
+  "TRAMPA TURÍSTICA × 3"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Tamaño: 42px
+  Color: #FAB402
+  Posición: top: 180px, centrado
+  Animación: scale punch (1→1.15→1, 0.2s)
+
+Narración:
+  "Sangría a 18 euros, paella de microondas y carta en diez
+  idiomas. Eso es ruido, no comida."
+
+Música/SFX:
+  Beat continúa. SFX de "tick" con cada ícono que aparece.
+  SFX final: sonido de dinero tirándose ("flush" cómico, sutil).
+
+Transición:
+  Wipe horizontal hacia derecha (0.15s) — simula "pasar página"
+
+
+═══════════════════════════════════════════════════════════
+ESCENA 3 [3s–5s] — GIRO / PROMESA DEL PIQUE
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Fondo violeta #4C167C regresa — contraste visual limpio.
+  Wizzo (Color_magia.svg) aparece grande, centrado,
+  con su expresión de "magia" — gesto de mano señalando
+  hacia arriba o revelando algo.
+  Encima de Wizzo, sello animado:
+  "EL PIQUE DE WIZZO" en forma de badge/tag con fondo #FAB402,
+  texto #222524, fuente BricolageGrotesque_48pt-ExtraBold.ttf
+  El badge entra con rotation (-15deg → 0deg) + scale (0→1),
+  0.3s ease-out.
+
+Texto en pantalla:
+  "3 PIQUES PARA COMER COMO LOCAL"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Tamaño: 40px
+  Color: #FFF2CA (crema, sobre el violeta)
+  Posición: top: 200px, centrado
+  Animación: fade-in + slide-up 0.3s
+
+Narración:
+  "Pero Wizzo tiene los piques reales. Tres lugares donde
+  comen los madrileños, no los turistas."
+
+Música/SFX:
+  Beat hace pausa de 0.3s (silencio dramático) y retoma
+  con versión más suave, tipo "discovery".
+  SFX: sonido de "magia" — campana suave, destello.
+
+Transición:
+  Hard cut con flash blanco (2 frames, opacity 0→1→0)
+
+
+═══════════════════════════════════════════════════════════
+ESCENA 4 [5s–15s] — PIQUE #1: LA BOCA
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Fondo: footage/foto de calle estrecha de Madrid con gente
+  local comiendo al aire libre — luz natural, movimiento real.
+  [VER MISSING ASSETS]
+  Overlay: capa de color violeta #4C167C a 30% de opacidad
+  sobre la foto para que el texto respire.
+  En la esquina superior izquierda:
+  Badge "01" en círculo dorado #FAB402, fuente
+  BricolageGrotesque_48pt-ExtraBold.ttf, 36px.
+  Debajo: "La Boca del Lobo" — fuente BricolageGrotesque_48pt-Bold,
+  color #FFF2CA, 32px.
+  Tag de localización: icono de pin (Iso_Gold.svg) + "Madrid · Lavapiés"
+  HostGrotesk-Medium, 18px, color #FAB402.
+  Curva decorativa (Curva_lila.svg) como elemento gráfico
+  en el borde inferior del frame, animada con drawSVG.
+  Wizzo en versión Sticker_bien.svg, esquina derecha inferior,
+  tamaño 80x80px — aparece con bounce.
+
+Texto en pantalla:
+  "La Boca del Lobo · Lavapiés"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Tamaño: 32px · Color: #FFF2CA
+  Posición: top: 200px, left: 40px
+
+  Sub-texto:
+  "Cocina creativa. Sin menú turístico. Sin carta en inglés."
+  Fuente: HostGrotesk-Regular.ttf
+  Tamaño: 18px · Color: #FFF2CA
+  Posición: top: 260px, left: 40px
+  Animación: slide-up desde top: 280px, 0.4s ease-out, delay 0.3s
+
+Narración:
+  "Primero: La Boca del Lobo, en Lavapiés. Cocina creativa,
+  menú del día a 13 euros, y lo que más importa — no tienen
+  carta en inglés. Eso solo ya te dice todo."
+
+Música/SFX:
+  Beat continúa suave. Ambiente: murmullo suave de bar/tasca
+  de fondo a muy bajo volumen (–20dB).
+
+Transición:
+  Slide horizontal hacia izquierda (0.2s) — sensación de
+  "próxima parada"
+
+
+═══════════════════════════════════════════════════════════
+ESCENA 5 [15s–25s] — PIQUE #2: MERCADO DE ANTÓN MARTÍN
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Fondo: foto/footage de interior de mercado con puestos
+  de comida, gente local comprando — ambiente auténtico.
+  [VER MISSING ASSETS]
+  Overlay violeta #4C167C al 25%.
+  Badge "02" mismo estilo que anterior.
+  Mismo sistema de tipo y curva.
+  Wizzo en versión Sticker_hola.svg — esquina inferior
+  derecha, con gesto de señalar (icono de mano).
+  Curva_celeste.svg como decoración inferior.
+
+Texto en pantalla:
+  "Mercado de Antón Martín · Centro"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Tamaño: 32px · Color: #FFF2CA
+  Posición: top: 200px, left: 40px
+
+  Sub-texto:
+  "Puestos de barrio. Calidad real. Sin fila de turistas."
+  Fuente: HostGrotesk-Regular.ttf
+  Tamaño: 18px · Color: #FFF2CA
+  Posición: top: 260px, left: 40px
+
+Narración:
+  "Segundo: el Mercado de Antón Martín. No el Mercado de San
+  Miguel, ese es la trampa. Este está a cuatro calles y tiene
+  puestos donde come el barrio — pescado fresco, queso real
+  y cero fila de turistas con cámara."
+
+Música/SFX:
+  SFX: sonido de ambiente de mercado levísimo.
+  En la mención "trampa": breve acento de beat, sutil punch.
+
+Transición:
+  Hard cut
+
+
+═══════════════════════════════════════════════════════════
+ESCENA 6 [25s–35s] — PIQUE #3: EL BAR SIN NOMBRE
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Fondo: foto de interior de tasca tradicional madrileña,
+  luz cálida, barra de bar, gente mayor tomando vino.
+  [VER MISSING ASSETS]
+  Overlay #4C167C al 20%.
+  Badge "03" mismo sistema.
+  ESTE frame tiene un detalle diferencial:
+  Texto adicional en Noto Nastaliq Urdu Bold (como acento
+  editorial) con la palabra "SECRETO" en diagonal, color
+  #FAB402, opacity 40%, fuente decorativa de fondo.
+  Wizzo en Color_magia.svg — versión completa, más grande
+  (120x120px), posición central derecha, expresión de
+  "revelación / magia".
+
+Texto en pantalla:
+  "El Bodegón de la Cava · La Latina"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Tamaño: 32px · Color: #FFF2CA
+  Posición: top: 200px, left: 40px
+
+  Sub-texto:
+  "Sin Instagram. Sin reseñas en inglés. Solo locales."
+  Fuente: HostGrotesk-Regular.ttf
+  Tamaño: 18px · Color: #FFF2CA
+  Posición: top: 260px, left: 40px
+
+  Texto editorial decorativo de fondo:
+  "SECRETO"
+  Fuente: NotoNastaliqUrdu-Bold.ttf
+  Tamaño: 96px · Color: #FAB402 · Opacity: 35%
+  Posición: centrado, rotación: –8deg
+  Animación: fade in solo (no se mueve) — efecto de watermark
+
+Narración:
+  "Y el tercero es el que no te voy a escribir en pantalla
+  porque se lo merece: el Bodegón de la Cava, en La Latina.
+  Sin perfil de Instagram, sin reseñas en inglés. Si lo
+  encontrás, sabés que te moviste como un local."
+
+Música/SFX:
+  En "el que no te voy a escribir en pantalla" — el texto del
+  sub-lugar hace un efecto de blur momentáneo (0.5s) antes de
+  resolverse. Genera intriga visual.
+  SFX: silencio de 0.3s + retoma el beat.
+
+Transición:
+  Fade to black (0.3s)
+
+
+═══════════════════════════════════════════════════════════
+ESCENA 7 [35s–40s] — CIERRE CON WIZZO / SELLO DE MARCA
+═══════════════════════════════════════════════════════════
+
+Visual:
+  Fondo violeta #4C167C full bleed — regresa al universo
+  de marca puro.
+  Wizzo (Color_magia.svg) centrado, grande, posición
+  ligeramente a la izquierda.
+  A la derecha: texto en dos líneas.
+  Logo_Tag_Blanco.svg aparece en la parte inferior,
+  centrado, dentro de safe zone (bottom: 280px mínimo).
+  Curva_lila.svg como elemento decorativo superior,
+  animada con
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
