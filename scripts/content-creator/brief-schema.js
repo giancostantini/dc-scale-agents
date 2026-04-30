@@ -60,11 +60,11 @@
  * @property {string[]} [prioritize.angle] - Top angles by historical score
  * @property {string[]} [prioritize.publish_time] - Best historical publish times (HH:MM)
  *
- * --- Production flags (future) ---
- * @property {boolean} [produceVideo] - false in Fase 1, true when Remotion is connected
- * @property {boolean} [produceStatic] - false in Fase 1, true when NanoBanana is connected
- * @property {boolean} [generateVoice] - false in Fase 1, true when ElevenLabs is connected
- * @property {boolean} [autoPublish] - false until Blotato is connected
+ * --- Production flags ---
+ * @property {boolean} [produceVideo] - true by default (Remotion renderea MP4 para pieceType "reel"). El caller debe pasar false explícito para "solo script".
+ * @property {boolean} [produceStatic] - false by default (todavía sin imagen estática auto)
+ * @property {boolean} [generateVoice] - true by default para reels (ElevenLabs); ignorado para otros tipos
+ * @property {boolean} [autoPublish] - false hasta que el cliente pida publicar auto vía Blotato
  * @property {string[]} [crossPost] - Additional platforms to cross-post to
  *   e.g. ["tiktok", "instagram-stories"] — uses PLATFORM_MAP keys in produce-publish.js
  * @property {string} [scheduleTime] - ISO 8601 datetime to schedule post (null = publish immediately)
@@ -90,9 +90,9 @@ export const DEFAULT_BRIEF = {
   instructions: null,
   calendarEntryId: null,
   prioritize: null,
-  produceVideo: false,
+  produceVideo: true,
   produceStatic: false,
-  generateVoice: false,
+  generateVoice: true,
   autoPublish: false,
   crossPost: [],
   scheduleTime: null,
