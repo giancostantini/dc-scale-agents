@@ -35,6 +35,77 @@ function stripAnsi(s) {
   return String(s).replace(ANSI_REGEX, "");
 }
 
+/**
+ * Pelamos markdown fences que Claude a veces emite a pesar del prompt
+ * "Output ONLY a single TypeScript/TSX file. No explanations, no markdown
+ * fences." Cubrimos los casos:
+ *   ```tsx\n<código>\n```
+ *   ```typescript\n<código>\n```
+ *   ```\n<código>\n```
+ *   "Acá tenés el componente:\n```tsx\n<código>\n```"  (con preámbulo)
+ *
+ * Si el TSX no viene con fences, devolvemos tal cual (trim solo).
+ * Si vienen MÚLTIPLES bloques de código, agarramos el más largo (que es
+ * el componente principal — los otros suelen ser snippets de explicación).
+ */
+function sanitizeRemotionCode(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+
+  // Detectar todos los bloques ```...``` y elegir el más largo.
+  const fenceRegex = /```(?:tsx|typescript|ts|jsx|js)?\s*\n([\s\S]*?)\n```/gi;
+  const blocks = [];
+  let match;
+  while ((match = fenceRegex.exec(trimmed)) !== null) {
+    blocks.push(match[1]);
+  }
+  if (blocks.length > 0) {
+    blocks.sort((a, b) => b.length - a.length);
+    return blocks[0].trim();
+  }
+
+  // Si empieza con ``` sin closing (caso degenerado), pelar la primera línea
+  // ``` y el cierre si lo hay.
+  if (trimmed.startsWith("```")) {
+    const firstNl = trimmed.indexOf("\n");
+    let body = firstNl >= 0 ? trimmed.slice(firstNl + 1) : trimmed;
+    if (body.endsWith("```")) body = body.slice(0, -3);
+    return body.trim();
+  }
+
+  return trimmed;
+}
+
+/**
+ * Validación mínima del TSX antes de pasarlo al bundler. Si Claude devolvió
+ * texto narrativo, JSON, o un fragmento que no parece un módulo TS válido,
+ * fallamos rápido con un error accionable en vez de esperar que esbuild
+ * explote en setup-cache.js con un mensaje opaco.
+ */
+function validateRemotionCode(code, compositionId) {
+  if (!code || code.length < 100) {
+    throw new Error(
+      `Composition TSX vacía o demasiado corta (${code?.length ?? 0} chars). ` +
+      `Claude probablemente devolvió texto narrativo en vez de código.`,
+    );
+  }
+  const hasImport = /\bimport\b/.test(code);
+  const hasExport = /\bexport\b/.test(code);
+  if (!hasImport || !hasExport) {
+    throw new Error(
+      `Composition TSX no parece módulo válido (import: ${hasImport}, export: ${hasExport}). ` +
+      `Primeros 200 chars: ${code.slice(0, 200)}`,
+    );
+  }
+  if (!code.includes(compositionId)) {
+    throw new Error(
+      `Composition TSX no exporta el component "${compositionId}". ` +
+      `Esperábamos un export default o nombrado con ese ID. Claude devolvió ` +
+      `un componente con otro nombre o estructura. Primeros 300 chars: ${code.slice(0, 300)}`,
+    );
+  }
+}
+
 async function callClaude(prompt, maxTokens = 8000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -321,12 +392,29 @@ export async function produceVideo(brief, storyboard, pieceId) {
     compositionId,
     assetBlock,
   );
-  const remotionCode = await callClaude(remotionPrompt);
+  const rawRemotionCode = await callClaude(remotionPrompt);
 
-  // 5. Write the composition file
+  // 5. Sanitize + validate. Si Claude emitió markdown fences los pelamos;
+  //    si emitió texto narrativo o algo sin imports/exports, fallamos rápido
+  //    con error accionable en vez de dejar que esbuild explote más adelante.
+  //    En cualquier falla acá, adjuntamos el TSX raw al Error para que el
+  //    drawer del dashboard lo muestre (y veas exactamente qué emitió Claude).
   const compositionFile = resolve(compositionDir, "index.tsx");
+  let remotionCode;
+  try {
+    remotionCode = sanitizeRemotionCode(rawRemotionCode);
+    validateRemotionCode(remotionCode, compositionId);
+  } catch (err) {
+    err._stage = "validate";
+    err._stderr = null;
+    err._compositionTsx = rawRemotionCode;
+    err._compositionFile = compositionFile;
+    throw err;
+  }
+
+  // 5b. Write the composition file
   writeFileSync(compositionFile, remotionCode, "utf-8");
-  console.log(`Composition written: ${compositionFile}`);
+  console.log(`Composition written: ${compositionFile} (${remotionCode.length} chars)`);
 
   // 6. Register in Root.tsx
   const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
