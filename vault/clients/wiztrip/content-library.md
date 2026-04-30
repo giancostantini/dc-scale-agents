@@ -1805,3 +1805,257 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #007 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Comer en Madrid sin caer en trampa turística — formato Piques de Wizzo | Instructions: Usar el asset library completo de WizTrip. Wizzo en expresión Magia (wiztrip/mascot/color/Color_magia.svg o equivalente trazo/sticker) para el momento del Pique. Logo blanco (Logo_Blanco.svg) para frames sobre fondo violeta #4C167C. Usar fonts custom del asset library: Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu — NO Google Fonts. Respetar voz Wizzo (humano, cercano, con piques reales, sin superlativos vacíos). Atacar la objeción turista que cae en trampas con criterio experto.
+
+### Generated Content
+# Reel/TikTok — Piques de Wizzo · Madrid sin trampa turística
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Valor + Viralidad (compartible) — posicionar a Wizzo como experto en destinos europeos, atacar la objeción "caigo en trampas turísticas" y generar comunidad |
+| **Formato de script** | **B — "Direct Value"** · Promesa clara → 3 piques concretos con contraste trampa/local → CTA guardar · Elegido porque el ángulo educativo de "evitar trampas" es altamente guardable y compartible, y el formato Piques de Wizzo tiene estructura natural de 3 puntos |
+| **Trigger emocional** | **Enojo/vindicación** — "me habían dicho que ese lugar era bueno y era una trampa" · El viajero que ya fue a Madrid (o que va a ir) se identifica con el error y quiere revancha |
+| **Plataformas destino** | Instagram Reels + TikTok (principal), Facebook Reels (secundario) |
+| **Duración estimada** | 42–48 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Pantalla dividida en 0.1 segundos: izquierda con foto de Mercado San Miguel lleno de turistas (abarrotado, precios visibles en pizarra), derecha con una barra de barrio vacía, luz tenue, jamón colgando — personas reales comiendo. Wizzo aparece como sticker animado en el centro con expresión `Color_magia.svg`, señalando hacia la derecha con el dedo.
+- **Textual:** `Madrid te está robando.` (7 palabras. Bricolage Grotesque ExtraBold, blanco `#FFFFFF`, trazo sombra `#4C167C` 3px, centrado, zona segura superior)
+- **Verbal:** *"Si vas a Madrid y entrás a estos tres lugares... te van a cobrar el doble por la mitad."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s–2.5s] — HOOK / PATTERN INTERRUPTION
+  Visual: Pantalla negra #222524 con flash rápido (0.1s) al split-screen.
+          Lado izquierdo: foto de Mercado San Miguel, turistas apilados,
+          pizarrón con "Jamón ibérico €14/tapa". Lado derecho: bar de
+          barrio con madera oscura, luz cálida, personas locales comiendo,
+          Sticker Wizzo (Sticker_magia.svg) aparece en el centro con
+          entrada pop-in rápida (scale 0→1 en 0.2s).
+  Texto en pantalla: "MADRID TE ESTÁ ROBANDO."
+          Fuente: BricolageGrotesque_48pt-ExtraBold.ttf
+          Color: #FFFFFF con shadow #4C167C 3px offset
+          Posición: Centro pantalla, y=38% (zona segura)
+          Tamaño: 72px
+  Narración: "Si vas a Madrid y entrás a estos tres lugares...
+              te van a cobrar el doble por la mitad."
+  Música/SFX: Silencio los primeros 0.8s → entrada súbita de beat
+              lo-fi percusivo con carácter (no suave, tiene swing)
+  Transición: Hard cut
+
+Escena 2 [2.5s–5s] — CREDENCIAL + PROMESA
+  Visual: Fondo violeta pleno #4C167C.
+          Logo_Blanco.svg centrado arriba (120px ancho, y=18%).
+          Wizzo en Color_magia.svg aparece desde abajo (slide-up 0.3s),
+          expresión de "tengo algo para vos", posicionado lado derecho
+          (x=65%, y=45%, 35% del ancho de pantalla).
+          Texto aparece letra por letra (typewriter effect, 0.8s total).
+  Texto en pantalla: "3 PIQUES DE WIZZO"
+          Subtexto: "para comer en Madrid sin caer"
+          Fuente título: BricolageGrotesque_48pt-ExtraBold.ttf, #FAB402, 68px
+          Fuente subtexto: HostGrotesk-Regular.ttf, #FFF2CA, 32px
+          Posición: Izquierda, centrado verticalmente (x=8%, y=42%)
+  Narración: "Tres piques reales para que comás en Madrid
+              como un local — no como un turista con billetera abierta."
+  Música/SFX: Beat continúa, sube levemente
+  Transición: Wipe horizontal hacia derecha
+
+Escena 3 [5s–16s] — PIQUE #1 · TRAMPA vs. LOCAL
+  Visual: Fondo crema #FFF2CA.
+          Frame izquierdo (40%): foto Mercado San Miguel — ángulo que
+          muestre la multitud, no el producto. Overlay rojo semitransparente
+          #CC0000 20% + ícono ❌ Sticker_error.svg de Wizzo (pequeño,
+          esquina superior del frame).
+          Frame derecho (60%): foto interior de bar Cervecería El Brillante —
+          personas reales desayunando, bocadillo de calamares sobre barra.
+          Curva Curva_lila.svg como separador entre frames.
+          Badge dorado en esquina inferior derecha: "WIZZO PICK ✓"
+          en Host Grotesk SemiBold, #4C167C sobre fondo #FAB402.
+  Texto en pantalla línea superior: "PIQUE #1 · DESAYUNO"
+          Fuente: BricolageGrotesque_24pt-Bold.ttf, #4C167C, 40px, y=22%
+          Texto trampa: "Mercado San Miguel → TRAMPA TURÍSTICA"
+          Fuente: HostGrotesk-Bold.ttf, #CC0000, 28px, debajo del frame izq
+          Texto pique: "Brillante (Atocha) → bocadillo de calamares, €3.50"
+          Fuente: HostGrotesk-Bold.ttf, #4C167C, 28px, debajo del frame der
+  Narración: "Pique uno. El Mercado San Miguel parece auténtico pero
+              es pura postal para turistas — pagás €14 por tres bocados.
+              Mi pique: Cervecería El Brillante, justo al lado de Atocha.
+              Bocadillo de calamares, €3.50. El mismo desayuno que toman
+              los madrileños desde hace cincuenta años. Eso es un pique real."
+  Música/SFX: Beat sigue. SFX: "error" suave en frame izquierdo (0.2s
+              sonido tipo "buzz" muy sutil). SFX: campana suave en PICK.
+  Transición: Slide up
+
+Escena 4 [16s–27s] — PIQUE #2 · TRAMPA vs. LOCAL
+  Visual: Fondo violeta #4C167C.
+          Misma estructura split. Izquierda: foto restaurante frente al
+          Rastro / Plaza Mayor (mesas en plena calle turística, carta
+          plastificada visible). Sticker_error.svg superpuesto.
+          Derecha: foto taberna antigua, interior, mesas sin mantel,
+          pizarra escrita a mano. Wizzo en Trazo_magia.svg como watermark
+          detrás del frame derecho (opacity 15%).
+          Curva_celeste.svg como separador.
+          Badge: "WIZZO PICK ✓" en #FAB402.
+  Texto en pantalla línea superior: "PIQUE #2 · ALMUERZO"
+          Fuente: BricolageGrotesque_24pt-Bold.ttf, #FAB402, 40px
+          Texto trampa: "Restaurantes Plaza Mayor → TRAMPA TURÍSTICA"
+          Fuente: HostGrotesk-Bold.ttf, #E5F53F, 26px (sobre violeta)
+          Texto pique: "Taberna La Bola (Ópera) → cocido madrileño real"
+          Fuente: HostGrotesk-Bold.ttf, #FFF2CA, 26px
+  Narración: "Pique dos. Cualquier restaurante con carta plastificada
+              frente a la Plaza Mayor — trampa turística directa.
+              Menú del día a €22 con comida de microondas.
+              Mi pique: Taberna La Bola, cerca de Ópera.
+              Pizarra escrita a mano, cocido madrileño de olla,
+              llevan más de ciento cincuenta años haciéndolo igual.
+              Eso no está en ninguna guía turística."
+  Música/SFX: Beat sigue. Pausa micro de 0.3s antes de "Mi pique"
+              para generar efecto de "te voy a decir un secreto"
+  Transición: Hard cut con flash blanco 1 frame
+
+Escena 5 [27s–38s] — PIQUE #3 · TRAMPA vs. LOCAL
+  Visual: Fondo crema #FFF2CA.
+          Izquierda: foto de cadena de bar turístico en Gran Vía —
+          carta en inglés, néon, turistas con selfie stick.
+          Sticker_error.svg superpuesto.
+          Derecha: foto de vermutería de barrio en Malasaña/Lavapiés —
+          mostrador con aceitunas, boquerones, vino de barril.
+          Wizzo Color_magia.svg lateral derecho, más grande que en piques
+          anteriores, como si señalara la foto con entusiasmo.
+          Curva_neon.svg como separador (contraste sobre crema).
+          Badge: "WIZZO PICK ✓" fondo #4C167C, texto #FAB402.
+  Texto en pantalla línea superior: "PIQUE #3 · TARDE / TAPAS"
+          Fuente: BricolageGrotesque_24pt-Bold.ttf, #4C167C, 40px
+          Texto trampa: "Bares en Gran Vía → TRAMPA TURÍSTICA"
+          Fuente: HostGrotesk-Bold.ttf, #CC0000, 26px
+          Texto pique: "Vermutería de barrio en Malasaña → el rito local"
+          Fuente: HostGrotesk-Bold.ttf, #4C167C, 26px
+  Narración: "Pique tres, el que más me importa.
+              Los bares de Gran Vía tienen carta en inglés y en japonés —
+              no necesitás más pistas.
+              Mi pique: cualquier vermutería de barrio en Malasaña o Lavapiés.
+              Pedís vermut de barril, te traen boquerones y aceitunas sin
+              que los pidas — eso es Madrid de verdad.
+              Entrada libre, sin reserva, sin sorpresas en la cuenta."
+  Música/SFX: Beat baja un 20% en volumen — momento más "íntimo",
+              como secreto entre amigos
+  Transición: Zoom out lento + fade a fondo violeta
+
+Escena 6 [38s–44s] — CIERRE + SELLO WIZZO + CTA
+  Visual: Fondo violeta pleno #4C167C.
+          Wizzo Color_magia.svg entra desde abajo con bounce (0.4s),
+          posicionado centro-derecha (x=55%, y=30%, 40% ancho pantalla).
+          Logo_Blanco.svg aparece arriba izquierda (y=15%, 130px ancho).
+          Texto en dos líneas aparece con stagger (0.2s entre cada línea).
+          Estrella Estrella_color.svg pequeña (30px) como bullet decorativo
+          antes del "Elegiste bien."
+          Curva_lila.svg como elemento de fondo, baja opacidad 20%.
+  Texto en pantalla:
+          Línea 1: "ESTOS SON LOS PIQUES REALES."
+          Fuente: BricolageGrotesque_48pt-ExtraBold.ttf, #FAB402, 60px
+          Posición: x=6%, y=52%
+          Línea 2: "Guardalo antes de tu viaje."
+          Fuente: HostGrotesk-Medium.ttf, #FFF2CA, 34px
+          Posición: x=6%, y=67%
+          Línea 3 (pequeña, editorial): "— Wizzo"
+          Fuente: NotoNastaliqUrdu-Regular.ttf, #B99FFF, 28px
+          Posición: x=6%, y=78%
+  Narración: "Estos son los piques reales para Madrid.
+              Guardalo antes de tu viaje — y si querés el itinerario
+              completo armado con criterio, estamos en WizTrip.
+              Elegiste bien."
+  Música/SFX: Beat sube a resolución. Último beat coincide con
+              "Elegiste bien." (timing preciso). Fade out 0.5s.
+  Transición: Fade to black
+```
+
+---
+
+## Storyboard de producción
+
+**Especificaciones globales:**
+- Resolución: `1080 × 1920 px` (9:16)
+- Safe zone superior: `y > 150px` (UI stories/reels)
+- Safe zone inferior: `y < 1670px` (UI TikTok)
+- Working area: `1080 × 1570px` (y=150 a y=1720)
+- Frame rate: 30fps
+- Codec destino: H.264 MP4
+
+---
+
+### Frame 1 — Hook Split Screen `[0s–2.5s]`
+
+```
+Fondo: #222524
+Layout: Split vertical 50/50
+
+[Elemento A — Izquierda]
+  Tipo: Imagen estática
+  Asset visual: footage turístico Mercado San Miguel
+  MISSING_ASSET: photo · Mercado San Miguel abarrotado turistas,
+                 pizarra precios visible, ángulo natural no poster
+  Overlay: color #CC0000, opacity 18%
+  Asset mascot: Sticker_error.svg
+    Posición: x=35px (sobre imagen izquierda), y=180px
+    Tamaño: 90×90px
+    Animación: pop-in scale 0→1, ease-out, duración 0.15s, delay 0.8s
+
+[Elemento B — Derecha]
+  Tipo: Imagen estática
+  MISSING_ASSET: photo · bar de barrio Madrid interior, personas
+                 reales comiendo, luz cálida, no posados
+  Overlay: ninguno
+
+[Elemento C — Centro]
+  Asset mascot: Sticker_magia.svg
+  Posición: x=490px (centrado), y=720px
+  Tamaño: 200×200px
+  Animación: scale 0→1.1→1, spring ease, duración 0.25s, delay 0.1s
+  Wizzo apunta hacia derecha (la composición natural del asset lo permite)
+
+[Texto Hero]
+  Contenido: "MADRID TE ESTÁ ROBANDO."
+  Font: BricolageGrotesque_48pt-ExtraBold.ttf
+  Size: 76px · Weight: ExtraBold · Case: UPPERCASE
+  Color fill: #FFFFFF
+  Text shadow: #4C167C, offset 3px 3px, blur 0px
+  Posición: x=center, y=750px
+  
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
