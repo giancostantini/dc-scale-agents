@@ -1,17 +1,22 @@
+import React from "react";
 import { Composition } from "remotion";
 
 // Compositions are dynamically registered here.
-// The Content Creator Agent writes new composition imports and registrations
-// to this file each time it produces a video.
+// El Content Creator Agent inyecta imports en el primer bloque y entries
+// <Composition /> dentro del JSX de RemotionRoot. Los markers están en
+// posiciones distintas: imports a top-level, <Composition /> adentro del
+// fragment del componente.
 
-// --- GENERATED COMPOSITIONS START ---
-// (Content Creator Agent inserts imports and <Composition> entries below)
-// --- GENERATED COMPOSITIONS END ---
+// --- GENERATED IMPORTS START ---
+// (Content Creator Agent inyecta imports de compositions acá)
+// --- GENERATED IMPORTS END ---
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      {/* Placeholder — Content Creator Agent registers compositions here */}
+      {/* --- GENERATED COMPOSITIONS START --- */}
+      {/* (Content Creator Agent inyecta <Composition /> entries acá) */}
+      {/* --- GENERATED COMPOSITIONS END --- */}
     </>
   );
 };

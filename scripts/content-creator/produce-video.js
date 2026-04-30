@@ -216,6 +216,15 @@ export const ${compositionId}: React.FC = () => {
 }
 
 // --- Register composition in Root.tsx ---
+//
+// Root.tsx tiene dos pares de markers en posiciones diferentes:
+//   1. `// --- GENERATED IMPORTS START/END ---` a top-level (para los imports)
+//   2. `{/* --- GENERATED COMPOSITIONS START/END --- */}` adentro del JSX
+//      del componente RemotionRoot (para los <Composition /> entries).
+//
+// Antes los dos markers eran el mismo y estaban a top-level: el <Composition>
+// se inyectaba afuera del fragment del componente y Remotion arrancaba con
+// "Available compositions: " vacío. Ese era el bug que rompía wiztrip_006.
 
 function registerComposition(compositionId, compositionPath) {
   const rootPath = resolve(REMOTION_DIR, "src/Root.tsx");
@@ -231,29 +240,28 @@ function registerComposition(compositionId, compositionPath) {
         durationInFrames={${compositionId}_CONFIG.durationInFrames}
       />`;
 
-  // Add import after last import or at top
-  const importMarker = "// --- GENERATED COMPOSITIONS START ---";
-  const compositionMarker = "// --- GENERATED COMPOSITIONS END ---";
+  const importsEndMarker = "// --- GENERATED IMPORTS END ---";
+  const compositionsEndMarker = "{/* --- GENERATED COMPOSITIONS END --- */}";
 
-  if (!root.includes(importLine)) {
-    root = root.replace(
-      importMarker,
-      `${importMarker}\n${importLine}`
+  if (!root.includes(importsEndMarker) || !root.includes(compositionsEndMarker)) {
+    throw new Error(
+      "Root.tsx no tiene los markers esperados. Esperado: " +
+      `'${importsEndMarker}' y '${compositionsEndMarker}'.`,
     );
   }
 
-  if (!root.includes(compositionId + "_CONFIG")) {
+  if (!root.includes(importLine)) {
     root = root.replace(
-      compositionMarker,
-      `${compositionEntry}\n      ${compositionMarker}`
+      importsEndMarker,
+      `${importLine}\n${importsEndMarker}`,
     );
-    // Add Composition import if not there
-    if (!root.includes("{ Composition }")) {
-      root = root.replace(
-        `import { Composition } from "remotion";`,
-        `import { Composition } from "remotion";`
-      );
-    }
+  }
+
+  if (!root.includes(`id={${compositionId}_CONFIG.id}`)) {
+    root = root.replace(
+      compositionsEndMarker,
+      `${compositionEntry}\n      ${compositionsEndMarker}`,
+    );
   }
 
   writeFileSync(rootPath, root, "utf-8");
@@ -331,16 +339,29 @@ export async function produceVideo(brief, storyboard, pieceId) {
   console.log("Preview available at http://localhost:3000 (run: npm run studio)");
 
   try {
-    execSync(
+    // stdio "pipe" para capturar stderr — antes era "inherit" y el catch solo
+    // recibía "Command failed: npx remotion render ..." sin la causa real.
+    // El log del runner se sigue viendo en console.log debajo (se imprime el
+    // stderr de Remotion entero al final si el render falla).
+    const renderResult = execSync(
       `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
-      { cwd: REMOTION_DIR, stdio: "inherit", timeout: 300000 }
+      { cwd: REMOTION_DIR, stdio: "pipe", timeout: 300000, encoding: "utf-8" },
     );
+    if (renderResult) console.log(renderResult);
     console.log(`Video rendered: ${outputPath}`);
     return outputPath;
   } catch (err) {
+    // err.stderr / err.stdout existen cuando stdio es "pipe". Los volcamos
+    // al log para que aparezcan en GHA, y guardamos los últimos 500 chars
+    // del stderr en err.message para que el frontend pueda mostrarlo.
+    const stderr = err.stderr ? err.stderr.toString() : "";
+    const stdout = err.stdout ? err.stdout.toString() : "";
+    if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
+    if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
+    const tail = stderr.trim().split("\n").slice(-8).join("\n").slice(-500);
     throw new Error(
-      `Remotion render failed: ${err.message}\n` +
-      `Preview manually at: cd remotion-studio && npm run studio`
+      `Remotion render failed: ${tail || err.message}\n` +
+      `Para reproducir local: cd remotion-studio && npm run studio`,
     );
   }
 }
