@@ -1194,3 +1194,335 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #005 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Comer en Madrid sin caer en trampa turística — formato Piques de Wizzo | Instructions: Usar el asset library completo. Wizzo en su expresión Magia para el momento del Pique. Logo blanco para frames sobre violeta #4C167C. Usar las fonts custom (Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu) que están en el library en lugar de Google Fonts.
+
+### Generated Content
+# WIZTRIP — PIQUES DE WIZZO: MADRID SIN TRAMPA
+**Content Creator Agent · D&C Scale Partners**
+*Generado: 30/04/2026 · Cliente: WizTrip · Tipo: Reel/TikTok*
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Valor + Viral — posicionar a Wizzo como insider experto, generar saves masivos, awareness de marca |
+| **Formato de script** | **B — "Direct Value"** · Es el formato natural del Piques de Wizzo: promesa clara de criterio local → puntos concretos con trampa turística revelada → cierre con pique real. Genera saves, que es la métrica de valor orgánico más importante en TikTok/IG. |
+| **Trigger emocional** | **Enojo/indignación + alivio** — "¿me estaban cagando todo este tiempo?" → "ahora sí sé cómo hacerlo". Combo de los más virales en contenido de viajes. |
+| **Plataformas destino** | Instagram Reels + TikTok |
+| **Duración estimada** | 42–47 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Primer frame: pantalla dividida. Izquierda → restaurante turístico en Gran Vía (foto abarrotada, precios gigantes, cola de turistas). Derecha → callejuela del barrio de Lavapiés, gente local sentada en terraza pequeña, luz cálida, sin cola. Ambas imágenes estáticas 1 segundo, luego un flash de corte a Wizzo en expresión Magia.
+- **Textual:** `MADRID TE ESTÁ CAGANDO` (en pantalla completa, Bricolage ExtraBold, blanco sobre violeta `#4C167C`, 0.8s)
+- **Verbal:** *"Si comiste en Gran Vía... te cagaron."*
+
+---
+
+## Script completo
+
+```
+───────────────────────────────────────────────────────
+Escena 1 [0s–1.2s] — PATTERN INTERRUPTION
+───────────────────────────────────────────────────────
+Visual:
+  Flash rápido de 3 imágenes en corte rápido (0.2s c/u):
+  1. Foto aspiracional Madrid de noche (skyline, luces)
+  2. Menú turístico con precios inflados, fondo rojo
+  3. Cara de persona decepcionada mirando la cuenta del restaurante
+  Luego → texto completo sobre fondo violeta #4C167C
+
+Texto en pantalla:
+  "MADRID TE ESTÁ CAGANDO"
+  Fuente: BricolageGrotesque_72pt-ExtraBold.ttf
+  Color: #FFFFFF
+  Tamaño: 96px
+  Posición: centro exacto de pantalla
+  Animación: scale-in rápido (0.1s) + hold
+
+Narración:
+  "Si comiste en Gran Vía... te cagaron."
+
+Música/SFX:
+  Drop de bajo repentino (1 golpe seco) al aparecer el texto
+  Luego silencio de 0.3s para dejar respirar la frase
+
+Transición:
+  Hard cut a escena 2
+───────────────────────────────────────────────────────
+Escena 2 [1.2s–2.5s] — WIZZO APARECE / CREDENCIAL
+───────────────────────────────────────────────────────
+Visual:
+  Fondo: violeta sólido #4C167C
+  Asset Wizzo: Color_magia.svg (centro pantalla, tamaño 60% del frame)
+  Logo blanco arriba: Logo_Blanco.svg (top center, 280px ancho, dentro de safe zone)
+  Texto aparece debajo de Wizzo en dorado
+
+Texto en pantalla:
+  "EL PIQUE DE WIZZO"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Color: #FAB402 (Wizzo Gold)
+  Tamaño: 72px
+  Posición: 68% vertical (debajo de Wizzo)
+  Animación: fade-in + leve bounce desde abajo (0.3s)
+
+  Subtexto simultáneo:
+  "Madrid · Gastronomía"
+  Fuente: HostGrotesk-Medium.ttf
+  Color: #B99FFF (lavanda)
+  Tamaño: 36px
+  Posición: inmediatamente debajo del texto dorado
+
+Narración:
+  "Soy Wizzo. Ya caí en todas las trampas turísticas de Madrid.
+  Hoy te paso los tres piques que nadie en internet te va a dar."
+
+Música/SFX:
+  Beat suave entra (lofi/jazzy, 85–95 BPM). Permanece debajo de toda la narración.
+
+Transición:
+  Slide horizontal hacia escena 3 (derecha entra, velocidad 0.15s)
+───────────────────────────────────────────────────────
+Escena 3 [2.5s–13s] — TRAMPA #1 / PIQUE #1
+───────────────────────────────────────────────────────
+Visual:
+  Background: fotografía aspiracional — callejuela de Malasaña, terraza pequeña,
+  personas reales comiendo, luz de tarde, encuadre ligeramente inclinado (no postal).
+  Overlay de gradiente violeta #4C167C al 40% desde el borde inferior.
+  Asset Wizzo: Sticker_error.svg esquina inferior derecha (tamaño 180px)
+  — aparece con pequeña animación de shake (advertencia).
+
+Texto en pantalla — bloque A (entra en segundo 2.5):
+  [Etiqueta pill]
+  "⚠ TRAMPA TURÍSTICA"
+  Fuente: BricolageGrotesque_24pt-Bold.ttf
+  Color: fondo #FAB402 / texto #222524
+  Tamaño: 38px
+  Posición: 22% vertical, alineado a la izquierda con padding 40px
+  Animación: slide-in desde izquierda (0.2s)
+
+Texto en pantalla — bloque B (entra en segundo 3.5):
+  "Mercado de San Miguel"
+  Fuente: BricolageGrotesque_48pt-ExtraBold.ttf
+  Color: #FFFFFF
+  Tamaño: 64px
+  Posición: 28% vertical
+  Animación: fade-in
+
+Texto en pantalla — bloque C (entra en segundo 5.0):
+  "Pago turístico. Cola de 20 minutos.
+   Pintxos que valen la mitad dos cuadras al norte."
+  Fuente: HostGrotesk-Regular.ttf
+  Color: #FFF2CA (crema)
+  Tamaño: 34px
+  Line-height: 1.4
+  Posición: 36% vertical
+  Animación: fade-in (0.4s)
+
+Texto en pantalla — bloque D "EL PIQUE" (entra en segundo 7.5):
+  [Barra separadora: línea horizontal dorada #FAB402, 2px, 80% ancho]
+  "✦ EL PIQUE"
+  Fuente: BricolageGrotesque_24pt-Bold.ttf
+  Color: #FAB402
+  Tamaño: 40px
+
+  "Bar El Brillante — Atocha"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Color: #FFFFFF
+  Tamaño: 56px
+
+  "El bocadillo de calamares más honesto de Madrid.
+   Desde 1952. Sin cola. Sin cuento."
+  Fuente: HostGrotesk-Regular.ttf
+  Color: #FFF2CA
+  Tamaño: 34px
+  Todo este bloque: posición 52%–72% vertical
+
+Narración:
+  "Trampa número uno: Mercado de San Miguel.
+  Lo conoce todo el mundo, lo frecuenta ningún madrileño.
+  Cola, precio turístico, y los pintxos que pagás el doble.
+  El pique real: Bar El Brillante, al lado de Atocha.
+  Bocadillo de calamares desde 1952. Sin cola. Sin cuento."
+
+Música/SFX:
+  Beat continuo. Pequeño efecto de 'wrong buzzer' suave cuando menciona trampa turística.
+
+Transición:
+  Wipe vertical hacia arriba (0.12s) → escena 4
+───────────────────────────────────────────────────────
+Escena 4 [13s–24s] — TRAMPA #2 / PIQUE #2
+───────────────────────────────────────────────────────
+Visual:
+  Background: foto aspiracional — bar de tapas en La Latina, barras llenas de pinchos,
+  luz cálida, un par de personas en conversación, ninguna mirando a cámara.
+  Overlay gradiente oscuro desde abajo (#222524 al 50%).
+  Asset Wizzo: Sticker_pensar.svg esquina superior derecha (tamaño 160px)
+  — animación: entra con fade-in lento, da sensación de "reflexión".
+
+Texto en pantalla — estructura igual a escena 3:
+
+  [Pill etiqueta]
+  "⚠ TRAMPA TURÍSTICA"
+  (mismas specs que escena 3)
+
+  "Restaurantes frente al Retiro"
+  Fuente: BricolageGrotesque_48pt-ExtraBold.ttf
+  Color: #FFFFFF
+  Tamaño: 60px
+  Posición: 28% vertical
+
+  "Tres banderas en la puerta = menú del día inflado
+   y camareros que no hablan español."
+  Fuente: HostGrotesk-Regular.ttf
+  Color: #FFF2CA
+  Tamaño: 34px
+  Posición: 36% vertical
+
+  [Separador dorado]
+  "✦ EL PIQUE"
+  (specs idénticas a escena 3)
+
+  "Calle del Doctor Fourquet — Lavapiés"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Color: #FFFFFF
+  Tamaño: 52px
+
+  "Diez restaurantes auténticos en dos cuadras.
+   Turco, japonés local, tapas sin menú turístico.
+   Los madrileños comen acá."
+  Fuente: HostGrotesk-Regular.ttf
+  Color: #FFF2CA
+  Tamaño: 34px
+
+Narración:
+  "Trampa número dos: cualquier restaurante con vista al Retiro.
+  Si tiene tres banderas en la puerta y menú plastificado,
+  ya sabés que es una trampa.
+  El pique: la calle del Doctor Fourquet en Lavapiés.
+  Dos cuadras, diez opciones reales, precios de barrio.
+  Ahí comen los que viven en Madrid."
+
+Música/SFX:
+  Beat continúa. Mismos SFX de "trampa" al momento indicado.
+
+Transición:
+  Hard cut con flash de luz breve (1 frame blanco) → escena 5
+───────────────────────────────────────────────────────
+Escena 5 [24s–35s] — TRAMPA #3 / PIQUE #3 (el más fuerte)
+───────────────────────────────────────────────────────
+Visual:
+  Background: foto aspiracional — tablao / bar de vinos chico,
+  dos personas locales con copas, paredes con azulejos, sin turistas en cuadro.
+  Overlay gradiente: mezcla violeta #4C167C (izquierda 30%) + oscuro (abajo 40%).
+  Asset Wizzo: Sticker_magia.svg centrado arriba (tamaño 200px)
+  — animación: entra con scale de 0.8 a 1.0 con bounce suave.
+  Este es el pique de oro — Wizzo en expresión Magia.
+
+  Curva decorativa: Curva_lila.svg en la parte derecha del frame,
+  tamaño 100% del alto del frame, opacidad 20%, sirve de textura de fondo.
+
+Texto en pantalla:
+
+  [Pill etiqueta]
+  "⚠ TRAMPA TURÍSTICA"
+  (specs idénticas, posición 22% vertical)
+
+  "Chocolatería San Ginés"
+  (famosa, todo el mundo la recomienda)
+  Fuente: BricolageGrotesque_48pt-ExtraBold.ttf
+  Color: #FFFFFF
+  Tamaño: 60px
+  Posición: 28% vertical
+
+  "Turistas desde las 2am.
+   Cola de 40 minutos por churros del montón."
+  Fuente: HostGrotesk-Regular.ttf
+  Color: #FFF2CA
+  Tamaño: 34px
+  Posición: 36%
+
+  [Separador dorado]
+  "✦ EL PIQUE DEFINITIVO"
+  Fuente: BricolageGrotesque_36pt-Bold.ttf
+  Color: #FAB402
+  Tamaño: 44px
+
+  "Valor D · Barrio de Chueca"
+  Fuente: BricolageGrotesque_48pt-Bold.ttf
+  Color: #FFFFFF
+  Tamaño: 52px
+
+  "Churros hechos en el momento. Ningún influencer lo subió todavía.
+   Hacelo antes de que lleguen."
+  Fuente: HostGrotesk-Medium.ttf
+  Color: #FFF2CA
+  Tamaño: 34px
+
+Narración:
+  "La trampa más famosa: Chocolatería San Ginés.
+  Todo el mundo la recomienda porque no conocen otra.
+  El pique que nadie subió todavía: Valor D en Chueca.
+  Churros del momento, sin cola, sin filtro.
+  Cuando lleguen los influencers, ya va a ser tarde."
+
+Música/SFX:
+  Beat sube levemente de intensidad en este bloque.
+  Efecto de 'ding' suave al aparecer "EL PIQUE DEFINITIVO".
+
+Transición:
+  Slide horizontal hacia izquierda → escena 6
+───────────────────────────────────────────────────────
+Escena 6 [35s–42s] — CIERRE / CTA
+───────────────────────────────────────────────────────
+Visual:
+  Fondo sólido: violeta #4C167C
+  Asset Wizzo: Color_bien.svg centrado en pantalla (tamaño 55% del frame)
+  — animación: thumbs up, entra desde abajo con slide-up + bounce.
+  Logo: Logo_Blanco.svg — top center (280px ancho, zona segura superior)
+  Curva decorativa: Curva_neon.svg en esquina inferior derecha, opacidad 35%,
+  tamaño decorativo (no invasivo)
+
+Texto en pantalla — aparece secuencialmente:
+
+  Texto principal (entra en segundo 35.5):
+  "Guardá este video."
+  Fuente: BricolageGrotesque_72pt-ExtraBold.ttf
+  Color: #FAB402 (Wizzo Gold)
+  Tamaño: 86px
+  Posición: 35% vertical, centrado
+  Animación: scale-in con bounce (0.25s)
+
+  Subtexto (entra en segundo
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
