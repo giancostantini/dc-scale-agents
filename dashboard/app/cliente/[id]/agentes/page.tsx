@@ -89,7 +89,7 @@ export default function AgentesPage({ params }: { params: Promise<{ id: string }
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.2fr)", gap: 24, marginBottom: 32 }}>
-            <ConsultantChat clientId={id} />
+            <ConsultantChat clientId={id} onSelectRun={setSelectedRun} />
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
               {agents.map((a) => (

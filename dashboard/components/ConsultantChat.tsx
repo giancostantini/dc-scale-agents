@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useAgentRuns } from "@/lib/use-agent-runs";
+import type { AgentRun } from "@/lib/types";
 
 interface ChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   dispatched?: { agent: string; runId: number } | null;
   memorySaved?: { kind: string; content: string } | null;
+  /** Para mensajes role="system" de completion: el run que terminó. */
+  completion?: {
+    runId: number;
+    agent: string;
+    status: "success" | "error";
+    summary: string | null;
+    /** Si el output tiene video (pieza de Content Creator con produceVideo true). */
+    videoPieceId?: string | null;
+  } | null;
 }
 
 interface ConsultantChatProps {
   clientId: string;
+  /** Callback cuando el usuario clickea "Ver detalle" en un mensaje de
+   *  completion. El padre debe abrir el RunOutputDrawer del run. */
+  onSelectRun?: (run: AgentRun) => void;
 }
 
 interface ConsultantResponse {
@@ -20,23 +34,98 @@ interface ConsultantResponse {
   error?: string;
 }
 
-export default function ConsultantChat({ clientId }: ConsultantChatProps) {
+export default function ConsultantChat({
+  clientId,
+  onSelectRun,
+}: ConsultantChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Track de runs dispatchados en esta sesión + cuáles ya mostramos como
+  // completados (para no duplicar el mensaje de completion).
+  const dispatchedRunIdsRef = useRef<Set<number>>(new Set());
+  const completedShownRef = useRef<Set<number>>(new Set());
+
+  // Realtime subscription a agent_runs del cliente. Cuando un run que
+  // dispatchamos pasa a success/error, mostramos un mensaje de completion.
+  const { items: runs } = useAgentRuns({ clientId, limit: 30 });
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, loading]);
+
+  // Watcher: cuando un run trackeado cambie de status, push completion msg
+  useEffect(() => {
+    for (const run of runs) {
+      const isTracked = dispatchedRunIdsRef.current.has(run.id);
+      const alreadyShown = completedShownRef.current.has(run.id);
+      const isFinal = run.status === "success" || run.status === "error";
+      if (!isTracked || alreadyShown || !isFinal) continue;
+
+      completedShownRef.current.add(run.id);
+
+      // Para Content Creator, intentar obtener el pieceId del output
+      // estructurado (para el link de descarga del video).
+      void enrichWithVideoInfo(run.id).then((videoPieceId) => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "system",
+            content: "",
+            completion: {
+              runId: run.id,
+              agent: run.agent,
+              status: run.status as "success" | "error",
+              summary: run.summary ?? null,
+              videoPieceId,
+            },
+          },
+        ]);
+      });
+    }
+  }, [runs]);
+
+  async function enrichWithVideoInfo(runId: number): Promise<string | null> {
+    // Llamada al endpoint nuevo o a una query para obtener el output con el
+    // pieceId. Usamos una query directa al cliente Supabase para velocidad.
+    try {
+      const res = await fetch(`/api/agents/runs/${runId}/output`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      // structured.pieceId + structured.videoPath setup → es Content Creator
+      // con video producido.
+      const structured = data?.output?.structured;
+      if (
+        structured &&
+        typeof structured.pieceId === "string" &&
+        structured.videoPath
+      ) {
+        return structured.pieceId;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
 
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
-    setMessages(nextMessages);
+    // Solo mandamos al backend los mensajes user/assistant (system messages
+    // son visuales únicamente, no parte del contexto del Consultor).
+    const conversationMessages = [
+      ...messages.filter((m) => m.role === "user" || m.role === "assistant"),
+      { role: "user" as const, content: text },
+    ];
+
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
     setLoading(true);
     setError(null);
@@ -47,7 +136,10 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId,
-          messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: conversationMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
         }),
       });
 
@@ -55,6 +147,10 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
 
       if (!res.ok) {
         throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+
+      if (data.dispatched) {
+        dispatchedRunIdsRef.current.add(data.dispatched.runId);
       }
 
       setMessages((prev) => [
@@ -78,6 +174,11 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
       e.preventDefault();
       void send();
     }
+  }
+
+  function handleViewRun(runId: number) {
+    const run = runs.find((r) => r.id === runId);
+    if (run && onSelectRun) onSelectRun(run);
   }
 
   return (
@@ -112,7 +213,13 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
           >
             Consultor
           </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--deep-green)" }}>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--deep-green)",
+            }}
+          >
             Chat con el agente del cliente
           </div>
         </div>
@@ -148,13 +255,20 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
               padding: "20px 0",
             }}
           >
-            Hola. Soy el Consultor. Preguntame por el estado del cliente o pedime
-            que dispare un agente (contenido, analítica, SEO, stock, logística).
+            Hola. Soy el Consultor. Preguntame por el estado del cliente o
+            pedime que dispare un agente (contenido, analítica, SEO, stock,
+            logística). Cuando un agente termine, te aviso acá mismo con el
+            resultado.
           </div>
         )}
 
         {messages.map((m, i) => (
-          <Bubble key={i} message={m} />
+          <Bubble
+            key={i}
+            message={m}
+            clientId={clientId}
+            onViewRun={handleViewRun}
+          />
         ))}
 
         {loading && (
@@ -222,7 +336,10 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
           disabled={loading || !input.trim()}
           style={{
             padding: "12px 20px",
-            background: loading || !input.trim() ? "var(--sand-dark)" : "var(--deep-green)",
+            background:
+              loading || !input.trim()
+                ? "var(--sand-dark)"
+                : "var(--deep-green)",
             color: "var(--off-white)",
             fontSize: 11,
             fontWeight: 600,
@@ -240,7 +357,19 @@ export default function ConsultantChat({ clientId }: ConsultantChatProps) {
   );
 }
 
-function Bubble({ message }: { message: ChatMessage }) {
+function Bubble({
+  message,
+  clientId,
+  onViewRun,
+}: {
+  message: ChatMessage;
+  clientId: string;
+  onViewRun: (runId: number) => void;
+}) {
+  if (message.role === "system" && message.completion) {
+    return <CompletionBubble completion={message.completion} clientId={clientId} onViewRun={onViewRun} />;
+  }
+
   const isUser = message.role === "user";
   return (
     <div
@@ -277,7 +406,8 @@ function Bubble({ message }: { message: ChatMessage }) {
             fontWeight: 600,
           }}
         >
-          → Dispatché · {message.dispatched.agent} · run #{message.dispatched.runId}
+          → Dispatché · {message.dispatched.agent} · run #
+          {message.dispatched.runId}
         </div>
       )}
       {message.memorySaved && (
@@ -294,6 +424,124 @@ function Bubble({ message }: { message: ChatMessage }) {
           ◇ Guardé esto en memoria ({message.memorySaved.kind})
         </div>
       )}
+    </div>
+  );
+}
+
+function CompletionBubble({
+  completion,
+  clientId,
+  onViewRun,
+}: {
+  completion: NonNullable<ChatMessage["completion"]>;
+  clientId: string;
+  onViewRun: (runId: number) => void;
+}) {
+  const isSuccess = completion.status === "success";
+  const accent = isSuccess ? "var(--green-ok)" : "var(--red-warn)";
+  const bg = isSuccess
+    ? "rgba(58,139,92,0.06)"
+    : "rgba(176,75,58,0.08)";
+
+  const videoUrl = completion.videoPieceId
+    ? `/api/clients/${clientId}/videos/${completion.videoPieceId}`
+    : null;
+
+  return (
+    <div
+      style={{
+        alignSelf: "stretch",
+        padding: "12px 16px",
+        background: bg,
+        borderLeft: `3px solid ${accent}`,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          color: accent,
+          fontWeight: 700,
+        }}
+      >
+        {isSuccess ? "✓" : "✗"} Run #{completion.runId} ·{" "}
+        {completion.agent} · {completion.status}
+      </div>
+      {completion.summary && (
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--deep-green)",
+            lineHeight: 1.5,
+          }}
+        >
+          {completion.summary}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+        <button
+          type="button"
+          onClick={() => onViewRun(completion.runId)}
+          style={{
+            padding: "6px 12px",
+            background: "transparent",
+            color: "var(--deep-green)",
+            border: "1px solid rgba(10,26,12,0.15)",
+            fontSize: 10,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          → Ver script y output
+        </button>
+        {videoUrl && (
+          <>
+            <a
+              href={videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: "6px 12px",
+                background: "var(--deep-green)",
+                color: "var(--off-white)",
+                border: "1px solid var(--deep-green)",
+                fontSize: 10,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                textDecoration: "none",
+                fontFamily: "inherit",
+              }}
+            >
+              ▶ Ver video
+            </a>
+            <a
+              href={`${videoUrl}?download=1`}
+              style={{
+                padding: "6px 12px",
+                background: "transparent",
+                color: "var(--deep-green)",
+                border: "1px solid rgba(10,26,12,0.15)",
+                fontSize: 10,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                textDecoration: "none",
+                fontFamily: "inherit",
+              }}
+            >
+              ↓ Descargar MP4
+            </a>
+          </>
+        )}
+      </div>
     </div>
   );
 }

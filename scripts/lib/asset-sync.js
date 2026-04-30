@@ -78,19 +78,89 @@ function isFolder(item) {
   return (!item.id || !item.metadata) && !!item.name;
 }
 
-async function downloadObject(objectPath, targetFile) {
+/**
+ * Errores transientes de Supabase Storage que ameritan retry. Principalmente
+ * el 503 DatabaseConnectionLimit que aparece cuando demasiadas descargas
+ * concurrentes saturan el connection pool del free tier.
+ */
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+async function downloadObject(objectPath, targetFile, opts = {}) {
+  const { maxRetries = 3 } = opts;
   const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${objectPath}`;
-  const res = await fetch(url, { headers: authHeaders() });
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(
-      `asset-sync: download ${objectPath} → ${res.status}: ${txt.slice(0, 200)}`,
-    );
+
+  let attempt = 0;
+  let lastError;
+  while (attempt <= maxRetries) {
+    try {
+      const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        const isRetryable = RETRYABLE_STATUSES.has(res.status);
+        if (isRetryable && attempt < maxRetries) {
+          attempt++;
+          // Backoff exponencial con jitter: 500ms · 2^attempt + random(0-300ms)
+          const delay = 500 * Math.pow(2, attempt - 1) + Math.random() * 300;
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw new Error(
+          `asset-sync: download ${objectPath} → ${res.status}: ${txt.slice(0, 200)}`,
+        );
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      mkdirSync(dirname(targetFile), { recursive: true });
+      writeFileSync(targetFile, buf);
+      return buf.length;
+    } catch (err) {
+      lastError = err;
+      // Si fue un throw nuestro (status no-retryable o último intento), salir
+      if (
+        err.message.includes("→ ") &&
+        !RETRYABLE_STATUSES.has(parseInt(err.message.match(/→ (\d+):/)?.[1], 10))
+      ) {
+        throw err;
+      }
+      if (attempt >= maxRetries) throw err;
+      attempt++;
+      await new Promise((r) =>
+        setTimeout(r, 500 * Math.pow(2, attempt - 1) + Math.random() * 300),
+      );
+    }
   }
-  const buf = Buffer.from(await res.arrayBuffer());
-  mkdirSync(dirname(targetFile), { recursive: true });
-  writeFileSync(targetFile, buf);
-  return buf.length;
+  throw lastError;
+}
+
+/**
+ * Worker pool — procesa una lista de tasks con concurrencia limitada.
+ * Reemplaza Promise.all() para evitar saturar el connection pool de Supabase.
+ *
+ * @param {number} concurrency — workers paralelos (default 8 para free tier)
+ * @param {Array<() => Promise<any>>} tasks — funciones que retornan promesa
+ * @returns {Promise<Array<{ ok: true, value } | { ok: false, error }>>}
+ */
+async function runWithConcurrency(tasks, concurrency = 8) {
+  const results = new Array(tasks.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= tasks.length) return;
+      try {
+        const value = await tasks[idx]();
+        results[idx] = { ok: true, value };
+      } catch (error) {
+        results[idx] = { ok: false, error };
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, () =>
+    worker(),
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 /**
@@ -184,25 +254,35 @@ export async function syncClientAssets(clientId, targetDir, opts = {}) {
   const errors = [];
   let downloaded = 0;
 
-  // Descargar
-  const tasks = remoteFiles.map(async (file) => {
+  // Descargar con worker pool — concurrencia limitada para no saturar el
+  // connection pool de Supabase (free tier ~60 conexiones).
+  const concurrency = parseInt(opts.concurrency, 10) || 8;
+  const downloadTasks = remoteFiles.map((file) => async () => {
     const localFile = resolve(targetDir, file.relPath);
     const publicPath = `assets/${clientId}/${file.relPath}`;
-    try {
-      await downloadObject(file.remotePath, localFile);
-      downloaded++;
-      assetMap[file.relPath] = {
-        localPath: localFile,
-        publicPath,
-        category: file.relPath.split("/")[0],
-        subCategory: file.subCategory,
-        filename: file.filename,
-      };
-    } catch (err) {
-      errors.push(`download ${file.remotePath}: ${err.message}`);
-    }
+    await downloadObject(file.remotePath, localFile);
+    downloaded++;
+    assetMap[file.relPath] = {
+      localPath: localFile,
+      publicPath,
+      category: file.relPath.split("/")[0],
+      subCategory: file.subCategory,
+      filename: file.filename,
+    };
   });
-  await Promise.all(tasks);
+
+  console.log(
+    `[asset-sync] descargando ${remoteFiles.length} archivos con concurrencia ${concurrency}...`,
+  );
+  const results = await runWithConcurrency(downloadTasks, concurrency);
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (!r.ok) {
+      errors.push(
+        `download ${remoteFiles[i].remotePath}: ${r.error.message}`,
+      );
+    }
+  }
 
   // Purga: borrar archivos locales que ya no están remotos
   let purged = 0;
@@ -242,10 +322,17 @@ export async function syncClientAssets(clientId, targetDir, opts = {}) {
   }
 
   console.log(
-    `[asset-sync] ${clientId}: ${downloaded} descargados, ${purged} purgados, ${Object.keys(assetMap).length} disponibles, ${errors.length} errores`,
+    `[asset-sync] ${clientId}: ${downloaded}/${remoteFiles.length} descargados, ${purged} purgados, ${Object.keys(assetMap).length} disponibles, ${errors.length} errores`,
   );
   if (errors.length > 0) {
-    for (const e of errors.slice(0, 5)) console.warn(`[asset-sync]   error: ${e}`);
+    console.warn(
+      `[asset-sync] ⚠️  ${errors.length} archivos NO se pudieron descargar después de retries:`,
+    );
+    // Loggear todos los errores agrupados por status code para diagnóstico
+    for (const e of errors.slice(0, 20)) console.warn(`[asset-sync]   ${e}`);
+    if (errors.length > 20) {
+      console.warn(`[asset-sync]   ... y ${errors.length - 20} más`);
+    }
   }
 
   return { assetMap, downloaded, purged, errors };
