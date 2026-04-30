@@ -571,3 +571,306 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #003 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Comer en Madrid sin caer en trampa turística — formato Piques de Wizzo | Instructions: Usar el asset library completo. Wizzo en su expresión Magia (Color_magia.svg / Trazo_magia.svg / Sticker_magia.svg) para el momento del Pique. Logo blanco (Logo_Blanco.svg) para frames sobre violeta #4C167C. Fonts custom (Bricolage + Host Grotesk + Noto Nastaliq Urdu) si están en el library, sino fallback a Google Fonts. Voz: Wizzo (estratégica, con piques y sabiduría). Respetar restricciones del brandbook.
+
+### Generated Content
+# WIZTRIP — REEL/TIKTOK
+## "Comer en Madrid sin caer en trampa turística" · Piques de Wizzo
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Valor + viral (educativo con criterio — genera comunidad y confianza de marca) |
+| **Formato de script elegido** | **B — Direct Value** · porque es un pique concreto con 3 puntos accionables. El usuario lo guarda y lo comparte antes de ir a Madrid. Máxima shareability y saves. |
+| **Trigger emocional** | **Enojo + asombro combinados** · "Me estafaron siendo turista" → "Wizzo sabía esto todo el tiempo y yo no". Enojo activa en los primeros 3s, asombro retiene hasta el final. |
+| **Plataformas destino** | Instagram Reels + TikTok (simultáneo, mismo corte) |
+| **Duración estimada** | 38–42 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Wizzo (expresión `Color_magia.svg`) aparece on-screen izquierda, fondo violeta `#4C167C`, con texto que entra en golpe desde arriba. Destellos dorados `#FAB402` explotan alrededor de su cabeza. Primer frame: puro personaje + color — cero foto de destino.
+- **Textual:** `Comiste en Madrid como turista.` (menos de 7 palabras, golpe en pantalla, Bricolage ExtraBold, blanco, centrado)
+- **Verbal:** *"Esperate. ¿Fuiste a comer a la Plaza Mayor?"*
+
+---
+
+## Script completo
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 1 [0s–3s] · HOOK — PATTERN INTERRUPTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo full `#4C167C` (violeta magia). Sin imagen de fondo.
+  Wizzo (Asset: Color_magia.svg) entra desde abajo con spring bounce,
+  se planta en 2/3 izquierdo, escala al 85% del frame.
+  Destellos dorados (#FAB402) estallan alrededor — 4 partículas tipo
+  spark, animadas con easing expo-out.
+  Asset: Iso_Blanco.svg esquina superior derecha, 32px, opacity 70%.
+
+Texto en pantalla:
+  Línea 1: "Comiste en Madrid"
+    → Bricolage ExtraBold · 58px · #FFFFFF · centrado · entrada: scale 0.3→1 + fade, 0.15s
+  Línea 2: "como turista."
+    → Bricolage ExtraBold · 58px · #FAB402 · centrado · entrada: 0.1s delay respecto línea 1
+
+Narración:
+  "Esperate. ¿Fuiste a comer a la Plaza Mayor?"
+
+Música/SFX:
+  SFX: "whoosh" + impacto seco al aterrizar Wizzo (0.3s).
+  Música: lo-fi beat percusivo, 90–95 BPM, entra en loop desde frame 0.
+  Volumen música: 30% (voz domina).
+
+Transición: Hard cut inmediato → Escena 2
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 2 [3s–7s] · PROBLEMA — LA TRAMPA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo cambia a #222524 (casi negro). Wizzo mismo tamaño,
+  expresión Color_error.svg — swap de asset, animado con fade 0.08s.
+  Aparece pill/tag: "🚨 TRAMPA TURÍSTICA" → Host Grotesk Bold · 18px
+  · fondo #FAB402 · texto #222524 · border-radius 99px · entra desde izquierda
+  con slide + bounce. Posición: sobre hombro derecho de Wizzo.
+
+Texto en pantalla:
+  "Plaza Mayor = trampa."
+    → Bricolage Bold · 52px · #E5F53F · centrado-inferior · entrada: typewriter effect 0.4s
+
+Narración:
+  "Si comiste ahí, te cobraron el doble y la comida valió la mitad.
+   Eso es una trampa turística de manual."
+
+Música/SFX:
+  SFX: tono descendente tipo "error" (sutil, 0.5s).
+  Música: mismo loop, volumen sostenido.
+
+Transición: Zoom-in leve (scale 1→1.04) sobre Wizzo → Escena 3
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 3 [7s–12s] · PIQUE #1 — EL BARRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: fotografía aspiracional de Madrid — callejuela estrecha con
+  gente local, luz cálida de mediodía, sin turistas visibles.
+  [VER: MISSING_ASSET al final]
+  Overlay: gradiente `#4C167C` opacity 55% desde abajo (520px),
+  para que el texto sea legible.
+  Wizzo (Asset: Trazo_magia.svg) en esquina inferior derecha,
+  tamaño reducido 22% del frame — watermark expresivo.
+  Curva decorativa: Asset: Curva_lila.svg · bottom-right · opacity 40%.
+
+Texto en pantalla:
+  Tag superior: "MADRID · PIQUE #1"
+    → Host Grotesk SemiBold · 16px · #B99FFF · tracking +4px · uppercase
+    · posición: x=48px desde izquierda, y=180px desde top (safe zone)
+  
+  Cuerpo:
+  "Malasaña o La Latina."
+    → Bricolage ExtraBold · 52px · #FFFFFF
+  
+  Sub-copy:
+  "Ahí come la gente real."
+    → Host Grotesk Regular · 22px · #FFF2CA · italic
+
+Narración:
+  "El primer pique: olvidate del centro para comer.
+   Malasaña o La Latina — ahí es donde come la gente de Madrid, no los turistas."
+
+Música/SFX:
+  SFX: "ding" sutil tipo "correcto" al aparecer el tag.
+  Música: sube levemente a 40%.
+
+Transición: Slide horizontal → Escena 4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 4 [12s–19s] · PIQUE #2 — LA HORA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: `#4C167C` sólido.
+  Wizzo de vuelta (Asset: Color_magia.svg) · 70% del frame, centrado-izquierda.
+  Elemento gráfico: reloj grande dibujado en trazo (Asset: MISSING_ASSET:
+  ilustración reloj de mano, trazo, estilo Wizzo — ver sección MISSING ASSETS)
+  Fallback si no existe: número "14:30" en tipografía display Bricolage ExtraBold
+  · 120px · #FAB402 · rotación -8° · posición centro-derecha.
+
+Texto en pantalla:
+  Tag: "PIQUE #2"
+    → mismo estilo tag anterior · #FAB402 sobre #4C167C
+  
+  "No comas antes de las 2."
+    → Bricolage Bold · 50px · #FFF2CA · centrado
+  
+  Sub-copy:
+  "Los madrileños almuerzan tarde. Seguí ese ritmo."
+    → Host Grotesk Regular · 19px · #B99FFF
+
+Narración:
+  "Segundo pique, y este parece una boludez pero no lo es:
+   en Madrid se almuerza entre las dos y las tres y media.
+   Si vas a las doce, sos el único turista en el local.
+   Esperá, y vas a comer en otro ambiente."
+
+Música/SFX:
+  Música: baja a 25%.
+
+Transición: Hard cut → Escena 5
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 5 [19s–26s] · PIQUE #3 — EL MENÚ DEL DÍA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: fotografía aspiracional — mesa de bar madrileño,
+  platos servidos, copa de vino, gente de espaldas charlando.
+  [VER: MISSING_ASSET al final]
+  Overlay: gradiente `#024384` (azul mar) opacity 50% desde arriba (400px).
+  Asset: Curva_celeste.svg · decorativo · top-right · opacity 35%.
+
+Texto en pantalla:
+  Tag: "PIQUE #3 · WIZZO PICK ⭐"
+    → Host Grotesk Bold · 16px · fondo #FAB402 · texto #222524
+    · pill · posición safe zone superior (y=180px)
+  
+  "Pedí el menú del día."
+    → Bricolage ExtraBold · 56px · #FFFFFF · centrado
+  
+  "€12–15. Primero, segundo y postre."
+    → Host Grotesk SemiBold · 21px · #E5F53F
+
+Narración:
+  "Tercer pique, y este es el Wizzo Pick de Madrid:
+   pedí el menú del día. Por doce a quince euros tenés
+   primero, segundo, postre y vino incluido. La misma calidad
+   que la carta, a menos de la mitad del precio.
+   Eso es moverse como un local."
+
+Música/SFX:
+  SFX: estrella/ding al aparecer "WIZZO PICK ⭐".
+  Música: sube a 45%, beat más energético.
+
+Transición: Zoom-out + fade → Escena 6
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 6 [26s–32s] · CIERRE — WIZZO REVELA + CTA SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: `#4C167C` full.
+  Wizzo (Asset: Color_festejo.svg) entra con scale bounce desde centro.
+  Destello dorado masivo: 8 partículas spark + glow radial #FAB402
+  desde detrás del personaje.
+  Asset: Curva_lila.svg · decorativa · bottom-left · 60% opacity · animada
+  con path draw 0.6s ease-in.
+
+Texto en pantalla:
+  "3 piques que nadie te cuenta."
+    → Bricolage ExtraBold · 46px · #FAB402 · centrado · entrada: scale bounce
+  
+  Sub:
+  "Malasaña · Después de las 2 · Menú del día"
+    → Host Grotesk Medium · 18px · #B99FFF · centrado · fade in 0.3s delay
+
+Narración:
+  "Tres piques que nadie te cuenta antes de ir a Madrid.
+   Si los aplicás, comés bien, gastás menos, y te movés como un local.
+   Elegiste bien."
+
+Música/SFX:
+  SFX: fanfare short (0.8s) al entrar Wizzo festejo.
+  Música: sube a 60%, último hit del beat coincide con "Elegiste bien".
+
+Transición: Hard cut → Escena 7 (CTA final)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 7 [32s–38s] · CTA — LOGO + CALL TO ACTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: `#4C167C` full.
+  Asset: Logo_Blanco.svg · centrado · 60% del ancho del frame ·
+  entra con fade-in 0.4s + scale 0.95→1.
+  Debajo del logo: curva decorativa (Asset: Curva_lila.svg) · ancho completo
+  · opacity 25% · estática.
+  
+  Badge inferior centrado:
+  Pill con: Asset: Sticker_magia.svg · tamaño 48px · izquierda dentro del pill
+  + texto "wiz-trip.com" · Host Grotesk Bold · 18px · #FAB402 · derecha.
+  Fondo del pill: #222524 · border 1.5px solid #FAB402 · border-radius 99px.
+  Posición: y= frame_height - 350px (safe zone inferior respetada).
+
+Texto en pantalla:
+  "Tu copiloto de viaje."
+    → Host Grotesk Regular · italic · 20px · #FFF2CA · centrado
+    · debajo del logo · fade in 0.2s delay
+
+Narración:
+  "WizTrip. Tu copiloto de viaje.
+   Entrá a wiz-trip.com y planificá Madrid con piques reales."
+
+Música/SFX:
+  Música: fade out suave 1.5s.
+  SFX: ninguno — silencio limpio en el CTA.
+
+Transición: FADE TO BLACK · 0.5s
+```
+
+---
+
+## Storyboard de producción
+
+> **Especificaciones base:** 1080×1920px · 9:16 · 30fps · Remotion
+
+### FRAME 1 — [0s–1s] HOOK IMPACT
+```
+Resolución:    1080 × 1920
+Fondo:         color sólido #4C167C (no imagen)
+Elementos:
+  [A] Wizzo · Asset: Color_magia.svg
+      x: 0px  y: 120px
+      width: 780px (auto height)
+      animación: translateY(400px→0) + spring(stiffness:180, damping:18)
+      timing: 0s → 0.55s
+  
+  [B] Texto línea 1: "Comiste en Madrid"
+      font: BricolageGrotesque_48pt-ExtraBold.ttf
+      size: 58px  color: #FFFFFF  align: center
+      x
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
