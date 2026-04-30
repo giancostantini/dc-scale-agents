@@ -874,3 +874,323 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #004 — reel
+Date: 2026-04-30 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Comer en Madrid sin caer en trampa turística — formato Piques de Wizzo | Instructions: Usar el asset library completo. Wizzo en su expresión Magia (Color_magia.svg / Trazo_magia.svg / Sticker_magia.svg) para el momento del Pique. Logo blanco (Logo_Blanco.svg) para frames sobre violeta #4C167C. Usar las fonts custom del library (Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu) en lugar de Google Fonts.
+
+### Generated Content
+# WIZTRIP — Reel "Piques de Wizzo: Madrid sin trampa"
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Valor (compartible/educativo) → construir autoridad de Wizzo + awareness orgánico |
+| **Formato de script** | **B — "Direct Value"** · Promesa clara → 3 piques concretos → remate emocional → CTA guardar. Elegido porque el formato Piques de Wizzo es un educativo de insider, no un ad de conversión directa. El contenido de alto valor compartible es el motor orgánico en fase de lanzamiento. |
+| **Trigger emocional** | **Enojo + Asombro** — el viajero se enoja de que le hayan "vendido" trampas turísticas, y se asombra de que alguien finalmente lo diga sin filtro |
+| **Plataformas destino** | TikTok (primario) · Instagram Reels (secundario) |
+| **Duración estimada** | 42–47 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Fondo violeta `#4C167C` sólido. Wizzo (`Color_magia.svg`) entra desde abajo con animación de rebote. Su mano apunta directo a cámara. El movimiento arranca antes de que aparezca cualquier texto — el ojo lo sigue solo.
+- **Textual:** `NO COMAS EN LA PUERTA DEL MUSEO.` · Bricolage Grotesque ExtraBold · blanco `#FFFFFF` · centro pantalla · tamaño máximo permitido en safe zone
+- **Verbal:** *(tono directo, casi conspirativo)* — **"Madrid tiene trampas. Y yo te voy a decir exactamente cuáles evitar."**
+
+---
+
+## Script completo
+
+```
+──────────────────────────────────────────────────────
+Escena 1 [0s-2s] — PATTERN INTERRUPTION / HOOK
+──────────────────────────────────────────────────────
+Visual:
+  Fondo violeta puro #4C167C.
+  Wizzo (Color_magia.svg) aparece en centro-inferior con
+  rebote rápido (spring animation). Su brazo con varita
+  señala directo a cámara.
+  Estrellas doradas (#FAB402) estallan desde la varita
+  en partículas — 4-5 puntos de luz, sin saturar.
+
+Texto en pantalla:
+  "NO COMAS EN LA PUERTA DEL MUSEO."
+  Fuente: BricolageGrotesque_48pt-ExtraBold
+  Color: #FFFFFF
+  Posición: centro, entre Wizzo y el top safe zone
+  Animación: texto aparece letra por letra, velocidad 0.04s/carácter
+
+Narración:
+  "Madrid tiene trampas. Y yo te voy a decir exactamente
+   cuáles evitar."
+
+Música/SFX:
+  Acorde de piano staccato + whoosh de entrada de Wizzo.
+  Música de fondo: jazz urbano lo-fi, BPM 95, muy baja
+  (Wizzo habla encima).
+
+Transición: hard cut inmediato
+
+──────────────────────────────────────────────────────
+Escena 2 [2s-5s] — SETUP DEL PROBLEMA (trampa turística)
+──────────────────────────────────────────────────────
+Visual:
+  Cambio a fondo crema #FFF2CA.
+  Wizzo (Sticker_magia.svg) en esquina inferior izquierda,
+  tamaño mediano — no tapa texto.
+  Centro pantalla: Curva W decorativa (Curva_lila.svg)
+  aparece como elemento de fondo, 40% opacidad.
+  Sobre la curva: texto del "problema".
+
+Texto en pantalla:
+  Línea 1 (grande): "SOL Y QUEJAS."
+  Línea 2 (pequeño, Host Grotesk Regular): "Lo que te pasa
+  si no tenés el pique."
+  Fuente título: BricolageGrotesque_48pt-Bold · color #4C167C
+  Fuente subtítulo: HostGrotesk-Regular · color #222524
+
+Narración:
+  "Todo el mundo llega a Madrid con ganas. Y muchos se van
+   con la billetera vacía y la sensación de que les
+   vendieron postal."
+
+Música/SFX:
+  Bajo lo-fi sube levemente. SFX: "dinero cayendo" muy sutil
+  (0.5s).
+
+Transición: slide lateral (izquierda a derecha, 0.15s)
+
+──────────────────────────────────────────────────────
+Escena 3 [5s-9s] — PIQUE #1: COMIDA
+──────────────────────────────────────────────────────
+Visual:
+  Fondo: foto aspiracional de un mercado de barrio en Madrid
+  — gente local, puestos con productos frescos, encuadre
+  natural con movimiento. NO postal turística.
+  Overlay: banda violeta #4C167C semi-transparente (65%)
+  en el tercio inferior de pantalla.
+  Wizzo (Trazo_magia.svg) como watermark esquina inferior
+  derecha — línea art, 25% opacidad.
+  Sobre la banda: sello "PIQUE DE WIZZO" en dorado.
+
+Texto en pantalla:
+  TAG superior (sobre banda): "Madrid · Comida"
+  Fuente: HostGrotesk-Bold · color #FAB402 · tamaño 28px
+  
+  PIQUE (cuerpo, sobre banda):
+  "Mercado de San Fernando, Lavapiés."
+  "No el de San Miguel. Ese es para turistas."
+  Fuente: BricolageGrotesque_24pt-SemiBold · color #FFFFFF
+  
+  Sello "PIQUE DE WIZZO":
+  Fuente: BricolageGrotesque_24pt-ExtraBold · color #FAB402
+  Posición: esquina superior derecha de la banda
+  Animación: aparece con efecto "stamp" (scale de 1.4 a 1.0,
+  con ligero rotate de 3deg, duración 0.2s)
+
+Narración:
+  "Pique uno: si querés comer bien de verdad, olvidate del
+   Mercado de San Miguel. Es una trampa turística pura.
+   Andá al Mercado de San Fernando en Lavapiés — ahí
+   come el barrio, no las guías."
+
+Música/SFX:
+  Acento musical suave al aparecer el sello. SFX: sello
+  de aprobación (0.3s).
+
+Transición: corte directo
+
+──────────────────────────────────────────────────────
+Escena 4 [9s-14s] — PIQUE #2: TAPAS
+──────────────────────────────────────────────────────
+Visual:
+  Fondo: foto de barra de bar madrileño clásico — barra de
+  madera, vasos de vino, personas de pie conversando.
+  Ambiente oscuro y cálido. Encuadre levemente inclinado,
+  movimiento de gente al fondo. NO foto perfecta.
+  Misma banda violeta en tercio inferior.
+  
+  Wizzo (Color_magia.svg) aparece en esquina inferior
+  izquierda — expresión con varita levantada (pose de
+  "tengo el dato").
+
+Texto en pantalla:
+  TAG: "Madrid · Tapas"
+  Fuente: HostGrotesk-Bold · color #FAB402
+  
+  PIQUE:
+  "Calle Cava Baja. Llegá ANTES de las 8pm."
+  "Después de esa hora: lleno de turistas."
+  Fuente: BricolageGrotesque_24pt-SemiBold · color #FFFFFF
+  
+  Sello "PIQUE DE WIZZO" — misma animación de stamp.
+
+Narración:
+  "Pique dos: las tapas en Cava Baja son reales, pero el
+   timing importa. Antes de las ocho de la tarde tenés
+   espacio, precio local y ambiente auténtico.
+   Después de las ocho es otra historia."
+
+Música/SFX:
+  Mismo jazz lo-fi. SFX: reloj suave (0.4s) al mencionar
+  el timing.
+
+Transición: zoom out rápido (0.1s) → corte
+
+──────────────────────────────────────────────────────
+Escena 5 [14s-20s] — PIQUE #3: MUSEO (el remate)
+──────────────────────────────────────────────────────
+Visual:
+  Fondo: foto exterior de una calle lateral tranquila en
+  Madrid — adoquines, luz de tarde, una persona caminando
+  de espaldas. Encuadre tipo POV, nada de postales.
+  Banda violeta en tercio inferior (consistente).
+  
+  NOVEDAD en este frame: aparece ilustración
+  Varita_color.svg sobre la banda — elemento decorativo
+  que refuerza el universo Wizzo sin saturar.
+
+Texto en pantalla:
+  TAG: "Madrid · El dato que nadie te dice"
+  Fuente: HostGrotesk-Bold · color #FAB402
+  
+  PIQUE:
+  "El Prado tiene entrada gratis."
+  "Lu-vie de 6 a 8pm. Do de 5 a 7pm."
+  "¿Lo sabías?"
+  Fuente: BricolageGrotesque_24pt-ExtraBold · color #FFFFFF
+  La línea "¿Lo sabías?" en color #FAB402 dorado.
+  
+  Sello "PIQUE DE WIZZO" con stamp animation.
+
+Narración:
+  "Y el pique que más le duele a los que pagaron entrada:
+   el Museo del Prado tiene acceso gratuito. Lunes a
+   viernes de seis a ocho de la tarde, y el domingo de
+   cinco a siete. Nadie te lo pone en la guía turística."
+
+Música/SFX:
+  Micro-pausa musical (0.3s) antes de "nadie te lo pone
+  en la guía". Efecto de asombro suave — nota de piano
+  ascendente.
+
+Transición: corte directo
+
+──────────────────────────────────────────────────────
+Escena 6 [20s-28s] — WIZZO CIERRE (momento de magia)
+──────────────────────────────────────────────────────
+Visual:
+  Vuelta al fondo violeta #4C167C — mismo que el hook.
+  Consistencia visual de entrada/salida.
+  
+  Wizzo (Color_magia.svg) centrado, tamaño grande (ocupa
+  60% del alto de pantalla), con animación de entrada
+  desde abajo (spring, duración 0.4s).
+  
+  Partículas doradas (#FAB402) orbitan alrededor de Wizzo
+  — 6 estrellas pequeñas, movimiento circular lento.
+  Estrella_color.svg como elemento decorativo estático
+  en esquina superior izquierda.
+  
+  Logo_Blanco.svg aparece en parte superior, centrado,
+  respetando área de resguardo y safe zone.
+  Animación: fade in a los 22s, duración 0.5s.
+
+Texto en pantalla:
+  Grande, centro:
+  "VIAJÁ CON VENTAJA."
+  Fuente: BricolageGrotesque_72pt-ExtraBold
+  Color: #FAB402
+  
+  Debajo (más pequeño):
+  "Estos son piques de Wizzo."
+  "En @wiztrip.travel encontrás más."
+  Fuente: HostGrotesk-Regular · color #FFFFFF
+  
+  Última línea, más pequeña todavía:
+  "Elegiste bien."
+  Fuente: BricolageGrotesque_24pt-SemiBold
+  Color: #FAB402
+  Animación: aparece con fade + ligero scale (0.9 → 1.0)
+  después de que termina la narración.
+
+Narración:
+  "Estos son los piques que te hacen moverte como un
+   local, no como un turista. Guardá este video — lo vas
+   a necesitar. Soy Wizzo, y en WizTrip siempre viajás
+   con ventaja."
+  [pausa 0.5s]
+  "Elegiste bien."
+
+Música/SFX:
+  Jazz lo-fi sube levemente para el cierre. Último beat
+  coincide con "Elegiste bien." SFX: magic sparkle al
+  aparecer las partículas de Wizzo (0.6s).
+
+Transición: fade out suave (0.3s) al negro
+──────────────────────────────────────────────────────
+```
+
+---
+
+## Storyboard de producción
+
+> **Especificaciones globales Remotion:**
+> - Resolución: `1080 × 1920` px (9:16)
+> - FPS: 30
+> - Safe zone top: primeros `150px` libres de UI persistente
+> - Safe zone bottom: últimos `250px` libres (UI TikTok/IG)
+> - Fuentes locales cargadas desde `wiztrip/tipografias/`
+
+---
+
+### Frame 1 — Hook (0s–2s)
+
+| Campo | Especificación |
+|---|---|
+| **BG** | `#4C167C` sólido — `backgroundColor: '#4C167C'` |
+| **Asset principal** | `wiztrip/mascot/color/Color_magia.svg` · `width: 480px` · `bottom: 260px` · `left: 50%` · `transform: translateX(-50%)` · animación: `spring({ from: 120, to: 0 }, { damping: 14, stiffness: 160 })` en `translateY` |
+| **Partículas** | 5× `wiztrip/ilustraciones/color/Estrella_color.svg` · `width: 28px` · posiciones aleatorias radio 80px desde varita · `opacity: 0.9` · aparecen a los `frame 4` con `spring` staggered 3 frames |
+| **Texto** | `"NO COMAS EN LA PUERTA DEL MUSEO."` · `BricolageGrotesque_48pt-ExtraBold.ttf` · `color: #FFFFFF` · `fontSize: 68px` · `textAlign: center` · `top: 220px` · `paddingHorizontal: 48px` · animación: typewriter, 1 carácter cada 1.2 frames |
+| **Logo** | — (no en este frame) |
+
+---
+
+### Frame 2 — Problema (2s–5s)
+
+| Campo | Especificación |
+|---|---|
+| **BG** | `#FFF2CA` sólido |
+| **Asset decorativo** | `wiztrip/curvas/Curva_lila.svg` · `width: 900px` · centrado · `opacity: 0.35` · `top: 400px` |
+| **Asset Wizzo** | `wiztrip/mascot/sticker/Sticker_magia.svg` · `width: 220px` · `bottom: 260px` · `left: 40px` · animación: fade in 0.3s |
+| **Texto título** | `"SOL Y QUEJAS."` · `BricolageGrotesque_48pt-Bold.ttf` · `color: #4C167C` · `fontSize: 72px` · `textAlign: center` · `top: 380
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
