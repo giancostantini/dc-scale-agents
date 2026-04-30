@@ -24,6 +24,17 @@ const VAULT = resolve(__dirname, "../../vault");
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
+// Strip ANSI escape sequences (color/SGR codes) del stderr/stdout antes de
+// guardarlo en JSON o mostrarlo en la UI. Cubre CSI (ESC [...letter) y OSC
+// (ESC ] ... BEL/ST). Helper inline; si lo necesitamos en otro agente lo
+// movemos a scripts/lib/ansi.js.
+// eslint-disable-next-line no-control-regex
+const ANSI_REGEX = /\x1B(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(?:\x07|\x1B\\))/g;
+function stripAnsi(s) {
+  if (!s) return "";
+  return String(s).replace(ANSI_REGEX, "");
+}
+
 async function callClaude(prompt, maxTokens = 8000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -339,29 +350,42 @@ export async function produceVideo(brief, storyboard, pieceId) {
   console.log("Preview available at http://localhost:3000 (run: npm run studio)");
 
   try {
-    // stdio "pipe" para capturar stderr — antes era "inherit" y el catch solo
-    // recibía "Command failed: npx remotion render ..." sin la causa real.
-    // El log del runner se sigue viendo en console.log debajo (se imprime el
-    // stderr de Remotion entero al final si el render falla).
     const renderResult = execSync(
       `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
       { cwd: REMOTION_DIR, stdio: "pipe", timeout: 300000, encoding: "utf-8" },
     );
     if (renderResult) console.log(renderResult);
     console.log(`Video rendered: ${outputPath}`);
-    return outputPath;
+    return { outputPath, compositionTsx: remotionCode, compositionFile };
   } catch (err) {
-    // err.stderr / err.stdout existen cuando stdio es "pipe". Los volcamos
-    // al log para que aparezcan en GHA, y guardamos los últimos 500 chars
-    // del stderr en err.message para que el frontend pueda mostrarlo.
-    const stderr = err.stderr ? err.stderr.toString() : "";
-    const stdout = err.stdout ? err.stdout.toString() : "";
+    // El bundler de Remotion imprime la causa al INICIO del stderr (e.g.
+    // "Could not resolve '@remotion/google-fonts/Foo'") y luego pinta el
+    // stack de Node. El final del stderr es ruido — por eso buscamos la
+    // primera línea con "error" para enmarcar 20 líneas desde ahí.
+    const rawStderr = err.stderr ? err.stderr.toString() : "";
+    const rawStdout = err.stdout ? err.stdout.toString() : "";
+    const stderr = stripAnsi(rawStderr);
+    const stdout = stripAnsi(rawStdout);
     if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
     if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
-    const tail = stderr.trim().split("\n").slice(-8).join("\n").slice(-500);
-    throw new Error(
-      `Remotion render failed: ${tail || err.message}\n` +
+
+    const lines = stderr.trim().split(/\r?\n/);
+    const firstErrorIdx = lines.findIndex((l) =>
+      /\b(error|Error|Failed|failed)\b/.test(l),
+    );
+    const window = firstErrorIdx >= 0
+      ? lines.slice(firstErrorIdx, firstErrorIdx + 20)
+      : lines.slice(-20);
+    const message = window.join("\n").slice(0, 3000) || err.message;
+
+    const richError = new Error(
+      `Remotion render failed: ${message}\n` +
       `Para reproducir local: cd remotion-studio && npm run studio`,
     );
+    richError._stage = "render";
+    richError._stderr = stderr.slice(0, 6000);
+    richError._compositionTsx = remotionCode;
+    richError._compositionFile = compositionFile;
+    throw richError;
   }
 }

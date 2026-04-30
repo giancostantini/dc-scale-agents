@@ -209,6 +209,108 @@ function OutputBlock({ output }: { output: AgentOutput }) {
           {output.body_md}
         </pre>
       )}
+      {output.structured && typeof output.structured === "object" && (
+        <StructuredVideoSection
+          structured={output.structured as Record<string, unknown>}
+        />
+      )}
+    </div>
+  );
+}
+
+function StructuredVideoSection({
+  structured,
+}: {
+  structured: Record<string, unknown>;
+}) {
+  const tsx =
+    typeof structured.compositionTsx === "string"
+      ? structured.compositionTsx
+      : null;
+  const stderr =
+    typeof structured.videoErrorStderr === "string"
+      ? structured.videoErrorStderr
+      : null;
+  const stage =
+    typeof structured.videoErrorStage === "string"
+      ? structured.videoErrorStage
+      : null;
+  const file =
+    typeof structured.compositionFile === "string"
+      ? structured.compositionFile
+      : null;
+
+  if (!tsx && !stderr) return null;
+
+  const codeBlockStyle = {
+    fontFamily: "ui-monospace, monospace" as const,
+    fontSize: 11 as const,
+    lineHeight: 1.5,
+    whiteSpace: "pre-wrap" as const,
+    wordBreak: "break-word" as const,
+    overflow: "auto" as const,
+    padding: "10px 12px",
+    border: "1px solid rgba(10,26,12,0.08)",
+    margin: "8px 0 0 0",
+    background: "var(--off-white)",
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      {stage && (
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            color: "var(--red-warn)",
+            fontWeight: 700,
+          }}
+        >
+          Falla en fase: {stage}
+        </div>
+      )}
+      {stderr && (
+        <details>
+          <summary
+            style={{
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--red-warn)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            stderr completo (Remotion bundler/render)
+          </summary>
+          <pre style={{ ...codeBlockStyle, maxHeight: 320 }}>{stderr}</pre>
+        </details>
+      )}
+      {tsx && (
+        <details open={!!stderr}>
+          <summary
+            style={{
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--deep-green)",
+              letterSpacing: "0.02em",
+            }}
+            title={file ?? undefined}
+          >
+            TSX generado por Claude
+            {file ? ` · ${file.split(/[\\/]/).slice(-3).join("/")}` : ""}
+          </summary>
+          <pre style={{ ...codeBlockStyle, maxHeight: 480 }}>{tsx}</pre>
+        </details>
+      )}
     </div>
   );
 }
