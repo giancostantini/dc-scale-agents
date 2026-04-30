@@ -1,53 +1,51 @@
 // ==================== ASSET MANIFEST GENERATOR ====================
 // Genera el archivo `vault/clients/<slug>/brand/assets.md` que cataloga
 // todos los assets visuales operativos del cliente. Los agentes leen este
-// manifest (via brand-loader / vault-loader) y referencian assets por
-// canonical name al generar contenido.
+// manifest (via brand-loader / vault-loader) cuando generan contenido.
 //
-// El manifest se regenera automáticamente cada vez que se sube / borra un
-// asset desde la UI. Es una sola fuente de verdad: lo que está en el
-// bucket client-assets queda reflejado acá.
+// El manifest se regenera automáticamente cuando se sube/borra un asset
+// desde la UI. Es la fuente de verdad: refleja exactamente lo que está
+// en el bucket client-assets.
+//
+// Estructura del manifest (alineada con las categorías + sub-categorías):
+//
+//   ## Logo
+//     - <filename> (path: <clientId>/logo/<filename>)
+//
+//   ## Mascot / Personaje
+//     ### Color
+//       - <filename> (path: <clientId>/mascot/color/<filename>)
+//     ### Trazo
+//     ### Sticker
+//     ### Logo del personaje
+//
+//   ## Curvas
+//     - <filename>
+//
+//   ## Ilustraciones
+//     ### Color
+//     ### Trazo
+//
+//   ## Tipografías
+//     ### <font-family-1>
+//       - <filename>.otf
+//     ### <font-family-2>
+//
+//   ## Key visuals / Inspiración
+//
+//   ## Brand Book
 
 import { createClient } from "@supabase/supabase-js";
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  CATEGORY_DESCRIPTIONS,
+  FIXED_SUBCATEGORIES,
+  SUBCATEGORY_LABELS,
+  type AssetCategory,
+} from "./asset-upload";
 
 const BUCKET = "client-assets";
-
-// ============================================================
-// Catálogo de descripciones de uso — heredado del brandbook estructurado.
-// Estas descripciones se inyectan en el manifest para que los agentes
-// sepan cuándo usar cada asset (no solo qué nombre tiene).
-// ============================================================
-
-const LOGO_USAGE: Record<string, string> = {
-  logotipo: "Uso principal cuando la marca tiene contexto. Redes sociales (donde el nombre es protagonista), sobre fotografía, piezas de marca para usuarios que ya conocen la marca.",
-  isotipo: "Espacios reducidos donde el logo completo pierde legibilidad: íconos web, favicons. Como remate visual o detalle decorativo en layouts complejos.",
-  "logotipo-tagline": "Campañas y pauta. Material institucional (presentaciones, papelería, firmas de mail). Merchandising. Donde el usuario nuevo necesita entender qué hace la marca.",
-};
-
-const LOGO_COLOR_USAGE: Record<string, string> = {
-  color: "Versión cromática completa. Default para fondos claros (crema, blanco).",
-  blanco: "Sobre fondos oscuros (violeta profundo del brandbook, negro). NUNCA logo negro sobre foto oscura.",
-  negro: "Sobre fondos claros cuando el color completo no es necesario. NO usar negro puro #000000 — usar #222524 del brandbook.",
-};
-
-// Mapeo de expresiones de mascot → cuándo usar cada una
-// Inferido del brandbook estructurado (ver brand/voice-character.md)
-const MASCOT_EXPRESSION_USAGE: Record<string, string> = {
-  standard: "Default neutral. Cuando aparece como guía/copiloto en frames de información o presentación general.",
-  error: "Marcar advertencias, trampas turísticas, lugares sobrevalorados. Acompaña texto del estilo 'huí de eso'.",
-  festejo: "Celebrar wins del usuario, confirmaciones de buena decisión. Acompaña el closer 'Elegiste bien'.",
-  muybien: "Aprobación / Wizzo Pick. Confirmar que la opción que el usuario eligió (o que se está recomendando) cumple con el criterio.",
-  saludo: "Apertura de pieza, intro de Wizzo, primer frame donde el personaje se presenta.",
-  magia: "Frames de revelación. Momento mágico cuando se descubre un Pique, una oportunidad, un dato de insider. Default para 'EL PIQUE DE WIZZO'.",
-  pensando: "Análisis, comparación, momento donde Wizzo está procesando opciones. Acompaña texto del tipo 'pensemos esto bien'.",
-  baile: "Cierre celebratorio, momento de máxima energía. CTA final donde el usuario ya tomó la decisión.",
-};
-
-const MASCOT_STYLE_USAGE: Record<string, string> = {
-  color: "Versión cromática completa. Para frames principales donde Wizzo es protagonista (hero, revelación de Pique, cierre).",
-  line: "Trazo / line art. Para corners decorativos, watermarks suaves, capas de soporte que no compiten con el contenido principal.",
-  sticker: "Versión sticker (con borde / contorno). Para overlays sobre fotografía, esquinas inferiores en reels donde se quiere personalidad sin ocupar mucho espacio.",
-};
 
 // ============================================================
 // Tipos
@@ -56,67 +54,30 @@ const MASCOT_STYLE_USAGE: Record<string, string> = {
 interface SupabaseFile {
   name: string;
   metadata?: { size?: number; mimetype?: string } | null;
+  id?: string | null; // null = es folder
 }
 
-export interface ClientAssetSummary {
-  logo: SupabaseFile[];
-  mascot: SupabaseFile[];
-  patterns: SupabaseFile[];
-  inspiration: SupabaseFile[];
+export interface AssetEntry {
+  filename: string;
+  size?: number;
+  path: string;
 }
+
+/**
+ * Listado anidado de assets por categoría → sub-categoría → archivos.
+ * Para categorías sin sub-categoría (logo, curvas, key-visuals, brand-book),
+ * los archivos viven en `_root` (string especial).
+ */
+export type AssetsByCategory = Record<
+  AssetCategory,
+  Record<string, AssetEntry[]>
+>;
 
 // ============================================================
-// Helpers
+// Listing recursivo (server-side, usa service_role para bypass RLS)
 // ============================================================
 
-function parseLogoCanonicalName(canonicalName: string): {
-  variant: string;
-  colorVariant: string;
-} | null {
-  // canonicalName format: "<variant>-<colorVariant>" e.g. "logotipo-color"
-  // Cuidado: variant puede ser "logotipo-tagline" (con guión interno).
-  const variants = ["logotipo-tagline", "logotipo", "isotipo"];
-  for (const v of variants) {
-    if (canonicalName.startsWith(v + "-")) {
-      return {
-        variant: v,
-        colorVariant: canonicalName.slice(v.length + 1),
-      };
-    }
-  }
-  return null;
-}
-
-function parseMascotCanonicalName(canonicalName: string): {
-  mascotName: string;
-  style: string;
-  expression: string;
-} | null {
-  // canonicalName format: "<mascotName>-<style>-<expression>"
-  // e.g. "wizzo-color-magia". Mascot name puede ser cualquier cosa (no tiene
-  // guión interno por convención — es el nombre del personaje).
-  const parts = canonicalName.split("-");
-  if (parts.length < 3) return null;
-  return {
-    mascotName: parts[0],
-    style: parts[1],
-    expression: parts.slice(2).join("-"), // por si la expresión tiene guiones
-  };
-}
-
-function stripExtension(filename: string): { name: string; ext: string } {
-  const m = filename.match(/^(.+)\.([a-zA-Z0-9]+)$/);
-  if (!m) return { name: filename, ext: "" };
-  return { name: m[1], ext: m[2].toLowerCase() };
-}
-
-// ============================================================
-// Lista de assets desde Supabase Storage (server-side)
-// ============================================================
-
-export async function listAssetsServerSide(
-  clientId: string,
-): Promise<ClientAssetSummary> {
+function makeServerSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
@@ -124,35 +85,119 @@ export async function listAssetsServerSide(
       "asset-manifest: faltan env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)",
     );
   }
-
-  const client = createClient(url, key, {
+  return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
 
-  const out: ClientAssetSummary = {
-    logo: [],
-    mascot: [],
-    patterns: [],
-    inspiration: [],
-  };
-
-  for (const category of ["logo", "mascot", "patterns", "inspiration"] as const) {
-    const { data, error } = await client.storage
-      .from(BUCKET)
-      .list(`${clientId}/${category}`, {
-        limit: 200,
-        sortBy: { column: "name", order: "asc" },
-      });
-    if (error) {
-      console.warn(
-        `[asset-manifest] list ${clientId}/${category} failed:`,
-        error.message,
-      );
-      continue;
-    }
-    out[category] = (data ?? []).filter(
-      (f) => f.name && f.name !== ".emptyFolderPlaceholder",
+/**
+ * Lista los archivos directos de un prefix (no recursivo). Devuelve solo
+ * archivos (no folders).
+ */
+async function listDirectFiles(
+  client: ReturnType<typeof makeServerSupabase>,
+  prefix: string,
+): Promise<SupabaseFile[]> {
+  const { data, error } = await client.storage
+    .from(BUCKET)
+    .list(prefix, { limit: 200, sortBy: { column: "name", order: "asc" } });
+  if (error) {
+    console.warn(`[asset-manifest] list ${prefix} failed:`, error.message);
+    return [];
+  }
+  // En Supabase Storage, los "folders" tienen id=null y los archivos
+  // tienen id no-null + metadata con size/mimetype.
+  return (data ?? [])
+    .filter(
+      (f) =>
+        !!f.name &&
+        f.name !== ".emptyFolderPlaceholder" &&
+        !!f.id &&
+        !!f.metadata,
+    )
+    .map(
+      (f): SupabaseFile => ({
+        name: f.name,
+        metadata: f.metadata,
+        id: f.id,
+      }),
     );
+}
+
+/**
+ * Lista folders (sub-categorías) de un prefix. Para tipografías con
+ * sub-folders dinámicos por font family.
+ */
+async function listSubFolders(
+  client: ReturnType<typeof makeServerSupabase>,
+  prefix: string,
+): Promise<string[]> {
+  const { data, error } = await client.storage
+    .from(BUCKET)
+    .list(prefix, { limit: 200, sortBy: { column: "name", order: "asc" } });
+  if (error) return [];
+  return (data ?? [])
+    .filter(
+      (f) =>
+        !!f.name &&
+        f.name !== ".emptyFolderPlaceholder" &&
+        // folder = sin id (id null) y sin metadata
+        (!f.id || !f.metadata),
+    )
+    .map((f) => f.name);
+}
+
+/**
+ * Carga el árbol completo de assets de un cliente. Recorre las categorías
+ * y sub-categorías (fijas + dinámicas para tipografías) y arma el listado.
+ */
+export async function loadClientAssets(
+  clientId: string,
+): Promise<AssetsByCategory> {
+  const client = makeServerSupabase();
+  const out = {} as AssetsByCategory;
+
+  for (const category of CATEGORIES) {
+    out[category] = {};
+
+    const fixedSubs = FIXED_SUBCATEGORIES[category];
+
+    if (fixedSubs && fixedSubs.length > 0) {
+      // Categoría con sub-folders fijos (mascot, ilustraciones)
+      for (const sub of fixedSubs) {
+        const files = await listDirectFiles(
+          client,
+          `${clientId}/${category}/${sub}`,
+        );
+        out[category][sub] = files.map((f) => ({
+          filename: f.name,
+          size: f.metadata?.size ?? 0,
+          path: `${clientId}/${category}/${sub}/${f.name}`,
+        }));
+      }
+    } else if (category === "tipografias") {
+      // Sub-folders dinámicos por font family
+      const subFolders = await listSubFolders(client, `${clientId}/tipografias`);
+      for (const sub of subFolders) {
+        const files = await listDirectFiles(
+          client,
+          `${clientId}/tipografias/${sub}`,
+        );
+        out[category][sub] = files.map((f) => ({
+          filename: f.name,
+          size: f.metadata?.size ?? 0,
+          path: `${clientId}/tipografias/${sub}/${f.name}`,
+        }));
+      }
+    } else {
+      // Categoría flat (logo, curvas, key-visuals, brand-book)
+      const files = await listDirectFiles(client, `${clientId}/${category}`);
+      out[category]["_root"] = files.map((f) => ({
+        filename: f.name,
+        size: f.metadata?.size ?? 0,
+        path: `${clientId}/${category}/${f.name}`,
+      }));
+    }
   }
 
   return out;
@@ -162,44 +207,70 @@ export async function listAssetsServerSide(
 // Render del manifest a Markdown
 // ============================================================
 
+function totalCount(assets: AssetsByCategory): number {
+  let n = 0;
+  for (const cat of CATEGORIES) {
+    for (const sub of Object.values(assets[cat] ?? {})) {
+      n += sub.length;
+    }
+  }
+  return n;
+}
+
+function categoryCount(
+  assets: AssetsByCategory,
+  category: AssetCategory,
+): number {
+  return Object.values(assets[category] ?? {}).reduce(
+    (acc, sub) => acc + sub.length,
+    0,
+  );
+}
+
+function renderEntry(entry: AssetEntry): string {
+  const sizeKB = entry.size ? ` · ${(entry.size / 1024).toFixed(1)} KB` : "";
+  return `- \`${entry.filename}\`${sizeKB} (path: \`${entry.path}\`)`;
+}
+
 export function renderManifestMarkdown(
   clientId: string,
   clientName: string,
-  assets: ClientAssetSummary,
+  assets: AssetsByCategory,
 ): string {
   const generated = new Date().toISOString().replace("T", " ").slice(0, 16);
   const lines: string[] = [];
 
   lines.push(`# Asset Library — ${clientName}`);
   lines.push("");
-  lines.push("> Generado automáticamente. **NO editar a mano** — los cambios se pierden cuando se re-genera.");
+  lines.push(
+    "> Generado automáticamente. **NO editar a mano** — los cambios se pierden cuando se re-genera.",
+  );
   lines.push(`> Última actualización: ${generated} UTC`);
   lines.push("");
-  lines.push("Los agentes leen este manifest cuando generan contenido visual. Cuando un script o storyboard referencia un asset, debe usar el **canonical name** (los headings de cada sub-sección abajo, en `monospace`). Los agentes NO deben inventar paths nuevos — si un asset que necesitan no está en este manifest, indicarlo en el output como dependencia faltante.");
+  lines.push(
+    "Los agentes leen este manifest cuando generan contenido visual. Cuando un script o storyboard referencia un asset, debe usar el **filename exacto + path** que está abajo. NO inventar paths nuevos. Si un asset que se necesita no está acá, indicarlo como dependencia faltante (`MISSING_ASSET: <descripción>`).",
+  );
   lines.push("");
   lines.push("---");
   lines.push("");
 
   // ====== Resumen ======
-  const totals = {
-    logo: assets.logo.length,
-    mascot: assets.mascot.length,
-    patterns: assets.patterns.length,
-    inspiration: assets.inspiration.length,
-  };
-  const total = totals.logo + totals.mascot + totals.patterns + totals.inspiration;
-
+  const total = totalCount(assets);
   lines.push(`## Resumen`);
   lines.push("");
   lines.push(`- **Total**: ${total} assets`);
-  lines.push(`- Logo: ${totals.logo}`);
-  lines.push(`- Mascot/Personaje: ${totals.mascot}`);
-  lines.push(`- Patrones gráficos: ${totals.patterns}`);
-  lines.push(`- Inspiración / referencias: ${totals.inspiration}`);
+  for (const category of CATEGORIES) {
+    const n = categoryCount(assets, category);
+    if (n > 0) {
+      lines.push(`- ${CATEGORY_LABELS[category]}: ${n}`);
+    }
+  }
   lines.push("");
 
   if (total === 0) {
-    lines.push("> ⚠️ Este cliente no tiene assets cargados todavía. Subir desde `/cliente/" + clientId + "/brandbook/assets`.");
+    lines.push(
+      `> ⚠️ Este cliente no tiene assets cargados todavía. Subir desde \`/cliente/${clientId}/brandbook/assets\`.`,
+    );
     lines.push("");
     return lines.join("\n");
   }
@@ -207,89 +278,75 @@ export function renderManifestMarkdown(
   lines.push("---");
   lines.push("");
 
-  // ====== Logo ======
-  if (assets.logo.length > 0) {
-    lines.push("## Logos");
+  // ====== Por categoría ======
+  for (const category of CATEGORIES) {
+    const subMap = assets[category];
+    if (!subMap) continue;
+    const n = categoryCount(assets, category);
+    if (n === 0) continue;
+
+    lines.push(`## ${CATEGORY_LABELS[category]}`);
     lines.push("");
-    for (const file of assets.logo) {
-      const { name } = stripExtension(file.name);
-      const parsed = parseLogoCanonicalName(name);
-      lines.push(`### \`${name}\``);
-      lines.push("");
-      lines.push(`- **Storage path**: \`${clientId}/logo/${file.name}\``);
-      if (parsed) {
-        lines.push(`- **Variante**: ${parsed.variant}`);
-        lines.push(`- **Color**: ${parsed.colorVariant}`);
-        if (LOGO_USAGE[parsed.variant]) {
-          lines.push(`- **Cuándo usar (variante)**: ${LOGO_USAGE[parsed.variant]}`);
-        }
-        if (LOGO_COLOR_USAGE[parsed.colorVariant]) {
-          lines.push(`- **Cuándo usar (color)**: ${LOGO_COLOR_USAGE[parsed.colorVariant]}`);
-        }
+    lines.push(`*${CATEGORY_DESCRIPTIONS[category]}*`);
+    lines.push("");
+
+    const fixedSubs = FIXED_SUBCATEGORIES[category];
+    const dynamicSub = !fixedSubs && category === "tipografias";
+
+    if (fixedSubs) {
+      // mascot, ilustraciones — sub-tabs fijas
+      for (const sub of fixedSubs) {
+        const entries = subMap[sub] ?? [];
+        if (entries.length === 0) continue;
+        lines.push(`### ${SUBCATEGORY_LABELS[sub] ?? sub}`);
+        lines.push("");
+        for (const e of entries) lines.push(renderEntry(e));
+        lines.push("");
       }
-      lines.push("");
-    }
-  }
-
-  // ====== Mascot ======
-  if (assets.mascot.length > 0) {
-    lines.push("## Mascot / Personaje");
-    lines.push("");
-    lines.push("Cada asset combina **estilo** (color/line/sticker) × **expresión** (8 variantes). Los agentes deben elegir la expresión correcta según el momento emocional del frame.");
-    lines.push("");
-    for (const file of assets.mascot) {
-      const { name } = stripExtension(file.name);
-      const parsed = parseMascotCanonicalName(name);
-      lines.push(`### \`${name}\``);
-      lines.push("");
-      lines.push(`- **Storage path**: \`${clientId}/mascot/${file.name}\``);
-      if (parsed) {
-        lines.push(`- **Personaje**: ${parsed.mascotName}`);
-        lines.push(`- **Estilo**: ${parsed.style}${MASCOT_STYLE_USAGE[parsed.style] ? ` — ${MASCOT_STYLE_USAGE[parsed.style]}` : ""}`);
-        lines.push(`- **Expresión**: ${parsed.expression}${MASCOT_EXPRESSION_USAGE[parsed.expression] ? ` — ${MASCOT_EXPRESSION_USAGE[parsed.expression]}` : ""}`);
+    } else if (dynamicSub) {
+      // tipografias — sub-folders por font family
+      const subKeys = Object.keys(subMap).sort();
+      for (const sub of subKeys) {
+        const entries = subMap[sub];
+        if (entries.length === 0) continue;
+        // El sub es el slug — para mostrar el nombre real, capitalizamos
+        const niceName = sub
+          .split("-")
+          .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+          .join(" ");
+        lines.push(`### ${niceName}`);
+        lines.push("");
+        for (const e of entries) lines.push(renderEntry(e));
+        lines.push("");
       }
+    } else {
+      // logo, curvas, key-visuals, brand-book — flat
+      const entries = subMap["_root"] ?? [];
+      for (const e of entries) lines.push(renderEntry(e));
       lines.push("");
     }
   }
 
-  // ====== Patterns ======
-  if (assets.patterns.length > 0) {
-    lines.push("## Patrones gráficos");
-    lines.push("");
-    lines.push("Recursos visuales reusables: curvas, formas derivadas del logo, ornamentos, etc. Suelen ser SVG vectorial.");
-    lines.push("");
-    for (const file of assets.patterns) {
-      const { name } = stripExtension(file.name);
-      lines.push(`### \`${name}\``);
-      lines.push("");
-      lines.push(`- **Storage path**: \`${clientId}/patterns/${file.name}\``);
-      lines.push("");
-    }
-  }
-
-  // ====== Inspiration ======
-  if (assets.inspiration.length > 0) {
-    lines.push("## Inspiración / referencias");
-    lines.push("");
-    lines.push("Mockups, ejemplos de posteo del brandbook, capturas de competencia. Los agentes los usan como referencia compositiva, no para incluirlos directos en piezas.");
-    lines.push("");
-    for (const file of assets.inspiration) {
-      const { name } = stripExtension(file.name);
-      lines.push(`### \`${name}\``);
-      lines.push("");
-      lines.push(`- **Storage path**: \`${clientId}/inspiration/${file.name}\``);
-      lines.push("");
-    }
-  }
-
+  // ====== Reglas operativas ======
   lines.push("---");
   lines.push("");
   lines.push("## Reglas operativas para los agentes");
   lines.push("");
-  lines.push("1. **Referenciar por canonical name**: cuando el script o storyboard pida 'logo de la marca' o 'Wizzo en pose mágica', usar el canonical name exacto (e.g. `wizzo-color-magia`).");
-  lines.push("2. **Si un asset que necesitás no existe acá**, no inventes el path. Indicalo como dependencia: `MISSING_ASSET: <descripción>`. El sistema te avisará para que el equipo lo suba.");
-  lines.push("3. **Usar la expresión correcta del mascot según el momento emocional del frame** — ver descripciones de uso arriba.");
-  lines.push("4. **Combinación logo + color**: respetar el contraste — logo blanco sobre fondo oscuro, logo color o negro sobre fondo claro. Nunca logo color sobre fondo del mismo tono.");
+  lines.push(
+    "1. **Referenciar por path**: cuando el script o storyboard pida un asset, indicar el `path` exacto del manifest (e.g. `wiztrip/mascot/color/wizzo-magia.svg`).",
+  );
+  lines.push(
+    "2. **Si un asset que necesitás no está acá**, no inventes paths. Indicalo como `MISSING_ASSET: <descripción de lo que necesitás>` en el output. El equipo lo subirá.",
+  );
+  lines.push(
+    "3. **Filenames son descriptivos** — los diseñadores nombran los archivos de forma sensata (ej. `wizzo-magia.svg`, `logotipo-blanco.svg`). Usá esa pista para elegir el correcto según el momento.",
+  );
+  lines.push(
+    "4. **Para mascot**, elegir el estilo apropiado al contexto: `color` para frames hero, `trazo`/line para watermarks, `sticker` para overlays sobre fotos.",
+  );
+  lines.push(
+    "5. **Para tipografías custom** (sub-folders en `tipografias/`), Remotion las puede cargar como local fonts — más fiel al brandbook que las equivalentes de Google Fonts. Si la font del brandbook está acá, preferirla sobre la versión de Google Fonts.",
+  );
 
   return lines.join("\n");
 }

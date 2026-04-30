@@ -2,33 +2,34 @@
 
 import { use, useEffect, useState } from "react";
 import ui from "@/components/ClientUI.module.css";
-import AssetSlot from "@/components/AssetSlot";
-import FreeFormAssetUploader from "@/components/FreeFormAssetUploader";
+import CategoryUploader from "@/components/CategoryUploader";
 import { getClient } from "@/lib/storage";
 import {
-  WIZZO_EXPRESSIONS,
-  MASCOT_STYLES,
-  LOGO_VARIANTS,
-  LOGO_COLOR_VARIANTS,
-  buildCanonicalName,
-  buildAssetPath,
+  CATEGORIES,
+  CATEGORY_LABELS,
+  CATEGORY_DESCRIPTIONS,
+  FIXED_SUBCATEGORIES,
   type AssetCategory,
 } from "@/lib/asset-upload";
-import { getSupabase } from "@/lib/supabase/client";
 import type { Client } from "@/lib/types";
 
-interface AssetFile {
-  name: string;
+interface AssetEntry {
+  filename: string;
   size?: number;
   path: string;
 }
 
-interface AssetMap {
-  logo: AssetFile[];
-  mascot: AssetFile[];
-  patterns: AssetFile[];
-  inspiration: AssetFile[];
-}
+type AssetsByCategory = Record<AssetCategory, Record<string, AssetEntry[]>>;
+
+const EMPTY_ASSETS: AssetsByCategory = {
+  logo: {},
+  mascot: {},
+  curvas: {},
+  ilustraciones: {},
+  tipografias: {},
+  "key-visuals": {},
+  "brand-book": {},
+};
 
 export default function AssetsPage({
   params,
@@ -37,50 +38,33 @@ export default function AssetsPage({
 }) {
   const { id } = use(params);
   const [client, setClient] = useState<Client | null>(null);
-  const [assets, setAssets] = useState<AssetMap>({
-    logo: [],
-    mascot: [],
-    patterns: [],
-    inspiration: [],
-  });
+  const [assets, setAssets] = useState<AssetsByCategory>(EMPTY_ASSETS);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AssetCategory>("logo");
 
+  function refreshAssets() {
+    return fetch(`/api/clients/${id}/assets/manifest`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.assets) {
+          // Merge con EMPTY_ASSETS para asegurar que todas las categorías existen
+          const merged = { ...EMPTY_ASSETS };
+          for (const cat of CATEGORIES) {
+            merged[cat] = res.assets[cat] ?? {};
+          }
+          setAssets(merged);
+        }
+      });
+  }
+
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getClient(id),
-      fetch(`/api/clients/${id}/assets/manifest`).then((r) => r.json()),
-    ])
-      .then(([c, res]) => {
+    Promise.all([getClient(id), refreshAssets()])
+      .then(([c]) => {
         if (cancelled) return;
         setClient(c ?? null);
-        if (res.assets) {
-          setAssets({
-            logo: (res.assets.logo ?? []).map((f: { name: string; metadata?: { size?: number } }) => ({
-              name: f.name,
-              size: f.metadata?.size,
-              path: `${id}/logo/${f.name}`,
-            })),
-            mascot: (res.assets.mascot ?? []).map((f: { name: string; metadata?: { size?: number } }) => ({
-              name: f.name,
-              size: f.metadata?.size,
-              path: `${id}/mascot/${f.name}`,
-            })),
-            patterns: (res.assets.patterns ?? []).map((f: { name: string; metadata?: { size?: number } }) => ({
-              name: f.name,
-              size: f.metadata?.size,
-              path: `${id}/patterns/${f.name}`,
-            })),
-            inspiration: (res.assets.inspiration ?? []).map((f: { name: string; metadata?: { size?: number } }) => ({
-              name: f.name,
-              size: f.metadata?.size,
-              path: `${id}/inspiration/${f.name}`,
-            })),
-          });
-        }
         setLoading(false);
       })
       .catch(() => {
@@ -90,59 +74,12 @@ export default function AssetsPage({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   function showToast(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  }
-
-  function fileNameFor(canonicalName: string, category: AssetCategory): string | null {
-    const list = assets[category];
-    const match = list.find((f) => f.name.startsWith(canonicalName + "."));
-    return match ? match.name : null;
-  }
-
-  async function handleSlotUpload(
-    category: AssetCategory,
-    canonicalName: string,
-    file: File,
-  ) {
-    const supabase = getSupabase();
-    const ext = file.name.match(/\.([a-zA-Z0-9]+)$/)?.[1]?.toLowerCase() ?? "bin";
-    const path = `${id}/${category}/${canonicalName}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from("client-assets")
-      .upload(path, file, { upsert: true, contentType: file.type });
-    if (error) {
-      showToast(`Error: ${error.message}`);
-      return;
-    }
-    setAssets((prev) => ({
-      ...prev,
-      [category]: [
-        ...prev[category].filter((f) => !f.name.startsWith(canonicalName + ".")),
-        { name: `${canonicalName}.${ext}`, size: file.size, path },
-      ],
-    }));
-    showToast(`✓ ${canonicalName} subido`);
-  }
-
-  async function handleSlotDelete(category: AssetCategory, fileName: string) {
-    if (!confirm(`¿Borrar ${fileName}?`)) return;
-    const path = `${id}/${category}/${fileName}`;
-    const supabase = getSupabase();
-    const { error } = await supabase.storage.from("client-assets").remove([path]);
-    if (error) {
-      showToast(`Error: ${error.message}`);
-      return;
-    }
-    setAssets((prev) => ({
-      ...prev,
-      [category]: prev[category].filter((f) => f.name !== fileName),
-    }));
-    showToast(`✓ ${fileName} borrado`);
+    setTimeout(() => setToast(null), 4000);
   }
 
   async function regenerateManifest() {
@@ -164,17 +101,26 @@ export default function AssetsPage({
     }
   }
 
-  const totalAssets =
-    assets.logo.length +
-    assets.mascot.length +
-    assets.patterns.length +
-    assets.inspiration.length;
+  // Total para el header
+  let totalCount = 0;
+  for (const cat of CATEGORIES) {
+    for (const sub of Object.values(assets[cat] ?? {})) {
+      totalCount += sub.length;
+    }
+  }
+
+  function categoryCount(cat: AssetCategory): number {
+    return Object.values(assets[cat] ?? {}).reduce(
+      (acc, sub) => acc + sub.length,
+      0,
+    );
+  }
 
   return (
     <>
       <div className={ui.head}>
         <div>
-          <div className={ui.eyebrow}>Cliente · Brandbook · Assets</div>
+          <div className={ui.eyebrow}>Cliente · Brandbook · Asset Library</div>
           <h1>{client?.name ?? id} · Asset Library</h1>
         </div>
         <button
@@ -207,10 +153,11 @@ export default function AssetsPage({
           lineHeight: 1.6,
         }}
       >
-        Acá viven los assets visuales que los agentes usan al generar contenido:
-        logos, expresiones del mascot/personaje, patrones y referencias del brandbook.
-        Cuando subís o borrás algo, click <strong style={{ color: "var(--deep-green)" }}>Regenerar manifest</strong> arriba
-        para que los agentes lo vean en su próxima ejecución.
+        Cargá los assets visuales operativos del cliente — los archivos que los
+        agentes usan al generar contenido (logos, mascot/personaje, ilustraciones,
+        tipografías, etc.). Cuando subas o borres algo, click{" "}
+        <strong style={{ color: "var(--deep-green)" }}>Regenerar manifest</strong>{" "}
+        arriba para que los agentes lo vean en su próxima ejecución.
       </p>
 
       <p
@@ -221,42 +168,29 @@ export default function AssetsPage({
           marginBottom: 28,
         }}
       >
-        Total cargado: <strong>{totalAssets}</strong> assets · Logo: {assets.logo.length} ·
-        Mascot: {assets.mascot.length} · Patterns: {assets.patterns.length} ·
-        Inspiration: {assets.inspiration.length}
+        Total cargado: <strong>{totalCount}</strong> assets
       </p>
 
       {/* TABS */}
       <div
         style={{
           display: "flex",
-          gap: 8,
+          gap: 4,
           marginBottom: 24,
           borderBottom: "1px solid rgba(10,26,12,0.1)",
-          paddingBottom: 0,
+          flexWrap: "wrap",
         }}
       >
-        {(["logo", "mascot", "patterns", "inspiration"] as const).map((cat) => {
-          const labels = {
-            logo: "Logo",
-            mascot: "Mascot / Personaje",
-            patterns: "Patrones",
-            inspiration: "Inspiración",
-          };
-          const counts = {
-            logo: assets.logo.length,
-            mascot: assets.mascot.length,
-            patterns: assets.patterns.length,
-            inspiration: assets.inspiration.length,
-          };
+        {CATEGORIES.map((cat) => {
           const active = activeTab === cat;
+          const count = categoryCount(cat);
           return (
             <button
               key={cat}
               type="button"
               onClick={() => setActiveTab(cat)}
               style={{
-                padding: "12px 18px",
+                padding: "12px 16px",
                 background: "transparent",
                 color: active ? "var(--deep-green)" : "var(--text-muted)",
                 border: "none",
@@ -271,7 +205,7 @@ export default function AssetsPage({
                 fontFamily: "inherit",
               }}
             >
-              {labels[cat]} ({counts[cat]})
+              {CATEGORY_LABELS[cat]} ({count})
             </button>
           );
         })}
@@ -283,212 +217,19 @@ export default function AssetsPage({
         </div>
       )}
 
-      {/* LOGO TAB */}
-      {!loading && activeTab === "logo" && (
-        <div className={ui.panel}>
-          <div className={ui.panelHead}>
-            <div>
-              <div className={ui.panelTitle}>Logo · variantes oficiales</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-                3 variantes (logotipo / isotipo / logotipo+tagline) × 3 versiones cromáticas (color / blanco / negro) = 9 slots
-              </div>
-            </div>
-          </div>
-          <div
-            style={{
-              padding: "16px 24px 24px",
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 12,
-            }}
-          >
-            {LOGO_VARIANTS.flatMap((variant) =>
-              LOGO_COLOR_VARIANTS.map((color) => {
-                const canonical = buildCanonicalName({
-                  category: "logo",
-                  variant: variant.key,
-                  colorVariant: color.key,
-                });
-                const fileName = fileNameFor(canonical, "logo");
-                return (
-                  <AssetSlot
-                    key={canonical}
-                    canonicalName={canonical}
-                    label={`${variant.label} · ${color.label}`}
-                    fileName={fileName}
-                    accept="image/svg+xml,image/png,image/jpeg"
-                    onUpload={(file) => handleSlotUpload("logo", canonical, file)}
-                    onDelete={
-                      fileName
-                        ? () => handleSlotDelete("logo", fileName)
-                        : undefined
-                    }
-                  />
-                );
-              }),
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* MASCOT TAB */}
-      {!loading && activeTab === "mascot" && (
-        <div className={ui.panel}>
-          <div className={ui.panelHead}>
-            <div>
-              <div className={ui.panelTitle}>Mascot · 8 expresiones × 3 estilos</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-                Para WizTrip: Wizzo. Subí cada combinación expresión + estilo. El agente elige cuál usar según el momento emocional del frame.
-              </div>
-            </div>
-          </div>
-          <div style={{ padding: "16px 24px 24px" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "120px repeat(3, 1fr)",
-                gap: 8,
-                marginBottom: 8,
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                color: "var(--sand-dark)",
-              }}
-            >
-              <div>Expresión</div>
-              {MASCOT_STYLES.map((s) => (
-                <div key={s.key} style={{ textAlign: "center" }}>
-                  {s.label}
-                </div>
-              ))}
-            </div>
-            {WIZZO_EXPRESSIONS.map((expr) => (
-              <div
-                key={expr.key}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "120px repeat(3, 1fr)",
-                  gap: 8,
-                  marginBottom: 8,
-                  alignItems: "stretch",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: "var(--deep-green)",
-                  }}
-                >
-                  {expr.label}
-                </div>
-                {MASCOT_STYLES.map((style) => {
-                  // mascot name: hardcoded "wizzo" for WizTrip; for other clients
-                  // future: read from client config or the first part of an existing canonical name
-                  const mascotName = "wizzo";
-                  const canonical = buildCanonicalName({
-                    category: "mascot",
-                    mascotName,
-                    style: style.key,
-                    expression: expr.key,
-                  });
-                  const fileName = fileNameFor(canonical, "mascot");
-                  return (
-                    <AssetSlot
-                      key={canonical}
-                      canonicalName={canonical}
-                      label={style.label}
-                      compact
-                      fileName={fileName}
-                      accept="image/svg+xml,image/png"
-                      onUpload={(file) =>
-                        handleSlotUpload("mascot", canonical, file)
-                      }
-                      onDelete={
-                        fileName
-                          ? () => handleSlotDelete("mascot", fileName)
-                          : undefined
-                      }
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* PATTERNS TAB */}
-      {!loading && activeTab === "patterns" && (
-        <div className={ui.panel}>
-          <div className={ui.panelHead}>
-            <div>
-              <div className={ui.panelTitle}>Patrones gráficos</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-                Curvas, ornamentos, formas derivadas del logo. Preferentemente SVG.
-              </div>
-            </div>
-          </div>
-          <div style={{ padding: "16px 24px 24px" }}>
-            <FreeFormAssetUploader
-              clientId={id}
-              category="patterns"
-              files={assets.patterns}
-              onUploaded={(file) => {
-                setAssets((prev) => ({
-                  ...prev,
-                  patterns: [...prev.patterns, file],
-                }));
-                showToast(`✓ ${file.name} subido`);
-              }}
-              onDeleted={(name) => {
-                setAssets((prev) => ({
-                  ...prev,
-                  patterns: prev.patterns.filter((f) => f.name !== name),
-                }));
-                showToast(`✓ ${name} borrado`);
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* INSPIRATION TAB */}
-      {!loading && activeTab === "inspiration" && (
-        <div className={ui.panel}>
-          <div className={ui.panelHead}>
-            <div>
-              <div className={ui.panelTitle}>Inspiración / referencias</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-                Mockups del brandbook, ejemplos de posteo, capturas de competencia. Los agentes los usan como referencia compositiva.
-              </div>
-            </div>
-          </div>
-          <div style={{ padding: "16px 24px 24px" }}>
-            <FreeFormAssetUploader
-              clientId={id}
-              category="inspiration"
-              files={assets.inspiration}
-              onUploaded={(file) => {
-                setAssets((prev) => ({
-                  ...prev,
-                  inspiration: [...prev.inspiration, file],
-                }));
-                showToast(`✓ ${file.name} subido`);
-              }}
-              onDeleted={(name) => {
-                setAssets((prev) => ({
-                  ...prev,
-                  inspiration: prev.inspiration.filter((f) => f.name !== name),
-                }));
-                showToast(`✓ ${name} borrado`);
-              }}
-            />
-          </div>
-        </div>
+      {!loading && (
+        <CategoryUploader
+          clientId={id}
+          category={activeTab}
+          fixedSubcategories={FIXED_SUBCATEGORIES[activeTab] ?? null}
+          subcategoryFiles={assets[activeTab] ?? {}}
+          description={CATEGORY_DESCRIPTIONS[activeTab]}
+          onChanged={() => {
+            // Refrescar todo el árbol después de upload/delete
+            refreshAssets();
+          }}
+          onToast={showToast}
+        />
       )}
 
       {toast && (

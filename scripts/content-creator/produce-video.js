@@ -122,23 +122,52 @@ The audio track runs for the full duration of the video.`
   : "No voice audio available. Use only music/SFX if needed (reference Pixabay royalty-free)."}
 
 --- FONTS DEL BRANDBOOK ---
-Las fonts oficiales del cliente están cargadas via @remotion/google-fonts y se importan así al inicio del archivo:
+
+Hay 2 caminos para cargar las fonts del cliente, en este orden de preferencia:
+
+**Opción 1 — Fonts custom locales (PREFERIDA si el cliente entregó .otf/.ttf)**:
+Si en ASSETS DISPONIBLES arriba ves archivos bajo \`tipografias/<font-family-slug>/\`, esas son las fonts oficiales del cliente entregadas por el diseñador. Cargalas en la composición usando \`@font-face\` en el head del documento HTML:
+
+  import { staticFile } from "remotion";
+
+  // Al inicio del componente, antes de los frames:
+  const fontStyle = \`
+    @font-face {
+      font-family: 'BricolageGrotesque';
+      src: url('\${staticFile("assets/<clientId>/tipografias/bricolage-grotesque/Bricolage_Grotesque-Bold.ttf")}') format('truetype');
+      font-weight: bold;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'HostGrotesk';
+      src: url('\${staticFile("assets/<clientId>/tipografias/host-grotesk/HostGrotesk-Regular.ttf")}') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  \`;
+
+  // En el JSX:
+  <AbsoluteFill>
+    <style>{fontStyle}</style>
+    {/* ...frames... */}
+  </AbsoluteFill>
+
+Después usá \`fontFamily: 'BricolageGrotesque'\` o \`'HostGrotesk'\` en el style de cada \`<TextOverlay>\`.
+
+**Opción 2 — @remotion/google-fonts (FALLBACK si no hay fonts custom)**:
+Si NO hay archivos en \`tipografias/\` arriba o son insuficientes, usá Google Fonts:
 
   import { loadFont as loadBricolage } from "@remotion/google-fonts/BricolageGrotesque";
   import { loadFont as loadHostGrotesk } from "@remotion/google-fonts/HostGrotesk";
-
   const { fontFamily: bricolage } = loadBricolage();
   const { fontFamily: hostGrotesk } = loadHostGrotesk();
 
-Después usalas en \`fontFamily\` de cada \`<TextOverlay>\` o estilo. Por convención del brandbook:
+Convención del brandbook (revisar visual-identity.md arriba):
 - **Bricolage Grotesque (bold)** → Títulos / hooks / "EL PIQUE DE WIZZO"
 - **Host Grotesk** → Texto corrido, subtítulos, CTAs largos
+- **Noto Nastaliq Urdu** (o equivalente serif editorial) → Detalles, ledes, taglines
 
-Si el storyboard menciona "Noto Natalisq" para detalle editorial, también cargá:
-  import { loadFont as loadNoto } from "@remotion/google-fonts/NotoSerifDisplay";
-  const { fontFamily: notoSerif } = loadNoto();
-
-(Noto Natalisq exacto NO está en Google Fonts; usá Noto Serif Display como fallback de carácter editorial similar.)
+Decidí qué camino usar inspeccionando ASSETS DISPONIBLES arriba.
 
 --- RULES ---
 1. All text MUST be inside <SafeZone> — never place text outside safe zone

@@ -1,20 +1,17 @@
 /**
  * GET  /api/clients/[id]/assets/manifest  → devuelve el listado actual de
- *   assets agrupados por categoría. Usado por la UI para mostrar qué hay.
+ *   assets agrupados por categoría → sub-categoría. Usado por la UI.
  *
  * POST /api/clients/[id]/assets/manifest  → regenera el manifest a partir
- *   del estado actual del bucket client-assets, lo escribe a
+ *   del estado del bucket client-assets, lo escribe a
  *   `vault/clients/<id>/brand/assets.md` (commit a main via vault-writer)
- *   y devuelve el contenido generado. Se llama después de cada upload/delete
- *   desde la UI para mantener el manifest sincronizado.
- *
- * El manifest es el catálogo que los agentes consultan al generar contenido.
+ *   y devuelve el contenido generado.
  */
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
-  listAssetsServerSide,
+  loadClientAssets,
   renderManifestMarkdown,
 } from "@/lib/asset-manifest";
 import { writeVaultFile } from "@/lib/vault-writer";
@@ -33,7 +30,7 @@ export async function GET(
   }
 
   try {
-    const assets = await listAssetsServerSide(clientId);
+    const assets = await loadClientAssets(clientId);
     return Response.json({ assets });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "list failed";
@@ -58,7 +55,7 @@ export async function POST(
         .select("name")
         .eq("id", clientId)
         .single<ClientRow>(),
-      listAssetsServerSide(clientId),
+      loadClientAssets(clientId),
     ]);
 
     const clientName = clientRow?.name ?? clientId;
@@ -71,15 +68,18 @@ export async function POST(
       commitMessage: `Asset library manifest regenerado para ${clientId}`,
     });
 
+    let assetsTotal = 0;
+    for (const cat of Object.values(assets)) {
+      for (const sub of Object.values(cat)) {
+        assetsTotal += sub.length;
+      }
+    }
+
     return Response.json({
       ok: true,
       sha: result.sha,
       created: result.created,
-      assetsTotal:
-        assets.logo.length +
-        assets.mascot.length +
-        assets.patterns.length +
-        assets.inspiration.length,
+      assetsTotal,
       manifestPreview: markdown.slice(0, 2000),
     });
   } catch (err) {
