@@ -574,16 +574,17 @@ export async function createContent(briefInput) {
   // Step 4c: Fase 2 — Produce video with Remotion (if enabled)
   // Voice is generated first so Remotion can include it in the composition
   let videoPath = null;
+  let videoError = null;
   if (brief.produceVideo && brief.pieceType === "reel") {
     try {
-      // Pass voice path to Remotion so it can include the audio track
       const briefWithVoice = voiceResult
         ? { ...brief, _voicePath: voiceResult.remotionPath }
         : brief;
       videoPath = await produceVideo(briefWithVoice, output, pieceId);
       console.log(`Video produced: ${videoPath}`);
     } catch (err) {
-      console.error(`Video production failed: ${err.message}`);
+      videoError = err.message;
+      console.error(`Video production failed: ${videoError}`);
       console.log("Produce manually with: cd remotion-studio && npm run studio");
     }
   }
@@ -646,6 +647,7 @@ export async function createContent(briefInput) {
       objective: brief.objective ?? null,
       status: pieceStatus,
       videoPath: videoPath ?? null,
+      videoError: videoError ?? null,
       voicePath: voiceResult?.filePath ?? null,
       staticPath: staticResult?.filePath ?? null,
       publishResults: publishResults ?? [],

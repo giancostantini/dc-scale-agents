@@ -27,24 +27,26 @@ export async function GET(
   context: { params: Promise<{ id: string; pieceId: string }> },
 ) {
   const { id: clientId, pieceId } = await context.params;
+  const wantsHtml = (req.headers.get("accept") ?? "").includes("text/html");
 
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
-    return Response.json({ error: "Invalid client id" }, { status: 400 });
+    return errorResponse("Invalid client id", 400, wantsHtml);
   }
   // pieceId puede contener letras, números, guiones (formato típico:
   // "001", "wiztrip-003", o algún identificador del agente). Validamos
   // contra path traversal.
   if (!pieceId || !/^[a-zA-Z0-9_-]+$/.test(pieceId)) {
-    return Response.json({ error: "Invalid pieceId" }, { status: 400 });
+    return errorResponse("Invalid pieceId", 400, wantsHtml);
   }
 
   const token = process.env.GH_DISPATCH_TOKEN;
   const owner = process.env.GITHUB_OWNER;
   const repo = process.env.GITHUB_REPO;
   if (!token || !owner || !repo) {
-    return Response.json(
-      { error: "Faltan env vars (GH_DISPATCH_TOKEN / GITHUB_OWNER / GITHUB_REPO)" },
-      { status: 500 },
+    return errorResponse(
+      "Faltan env vars (GH_DISPATCH_TOKEN / GITHUB_OWNER / GITHUB_REPO)",
+      500,
+      wantsHtml,
     );
   }
 
@@ -60,20 +62,18 @@ export async function GET(
   });
 
   if (ghRes.status === 404) {
-    return Response.json(
-      {
-        error: `Video no encontrado: ${repoPath}. Verificá que el run de content-creator haya terminado y commiteado el archivo.`,
-      },
-      { status: 404 },
+    return errorResponse(
+      `Video no encontrado: ${repoPath}. El run de content-creator todavía no terminó o no produjo MP4. Mirá la pieza en /cliente/${clientId}/biblioteca.`,
+      404,
+      wantsHtml,
     );
   }
   if (!ghRes.ok) {
     const txt = await ghRes.text().catch(() => "");
-    return Response.json(
-      {
-        error: `GitHub Contents API ${ghRes.status}: ${txt.slice(0, 200)}`,
-      },
-      { status: 502 },
+    return errorResponse(
+      `GitHub Contents API ${ghRes.status}: ${txt.slice(0, 200)}`,
+      502,
+      wantsHtml,
     );
   }
 
@@ -92,5 +92,41 @@ export async function GET(
       // Cacheable corto — si vuelve a pedir el mismo, browser lo guarda 60s
       "Cache-Control": "private, max-age=60",
     },
+  });
+}
+
+function errorResponse(message: string, status: number, wantsHtml: boolean): Response {
+  if (!wantsHtml) {
+    return Response.json({ error: message }, { status });
+  }
+  const safe = message.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Video no disponible</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0a1a0c; color: #f4ede0; margin: 0; padding: 40px; }
+  .card { max-width: 560px; margin: 80px auto; border-left: 3px solid #b04b3a; padding: 24px 28px; background: rgba(255,255,255,0.03); }
+  .eyebrow { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #b04b3a; font-weight: 700; margin-bottom: 8px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 12px; letter-spacing: -0.01em; }
+  p { font-size: 13px; line-height: 1.6; opacity: 0.85; margin: 0 0 16px; }
+  a { color: #f4ede0; text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="eyebrow">${status} · Video no disponible</div>
+    <h1>El MP4 no está disponible todavía.</h1>
+    <p>${safe}</p>
+    <p><a href="javascript:history.back()">← Volver</a></p>
+  </div>
+</body>
+</html>`;
+  return new Response(html, {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }

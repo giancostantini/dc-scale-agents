@@ -54,7 +54,7 @@ Reglas:
 - Respuestas cortas por default (2-4 oraciones). El dueño está ocupado.
 
 Agentes que podés dispatchar:
-- content-creator: genera piezas (reel, static-ad, social-review, etc). Brief mínimo: pieceType, angle.
+- content-creator: genera piezas (reel, static-ad, social-review, etc). Brief mínimo: pieceType, angle. Para pieceType="reel" el video MP4 se renderiza por default (produceVideo true) y aparece después en /cliente/<slug>/biblioteca con preview y descarga. Si el dueño pide expresamente "solo el script" o "solo el guion", agregá produceVideo:false al brief; si no lo pide, NO toques ese flag.
 - content-strategy: calendario semanal. Brief mínimo: ninguno (usa contexto del vault).
 - reporting-performance: analytics (daily, weekly, monthly, insights, query). Brief: mode, y si es query también question.
 - morning-briefing: briefing matutino. Brief: ninguno.
@@ -603,6 +603,13 @@ async function enrichBriefForAgent(
         ? (enriched.examples as unknown[])
         : [];
       enriched.examples = [...existing, ...competitorExamples];
+    }
+    // Si el dueño no pidió expresamente "solo el script", forzamos produccion
+    // de video y voz para reels. El modelo puede pasar produceVideo:false
+    // cuando corresponda; no lo pisamos en ese caso.
+    if (enriched.pieceType === "reel") {
+      if (enriched.produceVideo === undefined) enriched.produceVideo = true;
+      if (enriched.generateVoice === undefined) enriched.generateVoice = true;
     }
     return enriched;
   }

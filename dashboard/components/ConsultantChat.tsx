@@ -16,7 +16,58 @@ interface ChatMessage {
     summary: string | null;
     /** Si el output tiene video (pieza de Content Creator con produceVideo true). */
     videoPieceId?: string | null;
+    /** Si produceVideo falló, mensaje de error legible. */
+    videoError?: string | null;
   } | null;
+}
+
+const STORAGE_VERSION = 1;
+const MESSAGES_CAP = 50;
+
+interface PersistedChat {
+  v: number;
+  messages: ChatMessage[];
+  dispatched: number[];
+  shown: number[];
+}
+
+function storageKey(clientId: string): string {
+  return `consultantChat:${clientId}`;
+}
+
+function loadPersistedChat(clientId: string): PersistedChat | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey(clientId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedChat;
+    if (parsed?.v !== STORAGE_VERSION) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedChat(clientId: string, state: PersistedChat): void {
+  if (typeof window === "undefined") return;
+  try {
+    const trimmed: PersistedChat = {
+      ...state,
+      messages: state.messages.slice(-MESSAGES_CAP),
+    };
+    window.localStorage.setItem(storageKey(clientId), JSON.stringify(trimmed));
+  } catch {
+    // localStorage puede fallar (quota, modo privado). No es crítico.
+  }
+}
+
+function clearPersistedChat(clientId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey(clientId));
+  } catch {
+    /* noop */
+  }
 }
 
 interface ConsultantChatProps {
@@ -46,12 +97,44 @@ export default function ConsultantChat({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Track de runs dispatchados en esta sesión + cuáles ya mostramos como
-  // completados (para no duplicar el mensaje de completion).
+  // completados (para no duplicar el mensaje de completion). Se persisten
+  // junto con messages en localStorage para sobrevivir a un refresh.
   const dispatchedRunIdsRef = useRef<Set<number>>(new Set());
   const completedShownRef = useRef<Set<number>>(new Set());
+
+  // Hidratar desde localStorage al montar / cambiar de cliente. setState
+  // dentro del effect es necesario acá: localStorage no existe en SSR, así
+  // que sólo lo podemos leer post-mount.
+  useEffect(() => {
+    const persisted = loadPersistedChat(clientId);
+    if (persisted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMessages(persisted.messages);
+      dispatchedRunIdsRef.current = new Set(persisted.dispatched);
+      completedShownRef.current = new Set(persisted.shown);
+    } else {
+      setMessages([]);
+      dispatchedRunIdsRef.current = new Set();
+      completedShownRef.current = new Set();
+    }
+    setHydrated(true);
+  }, [clientId]);
+
+  // Persistir cualquier cambio de messages después de hidratar.
+  useEffect(() => {
+    if (!hydrated) return;
+    savePersistedChat(clientId, {
+      v: STORAGE_VERSION,
+      messages,
+      dispatched: Array.from(dispatchedRunIdsRef.current),
+      shown: Array.from(completedShownRef.current),
+    });
+  }, [clientId, messages, hydrated]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -60,8 +143,35 @@ export default function ConsultantChat({
     });
   }, [messages, loading]);
 
-  // Watcher: cuando un run trackeado cambie de status, push completion msg
+  // Watcher: cuando un run trackeado cambie de status, push completion msg.
+  // Esperamos hidratar para no perder/duplicar runs entre el storage y los runs
+  // realtime que llegan del padre.
   useEffect(() => {
+    if (!hydrated) return;
+
+    async function enrichWithVideoInfo(
+      runId: number,
+    ): Promise<{ videoPieceId: string | null; videoError: string | null }> {
+      try {
+        const res = await fetch(`/api/agents/runs/${runId}/output`);
+        if (!res.ok) return { videoPieceId: null, videoError: null };
+        const data = await res.json();
+        const structured = data?.output?.structured;
+        const pieceId =
+          structured && typeof structured.pieceId === "string"
+            ? structured.pieceId
+            : null;
+        const videoPieceId = pieceId && structured.videoPath ? pieceId : null;
+        const videoError =
+          typeof structured?.videoError === "string"
+            ? structured.videoError
+            : null;
+        return { videoPieceId, videoError };
+      } catch {
+        return { videoPieceId: null, videoError: null };
+      }
+    }
+
     for (const run of runs) {
       const isTracked = dispatchedRunIdsRef.current.has(run.id);
       const alreadyShown = completedShownRef.current.has(run.id);
@@ -70,9 +180,7 @@ export default function ConsultantChat({
 
       completedShownRef.current.add(run.id);
 
-      // Para Content Creator, intentar obtener el pieceId del output
-      // estructurado (para el link de descarga del video).
-      void enrichWithVideoInfo(run.id).then((videoPieceId) => {
+      void enrichWithVideoInfo(run.id).then(({ videoPieceId, videoError }) => {
         setMessages((prev) => [
           ...prev,
           {
@@ -84,34 +192,21 @@ export default function ConsultantChat({
               status: run.status as "success" | "error",
               summary: run.summary ?? null,
               videoPieceId,
+              videoError,
             },
           },
         ]);
       });
     }
-  }, [runs]);
+  }, [runs, hydrated]);
 
-  async function enrichWithVideoInfo(runId: number): Promise<string | null> {
-    // Llamada al endpoint nuevo o a una query para obtener el output con el
-    // pieceId. Usamos una query directa al cliente Supabase para velocidad.
-    try {
-      const res = await fetch(`/api/agents/runs/${runId}/output`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      // structured.pieceId + structured.videoPath setup → es Content Creator
-      // con video producido.
-      const structured = data?.output?.structured;
-      if (
-        structured &&
-        typeof structured.pieceId === "string" &&
-        structured.videoPath
-      ) {
-        return structured.pieceId;
-      }
-      return null;
-    } catch {
-      return null;
-    }
+  function clearChat() {
+    clearPersistedChat(clientId);
+    setMessages([]);
+    dispatchedRunIdsRef.current = new Set();
+    completedShownRef.current = new Set();
+    setConfirmingClear(false);
+    setError(null);
   }
 
   async function send() {
@@ -223,15 +318,92 @@ export default function ConsultantChat({
             Chat con el agente del cliente
           </div>
         </div>
-        <div
-          style={{
-            fontSize: 10,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            color: "var(--sand-dark)",
-          }}
-        >
-          {clientId}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+            }}
+          >
+            {clientId}
+          </div>
+          {confirmingClear ? (
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--red-warn)",
+                  fontWeight: 600,
+                }}
+              >
+                ¿Empezar de cero?
+              </span>
+              <button
+                type="button"
+                onClick={clearChat}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: 10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                  background: "var(--red-warn)",
+                  color: "var(--off-white)",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Sí, borrar
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingClear(false)}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: 10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  background: "transparent",
+                  color: "var(--text-muted)",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingClear(true)}
+              disabled={messages.length === 0}
+              title="Borrar todos los mensajes y empezar de cero"
+              style={{
+                padding: "4px 10px",
+                fontSize: 10,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                background: "transparent",
+                color:
+                  messages.length === 0
+                    ? "var(--text-muted)"
+                    : "var(--deep-green)",
+                border: "1px solid rgba(10,26,12,0.15)",
+                cursor: messages.length === 0 ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              ✕ Nueva conversación
+            </button>
+          )}
         </div>
       </div>
 
@@ -482,26 +654,24 @@ function CompletionBubble({
           {completion.summary}
         </div>
       )}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-        <button
-          type="button"
-          onClick={() => onViewRun(completion.runId)}
+      {completion.videoError && (
+        <div
           style={{
-            padding: "6px 12px",
-            background: "transparent",
-            color: "var(--deep-green)",
-            border: "1px solid rgba(10,26,12,0.15)",
-            fontSize: 10,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
+            fontSize: 11,
+            color: "var(--red-warn)",
+            lineHeight: 1.5,
+            background: "rgba(176,75,58,0.06)",
+            padding: "6px 10px",
+            borderLeft: "2px solid var(--red-warn)",
           }}
+          title={completion.videoError}
         >
-          → Ver script y output
-        </button>
-        {videoUrl && (
+          ⚠ Video falló: {completion.videoError.slice(0, 140)}
+          {completion.videoError.length > 140 ? "…" : ""}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+        {videoUrl ? (
           <>
             <a
               href={videoUrl}
@@ -520,7 +690,7 @@ function CompletionBubble({
                 fontFamily: "inherit",
               }}
             >
-              ▶ Ver video
+              ▶ Reproducir video MP4
             </a>
             <a
               href={`${videoUrl}?download=1`}
@@ -540,7 +710,25 @@ function CompletionBubble({
               ↓ Descargar MP4
             </a>
           </>
-        )}
+        ) : null}
+        <button
+          type="button"
+          onClick={() => onViewRun(completion.runId)}
+          style={{
+            padding: "6px 12px",
+            background: "transparent",
+            color: "var(--deep-green)",
+            border: "1px solid rgba(10,26,12,0.15)",
+            fontSize: 10,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          📄 Abrir script generado
+        </button>
       </div>
     </div>
   );
