@@ -2712,3 +2712,338 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #010 — reel
+Date: 2026-05-01 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: comer en Madrid sin caer en trampa turística | Instructions: Usar el asset library completo. Wizzo en su expresión Magia para el momento del Pique. Logo blanco para frames sobre violeta #4C167C. Usar las fonts custom (Bricolage Grotesque + Host Grotesk + Noto Nastaliq Urdu) que están en el library en lugar de Google Fonts.
+
+### Generated Content
+# Reel WizTrip — "Comer en Madrid sin caer en trampa turística"
+**Producción: 01/05/2026 · Plataformas: Instagram Reels + TikTok**
+
+---
+
+## Resumen
+
+| Campo | Valor |
+|---|---|
+| **Objetivo** | Viral / valor (awareness + posicionamiento de Wizzo como insider) |
+| **Formato de script** | B — "Direct Value" · Razón: el tema es educativo/útil, genera guardados, ideal para contenido orgánico de arranque de cuenta. El valor inmediato reduce la fricción de confianza que es la objeción #1 del cliente. |
+| **Trigger emocional** | **Enojo + alivio** — Activamos la frustración de haber caído en trampas turísticas ("me estafaron pagando 18€ por paella congelada") y resolvemos con los piques reales de Wizzo. |
+| **Plataformas destino** | Instagram Reels + TikTok |
+| **Duración estimada** | 42 segundos |
+
+---
+
+## Triple Hook
+
+- **Visual:** Primer frame: fondo violeta `#4C167C` sólido. Wizzo en expresión "magia" aparece con un pop desde el centro. Partículas doradas explotan alrededor. Corte inmediato a texto impactante.
+- **Textual:** `MADRID TE ESTÁ ROBANDO.` (Bricolage Grotesque ExtraBold, blanco `#FFFFFF`, centrado, cuerpo de pantalla)
+- **Verbal:** *(voz Wizzo, cálida, directa, algo conspirativa)* — *"Si comés en la Puerta del Sol… te van a desplomar."*
+
+---
+
+## Script completo
+
+```
+───────────────────────────────────────────────────────────────
+Escena 1 [0s–1.2s] — PATTERN INTERRUPTION
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo liso violeta #4C167C.
+    Wizzo (Color_magia.svg) hace POP desde el centro con scale
+    0→1 en 0.3s + leve bounce. Partículas doradas #FAB402
+    explotan a su alrededor (8 destellos radiales).
+    A los 0.6s el fondo FLASHEA a blanco #FFFFFF por 2 frames
+    (patrón de atención).
+
+  Texto en pantalla:
+    "MADRID TE ESTÁ ROBANDO."
+    Font: BricolageGrotesque_72pt-ExtraBold.ttf
+    Color: #FFFFFF
+    Tamaño: 72pt equivalente (ocupa 70% del ancho)
+    Posición: centro-pantalla, justo bajo Wizzo
+    Animación: palabra por palabra, drop-in con rebote leve
+
+  Narración:
+    "Si comés en la Puerta del Sol… te van a desplomar."
+
+  Música/SFX:
+    SFX: whoosh + "ding" metálico dorado al aparecer Wizzo.
+    Música de fondo: lo-fi chill con groove, entra al 20% de
+    volumen.
+
+  Transición: Hard cut a Escena 2
+───────────────────────────────────────────────────────────────
+Escena 2 [1.2s–5s] — EL PROBLEMA (trampa turística)
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo cambia a #222524 (casi negro).
+    Aparece icono Estrella_color.svg (pequeño, esquina sup.
+    derecha, decorativo).
+    Texto grande en pantalla, estilo "stamp de advertencia":
+    tag "⚠ TRAMPA TURÍSTICA" animado con shake rápido.
+
+  Texto en pantalla:
+    Línea 1: "⚠ TRAMPA TURÍSTICA"
+    Font: BricolageGrotesque_48pt-Bold.ttf
+    Color: #FAB402 (Wizzo Gold)
+    Tamaño: 48pt · centrado
+    Animación: zoom-in desde 120% + shake 2 frames
+
+    Línea 2: "Zonas turísticas = precio x3, calidad x0"
+    Font: HostGrotesk-Regular.ttf
+    Color: #FFFFFF
+    Tamaño: 22pt · centrado
+
+  Narración:
+    "Mercado de San Miguel, Gran Vía, Retiro…
+     zonas preciosas — pero para comer, son una trampa."
+
+  Música/SFX:
+    SFX: sonido de "error" suave (buzzer bajo).
+    Música sigue en fondo.
+
+  Transición: Wipe lateral rápido (0.15s) a Escena 3
+───────────────────────────────────────────────────────────────
+Escena 3 [5s–11s] — PIQUE #1 (La Latina)
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo crema #FFF2CA.
+    Aparece Curva_lila.svg como elemento gráfico de fondo,
+    anclado abajo-izquierda, 40% opacidad.
+    Tag de destino superior: "MADRID · La Latina"
+    (con Iso_Violeta.svg a la izquierda del tag, 24px).
+    Texto del pique entra desde abajo con slide-up suave.
+
+  Texto en pantalla:
+    Tag sup: "📍 La Latina"
+    Font: HostGrotesk-Bold.ttf · Color: #4C167C · 18pt
+
+    Pique: "Tapas de verdad: Calle Cava Baja"
+    Font: BricolageGrotesque_48pt-Bold.ttf
+    Color: #222524 · 44pt · width 85%
+
+    Sub: "Bocadillo de calamares + vermut < 6€"
+    Font: HostGrotesk-Regular.ttf · #222524 · 20pt
+
+  Narración:
+    "Pique número uno: La Latina.
+     Calle Cava Baja. Tapas de verdad, precios de barrio.
+     Un bocadillo de calamares y vermut por menos de seis euros.
+     Eso es moverse como un local."
+
+  Música/SFX:
+    Música sube levemente. SFX: "tick" positivo al aparecer
+    el tag.
+
+  Transición: Hard cut a Escena 4
+───────────────────────────────────────────────────────────────
+Escena 4 [11s–17s] — PIQUE #2 (Lavapiés)
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo: lavanda #B99FFF.
+    Curva_celeste.svg decorativa, anclada arriba-derecha,
+    30% opacidad, mirror horizontal.
+    Misma estructura de tag + pique.
+
+  Texto en pantalla:
+    Tag: "📍 Lavapiés"
+    Font: HostGrotesk-Bold.ttf · Color: #4C167C · 18pt
+
+    Pique: "Menú del día: 3 platos + vino"
+    Font: BricolageGrotesque_48pt-Bold.ttf
+    Color: #222524 · 44pt
+
+    Sub: "10€–12€. Mejor relación precio/calidad de Madrid."
+    Font: HostGrotesk-Regular.ttf · #222524 · 20pt
+
+    Badge: pequeño sello circular dorado #FAB402 con texto
+    "WIZZO PICK" en BricolageGrotesque-SemiBold.ttf 12pt
+    #4C167C · esquina inferior derecha · escala desde 0 con
+    bounce (entra a los 13s)
+
+  Narración:
+    "Número dos: Lavapiés.
+     El menú del día de toda la vida — tres platos, vino incluido,
+     entre diez y doce euros. Wizzo Pick garantizado."
+
+  Música/SFX:
+    SFX: "pop" suave al aparecer el badge Wizzo Pick.
+
+  Transición: Zoom-out rápido (0.2s) a Escena 5
+───────────────────────────────────────────────────────────────
+Escena 5 [17s–23s] — PIQUE #3 (Malasaña)
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo: azul mar #024384.
+    Curva_neon.svg decorativa, posición libre centro-fondo,
+    25% opacidad.
+    Mismo layout estructural.
+
+  Texto en pantalla:
+    Tag: "📍 Malasaña"
+    Font: HostGrotesk-Bold.ttf · Color: #E5F53F · 18pt
+
+    Pique: "Brunch sin cola, sin Instagram"
+    Font: BricolageGrotesque_48pt-Bold.ttf
+    Color: #FFFFFF · 44pt
+
+    Sub: "Cafeterías de barrio. Sin reserva, sin filtro."
+    Font: HostGrotesk-Regular.ttf · #FFFFFF · 20pt
+
+  Narración:
+    "Y tres: Malasaña.
+     Olvídate de los brunch instagrameables con lista de espera.
+     Las cafeterías de barrio no tienen cola, no tienen filtro —
+     pero sí tienen el café que te cambia el día."
+
+  Música/SFX:
+    Música en su punto más alto de energía en esta escena.
+
+  Transición: Smash cut a Escena 6
+───────────────────────────────────────────────────────────────
+Escena 6 [23s–29s] — EL GIRO / REENCUADRE (momento magia)
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo: violeta #4C167C.
+    Wizzo vuelve a escena, ahora en expresión Color_magia.svg,
+    más grande (60% del alto de pantalla), centrado-izquierda.
+    A su derecha, texto aparece letra por letra.
+    Varita_color.svg aparece en la esquina superior derecha,
+    rotando lentamente (360° en 3s), pequeña (80px).
+
+  Texto en pantalla:
+    Línea 1: "La diferencia entre"
+    Font: HostGrotesk-Regular.ttf · #FAB402 · 20pt
+
+    Línea 2: "TURISTA y LOCAL"
+    Font: BricolageGrotesque_72pt-ExtraBold.ttf
+    Color: #FFFFFF · 56pt
+    Animación: letra por letra + cada palabra con scale up
+
+    Línea 3: "es saber dónde comer."
+    Font: HostGrotesk-Regular.ttf · #FAB402 · 20pt
+
+  Narración:
+    "La diferencia entre ser turista y moverte como un local…
+     es exactamente esto. Saber dónde comer."
+
+  Música/SFX:
+    SFX: chime mágico / varita dorada (corto, 0.5s).
+    Música baja a 30% para dar protagonismo a la voz.
+
+  Transición: Fade-through violeta oscuro → Escena 7
+───────────────────────────────────────────────────────────────
+Escena 7 [29s–35s] — REFUERZO DE VALOR (el pique de Wizzo)
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo: crema #FFF2CA.
+    Sello "EL PIQUE DE WIZZO" centrado en pantalla.
+    Estructura:
+      - Rectángulo dorado #FAB402 como banner (ancho 85%,
+        alto auto)
+      - Texto del sello en BricolageGrotesque_48pt-Bold.ttf
+        color #4C167C dentro del banner
+    Debajo del banner, texto de la "honestidad de insider":
+
+  Texto en pantalla:
+    Banner: "EL PIQUE DE WIZZO"
+    Font: BricolageGrotesque_48pt-Bold.ttf · #4C167C · 40pt
+
+    Body: "Si ves carta en 4 idiomas en la puerta…
+    darte vuelta y caminar 2 cuadras."
+    Font: HostGrotesk-Regular.ttf · #222524 · 22pt
+    Animación: slide-up con fade, 0.3s delay por línea
+
+  Narración:
+    "Y el pique de Wizzo que nadie te dice:
+     si ves la carta en cuatro idiomas en la puerta…
+     date la vuelta y caminá dos cuadras.
+     Ahí está la comida de verdad."
+
+  Música/SFX:
+    Música vuelve al 60%. SFX: "ding" al aparecer el banner.
+
+  Transición: Slide-down rápido a Escena 8
+───────────────────────────────────────────────────────────────
+Escena 8 [35s–42s] — CTA + CIERRE DE MARCA
+───────────────────────────────────────────────────────────────
+  Visual:
+    Fondo: violeta #4C167C · full frame.
+    Logo_Blanco.svg centrado, parte superior del frame
+    (zona segura: 200px desde arriba).
+    Wizzo en Color_festejo.svg, tamaño mediano (45% pantalla),
+    posición inferior-derecha.
+    Estrella_color.svg × 3 distribuidas asimétricamente
+    como decoración flotante (animación: float up/down suave,
+    ciclo 2s cada una, desfasadas).
+
+  Texto en pantalla:
+    Línea grande centrada:
+    "¿Tu próximo viaje a Madrid?"
+    Font: BricolageGrotesque_48pt-Bold.ttf · #FAB402 · 48pt
+
+    Línea pequeña debajo:
+    "Wizzo tiene tu pique listo."
+    Font: HostGrotesk-Regular.ttf · #FFFFFF · 22pt
+
+    CTA pill (rectángulo redondeado, fondo #FAB402):
+    "Armemos tu viaje →"
+    Font: BricolageGrotesque_24pt-Bold.ttf · #4C167C · 20pt
+    Posición: centro-inferior (dentro de safe zone)
+    Animación: pulse suave (scale 1→1.04→1, ciclo 1.2s)
+
+    Tag handle esquina inferior (fuera de safe zone no):
+    "@wiztrip.travel"
+    Font: HostGrotesk-Regular.ttf · #B99FFF · 16pt
+
+  Narración:
+    "¿Tenés Madrid en el radar?
+     Hablamos — Wizzo ya tiene tu pique listo.
+     Elegiste bien."
+
+  Música/SFX:
+    Música sube al 80% · fade out suave en los últimos 2s.
+    SFX: chime final dorado al aparecer el CTA.
+
+  Transición: —
+───────────────────────────────────────────────────────────────
+```
+
+---
+
+## Storyboard de producción
+
+> Resolución: **1080 × 1920 px** · Ratio 9:16
+> Safe zones: texto no entra en los **150 px superiores** ni **250 px inferiores**
+> Herramienta: Remotion (composición en código)
+
+---
+
+### Frame 1 — Pattern Interruption (
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
