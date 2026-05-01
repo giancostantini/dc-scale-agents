@@ -52,28 +52,43 @@ function sanitizeRemotionCode(raw) {
   if (!raw || typeof raw !== "string") return "";
   const trimmed = raw.trim();
 
-  // Detectar todos los bloques ```...``` y elegir el más largo.
+  // Paso 1: pelar markdown fences si los hay.
   const fenceRegex = /```(?:tsx|typescript|ts|jsx|js)?\s*\n([\s\S]*?)\n```/gi;
   const blocks = [];
   let match;
   while ((match = fenceRegex.exec(trimmed)) !== null) {
     blocks.push(match[1]);
   }
+  let body;
   if (blocks.length > 0) {
     blocks.sort((a, b) => b.length - a.length);
-    return blocks[0].trim();
-  }
-
-  // Si empieza con ``` sin closing (caso degenerado), pelar la primera línea
-  // ``` y el cierre si lo hay.
-  if (trimmed.startsWith("```")) {
+    body = blocks[0].trim();
+  } else if (trimmed.startsWith("```")) {
+    // Fence abierto sin cerrar (caso degenerado).
     const firstNl = trimmed.indexOf("\n");
-    let body = firstNl >= 0 ? trimmed.slice(firstNl + 1) : trimmed;
-    if (body.endsWith("```")) body = body.slice(0, -3);
-    return body.trim();
+    let inner = firstNl >= 0 ? trimmed.slice(firstNl + 1) : trimmed;
+    if (inner.endsWith("```")) inner = inner.slice(0, -3);
+    body = inner.trim();
+  } else {
+    body = trimmed;
   }
 
-  return trimmed;
+  // Paso 2: revertir markdown autolinks que Claude a veces emite dentro del
+  // código JS/TSX. Patrón: `[<expression>](http(s)://<expression>)` o el
+  // mismo expression en ambos lados — un autolink de markdown que se
+  // contaminó. Ejemplos reales de output de Claude:
+  //   color: [C.gold](http://C.gold),
+  //   [items.map](http://items.map)((item) => ...)
+  //   border: `2px solid ${[C.gold](http://C.gold)}`
+  // esbuild los lee como array literal seguido de llamada de función →
+  // "Expected ';' but found '{'". Los reemplazamos por la expresión cruda.
+  // Captura: corchete abre, expresión idem (letras/números/punto/_$/[ ]),
+  // corchete cierra, paréntesis con http(s):// y la misma expresión adentro.
+  const autolinkRegex =
+    /\[([A-Za-z_$][\w$.\[\]]*)\]\(https?:\/\/[^\s)]+\)/g;
+  body = body.replace(autolinkRegex, "$1");
+
+  return body;
 }
 
 /**
@@ -306,7 +321,14 @@ Decidí qué camino usar inspeccionando ASSETS DISPONIBLES arriba.
 10. Font sizes: títulos hook 64-80px, subtítulos 36-48px, cuerpo 24-32px (escalas del brandbook).
 
 --- OUTPUT FORMAT ---
-Output ONLY a single TypeScript/TSX file. No explanations, no markdown fences.
+Output ONLY a single TypeScript/TSX file. No explanations, no markdown fences, no code blocks.
+
+CRITICAL — never emit markdown syntax inside the code body:
+- DO NOT write \`[C.gold](http://C.gold)\` — write \`C.gold\`.
+- DO NOT write \`[items.map](http://items.map)((item) => ...)\` — write \`items.map((item) => ...)\`.
+- DO NOT autolink any identifier or expression. The output is JS/TSX, not markdown.
+- The pattern \`[<expr>](http(s)://...)\` is ALWAYS a bug in code output.
+
 The file must:
 - Be a valid React/Remotion component
 - Export a default component named ${compositionId}
