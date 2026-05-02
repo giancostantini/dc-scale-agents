@@ -1649,6 +1649,58 @@
   section.tight-bottom { padding-bottom: 40px; }
   section.tight-bottom + section { padding-top: 80px; }
 
+  /* ============ URGENCY PILL (cupos en rojo) ============ */
+  .urgency-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(176, 75, 58, 0.14);
+    border: 1px solid rgba(176, 75, 58, 0.45);
+    color: #E26B58;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 36px;
+    border-radius: 999px;
+    position: relative;
+    z-index: 2;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .urgency-pill:hover {
+    background: rgba(176, 75, 58, 0.2);
+    border-color: rgba(176, 75, 58, 0.7);
+  }
+  .urgency-pill strong { font-weight: 800; }
+  .urgency-pill .up-dot {
+    width: 8px; height: 8px;
+    background: #E26B58;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(226, 107, 88, 0.6);
+    animation: urgencyPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes urgencyPulse {
+    0% { box-shadow: 0 0 0 0 rgba(226, 107, 88, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(226, 107, 88, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(226, 107, 88, 0); }
+  }
+
+  /* Variante grande, dentro de la seccion cupo (fondo claro) */
+  .urgency-pill-large {
+    display: inline-flex;
+    margin-top: 24px;
+    margin-bottom: 0;
+    padding: 12px 22px;
+    font-size: 13px;
+    background: rgba(176, 75, 58, 0.1);
+    border-color: rgba(176, 75, 58, 0.4);
+    color: #B04B3A;
+  }
+  .urgency-pill-large .up-dot { background: #B04B3A; }
+
   /* ============ STATEMENT (the question) ============ */
   .statement-section {
     background: var(--bosque);
@@ -1814,8 +1866,10 @@
     /* Cupo */
     .cupo-section { padding: 72px 24px; }
     .cupo-intro { grid-template-columns: 1fr; gap: 24px; }
-    .cupo-grid-slots { grid-template-columns: repeat(6, 1fr); gap: 6px; }
-    .slot .slot-num { font-size: 14px; }
+    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .slot .slot-num { font-size: 16px; }
+    .urgency-pill { font-size: 11px; padding: 8px 14px; gap: 8px; margin-bottom: 28px; }
+    .urgency-pill-large { font-size: 12px; padding: 10px 18px; }
     .cupo-legend { flex-direction: column; gap: 10px; font-size: 11px; }
     .cupo-summary { grid-template-columns: 1fr; text-align: center; gap: 20px; padding: 28px 24px; }
     .cupo-summary .cs-num { font-size: 48px; }
@@ -1875,7 +1929,6 @@
     .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
     .cases-meta .cm-num { font-size: 30px; }
     .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); }
-    .hero-stat .stat-num { font-size: 22px; }
   }
 </style>
 </head>
@@ -1918,6 +1971,10 @@
   <div class="hero-glow"></div>
 
   <div class="hero-mid">
+    <a href="#cupo" class="urgency-pill">
+      <span class="up-dot"></span>
+      Solo <strong>2 cupos disponibles</strong> · 2026
+    </a>
     <h1 class="hero-title">
       <span class="line2">Tu socio de</span>
       <span class="line1">crecimiento</span>
@@ -2183,10 +2240,14 @@
   <div class="cupo-intro">
     <div>
       <div class="label">Cupos disponibles</div>
-      <h2>11 clientes totales.<br>3 cupos abiertos.</h2>
+      <h2>8 clientes totales.<br>2 cupos abiertos.</h2>
+      <div class="urgency-pill urgency-pill-large">
+        <span class="up-dot"></span>
+        Solo <strong>2 cupos disponibles</strong>
+      </div>
     </div>
     <p class="lead" style="color: var(--neblina);">
-      No escalamos con más juniors ni account managers. La firma opera con <strong>11 cuentas activas como máximo</strong> — es la única forma de que Fede y Gian estén en todas. Cuando se llena, cerramos inscripciones hasta que un cliente cierra su ciclo.
+      La firma opera con <strong>8 cuentas activas como máximo</strong> — es la única forma de garantizar que los socios estén involucrados en cada una. Cuando se completan los cupos, cerramos inscripciones hasta que un cliente termina su ciclo.
     </p>
   </div>
 
@@ -2197,11 +2258,8 @@
     <div class="slot"><span class="slot-num">04</span></div>
     <div class="slot"><span class="slot-num">05</span></div>
     <div class="slot"><span class="slot-num">06</span></div>
-    <div class="slot"><span class="slot-num">07</span></div>
-    <div class="slot"><span class="slot-num">08</span></div>
-    <div class="slot available"><span class="slot-num">09</span></div>
-    <div class="slot available"><span class="slot-num">10</span></div>
-    <div class="slot available"><span class="slot-num">11</span></div>
+    <div class="slot available"><span class="slot-num">07</span></div>
+    <div class="slot available"><span class="slot-num">08</span></div>
   </div>
 
   <div class="cupo-legend">
@@ -2210,9 +2268,9 @@
   </div>
 
   <div class="cupo-summary">
-    <div class="cs-num">3</div>
+    <div class="cs-num">2</div>
     <div class="cs-text">
-      Quedan <strong>3 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
+      Quedan <strong>solo 2 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
     </div>
     <button class="btn btn-primary" onclick="openCalendly(event)">
       Agendar reunión <span class="arrow">→</span>
@@ -2457,7 +2515,7 @@
     </div>
     <div class="faq-item">
       <div class="faq-q">¿Siempre hablo con los socios o con un ejecutivo de cuenta? <span class="faq-toggle">+</span></div>
-      <div class="faq-a">Los dos. Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong> — firman, deciden y están al tanto de cada decisión crítica. En el día a día operativo puede haber ida y vuelta con un ejecutivo de cuenta del equipo (es lo que permite escalar sin perder calidad), pero los socios nunca desaparecen. No es el modelo "account manager como traductor" de una agencia.</div>
+      <div class="faq-a">Los dos. Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong> — firman, deciden y están al tanto de cada decisión crítica. En el día a día operativo trabajás con un ejecutivo de cuenta del equipo, que articula con los socios y mantiene el ritmo de ejecución. La diferencia con una agencia es que las decisiones estratégicas siempre vuelven a los fundadores.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">¿Trabajan con cualquier tipo de empresa? <span class="faq-toggle">+</span></div>
