@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getOutputsForRun } from "@/lib/agents";
+import { getSupabase } from "@/lib/supabase/client";
 import type { AgentRun, AgentOutput } from "@/lib/types";
 
 interface RunOutputDrawerProps {
@@ -27,6 +28,35 @@ function DrawerInner({ run, onClose }: { run: AgentRun; onClose: () => void }) {
     });
     return () => {
       cancelled = true;
+    };
+  }, [run.id]);
+
+  // Realtime: si llegan nuevos outputs mientras está abierto el drawer,
+  // los pusheamos a la lista. Útil para agentes que producen outputs
+  // en streaming (ej. content-creator).
+  useEffect(() => {
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`agent_outputs-${run.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "agent_outputs",
+          filter: `run_id=eq.${run.id}`,
+        },
+        (payload) => {
+          const newOutput = payload.new as AgentOutput;
+          setOutputs((prev) => {
+            if (prev.some((o) => o.id === newOutput.id)) return prev;
+            return [...prev, newOutput];
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, [run.id]);
 

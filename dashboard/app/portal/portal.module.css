@@ -471,6 +471,72 @@
   .wrap {
     padding: 32px 24px 80px;
   }
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .panel {
+    padding: 18px;
+  }
+  .eventRow {
+    grid-template-columns: 64px 1fr;
+    grid-template-areas:
+      "date title"
+      "date participants";
+    row-gap: 4px;
+  }
+  .eventRow > .eventDate {
+    grid-area: date;
+  }
+  .eventRow > .eventTitle {
+    grid-area: title;
+  }
+  .eventRow > .eventParticipants {
+    grid-area: participants;
+  }
+  .reportHead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .footerRight {
+    text-align: left;
+  }
+}
+
+@media (max-width: 460px) {
+  .header {
+    padding: 12px 16px;
+  }
+  .userBtn {
+    padding: 4px 8px;
+  }
+  .userName,
+  .userRole {
+    display: none;
+  }
+  .wrap {
+    padding: 24px 16px 64px;
+  }
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+  .kpiCell {
+    padding: 18px 16px;
+  }
+  .ctaCard {
+    padding: 20px;
+  }
+  .ctaTitle {
+    font-size: 18px;
+  }
+  .heroTitle {
+    font-size: clamp(32px, 8vw, 44px);
+  }
 }
 
 /* ============ FOOTER ============ */

@@ -17,17 +17,36 @@ import {
 } from "@/lib/storage";
 import { listPhaseReports, extractExecutiveSummary } from "@/lib/phases";
 import { getSupabase } from "@/lib/supabase/client";
+import { getDownloadUrl } from "@/lib/upload";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import Lockup from "@/components/Lockup";
+import PortalOnboardingTour from "@/components/PortalOnboardingTour";
 import type {
   CalEvent,
   Client,
   ClientObjectives,
   ContentPost,
   InvoicePayment,
+  OnboardingFile,
   PhaseReport,
 } from "@/lib/types";
 import styles from "./portal.module.css";
+
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "svg", "webp", "avif"];
+
+function pickLogoFile(client: Client): OnboardingFile | string | null {
+  const branding = client.onboarding?.brandingFiles ?? [];
+  for (const f of branding) {
+    const name = typeof f === "string" ? f : f.name;
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    if (IMAGE_EXTS.includes(ext)) return f;
+  }
+  return null;
+}
+
+function getPathFromFile(f: OnboardingFile | string): string {
+  return typeof f === "string" ? f : f.path;
+}
 
 const PHASE_LABELS: Record<string, string> = {
   diagnostico: "Diagnóstico",
@@ -46,6 +65,17 @@ export default function PortalPage() {
   const [content, setContent] = useState<ContentPost[]>([]);
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    if (!client) return;
+    const file = pickLogoFile(client);
+    if (!file) return;
+    getDownloadUrl(getPathFromFile(file)).then((u) => {
+      if (u) setLogoUrl(u);
+    });
+  }, [client]);
 
   useEffect(() => {
     hasSession().then(async (has) => {
@@ -71,6 +101,11 @@ export default function PortalPage() {
       }
 
       setProfile(p);
+
+      // Mostrar tour solo la primera vez (permissions.tour_seen no seteado)
+      if (p.permissions?.tour_seen !== true) {
+        setShowTour(true);
+      }
 
       // Cargamos todo en paralelo. RLS filtra automáticamente.
       const supabase = getSupabase();
@@ -138,9 +173,31 @@ export default function PortalPage() {
 
   return (
     <>
+      {showTour && profile && (
+        <PortalOnboardingTour
+          profile={profile}
+          onClose={() => setShowTour(false)}
+        />
+      )}
+
       {/* Header propio del portal */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
+          {logoUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={logoUrl}
+              alt={`Logo de ${client.name}`}
+              style={{
+                height: 32,
+                width: "auto",
+                objectFit: "contain",
+                background: "rgba(232,228,220,0.06)",
+                padding: "4px 8px",
+                borderRadius: 2,
+              }}
+            />
+          )}
           <Lockup size="sm" />
         </div>
         <div className={styles.headerCenter}>

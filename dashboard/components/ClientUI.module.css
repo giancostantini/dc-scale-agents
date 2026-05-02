@@ -312,3 +312,37 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 700px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .head h1 {
+    font-size: clamp(28px, 7vw, 36px);
+  }
+  .panel {
+    padding: 18px;
+  }
+  .panelHead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 460px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+  .kpiCell {
+    padding: 16px 14px;
+  }
+  .kValue {
+    font-size: 22px;
+  }
+}

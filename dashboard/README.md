@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dashboard · Dearmas Costantini Scale
+
+Sistema interno de gestión de la agencia (clientes, equipo, fases, finanzas, agentes IA).
+
+- **Producción:** https://sistemadearmascostantini.com
+- **Stack:** Next.js 16 (Turbopack) · React 19 · Supabase · Anthropic SDK · Vercel
 
 ## Getting Started
 
-First, run the development server:
+### 1 · Variables de entorno
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
+# completar valores — ver .env.example para origen de cada var
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Las críticas:
+- `SUPABASE_SERVICE_ROLE_KEY` — server-only, bypassea RLS
+- `GH_DISPATCH_TOKEN` + `GITHUB_OWNER` + `GITHUB_REPO` — para que el dashboard dispare agentes IA via GitHub Actions
+- `ANTHROPIC_API_KEY` — para consultor IA y phase reports
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2 · Migraciones Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+SQL Editor → correr una a una (idempotentes):
 
-## Learn More
+```
+supabase/migrations/
+  001_expand_prospect_campaigns.sql
+  002_client_onboarding.sql
+  003_director_role.sql
+  004_team_management.sql
+  005_storage_bucket.sql
+  006_client_assets_bucket.sql
+  006_phase_reports.sql
+  007_three_roles.sql
+  008_audit_log.sql            # cuando exista
+```
 
-To learn more about Next.js, take a look at the following resources:
+Verificación:
+```sql
+SELECT auth_role(), auth_client_id(), auth_pipeline_access();
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3 · Buckets de Storage
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+En Supabase Storage UI crear (Public: OFF):
+- `client-onboarding` — kickoff PDFs, branding subido en el wizard
+- `client-assets` — asset library del brandbook
 
-## Deploy on Vercel
+### 4 · Dev server
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+unset ANTHROPIC_API_KEY ANTHROPIC_BASE_URL  # solo si Claude Code está corriendo en el shell
+npm install
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Abrir http://localhost:3000.
+
+## Deploy a Vercel
+
+1. Conectar el repo en Vercel y apuntar el root al directorio `dashboard/`.
+2. Setear todas las env vars de `.env.example` en Settings → Environment Variables (Production + Preview + Development).
+3. Redeploy después de cada cambio de env var.
+
+### Verificar que las env vars están cargadas
+
+```
+GET https://<tu-deploy>.vercel.app/api/diag/env
+```
+
+Devuelve un JSON con cada var enmascarada — si una crítica está faltando, lo vas a ver.
+
+## Desarrollo
+
+- Lint: `npm run lint`
+- Type-check: `npx tsc --noEmit`
+- Build prod local: `npm run build`
+
+## Estructura
+
+```
+app/                 — Next.js App Router (rutas, API routes, layouts)
+  hub/               — landing post-login (lista de clientes)
+  cliente/[id]/      — vistas de cliente (planificador, fábrica, fases, etc.)
+  portal/            — portal del cliente (read-only KPIs, solicitudes, consultor)
+  api/               — endpoints (team/invite, phases/*, agents/run, etc.)
+components/          — UI compartida
+lib/                 — helpers (storage, supabase clients, github-dispatch, etc.)
+supabase/migrations/ — migraciones SQL versionadas
+```
+
+## Notas importantes
+
+- **Next.js 16 tiene breaking changes** vs versiones previas. Antes de tocar APIs/conventions ver `node_modules/next/dist/docs/`.
+- **`SUPABASE_SERVICE_ROLE_KEY` es server-only** — nunca con prefijo `NEXT_PUBLIC_`. Exponerla al cliente compromete toda la base.
+- **Los agentes IA corren en GitHub Actions**, no en Vercel — el dashboard solo dispara `repository_dispatch`. Ver `lib/github-dispatch.ts` y `.github/workflows/`.

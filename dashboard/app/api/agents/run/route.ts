@@ -20,6 +20,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext } from "@/lib/vault-loader";
+import { logAction } from "@/lib/audit";
 
 interface RunRequest {
   clientId: string;
@@ -193,6 +194,14 @@ export async function POST(req: NextRequest) {
       { status: 502 },
     );
   }
+
+  await logAction({
+    actorId: null,
+    action: "agent.dispatch",
+    targetType: "agent_run",
+    targetId: String(run.id),
+    metadata: { agent, clientId, fast: false },
+  });
 
   return Response.json({ runId: run.id, dispatched: true });
 }

@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logAction } from "@/lib/audit";
 
 function makeInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -198,6 +199,20 @@ export async function POST(req: NextRequest) {
         .eq("id", newUserId);
     }
   }
+
+  await logAction({
+    actorId: caller.id,
+    actorEmail: caller.email ?? null,
+    action: "team.invite",
+    targetType: "profile",
+    targetId: newUserId ?? email,
+    metadata: {
+      email,
+      name,
+      role: targetRole,
+      clientId: clientId ?? null,
+    },
+  });
 
   return NextResponse.json({
     success: true,

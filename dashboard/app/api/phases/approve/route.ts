@@ -11,6 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { logAction } from "@/lib/audit";
 
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 type PhaseKey = (typeof PHASES)[number];
@@ -147,6 +148,46 @@ export async function POST(req: NextRequest) {
       { onConflict: "client_id,phase" },
     );
   }
+
+  // Notificar al cliente que tiene un nuevo reporte aprobado.
+  // Realtime filtra por client; el bell del portal lo levanta.
+  // Si falla (RLS, validation), seguimos — la aprobación ya quedó.
+  const { data: clientRow } = await admin
+    .from("clients")
+    .select("name")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  const phaseLabels: Record<PhaseKey, string> = {
+    diagnostico: "Diagnóstico",
+    estrategia: "Estrategia",
+    setup: "Setup",
+    lanzamiento: "Lanzamiento",
+  };
+
+  const { error: notifErr } = await admin.from("notifications").insert({
+    client: clientId,
+    agent: "phases",
+    level: "success",
+    title: `Reporte de ${phaseLabels[phaseKey]} aprobado`,
+    body: clientRow?.name
+      ? `Ya podés ver el resumen ejecutivo en tu portal.`
+      : "Resumen ejecutivo disponible en tu portal.",
+    link: "/portal",
+    read: false,
+  });
+  if (notifErr) {
+    console.warn("[phases/approve] notif insert failed:", notifErr.message);
+  }
+
+  await logAction({
+    actorId: caller.id,
+    actorEmail: caller.email ?? null,
+    action: "phase.approve",
+    targetType: "phase_report",
+    targetId: `${clientId}:${phaseKey}`,
+    metadata: { clientId, phase: phaseKey, next },
+  });
 
   return Response.json({
     success: true,

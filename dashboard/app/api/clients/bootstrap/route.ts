@@ -9,6 +9,7 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+import { logAction } from "@/lib/audit";
 
 interface BootstrapBody {
   clientId: string;
@@ -159,6 +160,22 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  await logAction({
+    actorId: null, // bootstrap se dispara desde el wizard sin verificar rol acá; el authoring se cubre en el insert previo de clients
+    action: "client.create",
+    targetType: "client",
+    targetId: clientId,
+    metadata: {
+      name,
+      sector: brief.sector,
+      type: brief.type,
+      runId: run.id,
+      brandbookRunId,
+      hasBrandbookText: typeof body.brandbookText === "string" &&
+        body.brandbookText.trim().length >= 200,
+    },
+  });
 
   return Response.json({
     runId: run.id,

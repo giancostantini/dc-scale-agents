@@ -7,6 +7,8 @@ export type UserRole = "director" | "team" | "client";
 export interface ProfilePermissions {
   /** Si true, el team member ve el módulo Pipeline (CRM). Default false. */
   pipeline_access?: boolean;
+  /** Si true, el cliente ya vio el onboarding tour del portal. Solo role='client'. */
+  tour_seen?: boolean;
 }
 
 export interface Profile {
