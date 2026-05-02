@@ -27,7 +27,11 @@ export default function EquipoPage() {
       listProfiles(),
       listAllAssignments(),
     ]);
-    setProfiles(list);
+    // /equipo es la vista del "equipo de la agencia" — director y team only.
+    // Los clientes del portal NO se muestran acá (se gestionan desde
+    // ClientSidebar de cada cliente). Esto evita confusión cuando el
+    // director ve un usuario tipo "client" en el listado de equipo.
+    setProfiles(list.filter((p) => p.role !== "client"));
     setAssignments(asg);
   }
 

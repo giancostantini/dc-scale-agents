@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { deleteClient } from "@/lib/storage";
-import InviteClientModal from "./InviteClientModal";
+import InviteUserModal from "./InviteUserModal";
 import type { Client } from "@/lib/types";
 import styles from "./ClientSidebar.module.css";
 
@@ -172,11 +172,14 @@ export default function ClientSidebar({ client }: { client: Client }) {
         </>
       )}
 
-      <InviteClientModal
+      {/* Modal unificado: pre-seleccionado en modo "cliente del portal"
+          + clientId del cliente actual ya cargado. El director puede
+          alternar a "miembro del equipo" desde el toggle si quiere. */}
+      <InviteUserModal
         open={inviteOpen}
-        clientId={client.id}
-        clientName={client.name}
         onClose={() => setInviteOpen(false)}
+        initialUserType="client"
+        initialClientId={client.id}
       />
     </aside>
   );
