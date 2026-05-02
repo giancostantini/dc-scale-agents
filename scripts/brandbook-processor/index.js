@@ -99,27 +99,81 @@ function loadBriefFromArgs() {
     throw new Error("brandbook-processor requires --brief /path/to/brief.json");
   }
   const path = resolve(process.cwd(), args[briefFlagIdx + 1]);
-  return JSON.parse(readFileSync(path, "utf-8"));
+  let raw;
+  try {
+    raw = readFileSync(path, "utf-8");
+  } catch (err) {
+    throw new Error(
+      `No se pudo leer el brief en ${path}: ${err.message ?? err}`,
+    );
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `Brief en ${path} no es JSON válido: ${err.message ?? err}\n` +
+        `Primeros 200 chars: ${raw.slice(0, 200)}`,
+    );
+  }
 }
 
-async function callClaude(prompt, maxTokens = 16384) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+async function callClaude(prompt, maxTokens = 16384, attempt = 1) {
+  // Retry con backoff exponencial: el brandbook-processor recibe textos
+  // largos (5k+ chars de brandbook) y la API de Anthropic puede devolver
+  // 429 (rate limit), 503 (overload) o timeouts en runs paralelos. Antes
+  // de este retry, una sola falla mataba el agente y perdíamos el run
+  // completo.
+  const MAX_ATTEMPTS = 3;
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error(
+      "ANTHROPIC_API_KEY no está seteada. El agente brandbook-processor requiere acceso a Claude API.",
+    );
+  }
+
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+  } catch (err) {
+    // Network/DNS/timeout — retry si hay attempts restantes
+    if (attempt < MAX_ATTEMPTS) {
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[${AGENT}] Network error (attempt ${attempt}/${MAX_ATTEMPTS}): ${err.message}. Retrying in ${delay}ms...`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      return callClaude(prompt, maxTokens, attempt + 1);
+    }
+    throw new Error(
+      `Claude API network error tras ${MAX_ATTEMPTS} intentos: ${err.message ?? err}`,
+    );
+  }
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Claude API error ${res.status}: ${err}`);
+    const errText = await res.text().catch(() => "(sin body)");
+    // Retry para 429 (rate limit), 5xx (server error) — NO retry para 4xx
+    // (request inválido) que no se va a corregir solo.
+    const isRetriable = res.status === 429 || res.status >= 500;
+    if (isRetriable && attempt < MAX_ATTEMPTS) {
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[${AGENT}] Claude API ${res.status} (attempt ${attempt}/${MAX_ATTEMPTS}). Retrying in ${delay}ms...`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      return callClaude(prompt, maxTokens, attempt + 1);
+    }
+    throw new Error(`Claude API error ${res.status}: ${errText}`);
   }
 
   const data = await res.json();
@@ -339,6 +393,37 @@ export async function run(briefInput) {
     );
   }
 
+  // Validar que las 8 secciones están presentes y tienen contenido
+  // mínimo. Si Claude se quedó corto en max_tokens y truncó la última
+  // sección, antes el agente "skipeaba silenciosamente" y reportaba
+  // success con archivos faltantes. Ahora falla ruidoso para que el
+  // wizard del cliente sepa que hay que reprocessar.
+  if (!files || typeof files !== "object") {
+    throw new Error(
+      `Claude output no es un objeto JSON. Tipo recibido: ${typeof files}.`,
+    );
+  }
+  const missing = SECTIONS.filter((s) => !files[s.key] || !String(files[s.key]).trim());
+  if (missing.length > 0) {
+    throw new Error(
+      `Claude omitió ${missing.length} sección(es) del brandbook: ${missing
+        .map((s) => s.key)
+        .join(", ")}. ` +
+        `Posiblemente max_tokens (16384) alcanzó el límite con un brandbook largo. ` +
+        `Reprocesar con menos texto o subir max_tokens si la cuenta lo permite.`,
+    );
+  }
+  const tooShort = SECTIONS.filter(
+    (s) => String(files[s.key]).trim().length < 100,
+  );
+  if (tooShort.length > 0) {
+    console.warn(
+      `[${AGENT}] WARNING: ${tooShort.length} sección(es) parecen muy cortas (<100 chars): ${tooShort
+        .map((s) => s.key)
+        .join(", ")}. Posible truncación.`,
+    );
+  }
+
   // 3. Escribir los archivos
   const writtenFiles = writeBrandFiles(brief.client, brief.brandbookText, files);
   console.log(
@@ -444,13 +529,21 @@ if (isMain) {
         return { client: "_unknown", runId: null };
       }
     })();
-    await logAgentError(fallbackBrief.client ?? "_unknown", AGENT, err);
-    if (fallbackBrief.runId) {
-      await updateAgentRun(fallbackBrief.runId, {
-        status: "error",
-        summary: err.message,
-      });
+    try {
+      await logAgentError(fallbackBrief.client ?? "_unknown", AGENT, err);
+      if (fallbackBrief.runId) {
+        await updateAgentRun(fallbackBrief.runId, {
+          status: "error",
+          summary: err.message,
+        });
+      }
+    } catch (logErr) {
+      console.error(`[${AGENT}] failed to log error to Supabase:`, logErr.message);
     }
+    // Esperar a que se drain las conexiones HTTP/Supabase antes de exit.
+    // Sin esto process.exit(1) puede cortar requests en flight y se pierde
+    // el log del error en agent_runs.
+    await new Promise((r) => setTimeout(r, 800));
     process.exit(1);
   }
 }
