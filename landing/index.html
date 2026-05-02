@@ -1663,40 +1663,169 @@
   .reveal.visible { opacity: 1; transform: translateY(0); }
 
   /* ============ RESPONSIVE ============ */
+  /* ============ MOBILE / TABLET ============ */
   @media (max-width: 900px) {
-    .nav { padding: 14px 20px; }
+    /* Anti-overflow base */
+    body { overflow-x: hidden; }
+    h1, h2, h3, p, li, a, span, div {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+    }
+
+    /* Nav */
+    .nav { padding: 14px 18px; }
+    .nav-brand { font-size: 14px; }
+    .nav-brand .tagline { font-size: 7px; letter-spacing: 0.18em; }
     .nav-links { gap: 0; }
     .nav-links a:not(.nav-cta) { display: none; }
-    .nav-cta { padding: 10px 16px; font-size: 11px; }
-    .hero { padding: 110px 24px 140px; }
-    section { padding: 72px 24px; }
-    .cta-final { padding: 90px 24px; }
+    .nav-cta { padding: 9px 14px; font-size: 10px; letter-spacing: 0.1em; }
+
+    /* Sections base */
+    .hero { padding: 100px 24px 60px; min-height: auto; }
+    section { padding: 64px 24px; }
+    .cta-final { padding: 80px 24px; }
     footer { padding: 48px 24px; }
-    .concept, .cases-intro { grid-template-columns: 1fr; gap: 32px; }
+
+    /* Hero title — sin nowrap, deja que el navegador wrappee */
+    .hero-title {
+      font-size: clamp(34px, 9vw, 52px) !important;
+      white-space: normal !important;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+    .hero-sub { font-size: 16px; margin-top: 28px; line-height: 1.55; }
+    .hero-ctas { margin-top: 36px; gap: 12px; flex-direction: column; align-items: stretch; }
+    .hero-ctas .btn { width: 100%; justify-content: center; padding: 16px 24px; font-size: 12px; }
+    .hero-proof { margin-top: 24px; font-size: 11px; line-height: 1.5; }
+
+    /* Hero stats */
+    .hero-bottom {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 48px;
+      padding-top: 32px;
+    }
+    .hero-stat .stat-num { font-size: 24px; }
+    .hero-stat .stat-label { font-size: 11px; }
+
+    /* Headings */
+    h2 { font-size: clamp(30px, 7.5vw, 42px); margin-bottom: 32px; line-height: 1.1; }
+    .lead { font-size: 17px; line-height: 1.5; }
+    p { font-size: 15px; }
+
+    /* Layout grids → 1 columna */
+    .concept, .cases-intro { grid-template-columns: 1fr; gap: 24px; }
     .paths, .valores, .partners, .diffs, .cases-grid, .models { grid-template-columns: 1fr; }
+
+    /* Path cards */
+    .path { padding: 40px 28px; min-height: auto; }
+    .path-title { font-size: clamp(28px, 7vw, 36px); }
+    .path-desc, .path-leader { font-size: 14px; }
+
+    /* Process */
     .process { grid-template-columns: repeat(2, 1fr); }
-    .step { border-right: 1px solid rgba(10,26,12,0.08) !important; border-bottom: 1px solid rgba(10,26,12,0.08); }
+    .step { padding: 32px 20px; border-right: 1px solid rgba(10,26,12,0.08) !important; border-bottom: 1px solid rgba(10,26,12,0.08); }
     .step:nth-child(2n) { border-right: none !important; }
-    .hero-bottom { grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 56px; }
-    .hero-stat .stat-num { font-size: 28px; }
+    .step:nth-last-child(-n+2) { border-bottom: none; }
+    .step-num { font-size: 36px; margin-bottom: 16px; }
+    .step-title { font-size: 16px; }
+
+    /* Footer */
     .foot-grid { grid-template-columns: 1fr; gap: 32px; }
-    .foot-bottom { flex-direction: column; gap: 12px; }
+    .foot-bottom { flex-direction: column; gap: 12px; padding-top: 28px; text-align: center; }
+    .foot-brand { font-size: 26px; }
+
+    /* Cases */
     .cases-meta { grid-template-columns: 1fr; gap: 16px; }
+    .case { min-height: auto; }
+    .case-head, .case-body { padding: 28px 24px; }
+    .case-metric { font-size: clamp(40px, 11vw, 56px); }
+    .case-name { font-size: 17px; }
+
+    /* Diffs (legacy CSS, sin uso pero dejo por si vuelve) */
     .diff:nth-child(2n) { border-right: none; }
-    .diff { border-right: none !important; }
-    .testimonial { padding: 48px 28px; }
-    .testimonial::before { font-size: 160px; top: -20px; left: 12px; }
-    .skin-section { padding: 80px 24px; }
-    .skin-question { padding: 32px 24px; }
-    .skin-explain { grid-template-columns: 1fr; }
-    .skin-explain-item { border-right: none !important; border-bottom: 1px solid rgba(196, 168, 130, 0.12); padding: 32px 0 !important; }
+    .diff { border-right: none !important; padding: 36px 24px; }
+
+    /* Testimonial */
+    .testimonial { padding: 40px 24px; margin-top: 40px; }
+    .testimonial::before { font-size: 140px; top: -16px; left: 10px; }
+    .testimonial-text { font-size: 19px; }
+
+    /* Skin in the game */
+    .skin-section { padding: 72px 24px; }
+    .skin-eyebrow { margin-bottom: 20px; }
+    .skin-headline { font-size: clamp(28px, 7.5vw, 40px); margin-bottom: 32px; }
+    .skin-question { padding: 32px 24px; margin: 36px 0; }
+    .skin-question::before { font-size: 110px; top: -10px; left: 14px; }
+    .skin-question-text { font-size: clamp(20px, 5.6vw, 26px); line-height: 1.35; }
+    .skin-explain { grid-template-columns: 1fr; margin-top: 40px; }
+    .skin-explain-item { border-right: none !important; border-bottom: 1px solid rgba(196, 168, 130, 0.12); padding: 28px 0 !important; }
     .skin-explain-item:last-child { border-bottom: none; }
-    .cupo-section { padding: 80px 24px; }
-    .cupo-intro { grid-template-columns: 1fr; gap: 32px; }
-    .cupo-grid-slots { grid-template-columns: repeat(6, 1fr); }
-    .cupo-summary { grid-template-columns: 1fr; text-align: center; padding: 28px; }
+    .skin-cta-row { margin-top: 40px; padding-top: 32px; flex-direction: column; align-items: stretch; }
+    .skin-cta-row .btn { width: 100%; justify-content: center; }
+
+    /* Cupo */
+    .cupo-section { padding: 72px 24px; }
+    .cupo-intro { grid-template-columns: 1fr; gap: 24px; }
+    .cupo-grid-slots { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .slot .slot-num { font-size: 14px; }
+    .cupo-legend { flex-direction: column; gap: 10px; font-size: 11px; }
+    .cupo-summary { grid-template-columns: 1fr; text-align: center; gap: 20px; padding: 28px 24px; }
     .cupo-summary .cs-num { font-size: 48px; }
-    .inline-cta { padding: 28px 24px; }
+    .cupo-summary .cs-text { font-size: 14px; }
+    .cupo-summary .btn { width: 100%; justify-content: center; }
+
+    /* Partners */
+    .partner { padding: 40px 28px; min-height: auto; }
+    .partner-name { font-size: 24px; }
+    .partner-quote { padding: 16px 18px; font-size: 14px; }
+
+    /* Valores */
+    .valor { padding: 40px 28px; min-height: auto; }
+    .valor-name { font-size: 24px; }
+    .valor-num { font-size: 56px; margin-bottom: 20px; }
+
+    /* Modelos comerciales */
+    .model { padding: 40px 28px; }
+    .model-title { font-size: clamp(26px, 6vw, 32px); }
+
+    /* Inline CTA */
+    .inline-cta {
+      padding: 28px 24px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 20px;
+      text-align: left;
+    }
+    .inline-cta-title { font-size: 18px; }
+    .inline-cta .btn { width: 100%; justify-content: center; }
+
+    /* CTA final */
+    .cta-final h2 { font-size: clamp(34px, 9vw, 52px); }
+    .cta-final-sub { font-size: 16px; margin-bottom: 36px; }
+    .cta-big { padding: 18px 28px; font-size: 12px; width: 100%; justify-content: center; }
+    .cta-meta { gap: 16px; flex-direction: column; align-items: center; font-size: 12px; }
+
+    /* FAQ */
+    .faq-q { font-size: 16px; gap: 16px; padding: 22px 0; }
+    .faq-a { font-size: 14px; }
+  }
+
+  /* ============ MOBILE EXTRA SMALL ============ */
+  @media (max-width: 380px) {
+    section, .hero, .skin-section, .cupo-section, .cta-final, footer { padding-left: 18px; padding-right: 18px; }
+    .nav { padding: 12px 14px; }
+    .nav-cta { padding: 8px 12px; font-size: 9.5px; }
+    .nav-cta .dot { display: none; }
+    .hero-title { font-size: clamp(28px, 8.5vw, 40px) !important; }
+    h2 { font-size: clamp(26px, 7vw, 36px); }
+    .skin-headline { font-size: clamp(24px, 7vw, 34px); }
+    .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
+    .cases-meta .cm-num { font-size: 30px; }
+    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); }
+    .hero-stat .stat-num { font-size: 22px; }
   }
 </style>
 </head>
