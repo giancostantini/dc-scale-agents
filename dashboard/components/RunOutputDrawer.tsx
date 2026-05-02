@@ -166,6 +166,79 @@ function DrawerInner({ run, onClose }: { run: AgentRun; onClose: () => void }) {
         </div>
 
         <div style={{ padding: "20px 24px", flex: 1 }}>
+          {/* Si el run terminó en error, mostrar banner prominente con
+              el summary completo. Útil para errores de dispatch o de
+              setup donde no hay outputs estructurados todavía. */}
+          {run.status === "error" && (
+            <div
+              style={{
+                padding: 16,
+                background: "rgba(176,75,58,0.08)",
+                borderLeft: "3px solid var(--red-warn)",
+                fontSize: 13,
+                color: "var(--deep-green)",
+                marginBottom: 20,
+                lineHeight: 1.6,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--red-warn)",
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                Run con error
+              </div>
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {run.summary_md ?? run.summary ?? "Sin detalle del error"}
+              </div>
+            </div>
+          )}
+
+          {/* Brief con el que se disparó el run (útil para reproducir
+              o entender qué se intentó hacer cuando falla). */}
+          {run.metadata &&
+            typeof run.metadata === "object" &&
+            "brief" in run.metadata &&
+            run.metadata.brief !== null &&
+            typeof run.metadata.brief === "object" && (
+              <details style={{ marginBottom: 20 }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 11,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Brief del dispatch
+                </summary>
+                <pre
+                  style={{
+                    fontFamily: "ui-monospace, monospace",
+                    fontSize: 11,
+                    lineHeight: 1.5,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    padding: "10px 12px",
+                    border: "1px solid rgba(10,26,12,0.08)",
+                    margin: "8px 0 0 0",
+                    background: "var(--off-white)",
+                    maxHeight: 240,
+                    overflow: "auto",
+                  }}
+                >
+                  {JSON.stringify(run.metadata.brief, null, 2)}
+                </pre>
+              </details>
+            )}
+
           {loading && (
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Cargando outputs…</div>
           )}
@@ -180,8 +253,11 @@ function DrawerInner({ run, onClose }: { run: AgentRun; onClose: () => void }) {
                 color: "var(--text-muted)",
               }}
             >
-              Este run todavía no registró outputs estructurados.
-              {run.status === "running" && " El agente sigue corriendo."}
+              {run.status === "error"
+                ? "El error ocurrió antes de que el agente registrara outputs estructurados. Mirá el summary y el brief de arriba."
+                : run.status === "running"
+                ? "El agente sigue corriendo. Cuando termine, los outputs van a aparecer acá automáticamente."
+                : "Este run no registró outputs estructurados."}
             </div>
           )}
 
