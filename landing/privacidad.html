@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidad — Dearmas Costantini</title>
+<meta name="description" content="Política de privacidad y tratamiento de datos personales de Dearmas Costantini.">
+<meta name="robots" content="index, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@200;300;400&family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bosque: #0A1A0C;
+    --noche: #0F1F12;
+    --selva: #1E3A28;
+    --pasto: #2C5038;
+    --arena: #C4A882;
+    --trigo: #D9C4A3;
+    --dorado: #9B8259;
+    --lino: #E8E4DC;
+    --marfil: #F5F2EC;
+    --neblina: #7A8A7E;
+    --white: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--marfil);
+    color: var(--bosque);
+    font-weight: 300;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--dorado); text-decoration: none; transition: color 0.2s; }
+  a:hover { color: var(--bosque); text-decoration: underline; }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 18px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+  }
+  .nav-brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--lino);
+  }
+  .nav-brand .soft { font-weight: 300; opacity: 0.55; }
+  .nav-back {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232, 228, 220, 0.7);
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--arena); text-decoration: none; }
+
+  .container {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+  }
+
+  .doc-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin-bottom: 16px;
+  }
+
+  .doc-meta {
+    font-size: 13px;
+    color: var(--neblina);
+    margin-bottom: 56px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid rgba(10, 26, 12, 0.1);
+  }
+  .doc-meta strong { color: var(--bosque); font-weight: 600; }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    color: var(--bosque);
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 24px;
+    margin-bottom: 8px;
+    color: var(--bosque);
+  }
+
+  p {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    color: rgba(10, 26, 12, 0.85);
+  }
+
+  ul, ol {
+    margin-left: 22px;
+    margin-bottom: 20px;
+  }
+  li {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 8px;
+    color: rgba(10, 26, 12, 0.85);
+  }
+
+  strong { font-weight: 600; color: var(--bosque); }
+
+  .callout {
+    background: var(--lino);
+    border-left: 3px solid var(--arena);
+    padding: 24px 28px;
+    margin: 32px 0;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .toc {
+    background: var(--lino);
+    padding: 28px 32px;
+    margin-bottom: 56px;
+    border-left: 3px solid var(--arena);
+  }
+  .toc-title {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .toc ol {
+    margin-left: 18px;
+    margin-bottom: 0;
+  }
+  .toc li {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .toc a { color: var(--bosque); }
+  .toc a:hover { color: var(--dorado); }
+
+  footer {
+    background: var(--noche);
+    color: rgba(232, 228, 220, 0.65);
+    padding: 40px 48px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+  footer a { color: var(--arena); }
+
+  @media (max-width: 700px) {
+    .nav { padding: 14px 20px; }
+    .container { padding: 48px 20px 80px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 40px; }
+    .toc { padding: 22px; }
+    footer { padding: 28px 20px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-brand">Dearmas <span class="soft">Costantini</span></a>
+  <a href="/" class="nav-back">← Volver al inicio</a>
+</nav>
+
+<main class="container">
+  <div class="doc-eyebrow">Documento legal</div>
+  <h1>Política de Privacidad</h1>
+  <p class="doc-meta">
+    <strong>Última actualización:</strong> mayo 2026<br>
+    <strong>Responsable del tratamiento:</strong> Dearmas Costantini · Business Growth Partners · LATAM
+  </p>
+
+  <div class="toc">
+    <div class="toc-title">Contenido</div>
+    <ol>
+      <li><a href="#identidad">Quiénes somos</a></li>
+      <li><a href="#datos">Qué datos recopilamos</a></li>
+      <li><a href="#finalidad">Para qué los usamos</a></li>
+      <li><a href="#legitimacion">Base legal del tratamiento</a></li>
+      <li><a href="#conservacion">Cuánto tiempo los guardamos</a></li>
+      <li><a href="#terceros">Con quién los compartimos</a></li>
+      <li><a href="#derechos">Tus derechos</a></li>
+      <li><a href="#cookies">Cookies y tecnologías similares</a></li>
+      <li><a href="#chatbot">Asistente IA del sitio</a></li>
+      <li><a href="#seguridad">Seguridad de la información</a></li>
+      <li><a href="#cambios">Cambios a esta política</a></li>
+      <li><a href="#contacto">Contacto</a></li>
+    </ol>
+  </div>
+
+  <h2 id="identidad">1. Quiénes somos</h2>
+  <p>
+    <strong>Dearmas Costantini</strong> es una firma de Business Growth Partners que opera en LATAM, conformada por <strong>Federico Dearmas</strong> (Uruguay) y <strong>Gianluca Costantini</strong> (Argentina). Esta política aplica al sitio web <a href="https://dearmascostantini.com" target="_blank" rel="noopener">dearmascostantini.com</a> y al sistema interno <a href="https://sistemadearmascostantini.com" target="_blank" rel="noopener">sistemadearmascostantini.com</a>.
+  </p>
+
+  <h2 id="datos">2. Qué datos recopilamos</h2>
+  <p>Recopilamos únicamente los datos que vos nos proporcionás voluntariamente al interactuar con nosotros:</p>
+  <ul>
+    <li><strong>Formulario de contacto previo a Calendly</strong>: nombre completo, dirección de email, nombre de la empresa, motivo del contacto.</li>
+    <li><strong>Reserva de reunión en Calendly</strong>: además de lo anterior, fecha y horario seleccionados, zona horaria.</li>
+    <li><strong>Conversaciones con el asistente IA</strong>: las preguntas y respuestas intercambiadas con nuestro chatbot durante tu visita.</li>
+    <li><strong>Datos técnicos automáticos</strong>: dirección IP, tipo de navegador y dispositivo, páginas visitadas, tiempo de permanencia. Estos datos se usan únicamente con fines estadísticos agregados y de seguridad.</li>
+  </ul>
+  <p>
+    <strong>No</strong> recopilamos datos sensibles (origen racial, opinión política, salud, orientación sexual, etc.). Si nos los proporcionás voluntariamente en el campo de "motivo", te pedimos que los omitas — no los necesitamos.
+  </p>
+
+  <h2 id="finalidad">3. Para qué los usamos</h2>
+  <p>Tratamos tus datos con las siguientes finalidades:</p>
+  <ul>
+    <li><strong>Contactarte</strong> para evaluar el encaje entre tu empresa y nuestra firma como Growth Partner.</li>
+    <li><strong>Coordinar y mantener la reunión</strong> de 30 minutos con los socios.</li>
+    <li><strong>Hacer seguimiento comercial</strong> en el caso de que avancemos hacia una propuesta de sociedad.</li>
+    <li><strong>Mejorar el sitio</strong> y la experiencia del asistente IA mediante análisis estadístico agregado.</li>
+    <li><strong>Cumplir obligaciones legales</strong> que pudieran corresponder.</li>
+  </ul>
+  <p>
+    <strong>No</strong> usamos tus datos para enviarte publicidad masiva, ni los vendemos, alquilamos o cedemos a terceros con fines de marketing.
+  </p>
+
+  <h2 id="legitimacion">4. Base legal del tratamiento</h2>
+  <p>El tratamiento de tus datos se basa en:</p>
+  <ul>
+    <li><strong>Tu consentimiento expreso</strong>, otorgado al completar el formulario y aceptar esta política.</li>
+    <li>El <strong>interés legítimo</strong> de la firma para operar comercialmente y brindar el servicio solicitado.</li>
+    <li>El <strong>cumplimiento de obligaciones contractuales y legales</strong> aplicables en LATAM.</li>
+  </ul>
+
+  <h2 id="conservacion">5. Cuánto tiempo los guardamos</h2>
+  <ul>
+    <li>Si <strong>no avanzamos a una sociedad comercial</strong>: hasta 12 meses desde el último contacto.</li>
+    <li>Si <strong>nos asociamos comercialmente</strong>: durante toda la relación y hasta 5 años después de finalizada, por motivos contables y legales.</li>
+    <li>Las <strong>conversaciones con el asistente IA</strong> no se almacenan persistentemente. Solo se procesan en tiempo real para generar la respuesta.</li>
+    <li>Podés solicitar la eliminación anticipada en cualquier momento (ver sección 7).</li>
+  </ul>
+
+  <h2 id="terceros">6. Con quién los compartimos</h2>
+  <p>Para operar el sitio y nuestro sistema interno usamos los siguientes proveedores. Cada uno cumple con estándares internacionales de protección de datos:</p>
+  <ul>
+    <li><strong>Calendly</strong> (Estados Unidos) — para coordinar la reunión inicial. <a href="https://calendly.com/legal/privacy-notice" target="_blank" rel="noopener">Política de Calendly</a>.</li>
+    <li><strong>Supabase</strong> (Estados Unidos) — base de datos donde se almacenan los leads y la información de la firma. <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Política de Supabase</a>.</li>
+    <li><strong>Anthropic</strong> (Estados Unidos) — proveedor del modelo de IA que potencia nuestro asistente conversacional. Las conversaciones se procesan en tiempo real para generar respuestas. <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener">Política de Anthropic</a>.</li>
+    <li><strong>Vercel</strong> (Estados Unidos) — hosting del sitio web y del sistema interno. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Política de Vercel</a>.</li>
+  </ul>
+  <p>
+    No compartimos tus datos con anunciantes ni los usamos para cruzar información con terceros con fines comerciales.
+  </p>
+
+  <h2 id="derechos">7. Tus derechos</h2>
+  <p>Conforme a la legislación aplicable en LATAM (incluyendo la Ley 25.326 de Protección de Datos Personales de Argentina, la LGPD de Brasil y la Ley 19.628 de Chile, entre otras), tenés derecho a:</p>
+  <ul>
+    <li><strong>Acceder</strong> a los datos que tenemos sobre vos.</li>
+    <li><strong>Rectificar</strong> datos inexactos o incompletos.</li>
+    <li><strong>Suprimir</strong> tus datos cuando ya no sean necesarios o retires tu consentimiento.</li>
+    <li><strong>Oponerte</strong> al tratamiento o solicitar su limitación.</li>
+    <li><strong>Solicitar la portabilidad</strong> de tus datos en un formato estructurado.</li>
+  </ul>
+  <p>
+    Para ejercer cualquiera de estos derechos, escribinos a <a href="mailto:hola@dearmascostantini.com">hola@dearmascostantini.com</a> con asunto "Datos personales". Respondemos dentro de los 10 días hábiles.
+  </p>
+
+  <h2 id="cookies">8. Cookies y tecnologías similares</h2>
+  <p>
+    El sitio puede usar cookies y almacenamiento local del navegador con dos fines:
+  </p>
+  <ul>
+    <li><strong>Funcionales</strong>: recordar tu estado en el chatbot durante la visita, mantener configuraciones de accesibilidad.</li>
+    <li><strong>Estadísticas anonimizadas</strong>: si activamos analítica web (ej. Google Analytics), las cookies registran datos agregados sobre el uso del sitio. No identificamos individualmente a los visitantes.</li>
+  </ul>
+  <p>
+    Podés configurar tu navegador para bloquear o eliminar cookies. Esto no afecta la funcionalidad principal del sitio, aunque puede limitar algunas comodidades.
+  </p>
+
+  <h2 id="chatbot">9. Asistente IA del sitio</h2>
+  <p>
+    El chatbot que aparece en la esquina inferior derecha está potenciado por Anthropic Claude. Cuando interactuás con él:
+  </p>
+  <ul>
+    <li>Tus preguntas se envían en tiempo real a la API de Anthropic para generar la respuesta.</li>
+    <li>El proveedor procesa el contenido del mensaje, pero no lo asocia a tu identidad personal salvo que vos mismo brindes esa información en el chat.</li>
+    <li>El chat <strong>no es un asesor legal, financiero ni profesional certificado</strong>. Sus respuestas son orientativas y no reemplazan la conversación directa con los socios.</li>
+    <li>Si compartís datos sensibles en el chat (ej. cifras confidenciales de tu empresa), tené presente que la conversación atraviesa los servicios de los proveedores listados arriba.</li>
+  </ul>
+
+  <h2 id="seguridad">10. Seguridad de la información</h2>
+  <p>
+    Aplicamos medidas técnicas y organizativas razonables para proteger tu información: conexiones cifradas (HTTPS), control de acceso al sistema interno, autenticación de los administradores y backups regulares de la base de datos. Aún así, ningún sistema puede garantizar seguridad absoluta. En caso de detectar un incidente que afecte tus datos, te lo notificaremos según corresponda.
+  </p>
+
+  <h2 id="cambios">11. Cambios a esta política</h2>
+  <p>
+    Podemos actualizar esta política periódicamente. Cuando hagamos cambios significativos, actualizaremos la fecha de "Última actualización" en la parte superior y, si corresponde, te lo informaremos por email a quienes tengan una sociedad activa con la firma. Te recomendamos revisar esta página de tanto en tanto.
+  </p>
+
+  <h2 id="contacto">12. Contacto</h2>
+  <div class="callout">
+    <p>
+      Si tenés preguntas sobre esta política o querés ejercer alguno de tus derechos, escribinos:
+    </p>
+    <p>
+      <strong>Email general</strong>: <a href="mailto:hola@dearmascostantini.com">hola@dearmascostantini.com</a><br>
+      <strong>Federico Dearmas</strong>: <a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a><br>
+      <strong>Gianluca Costantini</strong>: <a href="mailto:gianluca@dearmascostantini.com">gianluca@dearmascostantini.com</a>
+    </p>
+  </div>
+
+  <p style="margin-top: 56px; font-size: 14px; color: var(--neblina); text-align: center;">
+    Esta política está redactada en español y se rige por las leyes aplicables en los países de LATAM donde Dearmas Costantini opera.
+  </p>
+</main>
+
+<footer>
+  © 2026 Dearmas Costantini · Business Growth Partners · LATAM ·
+  <a href="/">Volver al sitio</a>
+</footer>
+
+</body>
+</html>

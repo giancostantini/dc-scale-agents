@@ -2102,6 +2102,20 @@
     30% { transform: translateY(-4px); opacity: 1; }
   }
 
+  /* Cursor parpadeante cuando el bot esta streaming */
+  .chat-msg-streaming p:last-child::after {
+    content: '▍';
+    display: inline-block;
+    color: var(--arena);
+    margin-left: 2px;
+    font-weight: 400;
+    animation: streamCursor 0.7s steps(2) infinite;
+  }
+  @keyframes streamCursor {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
   .chat-cta-inline {
     margin-top: 10px;
     display: inline-flex;
@@ -2303,6 +2317,32 @@
   }
   .pb-field input::placeholder,
   .pb-field textarea::placeholder { color: rgba(122, 138, 126, 0.7); }
+
+  .pb-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--neblina);
+    cursor: pointer;
+    user-select: none;
+  }
+  .pb-consent input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: var(--arena);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .pb-consent a {
+    color: var(--dorado);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .pb-consent a:hover { color: var(--bosque); }
 
   .pb-submit {
     margin-top: 8px;
@@ -3363,7 +3403,7 @@
     </div>
   </div>
   <div class="foot-bottom">
-    <div>© 2026 Dearmas Costantini</div>
+    <div>© 2026 Dearmas Costantini · <a href="/privacidad" style="color: rgba(196, 168, 130, 0.7); text-decoration: underline; text-underline-offset: 3px;">Política de Privacidad</a></div>
     <div>Business Growth Partners · LATAM</div>
   </div>
 </footer>
@@ -3456,6 +3496,13 @@
         <label for="pb-reason">¿Por qué te contactás?</label>
         <textarea id="pb-reason" name="reason" rows="3" required placeholder="Contanos brevemente qué buscás resolver."></textarea>
       </div>
+      <label class="pb-consent">
+        <input type="checkbox" id="pb-consent" name="consent" required>
+        <span>
+          Acepto el tratamiento de mis datos personales según la
+          <a href="/privacidad" target="_blank" rel="noopener">Política de Privacidad</a>.
+        </span>
+      </label>
       <button type="submit" class="btn btn-primary pb-submit">
         Continuar al calendario <span class="arrow">→</span>
       </button>
@@ -3524,8 +3571,17 @@
     const email = document.getElementById('pb-email').value.trim();
     const company = document.getElementById('pb-company').value.trim();
     const reason = document.getElementById('pb-reason').value.trim();
+    const consent = document.getElementById('pb-consent').checked;
 
     if (!name || !email || !company || !reason) return;
+    if (!consent) {
+      const consentLabel = document.querySelector('.pb-consent');
+      if (consentLabel) {
+        consentLabel.style.color = 'var(--bosque)';
+        consentLabel.style.fontWeight = '500';
+      }
+      return;
+    }
 
     // Fire-and-forget al dashboard para crear el lead en pipeline.
     // No esperamos la respuesta: abrimos Calendly al toque.
@@ -3742,6 +3798,63 @@
     return triggers.some(t => text.includes(t));
   }
 
+  // Crea un mensaje vacío para irlo rellenando con el stream.
+  // Devuelve { container, append, finalize } donde append agrega texto y
+  // finalize cierra el render (re-parsea párrafos y opcionalmente agrega CTA).
+  function createStreamingBotMessage() {
+    const div = document.createElement('div');
+    div.className = 'chat-msg chat-msg-bot chat-msg-streaming';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    let accumulated = '';
+    // Buffer interno para no manipular el DOM en cada caracter (lento).
+    // Dibujamos en frame con requestAnimationFrame.
+    let pendingFrame = false;
+
+    function paint() {
+      pendingFrame = false;
+      // Re-render del contenido como párrafos. Mantenemos la lógica simple:
+      // doble salto = nuevo párrafo. Mientras stream no termina, el último
+      // párrafo va creciendo.
+      const parts = accumulated.split(/\n\n+/);
+      div.innerHTML = '';
+      parts.forEach(text => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        div.appendChild(p);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function append(chunk) {
+      accumulated += chunk;
+      if (!pendingFrame) {
+        pendingFrame = true;
+        requestAnimationFrame(paint);
+      }
+    }
+
+    function finalize(opts = {}) {
+      paint();
+      div.classList.remove('chat-msg-streaming');
+      if (opts.cta) {
+        const btn = document.createElement('button');
+        btn.className = 'chat-cta-inline';
+        btn.innerHTML = 'Agendar 30 min con los socios <span>→</span>';
+        btn.onclick = () => {
+          toggleChat(false);
+          setTimeout(() => openCalendly(), 200);
+        };
+        div.appendChild(btn);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      return accumulated;
+    }
+
+    return { append, finalize, get text() { return accumulated; } };
+  }
+
   async function sendChatMessage(userText) {
     if (!userText.trim()) return;
 
@@ -3753,7 +3866,11 @@
     chatSend.disabled = true;
     chatQuickActions.classList.add('hidden');
 
-    appendTyping();
+    // Indicador "escribiendo…" mientras esperamos el primer chunk
+    const typingEl = appendTyping();
+
+    let botMsg = null;
+    let firstChunkReceived = false;
 
     try {
       const res = await fetch(CHAT_ENDPOINT, {
@@ -3761,28 +3878,54 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: chatHistory })
       });
-      removeTyping();
 
       if (!res.ok) {
+        removeTyping();
         appendMessage('bot', 'Tuve un problema técnico. Probá de nuevo en un momento, o agendá directamente una reunión y los socios te responden.', { cta: true });
         chatSend.disabled = false;
         return;
       }
-      const data = await res.json();
-      if (!data.ok || !data.reply) {
+
+      // Leer el stream chunk por chunk
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          removeTyping();
+          botMsg = createStreamingBotMessage();
+        }
+        botMsg.append(chunk);
+      }
+
+      // Stream cerrado — finalizar mensaje
+      if (!botMsg) {
+        // No llegó ni un chunk, fallback
         appendMessage('bot', 'No pude responder esto. ¿Querés agendar 30 min con los socios y lo charlamos en vivo?', { cta: true });
         chatSend.disabled = false;
         return;
       }
 
-      const botReply = data.reply;
-      const showCta = detectsIntent(userText, botReply);
-      appendMessage('bot', botReply, { cta: showCta });
-      chatHistory.push({ role: 'assistant', content: botReply });
+      const fullReply = botMsg.text.trim();
+      const showCta = detectsIntent(userText, fullReply);
+      botMsg.finalize({ cta: showCta });
+      chatHistory.push({ role: 'assistant', content: fullReply });
+
     } catch (err) {
       removeTyping();
       console.warn('[chat] error:', err);
-      appendMessage('bot', 'No me pude conectar. Probá agendar directamente con los socios.', { cta: true });
+      if (botMsg) {
+        botMsg.finalize();
+      } else {
+        appendMessage('bot', 'No me pude conectar. Probá agendar directamente con los socios.', { cta: true });
+      }
     } finally {
       chatSend.disabled = false;
       chatInput.focus();

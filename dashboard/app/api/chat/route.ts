@@ -201,38 +201,58 @@ export async function POST(req: NextRequest) {
 
   try {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 600,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: validated,
+
+    // Stream desde Anthropic. Devolvemos un ReadableStream con texto plano
+    // que el frontend lee chunk por chunk. Si Claude tarda 5 segundos en
+    // generar 100 tokens, el usuario ve los primeros caracteres en ~500ms
+    // — UX muchísimo mejor que esperar la respuesta completa.
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const stream = client.messages.stream({
+            model: "claude-sonnet-4-5",
+            max_tokens: 600,
+            system: [
+              {
+                type: "text",
+                text: SYSTEM_PROMPT,
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+            messages: validated,
+          });
+
+          for await (const event of stream) {
+            if (
+              event.type === "content_block_delta" &&
+              event.delta.type === "text_delta"
+            ) {
+              controller.enqueue(encoder.encode(event.delta.text));
+            }
+          }
+
+          controller.close();
+        } catch (err) {
+          console.error("[chat] stream error:", err);
+          const fallback =
+            "Tuve un problema técnico procesando esto. Probá de nuevo o agendá una reunión con los socios.";
+          controller.enqueue(encoder.encode(fallback));
+          controller.close();
+        }
+      },
     });
 
-    const reply = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("\n")
-      .trim();
-
-    return Response.json(
-      {
-        ok: true,
-        reply,
-        usage: {
-          input_tokens: response.usage.input_tokens,
-          output_tokens: response.usage.output_tokens,
-          cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
-          cache_creation_tokens: response.usage.cache_creation_input_tokens ?? 0,
-        },
-      },
-      { status: 200, headers: corsHeaders(origin) },
-    );
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        ...corsHeaders(origin),
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      } as HeadersInit,
+    });
   } catch (err) {
     console.error("[chat] anthropic error:", err);
     const message = err instanceof Error ? err.message : "unknown";
