@@ -97,32 +97,50 @@ async function callClaude(prompt, maxTokens = 8192) {
  */
 async function triggerStockAgent(stockBrief) {
   if (!GITHUB_TOKEN) {
-    console.warn("No GITHUB_TOKEN — cannot trigger Stock Agent.");
-    return false;
+    return {
+      triggered: false,
+      reason: "GITHUB_TOKEN not set in env — Stock Agent NOT dispatched.",
+    };
+  }
+  if (!GITHUB_REPO || !GITHUB_REPO.includes("/")) {
+    return {
+      triggered: false,
+      reason: `GITHUB_REPO inválido (esperado 'owner/repo', recibido '${GITHUB_REPO}').`,
+    };
   }
   const [owner, repo] = GITHUB_REPO.split("/");
-  const res = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/dispatches`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-        "content-type": "application/json",
+  let res;
+  try {
+    res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github.v3+json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          event_type: "stock",
+          client_payload: { brief: stockBrief },
+        }),
       },
-      body: JSON.stringify({
-        event_type: "stock",
-        client_payload: { brief: stockBrief },
-      }),
-    }
-  );
+    );
+  } catch (err) {
+    return {
+      triggered: false,
+      reason: `Network error al dispatch a GitHub: ${err.message ?? err}`,
+    };
+  }
   if (!res.ok) {
-    const err = await res.text();
-    console.warn(`Could not trigger Stock Agent: ${res.status} ${err}`);
-    return false;
+    const errBody = await res.text().catch(() => "(no body)");
+    return {
+      triggered: false,
+      reason: `GitHub dispatch failed (${res.status}): ${errBody.slice(0, 500)}`,
+    };
   }
   console.log("Stock Agent triggered via repository_dispatch");
-  return true;
+  return { triggered: true };
 }
 
 function getTodayFormatted() {
@@ -762,12 +780,19 @@ export async function runLogisticsAgent(briefInput) {
 
     if (shouldTrigger) {
       console.log("Dispatch complete — triggering Stock Agent for inventory reconciliation...");
-      const triggered = await triggerStockAgent({
+      stockAgentResult = await triggerStockAgent({
         client: brief.client,
         mode: "alert",
         source: "logistics-agent",
       });
-      stockAgentResult = { triggered };
+      if (!stockAgentResult.triggered) {
+        // El dispatch falló (token, network, repo mal configurado).
+        // Logueamos a Supabase para que sea visible desde el dashboard
+        // — antes este error se perdía en console.warn.
+        console.error(
+          `Stock Agent dispatch FAILED: ${stockAgentResult.reason}`,
+        );
+      }
     }
   }
 

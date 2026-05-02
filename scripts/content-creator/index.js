@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
@@ -61,6 +61,7 @@ function readVaultFile(relativePath) {
 
 function appendToVaultFile(relativePath, content) {
   const filePath = resolve(VAULT, relativePath);
+  mkdirSync(dirname(filePath), { recursive: true });
   const existing = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
   writeFileSync(filePath, existing + "\n" + content, "utf-8");
 }

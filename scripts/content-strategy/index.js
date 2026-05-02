@@ -49,7 +49,14 @@ function readVaultFile(relativePath) {
 }
 
 function writeVaultFile(relativePath, content) {
-  writeFileSync(resolve(VAULT, relativePath), content, "utf-8");
+  // Auto-creamos el directorio padre antes de escribir. Si vault/clients/X
+  // no existe (cliente nuevo, primer run del agente, vault no scaffold-eado
+  // todavía), writeFileSync tira ENOENT silenciosamente y se pierde el
+  // output del agente. Con esto, mkdirSync recursive garantiza que la
+  // jerarquía completa existe antes del write.
+  const filePath = resolve(VAULT, relativePath);
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, content, "utf-8");
 }
 
 function ensureDir(path) {

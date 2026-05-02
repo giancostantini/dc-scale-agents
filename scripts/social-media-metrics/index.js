@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
@@ -52,12 +52,17 @@ function readVaultFile(relativePath) {
 }
 
 function writeVaultFile(relativePath, content) {
+  // Auto-creamos el directorio padre. Si vault/clients/X/agent-reports/ no
+  // existe (cliente nuevo, primer run), writeFileSync tira ENOENT silencioso
+  // y se pierde el output del agente. mkdirSync recursive lo previene.
   const filePath = resolve(VAULT, relativePath);
+  mkdirSync(dirname(filePath), { recursive: true });
   writeFileSync(filePath, content, "utf-8");
 }
 
 function appendToVaultFile(relativePath, content) {
   const filePath = resolve(VAULT, relativePath);
+  mkdirSync(dirname(filePath), { recursive: true });
   const existing = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
   writeFileSync(filePath, existing + "\n" + content, "utf-8");
 }
