@@ -1649,6 +1649,223 @@
   section.tight-bottom { padding-bottom: 40px; }
   section.tight-bottom + section { padding-top: 80px; }
 
+  /* ============ PREBOOK MODAL ============ */
+  .prebook-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 26, 12, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .prebook-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .prebook-modal {
+    background: var(--marfil);
+    color: var(--bosque);
+    width: 100%;
+    max-width: 540px;
+    padding: 56px 48px;
+    border-top: 4px solid var(--arena);
+    position: relative;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .prebook-overlay.open .prebook-modal {
+    transform: translateY(0);
+  }
+  .prebook-close {
+    position: absolute;
+    top: 16px; right: 20px;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--neblina);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    transition: color 0.2s;
+  }
+  .prebook-close:hover { color: var(--bosque); }
+
+  .prebook-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .prebook-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .prebook-sub {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--neblina);
+    margin-bottom: 32px;
+  }
+
+  .prebook-form { display: grid; gap: 18px; }
+  .pb-field { display: grid; gap: 6px; }
+  .pb-field label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--bosque);
+  }
+  .pb-field input,
+  .pb-field textarea {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--bosque);
+    background: var(--white);
+    border: 1px solid rgba(10, 26, 12, 0.15);
+    padding: 12px 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .pb-field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .pb-field input:focus,
+  .pb-field textarea:focus {
+    outline: none;
+    border-color: var(--arena);
+    box-shadow: 0 0 0 3px rgba(196, 168, 130, 0.18);
+  }
+  .pb-field input::placeholder,
+  .pb-field textarea::placeholder { color: rgba(122, 138, 126, 0.7); }
+
+  .pb-submit {
+    margin-top: 8px;
+    width: 100%;
+    justify-content: center;
+    padding: 18px 28px;
+  }
+
+  @media (max-width: 540px) {
+    .prebook-modal { padding: 40px 28px; }
+    .prebook-title { font-size: 26px; }
+  }
+
+  /* ============ HERO WORDMARK (decorativo desktop) ============ */
+  .hero-wordmark {
+    position: absolute;
+    right: -2vw;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    pointer-events: none;
+    text-align: right;
+    line-height: 0.85;
+    letter-spacing: -0.05em;
+    font-weight: 700;
+    font-size: clamp(80px, 11vw, 200px);
+    color: rgba(196, 168, 130, 0.06);
+    user-select: none;
+  }
+  .hero-wordmark .hwm-line {
+    display: block;
+    color: rgba(196, 168, 130, 0.07);
+  }
+  .hero-wordmark .hwm-soft {
+    color: rgba(232, 228, 220, 0.05);
+    font-weight: 300;
+  }
+  .hero-wordmark .hwm-tagline {
+    margin-top: 32px;
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(196, 168, 130, 0.35);
+    font-weight: 500;
+  }
+
+  /* ============ CASE LOGOS + LINK ============ */
+  .cases-intro-simple { display: block; margin-bottom: 56px; }
+
+  .case-logo-wrap {
+    background: var(--bosque);
+    color: var(--arena);
+    height: 96px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 24px;
+    overflow: hidden;
+  }
+  .case-logo-wrap.dark {
+    background: var(--arena);
+    color: var(--bosque);
+  }
+  .case-logo-wrap.nda {
+    background: var(--lino);
+    color: var(--neblina);
+    border: 1px dashed rgba(10, 26, 12, 0.2);
+  }
+  .case-logo-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .case-logo-text {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .case-logo-wrap.nda .case-logo-text {
+    font-size: 14px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .case-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(10, 26, 12, 0.08);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--dorado);
+    transition: color 0.2s, gap 0.2s;
+  }
+  .case-link:hover { color: var(--bosque); gap: 12px; }
+  .case-link .arrow { transition: transform 0.2s; }
+  .case-link:hover .arrow { transform: translateX(4px); }
+
+  .case.dark-case .case-link {
+    color: var(--arena);
+    border-top-color: rgba(232, 228, 220, 0.1);
+  }
+  .case.dark-case .case-link:hover { color: var(--lino); }
+
   /* ============ URGENCY PILL (cupos en rojo) ============ */
   .urgency-pill {
     display: inline-flex;
@@ -1781,6 +1998,9 @@
 
     /* Sections base */
     .hero { padding: 100px 24px 60px; min-height: auto; }
+    .hero-wordmark { display: none; }
+    .case-logo-wrap { height: 80px; padding: 12px 18px; }
+    .case-logo-text { font-size: 20px; }
     section { padding: 64px 24px; }
     .cta-final { padding: 80px 24px; }
     footer { padding: 48px 24px; }
@@ -1970,6 +2190,13 @@
   <div class="hero-grid"></div>
   <div class="hero-glow"></div>
 
+  <!-- Wordmark decorativo (solo desktop) -->
+  <div class="hero-wordmark" aria-hidden="true">
+    <div class="hwm-line">Dearmas</div>
+    <div class="hwm-line hwm-soft">Costantini</div>
+    <div class="hwm-tagline">Business Growth Partners · LATAM</div>
+  </div>
+
   <div class="hero-mid">
     <a href="#cupo" class="urgency-pill">
       <span class="up-dot"></span>
@@ -2088,40 +2315,21 @@
 
 <!-- ============ CASES ============ -->
 <section class="marfil reveal tight-bottom" id="casos">
-  <div class="cases-intro">
-    <div>
-      <div class="label">Casos de éxito</div>
-      <h2>Resultados reales.<br>Empresas reales.</h2>
-      <p class="lead" style="color: var(--neblina);">
-        No mostramos capturas de pantalla genéricas ni proyecciones. Mostramos lo que ejecutamos con clientes que hoy siguen creciendo con nosotros.
-      </p>
-    </div>
-    <div class="cases-meta">
-      <div>
-        <div class="cm-num">+180%</div>
-        <div class="cm-label">Ventas online<br>en 6 meses</div>
-      </div>
-      <div>
-        <div class="cm-num">3x</div>
-        <div class="cm-label">Conversión<br>con nuevo embudo</div>
-      </div>
-      <div>
-        <div class="cm-num">60%</div>
-        <div class="cm-label">Consultas resueltas<br>por IA sin operador</div>
-      </div>
-    </div>
+  <div class="cases-intro cases-intro-simple">
+    <div class="label">Casos de éxito</div>
+    <h2>Resultados reales.<br>Empresas reales.</h2>
+    <p class="lead" style="color: var(--neblina);">
+      No mostramos capturas de pantalla genéricas ni proyecciones. Mostramos lo que ejecutamos con clientes que hoy siguen creciendo con nosotros.
+    </p>
   </div>
 
   <div class="cases-grid">
-    <!-- Caso 1 -->
+    <!-- Caso 1: Glassy Waves -->
     <div class="case">
       <div class="case-head">
-        <div class="case-client">
-          <div class="case-logo">GW</div>
-          <div>
-            <div class="case-name">Glassy Waves</div>
-            <div class="case-sector">Surf · Lifestyle · Uruguay</div>
-          </div>
+        <div class="case-logo-wrap">
+          <!-- TODO: reemplazar por <img src="logos/glassy-waves.svg" alt="Glassy Waves" /> cuando tengas el archivo -->
+          <div class="case-logo-text">Glassy Waves</div>
         </div>
         <div class="case-tag">Camino 01 · Digital</div>
         <div class="case-metric">+180%</div>
@@ -2135,18 +2343,18 @@
           "Empezamos sin saber qué pedirles. Terminamos con una operación digital que funciona sin que tengamos que pensar en ella."
           <div class="case-author">— Fundador · Glassy Waves · referencia bajo pedido</div>
         </div>
+        <a href="https://glassywaves.com.uy" target="_blank" rel="noopener" class="case-link">
+          Visitar glassywaves.com.uy <span class="arrow">→</span>
+        </a>
       </div>
     </div>
 
-    <!-- Caso 2 -->
+    <!-- Caso 2: Wiz Trip -->
     <div class="case dark-case">
       <div class="case-head">
-        <div class="case-client">
-          <div class="case-logo">WT</div>
-          <div>
-            <div class="case-name">Wiz Trip</div>
-            <div class="case-sector">Turismo · Viajes · Uruguay</div>
-          </div>
+        <div class="case-logo-wrap dark">
+          <!-- TODO: reemplazar por <img src="logos/wiz-trip.svg" alt="Wiz Trip" /> cuando tengas el archivo -->
+          <div class="case-logo-text">Wiz Trip</div>
         </div>
         <div class="case-tag">Camino 01 · Digital</div>
         <div class="case-metric">3x</div>
@@ -2160,18 +2368,17 @@
           "La diferencia es que no esperamos una presentación. Abrimos Slack y están ahí, haciendo."
           <div class="case-author">— Equipo fundador · Wiz Trip</div>
         </div>
+        <a href="https://wiz-trip.com" target="_blank" rel="noopener" class="case-link">
+          Visitar wiz-trip.com <span class="arrow">→</span>
+        </a>
       </div>
     </div>
 
-    <!-- Caso 3 -->
+    <!-- Caso 3: NDA -->
     <div class="case">
       <div class="case-head">
-        <div class="case-client">
-          <div class="case-logo">IA</div>
-          <div>
-            <div class="case-name">Caso IA · Retail</div>
-            <div class="case-sector">40 pedidos/día · LATAM</div>
-          </div>
+        <div class="case-logo-wrap nda">
+          <div class="case-logo-text">Cliente bajo NDA</div>
         </div>
         <div class="case-tag">Camino 02 · IA</div>
         <div class="case-metric">60%</div>
@@ -2605,21 +2812,105 @@
   </div>
 </footer>
 
+<!-- ============ MODAL: pre-form antes de Calendly ============ -->
+<div class="prebook-overlay" id="prebookOverlay" aria-hidden="true">
+  <div class="prebook-modal" role="dialog" aria-modal="true" aria-labelledby="prebookTitle">
+    <button class="prebook-close" id="prebookClose" aria-label="Cerrar">×</button>
+    <div class="prebook-eyebrow">Antes de agendar</div>
+    <h3 class="prebook-title" id="prebookTitle">Contanos quién sos.</h3>
+    <p class="prebook-sub">Tres datos rápidos para que la reunión arranque con contexto. Tarda menos de un minuto.</p>
+
+    <form id="prebookForm" class="prebook-form" novalidate>
+      <div class="pb-field">
+        <label for="pb-name">Tu nombre</label>
+        <input type="text" id="pb-name" name="name" required autocomplete="name" placeholder="Federico Pérez">
+      </div>
+      <div class="pb-field">
+        <label for="pb-email">Email</label>
+        <input type="email" id="pb-email" name="email" required autocomplete="email" placeholder="federico@empresa.com">
+      </div>
+      <div class="pb-field">
+        <label for="pb-company">Empresa</label>
+        <input type="text" id="pb-company" name="company" required autocomplete="organization" placeholder="Nombre de tu empresa">
+      </div>
+      <div class="pb-field">
+        <label for="pb-reason">¿Por qué te contactás?</label>
+        <textarea id="pb-reason" name="reason" rows="3" required placeholder="Contanos brevemente qué buscás resolver."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary pb-submit">
+        Continuar al calendario <span class="arrow">→</span>
+      </button>
+    </form>
+  </div>
+</div>
+
 <script>
   // ============ Calendly ============
   // REEMPLAZAR_CALENDLY: reemplazá esta URL con el Calendly real de Dearmas Costantini
   const CALENDLY_URL = 'https://calendly.com/dearmascostantini/30min';
 
+  // Modal pre-booking
+  const overlay = document.getElementById('prebookOverlay');
+  const closeBtn = document.getElementById('prebookClose');
+  const form = document.getElementById('prebookForm');
+
   function openCalendly(e) {
     if (e) e.preventDefault();
-    if (window.Calendly && window.Calendly.initPopupWidget) {
-      Calendly.initPopupWidget({ url: CALENDLY_URL });
-    } else {
-      // Fallback: abrir en nueva pestaña si el widget no cargó
-      window.open(CALENDLY_URL, '_blank', 'noopener');
-    }
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('pb-name').focus(), 300);
     return false;
   }
+
+  function closeOverlay() {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  closeBtn.addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay(); });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('pb-name').value.trim();
+    const email = document.getElementById('pb-email').value.trim();
+    const company = document.getElementById('pb-company').value.trim();
+    const reason = document.getElementById('pb-reason').value.trim();
+
+    if (!name || !email || !company || !reason) return;
+
+    closeOverlay();
+
+    // Pasar datos a Calendly como prefill
+    // 'name' lo concatenamos con la empresa para que se vea en el booking aunque
+    // no haya custom questions configuradas en Calendly.
+    // Si configurás custom questions a1 (motivo) y a2 (empresa) en tu Event Type,
+    // se prefillean automaticamente con customAnswers abajo.
+    const prefillData = {
+      name: `${name} (${company})`,
+      email: email,
+      customAnswers: {
+        a1: reason,
+        a2: company
+      }
+    };
+
+    if (window.Calendly && window.Calendly.initPopupWidget) {
+      Calendly.initPopupWidget({ url: CALENDLY_URL, prefill: prefillData });
+    } else {
+      // Fallback URL params
+      const params = new URLSearchParams({
+        name: prefillData.name,
+        email: email,
+        a1: reason,
+        a2: company
+      });
+      window.open(`${CALENDLY_URL}?${params.toString()}`, '_blank', 'noopener');
+    }
+  });
 
   // ============ Nav scroll ============
   const nav = document.getElementById('nav');
