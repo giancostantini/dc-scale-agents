@@ -136,6 +136,133 @@
     50% { opacity: 0.4; }
   }
 
+  /* ============ BURGER + MOBILE MENU ============ */
+  .nav-burger {
+    display: none;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid rgba(232, 228, 220, 0.25);
+    cursor: pointer;
+    padding: 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    border-radius: 4px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .nav-burger:hover { border-color: var(--arena); }
+  .nav-burger span {
+    display: block;
+    width: 18px;
+    height: 1.5px;
+    background: var(--lino);
+    transition: transform 0.3s, opacity 0.3s;
+    transform-origin: center;
+  }
+  /* Burger animado a "X" cuando abierto */
+  .nav-burger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .nav-burger.open span:nth-child(2) { opacity: 0; }
+  .nav-burger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  .mobile-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
+  .mobile-menu.open {
+    transform: translateX(0);
+  }
+  .mobile-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+    margin-bottom: 32px;
+  }
+  .mobile-menu-brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .mobile-menu-brand .soft { font-weight: 300; opacity: 0.55; }
+  .mobile-menu-close {
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid rgba(232, 228, 220, 0.25);
+    color: var(--lino);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mobile-menu-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+  }
+  .mobile-menu-links a {
+    padding: 18px 4px;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--lino);
+    border-bottom: 1px solid rgba(196, 168, 130, 0.1);
+    transition: color 0.2s, padding-left 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mobile-menu-links a::before {
+    content: '';
+    width: 0;
+    height: 1px;
+    background: var(--arena);
+    transition: width 0.2s;
+  }
+  .mobile-menu-links a:hover,
+  .mobile-menu-links a:active {
+    color: var(--arena);
+    padding-left: 8px;
+  }
+  .mobile-menu-links a:hover::before,
+  .mobile-menu-links a:active::before {
+    width: 24px;
+  }
+  .mobile-menu-footer {
+    padding-top: 32px;
+    border-top: 1px solid rgba(196, 168, 130, 0.15);
+  }
+  .mobile-menu-meta {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: rgba(232, 228, 220, 0.5);
+    text-align: center;
+  }
+
+  /* Bloquear scroll del body cuando el menu esta abierto */
+  body.menu-open { overflow: hidden; }
+
   /* ============ HERO ============ */
   .hero {
     background: var(--bosque);
@@ -1720,6 +1847,357 @@
   section.tight-bottom { padding-bottom: 40px; }
   section.tight-bottom + section { padding-top: 80px; }
 
+  /* ============ CHATBOT WIDGET ============ */
+  .chat-widget {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 95;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* --- Burbuja de "Estoy acá para ayudarte" --- */
+  .chat-bubble {
+    position: absolute;
+    bottom: 78px;
+    right: 0;
+    background: var(--marfil);
+    color: var(--bosque);
+    padding: 12px 38px 12px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 10px 30px rgba(10, 26, 12, 0.18);
+    border: 1px solid rgba(10, 26, 12, 0.06);
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .chat-bubble.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    animation: bubblePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes bubblePop {
+    0% { transform: translateY(8px) scale(0.85); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .chat-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    right: 22px;
+    width: 12px; height: 12px;
+    background: var(--marfil);
+    border-right: 1px solid rgba(10, 26, 12, 0.06);
+    border-bottom: 1px solid rgba(10, 26, 12, 0.06);
+    transform: rotate(45deg);
+  }
+  .chat-bubble-close {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: rgba(10, 26, 12, 0.06);
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--neblina);
+    cursor: pointer;
+  }
+  .chat-bubble-close:hover { background: rgba(10, 26, 12, 0.12); color: var(--bosque); }
+
+  /* --- Botón flotante --- */
+  .chat-toggle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--bosque);
+    color: var(--arena);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 36px rgba(10, 26, 12, 0.35);
+    transition: transform 0.2s, background 0.2s;
+    position: relative;
+  }
+  .chat-toggle:hover {
+    transform: scale(1.06);
+    background: var(--noche);
+  }
+  .chat-toggle svg { transition: opacity 0.2s, transform 0.2s; }
+  .chat-toggle .chat-icon-close { position: absolute; opacity: 0; transform: rotate(-45deg); }
+  .chat-toggle.active .chat-icon-open { opacity: 0; transform: rotate(45deg); }
+  .chat-toggle.active .chat-icon-close { opacity: 1; transform: rotate(0); }
+  .chat-pulse-dot {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 14px; height: 14px;
+    background: var(--arena);
+    border: 2px solid var(--bosque);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(196, 168, 130, 0.6);
+    animation: chatPulse 2s ease-in-out infinite;
+  }
+  .chat-toggle.active .chat-pulse-dot { display: none; }
+  @keyframes chatPulse {
+    0% { box-shadow: 0 0 0 0 rgba(196, 168, 130, 0.55); }
+    70% { box-shadow: 0 0 0 14px rgba(196, 168, 130, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(196, 168, 130, 0); }
+  }
+
+  /* --- Ventana del chat --- */
+  .chat-window {
+    position: absolute;
+    bottom: 76px;
+    right: 0;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 560px;
+    max-height: calc(100vh - 120px);
+    background: var(--marfil);
+    border: 1px solid rgba(10, 26, 12, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(10, 26, 12, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform-origin: bottom right;
+    transform: scale(0.85) translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .chat-window.open {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .chat-header {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 16px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .chat-header-info { display: flex; align-items: center; gap: 12px; }
+  .chat-header-avatars { display: flex; }
+  .ch-av {
+    width: 34px;
+    height: 34px;
+    background: var(--arena);
+    color: var(--bosque);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid var(--bosque);
+  }
+  .ch-av-2 {
+    background: var(--lino);
+    color: var(--bosque);
+    margin-left: -10px;
+  }
+  .chat-header-name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .chat-header-status {
+    font-size: 11px;
+    color: rgba(232, 228, 220, 0.65);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ch-dot {
+    width: 7px; height: 7px;
+    background: #4caf50;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+  }
+  .chat-close {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid rgba(232, 228, 220, 0.2);
+    color: var(--lino);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chat-close:hover { border-color: var(--arena); color: var(--arena); }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--marfil);
+    scroll-behavior: smooth;
+  }
+  .chat-msg {
+    max-width: 85%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    animation: msgIn 0.3s ease;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chat-msg p { margin: 0 0 8px 0; font-size: 14px; }
+  .chat-msg p:last-child { margin-bottom: 0; }
+  .chat-msg-bot {
+    background: var(--lino);
+    color: var(--bosque);
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .chat-msg-user {
+    background: var(--bosque);
+    color: var(--lino);
+    border-bottom-right-radius: 4px;
+    align-self: flex-end;
+  }
+  .chat-msg-typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 14px;
+  }
+  .chat-msg-typing span {
+    width: 7px;
+    height: 7px;
+    background: var(--neblina);
+    border-radius: 50%;
+    animation: typingDot 1.2s ease-in-out infinite;
+  }
+  .chat-msg-typing span:nth-child(2) { animation-delay: 0.2s; }
+  .chat-msg-typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  .chat-cta-inline {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--arena);
+    color: var(--bosque);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .chat-cta-inline:hover { background: var(--trigo); transform: translateY(-1px); }
+
+  .chat-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 18px 0;
+    background: var(--marfil);
+  }
+  .chat-qa {
+    background: transparent;
+    border: 1px solid rgba(10, 26, 12, 0.15);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--bosque);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .chat-qa:hover {
+    background: var(--lino);
+    border-color: var(--arena);
+  }
+  .chat-quick-actions.hidden { display: none; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 14px 14px 8px;
+    background: var(--marfil);
+    border-top: 1px solid rgba(10, 26, 12, 0.06);
+    align-items: flex-end;
+  }
+  .chat-input {
+    flex: 1;
+    border: 1px solid rgba(10, 26, 12, 0.15);
+    background: var(--white);
+    color: var(--bosque);
+    padding: 10px 14px;
+    border-radius: 22px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    max-height: 100px;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus {
+    outline: none;
+    border-color: var(--arena);
+  }
+  .chat-send {
+    width: 40px;
+    height: 40px;
+    background: var(--bosque);
+    color: var(--arena);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+    flex-shrink: 0;
+  }
+  .chat-send:hover { background: var(--noche); transform: scale(1.05); }
+  .chat-send:disabled { background: var(--neblina); cursor: not-allowed; opacity: 0.6; }
+  .chat-send:disabled:hover { transform: none; }
+
+  .chat-footer {
+    padding: 6px 14px 12px;
+    font-size: 10px;
+    color: var(--neblina);
+    text-align: center;
+    background: var(--marfil);
+    line-height: 1.4;
+  }
+
   /* ============ PREBOOK MODAL ============ */
   .prebook-overlay {
     position: fixed;
@@ -2028,9 +2506,8 @@
     .nav { padding: 14px 18px; }
     .nav-brand { font-size: 14px; }
     .nav-brand .tagline { font-size: 7px; letter-spacing: 0.18em; }
-    .nav-links { gap: 0; }
-    .nav-links a:not(.nav-cta) { display: none; }
-    .nav-cta { padding: 9px 14px; font-size: 10px; letter-spacing: 0.1em; }
+    .nav-links { display: none; }
+    .nav-burger { display: flex; }
 
     /* Sections base */
     .hero { padding: 100px 24px 60px; min-height: auto; }
@@ -2167,6 +2644,12 @@
     .statement-text { font-size: clamp(24px, 6.5vw, 34px); margin-bottom: 24px; }
     .statement-btn { width: 100%; justify-content: center; padding: 16px 24px; font-size: 12px; }
 
+    /* Chatbot */
+    .chat-widget { bottom: 16px; right: 16px; }
+    .chat-toggle { width: 56px; height: 56px; }
+    .chat-bubble { font-size: 12px; padding: 10px 32px 10px 14px; }
+    .chat-window { width: calc(100vw - 32px); height: calc(100vh - 100px); bottom: 70px; }
+
     /* FAQ */
     .faq-q { font-size: 16px; gap: 16px; padding: 22px 0; }
     .faq-a { font-size: 14px; }
@@ -2220,7 +2703,37 @@
       Agendar 30 min
     </a>
   </div>
+  <button class="nav-burger" id="navBurger" aria-label="Abrir menú" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<!-- ============ MOBILE MENU OVERLAY ============ -->
+<div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+  <div class="mobile-menu-header">
+    <span class="mobile-menu-brand">Dearmas <span class="soft">Costantini</span></span>
+    <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Cerrar menú">×</button>
+  </div>
+  <nav class="mobile-menu-links">
+    <a href="#nosotros" data-mm-link>Nosotros</a>
+    <a href="#caminos" data-mm-link>Modelo</a>
+    <a href="#casos" data-mm-link>Resultados</a>
+    <a href="#cupo" data-mm-link>Cupos</a>
+    <a href="#skin" data-mm-link>Skin in the game</a>
+    <a href="#modelo" data-mm-link>Precio</a>
+    <a href="#socios" data-mm-link>Socios</a>
+    <a href="#faq" data-mm-link>FAQ</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <button class="btn btn-primary" onclick="openCalendlyFromMenu(event)" style="width: 100%; justify-content: center;">
+      Agendar 30 min con los socios <span class="arrow">→</span>
+    </button>
+    <div class="mobile-menu-meta">
+      <span>Federico Dearmas · Gianluca Costantini</span>
+      <span>LATAM · 2026</span>
+    </div>
+  </div>
+</div>
 
 <!-- ============ HERO ============ -->
 <section class="hero" id="top">
@@ -2855,6 +3368,69 @@
   </div>
 </footer>
 
+<!-- ============ CHATBOT WIDGET ============ -->
+<div class="chat-widget" id="chatWidget" aria-live="polite">
+  <!-- Burbuja "Estoy acá para ayudarte" -->
+  <div class="chat-bubble" id="chatBubble" role="button" tabindex="0">
+    <span class="chat-bubble-text">Estoy acá para ayudarte</span>
+    <button class="chat-bubble-close" id="chatBubbleClose" aria-label="Cerrar mensaje">×</button>
+  </div>
+
+  <!-- Botón flotante -->
+  <button class="chat-toggle" id="chatToggle" aria-label="Abrir chat" aria-expanded="false">
+    <svg class="chat-icon-open" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+    </svg>
+    <svg class="chat-icon-close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6L6 18M6 6l12 12"/>
+    </svg>
+    <span class="chat-pulse-dot"></span>
+  </button>
+
+  <!-- Ventana del chat -->
+  <div class="chat-window" id="chatWindow" aria-hidden="true">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <div class="chat-header-avatars">
+          <span class="ch-av">FD</span>
+          <span class="ch-av ch-av-2">GC</span>
+        </div>
+        <div>
+          <div class="chat-header-name">Asistente DC</div>
+          <div class="chat-header-status"><span class="ch-dot"></span> En línea · respuesta inmediata</div>
+        </div>
+      </div>
+      <button class="chat-close" id="chatClose" aria-label="Cerrar chat">×</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg chat-msg-bot">
+        <p>Hola, soy el asistente de Dearmas Costantini. Estoy acá para resolver dudas sobre cómo trabajamos, los casos, el modelo comercial o lo que necesites antes de agendar una reunión con los socios.</p>
+        <p>¿En qué te ayudo?</p>
+      </div>
+    </div>
+    <div class="chat-quick-actions" id="chatQuickActions">
+      <button class="chat-qa" data-prompt="¿En qué se diferencian de una agencia tradicional?">¿Diferencia con agencia?</button>
+      <button class="chat-qa" data-prompt="¿Cómo es el modelo de precios?">¿Cómo cobran?</button>
+      <button class="chat-qa" data-prompt="¿Pueden ayudar a un negocio como el mío?">¿Encajo con ustedes?</button>
+    </div>
+    <form class="chat-input-row" id="chatForm">
+      <textarea
+        id="chatInput"
+        class="chat-input"
+        placeholder="Escribí tu pregunta…"
+        rows="1"
+        aria-label="Escribe tu mensaje"
+      ></textarea>
+      <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar mensaje">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+        </svg>
+      </button>
+    </form>
+    <div class="chat-footer">Asistente IA · respuestas reales pero no reemplazan a una reunión con los socios</div>
+  </div>
+</div>
+
 <!-- ============ MODAL: pre-form antes de Calendly ============ -->
 <div class="prebook-overlay" id="prebookOverlay" aria-hidden="true">
   <div class="prebook-modal" role="dialog" aria-modal="true" aria-labelledby="prebookTitle">
@@ -3008,6 +3584,222 @@
   document.querySelectorAll('.faq-item').forEach(item => {
     item.querySelector('.faq-q').addEventListener('click', () => {
       item.classList.toggle('open');
+    });
+  });
+
+  // ============ Mobile menu (hamburger) ============
+  const burger = document.getElementById('navBurger');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const mobileClose = document.getElementById('mobileMenuClose');
+
+  function toggleMobileMenu(forceState) {
+    const isOpen = typeof forceState === 'boolean' ? forceState : !mobileMenu.classList.contains('open');
+    mobileMenu.classList.toggle('open', isOpen);
+    burger.classList.toggle('open', isOpen);
+    burger.setAttribute('aria-expanded', String(isOpen));
+    mobileMenu.setAttribute('aria-hidden', String(!isOpen));
+    document.body.classList.toggle('menu-open', isOpen);
+  }
+
+  burger.addEventListener('click', () => toggleMobileMenu());
+  mobileClose.addEventListener('click', () => toggleMobileMenu(false));
+
+  // Cerrar al click en cualquier link del menu mobile
+  document.querySelectorAll('[data-mm-link]').forEach(link => {
+    link.addEventListener('click', () => toggleMobileMenu(false));
+  });
+
+  // Cerrar con Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mobileMenu.classList.contains('open')) toggleMobileMenu(false);
+  });
+
+  // Wrapper para que el CTA del mobile menu cierre el menu y abra Calendly
+  function openCalendlyFromMenu(e) {
+    toggleMobileMenu(false);
+    // Pequeño delay para que la animación de cierre del menu termine antes del modal
+    setTimeout(() => openCalendly(e), 200);
+    return false;
+  }
+  window.openCalendlyFromMenu = openCalendlyFromMenu;
+
+  // ============ CHATBOT ============
+  const CHAT_ENDPOINT = 'https://sistemadearmascostantini.com/api/chat';
+  const chatWidget = document.getElementById('chatWidget');
+  const chatToggle = document.getElementById('chatToggle');
+  const chatWindow = document.getElementById('chatWindow');
+  const chatClose = document.getElementById('chatClose');
+  const chatBubble = document.getElementById('chatBubble');
+  const chatBubbleClose = document.getElementById('chatBubbleClose');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+  const chatSend = document.getElementById('chatSend');
+  const chatQuickActions = document.getElementById('chatQuickActions');
+
+  // Historial de mensajes (in-memory, solo durante esta visita)
+  const chatHistory = [];
+  let chatBubbleShown = false;
+  let chatOpened = false;
+
+  function showChatBubble() {
+    if (chatBubbleShown || chatOpened) return;
+    chatBubbleShown = true;
+    chatBubble.classList.add('show');
+    // Auto-hide después de 8 segundos
+    setTimeout(() => {
+      if (!chatOpened) chatBubble.classList.remove('show');
+    }, 8000);
+  }
+
+  function toggleChat(forceState) {
+    const open = typeof forceState === 'boolean' ? forceState : !chatWindow.classList.contains('open');
+    chatWindow.classList.toggle('open', open);
+    chatToggle.classList.toggle('active', open);
+    chatToggle.setAttribute('aria-expanded', String(open));
+    chatWindow.setAttribute('aria-hidden', String(!open));
+    if (open) {
+      chatOpened = true;
+      chatBubble.classList.remove('show');
+      setTimeout(() => chatInput.focus(), 250);
+    }
+  }
+
+  // Mostrar burbuja después de 6 segundos en la página
+  setTimeout(showChatBubble, 6000);
+  chatBubble.addEventListener('click', (e) => {
+    if (e.target.closest('.chat-bubble-close')) return;
+    toggleChat(true);
+  });
+  chatBubbleClose.addEventListener('click', (e) => {
+    e.stopPropagation();
+    chatBubble.classList.remove('show');
+  });
+
+  chatToggle.addEventListener('click', () => toggleChat());
+  chatClose.addEventListener('click', () => toggleChat(false));
+
+  // Auto-resize del textarea
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+  });
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      chatForm.requestSubmit();
+    }
+  });
+
+  function appendMessage(role, text, opts = {}) {
+    const div = document.createElement('div');
+    div.className = `chat-msg chat-msg-${role}`;
+    // Render simple: cada doble salto de línea es un párrafo nuevo
+    text.split(/\n\n+/).forEach(para => {
+      const p = document.createElement('p');
+      p.textContent = para.trim();
+      div.appendChild(p);
+    });
+    if (opts.cta) {
+      const btn = document.createElement('button');
+      btn.className = 'chat-cta-inline';
+      btn.innerHTML = 'Agendar 30 min con los socios <span>→</span>';
+      btn.onclick = () => {
+        toggleChat(false);
+        setTimeout(() => openCalendly(), 200);
+      };
+      div.appendChild(btn);
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+
+  function appendTyping() {
+    const div = document.createElement('div');
+    div.className = 'chat-msg chat-msg-bot chat-msg-typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    div.id = 'chatTypingIndicator';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+  function removeTyping() {
+    const t = document.getElementById('chatTypingIndicator');
+    if (t) t.remove();
+  }
+
+  // Heurística simple para detectar señales de intención de agendar
+  // y mostrar CTA inline después del mensaje del bot.
+  function detectsIntent(userText, botText) {
+    const text = (userText + ' ' + botText).toLowerCase();
+    const triggers = [
+      'agendar', 'reunir', 'reunion', 'llamada', 'cita', 'presupuesto',
+      'cuanto cuesta', 'cuánto cuesta', 'precio', 'tarifa', 'fee',
+      'me interesa', 'me sirve', 'cómo empiezo', 'como empiezo',
+      'siguiente paso', 'cuándo podemos', 'cuando podemos', 'evaluar'
+    ];
+    return triggers.some(t => text.includes(t));
+  }
+
+  async function sendChatMessage(userText) {
+    if (!userText.trim()) return;
+
+    // UI del user
+    appendMessage('user', userText);
+    chatHistory.push({ role: 'user', content: userText });
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    chatSend.disabled = true;
+    chatQuickActions.classList.add('hidden');
+
+    appendTyping();
+
+    try {
+      const res = await fetch(CHAT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: chatHistory })
+      });
+      removeTyping();
+
+      if (!res.ok) {
+        appendMessage('bot', 'Tuve un problema técnico. Probá de nuevo en un momento, o agendá directamente una reunión y los socios te responden.', { cta: true });
+        chatSend.disabled = false;
+        return;
+      }
+      const data = await res.json();
+      if (!data.ok || !data.reply) {
+        appendMessage('bot', 'No pude responder esto. ¿Querés agendar 30 min con los socios y lo charlamos en vivo?', { cta: true });
+        chatSend.disabled = false;
+        return;
+      }
+
+      const botReply = data.reply;
+      const showCta = detectsIntent(userText, botReply);
+      appendMessage('bot', botReply, { cta: showCta });
+      chatHistory.push({ role: 'assistant', content: botReply });
+    } catch (err) {
+      removeTyping();
+      console.warn('[chat] error:', err);
+      appendMessage('bot', 'No me pude conectar. Probá agendar directamente con los socios.', { cta: true });
+    } finally {
+      chatSend.disabled = false;
+      chatInput.focus();
+    }
+  }
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (text) sendChatMessage(text);
+  });
+
+  // Quick action buttons
+  document.querySelectorAll('.chat-qa').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.getAttribute('data-prompt');
+      if (prompt) sendChatMessage(prompt);
     });
   });
 </script>
