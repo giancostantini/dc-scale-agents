@@ -3047,3 +3047,265 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #011 — reel
+Date: 2026-05-02 | Source: dashboard | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: defaults (no specific direction)
+
+### Generated Content
+## Resumen
+- **Objetivo:** Viral + Ventas (doble objetivo: posicionar el diferencial de WizTrip y generar tráfico a conversión)
+- **Formato de script:** B — "Direct Value" — porque WizTrip está en etapa de lanzamiento, la principal barrera es confianza/desconocimiento, y este formato educa mientras vende. Ideal para audiencia fría que nunca escuchó de la marca.
+- **Trigger emocional:** Enojo/frustración — el espectador se identifica con el dolor de comparar 47 vuelos durante 3 horas y no decidir nada. Esa frustración activa la atención y el deseo de la solución.
+- **Plataformas destino:** TikTok (principal) + Instagram Reels (reutilización)
+- **Duración estimada:** 28–32 segundos
+
+---
+
+## Triple Hook
+
+- **Visual:** Pantalla de búsqueda de vuelos con scroll infinito de resultados — mano deslizando frenéticamente, efecto caótico. Corte a cara de persona con expresión de "no puedo más". Todo en 1.5 segundos.
+- **Textual:** `¿47 vuelos y no elegiste nada?`
+- **Verbal:** *"Si tardás más de dos horas eligiendo un vuelo... el problema no son los vuelos."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s-1.5s] — PATTERN INTERRUPTION
+  Visual: Pantalla de celular con resultados de vuelos (Skyscanner/Google Flights-style)
+          scrolleando a velocidad 2x. Mano moviéndose frenéticamente.
+          Corte rápido a: cara de persona mirando la pantalla con expresión agotada.
+          Corte rápido a: número "47" en pantalla grande, rojo, parpadeando.
+          Corte rápido a: reloj marcando 3 horas.
+  Texto en pantalla: "¿47 VUELOS Y NO ELEGISTE NADA?" 
+                     (centro pantalla, Bricolage ExtraBold, 72px, #FAB402 sobre fondo #222524)
+  Narración: "Si tardás más de dos horas eligiendo un vuelo... el problema no son los vuelos."
+  Música/SFX: Sonido de scroll + notificaciones + caos. Cortazo seco al terminar la frase.
+  Transición: Hard cut
+
+Escena 2 [1.5s-4s] — PROBLEMA NOMBRADO
+  Visual: Texto en pantalla animado, fondo violeta #4C167C.
+          Wizzo aparece desde el costado izquierdo en pose "pensar" (trazo/line art, blanco).
+  Texto en pantalla: "ESO SE LLAMA RUIDO." 
+                     (Bricolage ExtraBold, 96px, #FAB402, centro)
+                     Subtexto: "Y te está robando tiempo (y plata)."
+                     (Host Grotesk Regular, 32px, #FFF2CA, debajo del título)
+  Narración: "Eso se llama ruido. Y la mayoría de las agencias te dan más ruido, no menos."
+  Música/SFX: Beat lo-fi que entra suave, percusión minimalista.
+  Transición: Slide lateral → siguiente escena
+
+Escena 3 [4s-9s] — SOLUCIÓN: EL DIFERENCIAL
+  Visual: Fondo crema #FFF2CA. Wizzo aparece en versión color completa (Color_magia.svg),
+          con varita en mano y una "pantalla mágica" simplificada mostrando SOLO 3 opciones
+          con el sello "WIZZO PICK" encima de una de ellas.
+  Texto en pantalla: "WIZZO FILTRA EL RUIDO."
+                     (Bricolage Bold, 64px, #4C167C, parte superior del safe zone)
+                     Tag animado: "✦ WIZZO PICK" aparece sobre la opción ganadora
+                     (#FAB402, Host Grotesk SemiBold, 28px)
+  Narración: "WizTrip funciona diferente. Wizzo — nuestro agente experto — toma esas 47 opciones 
+              y te da las dos que realmente valen la pena. Nada más."
+  Música/SFX: Beat sube levemente. Sonido de "magia" suave cuando aparece el sello WIZZO PICK.
+  Transición: Zoom out + hard cut
+
+Escena 4 [9s-18s] — TRES PUNTOS DE VALOR (rápido, dinámico)
+  Visual: Fondo alterna entre #4C167C y #FAB402 en cada punto. 
+          Texto animado (pop-in), Wizzo en sticker pequeño en esquina inferior derecha
+          (Sticker_bien.svg para el punto 1, Sticker_magia.svg para el punto 2, 
+           Sticker_festejo.svg para el punto 3).
+
+  --- PUNTO 1 [9s-12s] ---
+  Texto en pantalla: "01. EL PIQUE EXACTO"
+                     (Bricolage ExtraBold, 80px, #FFF2CA sobre fondo #4C167C)
+                     Subtexto: "No más opciones. Las correctas."
+                     (Host Grotesk, 28px, #B99FFF)
+  Narración: "Uno: el pique exacto para tu viaje, tu fecha y tu presupuesto."
+  Transición: Hard cut
+
+  --- PUNTO 2 [12s-15s] ---
+  Texto en pantalla: "02. CERO TRAMPAS TURÍSTICAS"
+                     (Bricolage ExtraBold, 72px, #222524 sobre fondo #FAB402)
+                     Subtexto: "Si algo no vale, te lo decimos."
+                     (Host Grotesk, 28px, #4C167C)
+  Narración: "Dos: si un hotel o destino es una trampa turística, te lo decimos antes."
+  Transición: Hard cut
+
+  --- PUNTO 3 [15s-18s] ---
+  Texto en pantalla: "03. VIAJÁS CON VENTAJA"
+                     (Bricolage ExtraBold, 72px, #FFF2CA sobre fondo #4C167C)
+                     Subtexto: "Desde Uruguay, para el mundo."
+                     (Host Grotesk, 28px, #FAB402)
+  Narración: "Tres: llegás a destino sabiendo que elegiste bien."
+  Transición: Zoom in suave → siguiente escena
+
+Escena 5 [18s-24s] — CIERRE EMOCIONAL + WIZZO
+  Visual: Fondo #4C167C. Wizzo en versión Color_hola.svg grande, centro-izquierda.
+          Curva animada (Curva_lila.svg) que cruza la pantalla de izquierda a derecha 
+          como trazo en tiempo real. Logo WizTrip aparece sobre la curva.
+  Texto en pantalla: "ELEGISTE BIEN." 
+                     (Bricolage ExtraBold, 96px, #FAB402, centro-derecha)
+  Narración: "Elegiste bien. Siempre."
+  Música/SFX: Beat llega al pico, nota musical de resolución.
+  Transición: Fade a negro rápido (2 frames)
+
+Escena 6 [24s-30s] — CTA ÚNICO
+  Visual: Fondo negro #222524. Logo WizTrip (Logo_Crema.svg) centrado, grande.
+          Tagline animado aparece debajo.
+          Sticker pequeño de Wizzo (Sticker_bien.svg) en esquina inferior derecha.
+  Texto en pantalla: "TU COPILOTO DE VIAJE."
+                     (Host Grotesk Medium, 32px, #B99FFF, debajo del logo)
+                     CTA: "Encontralo en wiz-trip.com"
+                     (Host Grotesk Bold, 36px, #FAB402)
+  Narración: "Tu copiloto de viaje. wiz-trip.com"
+  Música/SFX: Beat baja a silencio casi total. Solo tono ambiente suave.
+  Transición: Hold 2s → fin
+```
+
+---
+
+## Storyboard de producción
+
+**Especificaciones técnicas globales:**
+- Resolución: `1080 × 1920` (9:16)
+- Safe zone superior: `150px` reservados (sin texto ni elementos clave)
+- Safe zone inferior: `250px` reservados (sin texto, área de UI TikTok/IG)
+- Área de texto segura: `y: 150px` a `y: 1670px`
+- FPS: 30
+- Herramienta: Remotion
+
+---
+
+**Frame 1 — 0s a 0.5s**
+```
+Elemento: Video mockup de pantalla de celular con scroll de resultados de vuelos
+Posición: Full bleed, 1080×1920
+Animación: useCurrentFrame() → translateY que baja -800px en 15 frames (scroll effect)
+Overlay: Tinte negro semitransparente (rgba 0,0,0,0.3) sobre el video
+Fuente: ninguna en este frame (solo visual puro)
+```
+
+**Frame 2 — 0.5s a 0.8s**
+```
+Elemento: Cara de persona con expresión de frustración (foto aspiracional — ver MISSING_ASSETS)
+Posición: Full bleed
+Animación: springConfig entrada desde derecha, 8 frames
+Overlay: ninguno
+```
+
+**Frame 3 — 0.8s a 1.0s**
+```
+Elemento: Texto "47" 
+Fuente: BricolageGrotesque_72pt-ExtraBold.ttf
+Tamaño: 220px
+Color: #FAB402
+Fondo: #222524 (full bleed)
+Posición: center X, center Y (relativo a safe zone)
+Animación: scale de 0 a 1 en 6 frames con spring() de Remotion + shake horizontal leve
+SFX marker: "caos_notification_burst" @ frame 24
+```
+
+**Frame 4 — 1.0s a 1.5s**
+```
+Elemento: Texto hook completo
+Fuente titular: BricolageGrotesque_72pt-ExtraBold.ttf / 72px / #FAB402
+Texto: "¿47 VUELOS\nY NO ELEGISTE NADA?"
+Fondo: #222524
+Posición: center X, Y: 680px (centro de safe zone)
+Animación: cada línea con interpolate() stagger de 4 frames entre líneas
+```
+
+**Frame 5 — 1.5s a 4.0s**
+```
+Fondo: #4C167C (fill)
+Asset Logo personaje: wiztrip/mascot/trazo/Trazo_pensar.svg
+  → Posición: left: -20px, bottom: 300px (sobre safe zone inferior)
+  → Tamaño: 340×340px
+  → Animación: slideInFromLeft, spring() 12 frames
+Texto principal: "ESO SE LLAMA RUIDO."
+  → Fuente: BricolageGrotesque_48pt-ExtraBold.ttf / 88px / #FAB402
+  → Posición: center X, Y: 600px
+  → Animación: interpolate opacity 0→1 en 8 frames
+Subtexto: "Y te está robando tiempo (y plata)."
+  → Fuente: HostGrotesk-Regular.ttf / 32px / #FFF2CA
+  → Posición: center X, Y: 720px
+  → Animación: fade in, delay 6 frames tras el título
+```
+
+**Frame 6 — 4s a 9s (Escena 3)**
+```
+Fondo: #FFF2CA (fill)
+Asset mascot color: wiztrip/mascot/color/Color_magia.svg
+  → Posición: center X, Y: 400px desde arriba
+  → Tamaño: 420×420px
+  → Animación: scale 0.8 → 1.0 con spring(), entrada desde abajo
+Asset curva decorativa: wiztrip/curvas/Curva_lila.svg
+  → Posición: bottom 260px (sobre safe zone), full width
+  → Opacity: 0.4
+Texto: "WIZZO FILTRA EL RUIDO."
+  → Fuente: BricolageGrotesque_48pt-Bold.ttf / 72px / #4C167C
+  → Posición: center X, Y: 180px (justo bajo safe zone superior)
+  → Animación: fade in + translateY 20→0
+Tag "✦ WIZZO PICK":
+  → Fuente: HostGrotesk-Bold.ttf / 28px / #4C167C
+  → Background: #FAB402, border-radius: 8px, padding: 6px 16px
+  → Posición: center X, Y: 900px
+  → Animación: scale 0→1 con spring() bounce en frame 120 (4s mark)
+SFX marker: "magic_chime_soft" @ frame 120
+```
+
+**Frames 7-9 — 9s a 18s (Puntos 1, 2, 3)**
+```
+Patrón repetido × 3 con colores alternos:
+PUNTO 1:
+  Fondo: #4C167C
+  Asset sticker: wiztrip/mascot/sticker/Sticker_bien.svg
+    → Posición: right: 40px, bottom: 300px / Tamaño: 180px
+    → Animación: bounce in desde abajo, spring()
+  Número: "01" / BricolageGrotesque_72pt-ExtraBold.ttf / 180px / rgba(#FAB402, 0.15)
+    → Posición: left: -20px, Y: 500px (decorativo, partial off-screen)
+  Título: "EL PIQUE EXACTO" / BricolageGrotesque_48pt-ExtraBold.ttf / 80px / #FAB402
+    → center X, Y: 620px
+  Subtexto: "No más opciones. Las correctas." / HostGrotesk-Regular.ttf / 30px / #B99FFF
+    → center X, Y: 730px
+  Animación entrada: wipe desde izquierda en 8 frames
+
+PUNTO 2:
+  Fondo: #FAB402
+  Asset sticker: wiztrip/mascot/sticker/Sticker_magia.svg
+    → Misma posición y tamaño, mismo tipo de animación
+  Número: "02" / color: rgba(#4C167C, 0.15)
+  Título: "CERO TRAMPAS TURÍSTICAS" / BricolageGrotesque_48pt-ExtraBold.ttf / 68px / #222524
+  Subtexto: "Si algo no vale, te lo decimos." / HostGrotesk-Regular.ttf / 30px / #4C167C
+
+PUNTO 3:
+  Fondo: #4C167C
+  Asset sticker: wiztrip/mascot/sticker/Sticker_festejo.svg
+  Número: "03" / rgba(#FAB402, 0.15)
+  Título: "VIAJÁS CON VENTAJA" / BricolageGrotesque_48pt-ExtraBold.ttf / 80px / #FFF2CA
+  Subtexto: "Desde Uruguay, para el mundo." / Host
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
