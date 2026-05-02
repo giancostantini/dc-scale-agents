@@ -137,9 +137,21 @@ export async function POST(req: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Construimos la URL de "set password" para que el link del email lleve
+  // al usuario directo a setear su contraseña (no al login que no funciona
+  // sin password). Tomamos el origin del request y le agregamos /auth/reset
+  // (la misma página sirve para invite + password recovery: ambos casos
+  // resultan en una sesión activa donde el user setea su password).
+  // Esta URL DEBE estar en la allowlist de Redirect URLs en Supabase Auth.
+  const origin = req.headers.get("origin") ||
+    req.headers.get("referer")?.replace(/\/[^/]*$/, "") ||
+    `https://${req.headers.get("host")}`;
+  const redirectTo = `${origin}/auth/reset`;
+
   const { data: invite, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(email, {
       data: { name },
+      redirectTo,
     });
 
   if (inviteError) {
