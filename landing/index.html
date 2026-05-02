@@ -1546,25 +1546,95 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s;
+    transition: transform 0.25s, box-shadow 0.25s;
+    overflow: hidden;
+    cursor: default;
   }
+  .slot:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(10, 26, 12, 0.18); }
+  .slot.occupied { background: var(--bosque); }
+  .slot.occupied.has-logo {
+    background: var(--lino);
+    padding: 12px;
+  }
+  .slot.occupied.nda { background: var(--noche); }
   .slot.available {
     background: var(--arena);
     animation: slotPulse 3s ease-in-out infinite;
+    cursor: pointer;
   }
   @keyframes slotPulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
-  .slot .slot-num {
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 200;
-    font-size: 20px;
-    color: rgba(232, 228, 220, 0.35);
+  .slot .slot-mark {
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--arena);
+    text-align: center;
+    line-height: 1;
   }
-  .slot.available .slot-num {
-    color: var(--bosque);
+  .slot.occupied.nda .slot-mark {
+    font-size: 13px;
+    letter-spacing: 0.18em;
     font-weight: 600;
+    color: rgba(196, 168, 130, 0.55);
+  }
+  .slot.available .slot-mark {
+    color: var(--bosque);
+    font-weight: 300;
+    font-size: 36px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  /* Soporte para img logos cuando los reemplaces */
+  .slot img {
+    max-width: 70%;
+    max-height: 70%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Tooltip on hover */
+  .slot[data-tooltip] {
+    position: relative;
+  }
+  .slot[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 10;
+    font-weight: 500;
+  }
+  .slot[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--bosque);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 10;
+  }
+  .slot[data-tooltip]:hover::after,
+  .slot[data-tooltip]:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
   .cupo-legend {
     display: flex;
@@ -1804,20 +1874,18 @@
   .cases-intro-simple { display: block; margin-bottom: 56px; }
 
   .case-logo-wrap {
-    background: var(--bosque);
-    color: var(--arena);
-    height: 96px;
+    background: var(--lino);
+    color: var(--bosque);
+    height: 120px;
     margin-bottom: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px 24px;
+    padding: 24px 32px;
     overflow: hidden;
+    border: 1px solid rgba(10, 26, 12, 0.06);
   }
-  .case-logo-wrap.dark {
-    background: var(--arena);
-    color: var(--bosque);
-  }
+  .case-logo-wrap.has-logo { padding: 24px 32px; }
   .case-logo-wrap.nda {
     background: var(--lino);
     color: var(--neblina);
@@ -2327,9 +2395,8 @@
     <!-- Caso 1: Glassy Waves -->
     <div class="case">
       <div class="case-head">
-        <div class="case-logo-wrap">
-          <!-- TODO: reemplazar por <img src="logos/glassy-waves.svg" alt="Glassy Waves" /> cuando tengas el archivo -->
-          <div class="case-logo-text">Glassy Waves</div>
+        <div class="case-logo-wrap has-logo">
+          <img src="logos/glassy.svg" alt="Glassy Waves">
         </div>
         <div class="case-tag">Camino 01 · Digital</div>
         <div class="case-metric">+180%</div>
@@ -2352,9 +2419,8 @@
     <!-- Caso 2: Wiz Trip -->
     <div class="case dark-case">
       <div class="case-head">
-        <div class="case-logo-wrap dark">
-          <!-- TODO: reemplazar por <img src="logos/wiz-trip.svg" alt="Wiz Trip" /> cuando tengas el archivo -->
-          <div class="case-logo-text">Wiz Trip</div>
+        <div class="case-logo-wrap has-logo">
+          <img src="logos/wiztrip.svg" alt="Wiz Trip">
         </div>
         <div class="case-tag">Camino 01 · Digital</div>
         <div class="case-metric">3x</div>
@@ -2459,14 +2525,30 @@
   </div>
 
   <div class="cupo-grid-slots" id="cupo-grid">
-    <div class="slot"><span class="slot-num">01</span></div>
-    <div class="slot"><span class="slot-num">02</span></div>
-    <div class="slot"><span class="slot-num">03</span></div>
-    <div class="slot"><span class="slot-num">04</span></div>
-    <div class="slot"><span class="slot-num">05</span></div>
-    <div class="slot"><span class="slot-num">06</span></div>
-    <div class="slot available"><span class="slot-num">07</span></div>
-    <div class="slot available"><span class="slot-num">08</span></div>
+    <div class="slot occupied has-logo" data-tooltip="Glassy Waves">
+      <img src="logos/glassy.svg" alt="Glassy Waves">
+    </div>
+    <div class="slot occupied has-logo" data-tooltip="Wiz Trip">
+      <img src="logos/wiztrip.svg" alt="Wiz Trip">
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA · Camino 02">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot available" data-tooltip="Cupo disponible">
+      <span class="slot-mark">+</span>
+    </div>
+    <div class="slot available" data-tooltip="Cupo disponible">
+      <span class="slot-mark">+</span>
+    </div>
   </div>
 
   <div class="cupo-legend">
