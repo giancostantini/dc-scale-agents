@@ -98,16 +98,17 @@
 
   .nav-links {
     display: flex;
-    gap: 40px;
+    gap: 28px;
     align-items: center;
   }
 
   .nav-links a {
-    font-size: 12px;
-    letter-spacing: 0.18em;
+    font-size: 11px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(232, 228, 220, 0.72);
     transition: color 0.2s;
+    white-space: nowrap;
   }
   .nav-links a:hover { color: var(--arena); }
 
@@ -2206,10 +2207,12 @@
     <span class="tagline">Business Growth Partners</span>
   </a>
   <div class="nav-links">
-    <a href="#caminos">Caminos</a>
-    <a href="#casos">Casos</a>
+    <a href="#nosotros">Nosotros</a>
+    <a href="#caminos">Modelo</a>
+    <a href="#casos">Resultados</a>
     <a href="#cupo">Cupos</a>
-    <a href="#modelo">Modelo</a>
+    <a href="#skin">Skin in the game</a>
+    <a href="#modelo">Precio</a>
     <a href="#socios">Socios</a>
     <a href="#faq">FAQ</a>
     <a href="#agendar" class="nav-cta" onclick="openCalendly(event)">
@@ -2251,10 +2254,10 @@
   </section>
 
 <!-- ============ POSITIONING ============ -->
-<section class="marfil reveal">
+<section class="marfil reveal" id="nosotros">
   <div class="concept">
     <div>
-      <div class="label">Posicionamiento</div>
+      <div class="label">Nosotros</div>
       <h2>No es una agencia.<br>Es un socio.</h2>
     </div>
     <div>
@@ -2817,11 +2820,12 @@
     <div>
       <div class="foot-label">Navegación</div>
       <ul class="foot-list">
-        <li><a href="#caminos">Caminos</a></li>
-        <li><a href="#casos">Casos</a></li>
-        <li><a href="#cupo">Cupos disponibles</a></li>
+        <li><a href="#nosotros">Nosotros</a></li>
+        <li><a href="#caminos">Modelo</a></li>
+        <li><a href="#casos">Resultados</a></li>
+        <li><a href="#cupo">Cupos</a></li>
         <li><a href="#skin">Skin in the game</a></li>
-        <li><a href="#modelo">Modelo comercial</a></li>
+        <li><a href="#modelo">Precio</a></li>
         <li><a href="#socios">Socios</a></li>
         <li><a href="#faq">FAQ</a></li>
       </ul>
