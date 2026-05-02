@@ -14,6 +14,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { logAction } from "@/lib/audit";
 
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 
@@ -91,6 +92,15 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+
+  await logAction({
+    actorId: caller.id,
+    actorEmail: caller.email ?? null,
+    action: "phase.request_changes",
+    targetType: "phase_report",
+    targetId: `${clientId}:${phase}`,
+    metadata: { feedbackLength: feedback.trim().length },
+  });
 
   return Response.json({ success: true });
 }

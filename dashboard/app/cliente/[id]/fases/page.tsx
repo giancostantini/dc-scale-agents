@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getClient } from "@/lib/storage";
 import { listPhaseReports, phaseStatusLabel, phaseStatusColor } from "@/lib/phases";
+import { getSupabase } from "@/lib/supabase/client";
 import type { Client, PhaseKey, PhaseReport } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
 
@@ -75,12 +76,34 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
 
   useEffect(() => {
     if (!anyGenerating) return;
-    // Polling 5s mientras hay algo generando
+    // Polling 5s mientras hay algo generando (fallback si Realtime no está activo)
     const interval = setInterval(() => {
       setReloadFlag((f) => f + 1);
     }, 5000);
     return () => clearInterval(interval);
   }, [anyGenerating]);
+
+  // Realtime: suscripción a phase_reports del cliente.
+  // Cualquier UPDATE refresca la lista — sin esperar al polling.
+  useEffect(() => {
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`phase_reports-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "phase_reports",
+          filter: `client_id=eq.${id}`,
+        },
+        () => setReloadFlag((f) => f + 1),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
 
   if (!client) return null;
 

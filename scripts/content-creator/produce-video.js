@@ -122,6 +122,132 @@ function validateRemotionCode(code, compositionId) {
 }
 
 /**
+ * Strips de comentarios y string literals antes de contar tags. Un comentario
+ * JSX `{/* missing </div> *\/}` o un string `"<div>"` puede inflar artificialmente
+ * el count y darnos un falso "balanced". Quitamos:
+ *   - `// line comment`
+ *   - `/* block comment *\/`
+ *   - `{/* JSX comment *\/}`
+ *   - strings con comillas dobles, simples, y backticks
+ *
+ * Es heurístico (no un parser TS real) pero alcanza para los outputs de Claude
+ * que son código bien formado salvo por el bug que estamos cazando.
+ */
+function stripCommentsAndStrings(code) {
+  let out = code;
+  // 1. JSX comments: {/* ... */}
+  out = out.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  // 2. Block comments: /* ... */
+  out = out.replace(/\/\*[\s\S]*?\*\//g, "");
+  // 3. Line comments: // ...
+  out = out.replace(/\/\/[^\n]*/g, "");
+  // 4. Template literals: `...` (incluyendo escaped)
+  out = out.replace(/`(?:[^`\\]|\\.)*`/g, "``");
+  // 5. Strings con comillas dobles
+  out = out.replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
+  // 6. Strings con comillas simples
+  out = out.replace(/'(?:[^'\\\n]|\\.)*'/g, "''");
+  return out;
+}
+
+/**
+ * Cuenta tags JSX abiertos vs cerrados de los componentes críticos. Si Claude
+ * cortó la generación a mitad de un componente (límite de tokens, prompt
+ * largo) suele dejar tags sin cerrar — esbuild a veces los detecta y a veces
+ * no, dependiendo de dónde queda el corte. Este check es complementario al
+ * pre-validate de esbuild y asegura que ningún tag balanceado queda colgado.
+ *
+ * Si encontramos desbalance, tiramos error que el retry loop captura para
+ * pedirle a Claude que regenere con el bug específico señalado.
+ *
+ * Tags self-closing (<Img />, <Audio />) se ignoran del conteo: solo
+ * contamos los <Tag> que NO terminan en `/>` ni son closing tags ya.
+ *
+ * Antes de contar, strippeamos comentarios y strings: un `{/* </div> *\/}`
+ * o un `"<div>"` no debe contar como tag JSX real.
+ */
+function validateJsxBalance(code) {
+  const balancedTags = [
+    "div",
+    "span",
+    "AbsoluteFill",
+    "Sequence",
+    "SafeZone",
+    "ColorScene",
+    "ImageScene",
+    "TextOverlay",
+    "FadeTransition",
+    "FlashTransition",
+  ];
+
+  const cleaned = stripCommentsAndStrings(code);
+
+  const issues = [];
+  for (const tag of balancedTags) {
+    // Open tag: <Tag ...> que NO sea <Tag.../> (self-closing) ni </Tag> (close)
+    // Estrategia: matchear `<Tag` seguido de cualquier cosa que NO sea `/`
+    // hasta el `>`. Excluimos self-closing chequeando que el char antes del
+    // `>` final no sea `/`.
+    const openRegex = new RegExp(`<${tag}(?:\\s[^>]*)?(?<!/)>`, "g");
+    const closeRegex = new RegExp(`</${tag}\\s*>`, "g");
+    const opens = (cleaned.match(openRegex) || []).length;
+    const closes = (cleaned.match(closeRegex) || []).length;
+    if (opens !== closes) {
+      issues.push(`<${tag}>: ${opens} aperturas vs ${closes} cierres`);
+    }
+  }
+
+  if (issues.length > 0) {
+    throw new Error(
+      `Tags JSX desbalanceados — Claude probablemente cortó el output a mitad de un componente:\n` +
+      issues.map((i) => `  - ${i}`).join("\n") +
+      `\nEsto suele pasar cuando max_tokens se alcanza durante la generación. ` +
+      `El retry va a pedirle a Claude que cierre todos los tags.`,
+    );
+  }
+}
+
+/**
+ * Prompt de retry: le mostramos a Claude el código que devolvió + el error
+ * exacto y le pedimos una versión corregida. El prompt es mucho más corto que
+ * el inicial — solo lleva contexto suficiente para que arregle el bug, sin
+ * volver a explicarle todo el storyboard / brand / templates.
+ *
+ * Si el error es de balance de tags, le insistimos en cerrar todos. Si es de
+ * sintaxis (esbuild), le pasamos el lineText exacto. Si es del bundler de
+ * Remotion (resolve fail, etc.), le pasamos el stderr para que entienda.
+ */
+function buildRetryPrompt(previousCode, errorMessage, compositionId) {
+  return `You previously generated this Remotion composition for ID "${compositionId}":
+
+\`\`\`tsx
+${previousCode}
+\`\`\`
+
+But it FAILED with this error:
+
+${errorMessage}
+
+YOUR TASK: Generate a COMPLETE, CORRECTED version of the same component that fixes this specific error.
+
+CRITICAL REQUIREMENTS:
+1. Output ONLY the corrected TSX file. No explanations, no markdown fences, no preamble.
+2. The file must be a complete, self-contained TypeScript/React module.
+3. Every opening JSX tag MUST have a matching closing tag — count them mentally before finishing:
+   - Every <div> needs </div>
+   - Every <AbsoluteFill> needs </AbsoluteFill>
+   - Every <Sequence> needs </Sequence>
+   - Every <SafeZone> needs </SafeZone>
+   - Self-closing tags like <Img />, <Audio /> are fine as-is.
+4. Keep the same structure, scenes, animations, and visual identity as the original — only fix the bug.
+5. Export default ${compositionId} and export const COMPOSITION_CONFIG.
+6. Do NOT shorten the composition to "fit" — finish all sequences. Quality matters.
+7. Verify the TSX is syntactically valid before responding.
+
+Output the corrected component now:`;
+}
+
+/**
  * Intenta parsear el TSX con esbuild para detectar errores de sintaxis ANTES
  * de invocar `npx remotion render`. esbuild viene como transitive dep de
  * @remotion/bundler — usamos un import dinámico para no agregar dep nueva
@@ -448,116 +574,172 @@ export async function produceVideo(brief, storyboard, pieceId) {
   }
   const assetBlock = buildAssetMapBlock(assetMap);
 
-  // 4. Generate Remotion components via Claude
-  console.log("Generating Remotion components...");
-  const remotionPrompt = buildRemotionPrompt(
-    storyboard,
-    brief,
-    compositionId,
-    assetBlock,
-  );
-  const rawRemotionCode = await callClaude(remotionPrompt);
-
-  // 5. Sanitize + validate. Si Claude emitió markdown fences los pelamos;
-  //    si emitió texto narrativo o algo sin imports/exports, fallamos rápido
-  //    con error accionable en vez de dejar que esbuild explote más adelante.
-  //    En cualquier falla acá, adjuntamos el TSX raw al Error para que el
-  //    drawer del dashboard lo muestre (y veas exactamente qué emitió Claude).
+  // 4-9. Generate + validate + render con retry loop.
+  //
+  // Hasta MAX_ATTEMPTS intentos: la primera vez con prompt completo, las
+  // siguientes con prompt de retry pasándole a Claude el código previo + el
+  // error específico para que lo arregle.
+  //
+  // Stages que pueden fallar y disparan retry:
+  //   - "validate" : TSX no es módulo válido o tags JSX desbalanceados
+  //   - "parse"    : esbuild detecta error de sintaxis
+  //   - "render"   : el bundler de Remotion falla
+  //
+  // Si después de todos los retries seguimos fallando, propagamos el último
+  // error con stderr completo para que el dashboard lo muestre.
+  const MAX_ATTEMPTS = 3;
   const compositionFile = resolve(compositionDir, "index.tsx");
-  let remotionCode;
-  try {
-    remotionCode = sanitizeRemotionCode(rawRemotionCode);
-    validateRemotionCode(remotionCode, compositionId);
-  } catch (err) {
-    err._stage = "validate";
-    err._stderr = null;
-    err._compositionTsx = rawRemotionCode;
-    err._compositionFile = compositionFile;
-    throw err;
-  }
 
-  // 5b. Write the composition file
-  writeFileSync(compositionFile, remotionCode, "utf-8");
-  console.log(`Composition written: ${compositionFile} (${remotionCode.length} chars)`);
-
-  // 5c. Pre-validar el TSX con esbuild antes de invocar el bundler de Remotion.
-  //     Si Claude generó código con error de sintaxis (e.g. arrow function rota,
-  //     type annotation mal puesto, destructuring sin cerrar), esbuild nos da
-  //     línea:columna exactas y un mensaje accionable. Sin este chequeo, el
-  //     bundler de Remotion termina en setup-cache.js con un stack de Node
-  //     opaco. esbuild es transitive de @remotion/bundler — ya está instalado.
-  const parseError = await tryParseTsx(remotionCode, compositionFile);
-  if (parseError) {
-    const err = new Error(
-      `Composition TSX inválida (parse fail): ${parseError}\n` +
-      `Esto significa que Claude emitió código con un error de sintaxis. ` +
-      `El TSX exacto está adjunto en el output del run para que veas qué pasó.`,
-    );
-    err._stage = "parse";
-    err._stderr = null;
-    err._compositionTsx = remotionCode;
-    err._compositionFile = compositionFile;
-    throw err;
-  }
-
-  // 6. Register in Root.tsx
-  const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
-  registerComposition(compositionId, relativeCompositionPath);
-  console.log(`Composition registered: ${compositionId}`);
-
-  // 7. Create output directory
+  // Output dir + dependencias de Remotion (se setean fuera del loop —
+  // no cambian entre intentos).
   const videosDir = resolve(VAULT, `clients/${brief.client}/videos`);
   mkdirSync(videosDir, { recursive: true });
   const outputPath = resolve(videosDir, `${pieceId}.mp4`);
 
-  // 8. Install dependencies if needed
   const nodeModulesPath = resolve(REMOTION_DIR, "node_modules");
   if (!existsSync(nodeModulesPath)) {
     console.log("Installing Remotion dependencies...");
     execSync("npm install", { cwd: REMOTION_DIR, stdio: "inherit" });
   }
 
-  // 9. Render the video
-  console.log(`Rendering video: ${compositionId}...`);
-  console.log("Preview available at http://localhost:3000 (run: npm run studio)");
+  let lastCode = null;
+  let lastError = null;
+  let registeredInRoot = false;
 
-  try {
-    const renderResult = execSync(
-      `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
-      { cwd: REMOTION_DIR, stdio: "pipe", timeout: 300000, encoding: "utf-8" },
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const isRetry = attempt > 1;
+    console.log(
+      `[produce-video] attempt ${attempt}/${MAX_ATTEMPTS}${isRetry ? " (retry tras error previo)" : ""}`,
     );
-    if (renderResult) console.log(renderResult);
-    console.log(`Video rendered: ${outputPath}`);
-    return { outputPath, compositionTsx: remotionCode, compositionFile };
-  } catch (err) {
-    // El bundler de Remotion imprime la causa al INICIO del stderr (e.g.
-    // "Could not resolve '@remotion/google-fonts/Foo'") y luego pinta el
-    // stack de Node. El final del stderr es ruido — por eso buscamos la
-    // primera línea con "error" para enmarcar 20 líneas desde ahí.
-    const rawStderr = err.stderr ? err.stderr.toString() : "";
-    const rawStdout = err.stdout ? err.stdout.toString() : "";
-    const stderr = stripAnsi(rawStderr);
-    const stdout = stripAnsi(rawStdout);
-    if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
-    if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
 
-    const lines = stderr.trim().split(/\r?\n/);
-    const firstErrorIdx = lines.findIndex((l) =>
-      /\b(error|Error|Failed|failed)\b/.test(l),
-    );
-    const window = firstErrorIdx >= 0
-      ? lines.slice(firstErrorIdx, firstErrorIdx + 20)
-      : lines.slice(-20);
-    const message = window.join("\n").slice(0, 3000) || err.message;
+    // 4. Generate Remotion components via Claude
+    let prompt;
+    if (isRetry && lastCode && lastError) {
+      prompt = buildRetryPrompt(lastCode, lastError.message, compositionId);
+    } else {
+      console.log("Generating Remotion components...");
+      prompt = buildRemotionPrompt(storyboard, brief, compositionId, assetBlock);
+    }
+    const rawRemotionCode = await callClaude(prompt);
 
-    const richError = new Error(
-      `Remotion render failed: ${message}\n` +
-      `Para reproducir local: cd remotion-studio && npm run studio`,
+    // 5a. Sanitize + validar estructura básica + balance de tags JSX.
+    let remotionCode;
+    try {
+      remotionCode = sanitizeRemotionCode(rawRemotionCode);
+      validateRemotionCode(remotionCode, compositionId);
+      validateJsxBalance(remotionCode);
+    } catch (err) {
+      err._stage = "validate";
+      err._stderr = null;
+      err._compositionTsx = rawRemotionCode;
+      err._compositionFile = compositionFile;
+      lastCode = rawRemotionCode;
+      lastError = err;
+      console.error(
+        `[produce-video] attempt ${attempt} validate failed: ${err.message.slice(0, 300)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw err;
+    }
+
+    // 5b. Write the composition file
+    writeFileSync(compositionFile, remotionCode, "utf-8");
+    console.log(
+      `Composition written: ${compositionFile} (${remotionCode.length} chars)`,
     );
-    richError._stage = "render";
-    richError._stderr = stderr.slice(0, 6000);
-    richError._compositionTsx = remotionCode;
-    richError._compositionFile = compositionFile;
-    throw richError;
+
+    // 5c. Pre-validar con esbuild
+    const parseError = await tryParseTsx(remotionCode, compositionFile);
+    if (parseError) {
+      const err = new Error(
+        `Composition TSX inválida (parse fail): ${parseError}\n` +
+        `Esto significa que Claude emitió código con un error de sintaxis.`,
+      );
+      err._stage = "parse";
+      err._stderr = null;
+      err._compositionTsx = remotionCode;
+      err._compositionFile = compositionFile;
+      lastCode = remotionCode;
+      lastError = err;
+      console.error(
+        `[produce-video] attempt ${attempt} esbuild parse failed: ${parseError.slice(0, 400)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw err;
+    }
+
+    // 6. Register in Root.tsx (solo la primera vez que llegamos acá)
+    if (!registeredInRoot) {
+      const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
+      registerComposition(compositionId, relativeCompositionPath);
+      console.log(`Composition registered: ${compositionId}`);
+      registeredInRoot = true;
+    }
+
+    // 7. Render
+    console.log(
+      `Rendering video: ${compositionId}... (attempt ${attempt}/${MAX_ATTEMPTS})`,
+    );
+    console.log(
+      "Preview available at http://localhost:3000 (run: npm run studio)",
+    );
+
+    try {
+      const renderResult = execSync(
+        `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
+        {
+          cwd: REMOTION_DIR,
+          stdio: "pipe",
+          timeout: 300000,
+          encoding: "utf-8",
+        },
+      );
+      if (renderResult) console.log(renderResult);
+      console.log(
+        `Video rendered: ${outputPath} (en attempt ${attempt}/${MAX_ATTEMPTS})`,
+      );
+      return { outputPath, compositionTsx: remotionCode, compositionFile };
+    } catch (err) {
+      // El bundler de Remotion imprime la causa al INICIO del stderr (e.g.
+      // "Could not resolve '@remotion/google-fonts/Foo'") y luego pinta el
+      // stack de Node. El final del stderr es ruido — buscamos la primera
+      // línea con "error" para enmarcar 20 líneas desde ahí.
+      const rawStderr = err.stderr ? err.stderr.toString() : "";
+      const rawStdout = err.stdout ? err.stdout.toString() : "";
+      const stderr = stripAnsi(rawStderr);
+      const stdout = stripAnsi(rawStdout);
+      if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
+      if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
+
+      const lines = stderr.trim().split(/\r?\n/);
+      const firstErrorIdx = lines.findIndex((l) =>
+        /\b(error|Error|Failed|failed)\b/.test(l),
+      );
+      const window =
+        firstErrorIdx >= 0
+          ? lines.slice(firstErrorIdx, firstErrorIdx + 20)
+          : lines.slice(-20);
+      const message = window.join("\n").slice(0, 3000) || err.message;
+
+      const richError = new Error(
+        `Remotion render failed: ${message}\n` +
+        `Para reproducir local: cd remotion-studio && npm run studio`,
+      );
+      richError._stage = "render";
+      richError._stderr = stderr.slice(0, 6000);
+      richError._compositionTsx = remotionCode;
+      richError._compositionFile = compositionFile;
+      lastCode = remotionCode;
+      lastError = richError;
+      console.error(
+        `[produce-video] attempt ${attempt} render failed: ${message.slice(0, 300)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw richError;
+    }
   }
+
+  // No deberíamos llegar acá (el loop siempre return o throw), pero por
+  // seguridad TypeScript-grade:
+  throw lastError ?? new Error("produceVideo failed sin error capturado");
 }

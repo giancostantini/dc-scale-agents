@@ -21,6 +21,35 @@ export interface ClientKPIs {
   invested: string;
   revenue: string;
   conv: string;
+  /** Métricas detalladas por plataforma · cargadas manualmente desde
+   *  /paid-media hasta que tengamos OAuth con Meta/Google. */
+  paid_media?: PaidMediaMetrics;
+}
+
+export type PaidMediaPlatform = "meta" | "google" | "tiktok" | "email";
+
+export interface PlatformMetrics {
+  spent?: number;        // gasto del mes en USD
+  impressions?: number;
+  clicks?: number;
+  ctr?: number;          // 0..1
+  cpc?: number;          // USD por click
+  cpm?: number;          // USD por 1000 impresiones
+  conversions?: number;
+  cpa?: number;          // USD por conversión
+  roas?: number;         // x veces el gasto
+  notes?: string;
+}
+
+export interface PaidMediaMetrics {
+  meta?: PlatformMetrics;
+  google?: PlatformMetrics;
+  tiktok?: PlatformMetrics;
+  email?: PlatformMetrics;
+  /** ISO timestamp del último update */
+  updated_at?: string;
+  /** user_id del miembro que cargó */
+  updated_by?: string;
 }
 
 export interface ClientModules {

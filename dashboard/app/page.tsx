@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   signIn,
   hasSession,
@@ -115,6 +116,12 @@ export default function LoginPage() {
           </button>
 
           {error && <div className={styles.errorMsg}>{error}</div>}
+
+          <div className={styles.forgotRow}>
+            <Link href="/auth/forgot" className={styles.forgotLink}>
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
           <div className={styles.loginHint}>
             Acceso restringido al equipo de Dearmas Costantini.

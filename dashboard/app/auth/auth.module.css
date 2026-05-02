@@ -1,5 +1,4 @@
-/* ============ LOGIN VIEW ============ */
-.loginView {
+.view {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -10,7 +9,7 @@
   overflow: hidden;
 }
 
-.loginGrid {
+.grid {
   position: absolute;
   inset: 0;
   background-image:
@@ -20,33 +19,19 @@
   pointer-events: none;
 }
 
-.loginBox {
+.box {
   width: 100%;
   max-width: 460px;
   position: relative;
   z-index: 2;
 }
 
-.loginBrand {
+.brand {
   text-align: center;
   margin-bottom: 60px;
 }
 
-.logo {
-  font-size: 44px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--off-white);
-  line-height: 1.05;
-}
-
-.logoSoft {
-  font-weight: 300;
-  opacity: 0.55;
-  display: block;
-}
-
-.desc {
+.eyebrow {
   font-size: 10px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -54,22 +39,14 @@
   margin-top: 24px;
 }
 
-.descSecondary {
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(232, 228, 220, 0.4);
-  margin-top: 6px;
-}
-
-.loginCard {
+.card {
   background: rgba(232, 228, 220, 0.04);
   border: 1px solid rgba(196, 168, 130, 0.2);
   padding: 48px;
   backdrop-filter: blur(20px);
 }
 
-.loginCard h3 {
+.card h3 {
   font-size: 24px;
   color: var(--off-white);
   font-weight: 600;
@@ -81,6 +58,7 @@
   font-size: 13px;
   color: var(--sand);
   margin-bottom: 36px;
+  line-height: 1.5;
 }
 
 .field {
@@ -97,8 +75,7 @@
   font-weight: 500;
 }
 
-.field input,
-.field select {
+.field input {
   width: 100%;
   background: transparent;
   border: none;
@@ -111,14 +88,8 @@
   transition: border-color 0.2s;
 }
 
-.field input:focus,
-.field select:focus {
+.field input:focus {
   border-color: var(--sand);
-}
-
-.field select option {
-  background: var(--deep-green);
-  color: var(--off-white);
 }
 
 .btnPrimary {
@@ -131,10 +102,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   transition: background 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  border: none;
+  cursor: pointer;
   margin-top: 20px;
 }
 
@@ -147,12 +116,12 @@
   cursor: not-allowed;
 }
 
-.forgotRow {
+.backRow {
   margin-top: 18px;
   text-align: center;
 }
 
-.forgotLink {
+.backLink {
   font-size: 12px;
   color: var(--sand);
   text-decoration: none;
@@ -162,24 +131,9 @@
   transition: color 0.2s, border-color 0.2s;
 }
 
-.forgotLink:hover {
+.backLink:hover {
   color: var(--sand-light);
   border-color: var(--sand-light);
-}
-
-.loginHint {
-  margin-top: 24px;
-  padding: 14px 18px;
-  border: 1px solid rgba(196, 168, 130, 0.2);
-  font-size: 12px;
-  color: var(--off-white);
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-
-.loginHint strong {
-  color: var(--sand);
-  font-weight: 500;
 }
 
 .errorMsg {
@@ -189,4 +143,14 @@
   border-left: 2px solid var(--red-warn);
   color: var(--off-white);
   font-size: 12px;
+}
+
+.successMsg {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(120, 160, 100, 0.12);
+  border-left: 2px solid var(--green-ok);
+  color: var(--off-white);
+  font-size: 13px;
+  line-height: 1.5;
 }

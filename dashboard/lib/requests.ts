@@ -73,6 +73,17 @@ export async function createRequest(
     .select(REQ_COLS)
     .single();
   if (error) throw error;
+
+  // Fire-and-forget: el endpoint con service role crea la notif para el equipo.
+  // Si falla (RLS, env vars), logueamos pero NO rompemos la creación de la solicitud.
+  fetch("/api/portal/requests/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requestId: data.id }),
+  }).catch((err) => {
+    console.warn("[createRequest] notify endpoint failed:", err);
+  });
+
   return data as ClientRequest;
 }
 
