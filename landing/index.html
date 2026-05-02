@@ -2914,6 +2914,33 @@
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay(); });
 
+  // Endpoint del dashboard que recibe los leads de la landing.
+  // Si el dashboard no responde (CORS / down / etc), no bloqueamos al usuario:
+  // igual le abrimos Calendly. La idea es maximizar conversion, no perder
+  // bookings por un servidor caído.
+  const LEADS_ENDPOINT = 'https://sistemadearmascostantini.com/api/leads/from-landing';
+
+  async function sendLeadToDashboard(data) {
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 4000);
+      const res = await fetch(LEADS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        signal: ctrl.signal,
+        credentials: 'omit'
+      });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        console.warn('[lead] dashboard non-200:', res.status);
+      }
+    } catch (err) {
+      // No bloqueamos UX por errores del backend
+      console.warn('[lead] dashboard unreachable:', err);
+    }
+  }
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const name = document.getElementById('pb-name').value.trim();
@@ -2923,13 +2950,17 @@
 
     if (!name || !email || !company || !reason) return;
 
+    // Fire-and-forget al dashboard para crear el lead en pipeline.
+    // No esperamos la respuesta: abrimos Calendly al toque.
+    sendLeadToDashboard({ name, email, company, reason });
+
     closeOverlay();
 
-    // Pasar datos a Calendly como prefill
-    // 'name' lo concatenamos con la empresa para que se vea en el booking aunque
-    // no haya custom questions configuradas en Calendly.
-    // Si configurás custom questions a1 (motivo) y a2 (empresa) en tu Event Type,
-    // se prefillean automaticamente con customAnswers abajo.
+    // Pasar datos a Calendly como prefill.
+    // El name va concatenado con la empresa por si no hay custom questions
+    // configuradas en Calendly — así el booker la ve igual.
+    // Si configurás a1 (motivo) y a2 (empresa) en el Event Type,
+    // se prefillean automáticamente con customAnswers abajo.
     const prefillData = {
       name: `${name} (${company})`,
       email: email,
