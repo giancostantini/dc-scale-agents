@@ -1649,6 +1649,56 @@
   section.tight-bottom { padding-bottom: 40px; }
   section.tight-bottom + section { padding-top: 80px; }
 
+  /* ============ STATEMENT (the question) ============ */
+  .statement-section {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 140px 80px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .statement-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+    pointer-events: none;
+  }
+  .statement-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 900px; height: 900px;
+    background: radial-gradient(circle, rgba(196, 168, 130, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .statement-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .statement-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 40px;
+  }
+  .statement-text {
+    font-size: clamp(44px, 7vw, 104px);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    margin-bottom: 56px;
+    color: var(--lino);
+  }
+  .statement-text .sand { color: var(--arena); }
+  .statement-btn { padding: 22px 36px; font-size: 13px; }
+
   /* ============ REVEAL ANIM ============ */
   .reveal {
     opacity: 0;
@@ -1803,6 +1853,11 @@
     .cta-big { padding: 18px 28px; font-size: 12px; width: 100%; justify-content: center; }
     .cta-meta { gap: 16px; flex-direction: column; align-items: center; font-size: 12px; }
 
+    /* Statement (la pregunta) */
+    .statement-section { padding: 80px 24px; }
+    .statement-text { font-size: clamp(34px, 9.5vw, 56px); margin-bottom: 36px; }
+    .statement-btn { width: 100%; justify-content: center; padding: 16px 24px; font-size: 12px; }
+
     /* FAQ */
     .faq-q { font-size: 16px; gap: 16px; padding: 22px 0; }
     .faq-a { font-size: 14px; }
@@ -1901,6 +1956,21 @@
         DC nace de quienes ejecutan en lugar de informar, de quienes se asocian en lugar de vender servicios — y entendieron que el crecimiento no se terceriza, se construye en conjunto.
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ STATEMENT QUESTION ============ -->
+<section class="statement-section reveal">
+  <div class="statement-grid"></div>
+  <div class="statement-glow"></div>
+  <div class="statement-inner">
+    <div class="statement-eyebrow">La pregunta</div>
+    <h2 class="statement-text">
+      ¿Estás dispuesto<br>a <span class="sand">crecer un 30%</span><br>en tu negocio?
+    </h2>
+    <button class="btn btn-primary statement-btn" onclick="openCalendly(event)">
+      Agendar 30 min con los socios <span class="arrow">→</span>
+    </button>
   </div>
 </section>
 
