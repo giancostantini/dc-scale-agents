@@ -211,8 +211,11 @@
     font-weight: 700;
     letter-spacing: -0.04em;
     line-height: 1.02;
-    font-size: clamp(40px, 6vw, 96px);
+    font-size: clamp(40px, 9vw, 156px);
   }
+
+  .hero-mid { max-width: 1400px; }
+  .hero-sub { max-width: 760px; font-size: clamp(17px, 1.5vw, 22px); }
 
   .hero-title .line1 { color: var(--arena); display: block; font-weight: 700; }
   .hero-title .line2 {
@@ -1837,39 +1840,6 @@
     .prebook-title { font-size: 26px; }
   }
 
-  /* ============ HERO WORDMARK (decorativo desktop) ============ */
-  .hero-wordmark {
-    position: absolute;
-    right: -2vw;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 1;
-    pointer-events: none;
-    text-align: right;
-    line-height: 0.85;
-    letter-spacing: -0.05em;
-    font-weight: 700;
-    font-size: clamp(80px, 11vw, 200px);
-    color: rgba(196, 168, 130, 0.06);
-    user-select: none;
-  }
-  .hero-wordmark .hwm-line {
-    display: block;
-    color: rgba(196, 168, 130, 0.07);
-  }
-  .hero-wordmark .hwm-soft {
-    color: rgba(232, 228, 220, 0.05);
-    font-weight: 300;
-  }
-  .hero-wordmark .hwm-tagline {
-    margin-top: 32px;
-    font-size: 12px;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    color: rgba(196, 168, 130, 0.35);
-    font-weight: 500;
-  }
-
   /* ============ CASE LOGOS + LINK ============ */
   .cases-intro-simple { display: block; margin-bottom: 56px; }
 
@@ -2258,13 +2228,6 @@
   <div class="hero-grid"></div>
   <div class="hero-glow"></div>
 
-  <!-- Wordmark decorativo (solo desktop) -->
-  <div class="hero-wordmark" aria-hidden="true">
-    <div class="hwm-line">Dearmas</div>
-    <div class="hwm-line hwm-soft">Costantini</div>
-    <div class="hwm-tagline">Business Growth Partners · LATAM</div>
-  </div>
-
   <div class="hero-mid">
     <a href="#cupo" class="urgency-pill">
       <span class="up-dot"></span>
@@ -2273,7 +2236,7 @@
     <h1 class="hero-title">
       <span class="line2">Tu socio de</span>
       <span class="line1">crecimiento</span>
-      <span class="line2">en LATAM.</span>
+      <span class="line2">empresarial.</span>
     </h1>
     <p class="hero-sub">
       No somos una agencia. Somos una firma que se asocia a tu empresa con <strong>ejecución directa</strong> y <strong>responsabilidad sobre los resultados</strong>. Estrategia digital para quien vende online. IA para quien opera offline.
