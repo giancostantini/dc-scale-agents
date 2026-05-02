@@ -211,11 +211,11 @@
     font-weight: 700;
     letter-spacing: -0.04em;
     line-height: 1.02;
-    font-size: clamp(40px, 9vw, 156px);
+    font-size: clamp(40px, 6vw, 96px);
   }
 
-  .hero-mid { max-width: 1400px; }
-  .hero-sub { max-width: 760px; font-size: clamp(17px, 1.5vw, 22px); }
+  /* Hero ocupa todo el ancho disponible (menos padding lateral del hero) */
+  .hero-mid { max-width: none; width: 100%; }
 
   .hero-title .line1 { color: var(--arena); display: block; font-weight: 700; }
   .hero-title .line2 {
