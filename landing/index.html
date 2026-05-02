@@ -56,25 +56,6 @@
   button { font-family: inherit; cursor: pointer; border: none; background: none; }
   ::selection { background: var(--arena); color: var(--bosque); }
 
-  /* ============ STICKY BOOK CTA (mobile) ============ */
-  .book-sticky {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    right: 16px;
-    z-index: 90;
-    background: var(--arena);
-    color: var(--bosque);
-    padding: 16px 20px;
-    font-size: 13px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-weight: 600;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(10, 26, 12, 0.25);
-    display: none;
-  }
-
   /* ============ NAV ============ */
   .nav {
     position: fixed;
@@ -1691,7 +1672,6 @@
     section { padding: 72px 24px; }
     .cta-final { padding: 90px 24px; }
     footer { padding: 48px 24px; }
-    .book-sticky { display: block; }
     .concept, .cases-intro { grid-template-columns: 1fr; gap: 32px; }
     .paths, .valores, .partners, .diffs, .cases-grid, .models { grid-template-columns: 1fr; }
     .process { grid-template-columns: repeat(2, 1fr); }
@@ -1752,9 +1732,6 @@
     </a>
   </div>
 </nav>
-
-<!-- ============ STICKY MOBILE CTA ============ -->
-<a href="#agendar" class="book-sticky" onclick="openCalendly(event)">Agendar 30 min con los socios →</a>
 
 <!-- ============ HERO ============ -->
 <section class="hero" id="top">
