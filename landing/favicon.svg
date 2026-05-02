@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" ry="10" fill="#0A1A0C"/>
+  <text x="32" y="46"
+        text-anchor="middle"
+        font-family="'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-weight="700"
+        font-size="36"
+        letter-spacing="-1.5"
+        fill="#C4A882">DC</text>
+</svg>
