@@ -214,8 +214,24 @@
     font-size: clamp(40px, 6vw, 96px);
   }
 
-  /* Hero ocupa todo el ancho disponible (menos padding lateral del hero) */
-  .hero-mid { max-width: none; width: 100%; }
+  /* Hero ocupa todo el ancho disponible y se distribuye en 2 columnas en desktop */
+  .hero-mid {
+    max-width: none;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 80px;
+    align-items: end;
+  }
+  .hero-col-title { grid-column: 1; }
+  .hero-col-content {
+    grid-column: 2;
+    padding-bottom: 12px;
+  }
+  .hero-col-content .hero-sub {
+    margin-top: 0;
+    max-width: none;
+  }
 
   .hero-title .line1 { color: var(--arena); display: block; font-weight: 700; }
   .hero-title .line2 {
@@ -2036,7 +2052,8 @@
 
     /* Sections base */
     .hero { padding: 100px 24px 60px; min-height: auto; }
-    .hero-wordmark { display: none; }
+    .hero-mid { grid-template-columns: 1fr; gap: 32px; align-items: start; }
+    .hero-col-content { grid-column: 1; padding-bottom: 0; }
     .case-logo-wrap { height: 80px; padding: 12px 18px; }
     .case-logo-text { font-size: 20px; }
     section { padding: 64px 24px; }
@@ -2229,28 +2246,32 @@
   <div class="hero-glow"></div>
 
   <div class="hero-mid">
-    <a href="#cupo" class="urgency-pill">
-      <span class="up-dot"></span>
-      Solo <strong>2 cupos disponibles</strong> · 2026
-    </a>
-    <h1 class="hero-title">
-      <span class="line2">Tu socio de</span>
-      <span class="line1">crecimiento</span>
-      <span class="line2">empresarial.</span>
-    </h1>
-    <p class="hero-sub">
-      No somos una agencia. Somos una firma que se asocia a tu empresa con <strong>ejecución directa</strong> y <strong>responsabilidad sobre los resultados</strong>. Estrategia digital para quien vende online. IA para quien opera offline.
-    </p>
-    <div class="hero-ctas">
-      <button class="btn btn-primary" onclick="openCalendly(event)">
-        Agendar 30 min con los socios <span class="arrow">→</span>
-      </button>
-      <a href="#casos" class="btn btn-ghost">
-        Ver casos reales
+    <div class="hero-col-title">
+      <a href="#cupo" class="urgency-pill">
+        <span class="up-dot"></span>
+        Solo <strong>2 cupos disponibles</strong> · 2026
       </a>
+      <h1 class="hero-title">
+        <span class="line2">Tu socio de</span>
+        <span class="line1">crecimiento</span>
+        <span class="line2">empresarial.</span>
+      </h1>
     </div>
-    <div class="hero-proof">
-      <span class="check">✓</span> Reuníte con uno de los socios — no con un comercial · Sin compromiso
+    <div class="hero-col-content">
+      <p class="hero-sub">
+        No somos una agencia. Somos una firma que se asocia a tu empresa con <strong>ejecución directa</strong> y <strong>responsabilidad sobre los resultados</strong>. Estrategia digital para quien vende online. IA para quien opera offline.
+      </p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary" onclick="openCalendly(event)">
+          Agendar 30 min con los socios <span class="arrow">→</span>
+        </button>
+        <a href="#casos" class="btn btn-ghost">
+          Ver casos reales
+        </a>
+      </div>
+      <div class="hero-proof">
+        <span class="check">✓</span> Reuníte con uno de los socios — no con un comercial · Sin compromiso
+      </div>
     </div>
   </div>
 
@@ -2891,8 +2912,7 @@
 
 <script>
   // ============ Calendly ============
-  // REEMPLAZAR_CALENDLY: reemplazá esta URL con el Calendly real de Dearmas Costantini
-  const CALENDLY_URL = 'https://calendly.com/dearmascostantini/30min';
+  const CALENDLY_URL = 'https://calendly.com/dearmascostantini';
 
   // Modal pre-booking
   const overlay = document.getElementById('prebookOverlay');
