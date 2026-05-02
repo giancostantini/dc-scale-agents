@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { deleteClient } from "@/lib/storage";
+import InviteClientModal from "./InviteClientModal";
 import type { Client } from "@/lib/types";
 import styles from "./ClientSidebar.module.css";
 
@@ -19,6 +20,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
   const pathname = usePathname();
   const [isDirector, setIsDirector] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     getCurrentProfile().then((p) => {
@@ -85,6 +87,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
 
   const gestion: NavItem[] = [
     { href: `${base}/biblioteca`,         icon: "▢", label: "Biblioteca" },
+    { href: `${base}/solicitudes`,        icon: "◎", label: "Solicitudes del cliente" },
     { href: `${base}/brandbook`,          icon: "◐", label: "Brandbook" },
     { href: `${base}/brandbook/assets`,   icon: "◇", label: "Asset library" },
     ...(client.type === "gp"
@@ -137,22 +140,44 @@ export default function ClientSidebar({ client }: { client: Client }) {
       </div>
 
       {isDirector && (
-        <div className={`${styles.section} ${styles.dangerSection}`}>
-          <div className={`${styles.label} ${styles.dangerLabel}`}>
-            Zona crítica
+        <>
+          <div className={styles.section}>
+            <div className={styles.label}>Acceso del cliente</div>
+            <button
+              className={styles.item}
+              onClick={() => setInviteOpen(true)}
+              style={{ color: "var(--deep-green)" }}
+            >
+              <span className={styles.icon}>✉</span>
+              Invitar al portal
+              <span className={styles.directorTag}>DIRECTOR</span>
+            </button>
           </div>
-          <button
-            className={styles.deleteBtn}
-            onClick={handleDeleteClient}
-            disabled={deleting}
-            title="Solo directores pueden eliminar un cliente"
-          >
-            <span className={styles.icon}>×</span>
-            {deleting ? "Eliminando…" : "Eliminar cliente"}
-            <span className={styles.directorTag}>DIRECTOR</span>
-          </button>
-        </div>
+
+          <div className={`${styles.section} ${styles.dangerSection}`}>
+            <div className={`${styles.label} ${styles.dangerLabel}`}>
+              Zona crítica
+            </div>
+            <button
+              className={styles.deleteBtn}
+              onClick={handleDeleteClient}
+              disabled={deleting}
+              title="Solo directores pueden eliminar un cliente"
+            >
+              <span className={styles.icon}>×</span>
+              {deleting ? "Eliminando…" : "Eliminar cliente"}
+              <span className={styles.directorTag}>DIRECTOR</span>
+            </button>
+          </div>
+        </>
       )}
+
+      <InviteClientModal
+        open={inviteOpen}
+        clientId={client.id}
+        clientName={client.name}
+        onClose={() => setInviteOpen(false)}
+      />
     </aside>
   );
 }

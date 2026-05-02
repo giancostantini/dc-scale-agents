@@ -447,6 +447,51 @@ export function nextPhase(current: PhaseKey): PhaseKey | null {
   return PHASE_ORDER[idx + 1];
 }
 
+// ==================== CLIENT REQUESTS · Solicitudes del cliente ====================
+// Inbox de cosas que el cliente carga desde su portal: ofertas
+// (campañas/promos específicas) y acciones (ideas/pedidos libres).
+
+export type ClientRequestType = "oferta" | "accion";
+
+export type ClientRequestUrgency = "baja" | "media" | "alta";
+
+export type ClientRequestStatus =
+  | "pending"
+  | "reviewing"
+  | "in_progress"
+  | "done"
+  | "rejected";
+
+// Metadata específica por tipo. Schema flexible vía jsonb.
+export interface OfertaMetadata {
+  startDate?: string;
+  endDate?: string;
+  discountPct?: number;
+  product?: string;
+}
+
+export interface AccionMetadata {
+  area?: "ads" | "contenido" | "seo" | "dev" | "otro";
+  desiredDate?: string;
+}
+
+export interface ClientRequest {
+  id: string;
+  client_id: string;
+  type: ClientRequestType;
+  title: string;
+  description: string;
+  metadata: OfertaMetadata | AccionMetadata | Record<string, unknown>;
+  urgency: ClientRequestUrgency;
+  status: ClientRequestStatus;
+  submitted_by: string;
+  submitted_at: string;
+  assigned_to: string | null;
+  response: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type NotificationLevel = "info" | "success" | "warning" | "error";
 
 export interface Notification {

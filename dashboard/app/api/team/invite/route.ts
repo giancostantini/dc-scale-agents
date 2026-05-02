@@ -92,12 +92,18 @@ export async function POST(req: NextRequest) {
   type InviteBody = {
     email?: string;
     name?: string;
+    // Para role='team' (default): los campos de equipo
+    role?: "team" | "client";
     position?: string;
     paymentAmount?: number | string;
     paymentCurrency?: string;
     paymentType?: "fijo" | "por_proyecto" | "por_hora" | "mixto";
     startDate?: string;
     phone?: string;
+    // Para role='client'
+    clientId?: string;
+    // Permisos granulares (team)
+    pipelineAccess?: boolean;
   };
 
   let body: InviteBody;
@@ -109,10 +115,18 @@ export async function POST(req: NextRequest) {
 
   const email = body.email?.trim().toLowerCase();
   const name = body.name?.trim() ?? "";
+  const targetRole: "team" | "client" = body.role === "client" ? "client" : "team";
+  const clientId = body.clientId?.trim();
 
   if (!email || !name) {
     return NextResponse.json(
       { error: "email y name son requeridos" },
+      { status: 400 },
+    );
+  }
+  if (targetRole === "client" && !clientId) {
+    return NextResponse.json(
+      { error: "Para invitar un cliente necesitás clientId." },
       { status: 400 },
     );
   }
@@ -144,25 +158,45 @@ export async function POST(req: NextRequest) {
   // Acá pisamos los campos del wizard.
   const newUserId = invite.user?.id;
   if (newUserId) {
-    const paymentAmt =
-      typeof body.paymentAmount === "string"
-        ? Number(body.paymentAmount)
-        : body.paymentAmount;
+    if (targetRole === "client") {
+      // Cliente final: profile con role='client', client_id seteado.
+      // Sin info de pago (eso es interno del equipo).
+      await admin
+        .from("profiles")
+        .update({
+          name,
+          initials: makeInitials(name),
+          role: "client",
+          client_id: clientId,
+          phone: body.phone ?? null,
+        })
+        .eq("id", newUserId);
+    } else {
+      // Team: con info de pago + permisos granulares
+      const paymentAmt =
+        typeof body.paymentAmount === "string"
+          ? Number(body.paymentAmount)
+          : body.paymentAmount;
 
-    await admin
-      .from("profiles")
-      .update({
-        name,
-        initials: makeInitials(name),
-        position: body.position ?? null,
-        payment_amount:
-          paymentAmt && !Number.isNaN(paymentAmt) ? paymentAmt : null,
-        payment_currency: body.paymentCurrency ?? "USD",
-        payment_type: body.paymentType ?? "fijo",
-        start_date: body.startDate || null,
-        phone: body.phone ?? null,
-      })
-      .eq("id", newUserId);
+      await admin
+        .from("profiles")
+        .update({
+          name,
+          initials: makeInitials(name),
+          role: "team",
+          position: body.position ?? null,
+          payment_amount:
+            paymentAmt && !Number.isNaN(paymentAmt) ? paymentAmt : null,
+          payment_currency: body.paymentCurrency ?? "USD",
+          payment_type: body.paymentType ?? "fijo",
+          start_date: body.startDate || null,
+          phone: body.phone ?? null,
+          permissions: body.pipelineAccess
+            ? { pipeline_access: true }
+            : {},
+        })
+        .eq("id", newUserId);
+    }
   }
 
   return NextResponse.json({

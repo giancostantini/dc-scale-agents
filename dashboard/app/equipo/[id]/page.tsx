@@ -50,6 +50,8 @@ export default function EquipoDetailPage({
   const [editStartDate, setEditStartDate] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  // Permisos granulares (migration 007)
+  const [editPipelineAccess, setEditPipelineAccess] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // assignment form
@@ -80,7 +82,7 @@ export default function EquipoDetailPage({
       if (p) {
         setEditName(p.name);
         setEditPosition(p.position ?? "");
-        setEditRole(p.role);
+        setEditRole(p.role === "client" ? "team" : (p.role as "director" | "team"));
         setEditPaymentAmount(
           p.payment_amount != null ? String(p.payment_amount) : "",
         );
@@ -89,6 +91,7 @@ export default function EquipoDetailPage({
         setEditStartDate(p.start_date ?? "");
         setEditPhone(p.phone ?? "");
         setEditNotes(p.notes ?? "");
+        setEditPipelineAccess(p.permissions?.pipeline_access === true);
         await loadAssignments();
       }
     });
@@ -130,6 +133,9 @@ export default function EquipoDetailPage({
         start_date: editStartDate || null,
         phone: editPhone || null,
         notes: editNotes || null,
+        permissions: {
+          pipeline_access: editPipelineAccess,
+        },
       });
       if (updated) setProfile(updated);
       alert("Cambios guardados.");
@@ -294,6 +300,46 @@ export default function EquipoDetailPage({
             />
           </div>
         </Section>
+
+        {/* ===== Permisos granulares ===== */}
+        {canEdit && profile.role === "team" && (
+          <Section title="Permisos">
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                cursor: "pointer",
+                padding: 14,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={editPipelineAccess}
+                onChange={(e) => setEditPipelineAccess(e.target.checked)}
+                style={{ width: 18, height: 18, marginTop: 2 }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                  Acceso al Pipeline (CRM)
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Por defecto el equipo no ve leads ni campañas de prospección.
+                  Activá esto si {profile.name.split(" ")[0]} necesita acceder
+                  al CRM para gestionar prospección y outbound.
+                </div>
+              </div>
+            </label>
+          </Section>
+        )}
 
         {/* ===== Notas ===== */}
         {canEdit && (

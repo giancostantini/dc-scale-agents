@@ -48,6 +48,24 @@ export function buildPhaseMap(
   return map as Record<PhaseKey, PhaseReport | undefined>;
 }
 
+/**
+ * Extrae el bloque "## Resumen ejecutivo" del markdown. Si no existe,
+ * devuelve los primeros 600 chars del contenido. Esto se usa en el
+ * portal del cliente — solo ven el resumen, no el detalle interno.
+ */
+export function extractExecutiveSummary(markdown: string | null): string {
+  if (!markdown) return "";
+  // Match: ## Resumen ejecutivo [contenido] (hasta el siguiente ## o fin)
+  const match = markdown.match(
+    /##\s*Resumen ejecutivo\s*\n([\s\S]*?)(?=\n##\s+|$)/i,
+  );
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  // Fallback: primeros 600 chars
+  return markdown.trim().slice(0, 600).trim();
+}
+
 // Status display helpers
 export function phaseStatusLabel(status: PhaseStatus | "locked"): string {
   switch (status) {
