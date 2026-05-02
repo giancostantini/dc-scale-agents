@@ -404,6 +404,49 @@ export interface ContentPieceRow {
   created_at: string;
 }
 
+// ==================== PHASE REPORTS ====================
+
+export type PhaseKey = "diagnostico" | "estrategia" | "setup" | "lanzamiento";
+
+export type PhaseStatus =
+  | "pending"
+  | "generating"
+  | "draft"
+  | "changes_requested"
+  | "approved";
+
+export interface PhaseReport {
+  id: string;
+  client_id: string;
+  phase: PhaseKey;
+  status: PhaseStatus;
+  content_md: string | null;
+  feedback: string | null;
+  version: number;
+  model: string | null;
+  usage: Record<string, unknown> | null;
+  generated_at: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Orden secuencial de las fases — usado para desbloquear la siguiente
+// cuando una se aprueba.
+export const PHASE_ORDER: PhaseKey[] = [
+  "diagnostico",
+  "estrategia",
+  "setup",
+  "lanzamiento",
+];
+
+export function nextPhase(current: PhaseKey): PhaseKey | null {
+  const idx = PHASE_ORDER.indexOf(current);
+  if (idx === -1 || idx === PHASE_ORDER.length - 1) return null;
+  return PHASE_ORDER[idx + 1];
+}
+
 export type NotificationLevel = "info" | "success" | "warning" | "error";
 
 export interface Notification {

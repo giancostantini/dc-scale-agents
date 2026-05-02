@@ -1,326 +1,570 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { getClient, getProdCampaigns } from "@/lib/storage";
-import type { Client, ContentPieceRow, ProductionCampaign } from "@/lib/types";
-import OnboardingFilesPanel from "@/components/OnboardingFilesPanel";
+import { listPhaseReports } from "@/lib/phases";
+import { getDownloadUrl, formatBytes } from "@/lib/upload";
+import type {
+  Client,
+  ContentPieceRow,
+  OnboardingFile,
+  PhaseReport,
+  ProductionCampaign,
+} from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
 
-const GP_FOLDERS = [
-  { name: "Kickoff", type: "input", desc: "Brief inicial, NDA, accesos, contactos clave" },
-  { name: "Branding", type: "input", desc: "Manual de marca, logos, paleta, tipografías" },
-  { name: "Estrategia", type: "generated", desc: "Plan de medios, buyer personas, posicionamiento" },
-  { name: "Contenido generado", type: "generated", desc: "Posts, creatividades, copies aprobados" },
-  { name: "Reportes mensuales", type: "generated", desc: "Reportes de performance del agente" },
-  { name: "Reportes diarios", type: "generated", desc: "Análisis diario automático del Agente Analytics" },
-  { name: "Research SEO", type: "generated", desc: "Keywords, briefs, auditorías técnicas" },
-  { name: "Contratos", type: "input", desc: "Contratos firmados, NDAs, enmiendas" },
+type FolderKey =
+  | "onboarding"
+  | "branding"
+  | "reportes"
+  | "contenidos"
+  | "campanas";
+
+interface FolderDef {
+  key: FolderKey;
+  name: string;
+  desc: string;
+  icon: string;
+}
+
+const FOLDERS: FolderDef[] = [
+  {
+    key: "onboarding",
+    name: "Onboarding",
+    desc: "Kickoff y contrato cargados al crear el cliente",
+    icon: "⚑",
+  },
+  {
+    key: "branding",
+    name: "Branding",
+    desc: "Manual de marca, logos, paleta, tipografías",
+    icon: "◆",
+  },
+  {
+    key: "reportes",
+    name: "Reportes",
+    desc: "Diagnóstico, Estrategia, Setup y Lanzamiento generados por IA",
+    icon: "▢",
+  },
+  {
+    key: "contenidos",
+    name: "Contenidos",
+    desc: "Reels, posts, copies del Content Creator",
+    icon: "▶",
+  },
+  {
+    key: "campanas",
+    name: "Campañas · Resultados",
+    desc: "Piezas resultantes de cada campaña de producción",
+    icon: "◎",
+  },
 ];
 
-const DEV_FOLDERS = [
-  { name: "Kickoff", type: "input", desc: "Brief, discovery, accesos" },
-  { name: "Arquitectura", type: "generated", desc: "Diagramas, flujos, documentación técnica" },
-  { name: "Assets", type: "input", desc: "Recursos del cliente: logos, datos, credenciales" },
-  { name: "Desarrollo", type: "generated", desc: "Código, prompts, integraciones" },
-  { name: "Entregas", type: "generated", desc: "Deploys, demos, documentación final" },
-];
-
-export default function BibliotecaPage({ params }: { params: Promise<{ id: string }> }) {
+export default function BibliotecaPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const [client, setClient] = useState<Client | null>(null);
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [pieces, setPieces] = useState<ContentPieceRow[]>([]);
-  const [piecesLoading, setPiecesLoading] = useState(true);
+  const [reports, setReports] = useState<PhaseReport[]>([]);
+  const [folder, setFolder] = useState<FolderKey>("onboarding");
 
   useEffect(() => {
     getClient(id).then((c) => setClient(c ?? null));
     getProdCampaigns(id).then(setCampaigns);
-    // Cuando id cambia (cambio de cliente), volver a "loading" antes del fetch.
-    // setState directo en effect es legítimo acá: estamos resetando estado
-    // del componente para que coincida con el nuevo prop.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPiecesLoading(true);
+    listPhaseReports(id).then(setReports);
     fetch(`/api/clients/${id}/pieces?limit=100`)
-      .then((res) => (res.ok ? res.json() : { pieces: [] }))
+      .then((r) => (r.ok ? r.json() : { pieces: [] }))
       .then((data: { pieces?: ContentPieceRow[] }) =>
         setPieces(data.pieces ?? []),
       )
-      .catch(() => setPieces([]))
-      .finally(() => setPiecesLoading(false));
+      .catch(() => setPieces([]));
   }, [id]);
 
-  if (!client) return null;
+  // Counts por folder
+  const counts = useMemo(() => {
+    const ob = client?.onboarding;
+    return {
+      onboarding:
+        (ob?.kickoffFile ? 1 : 0) + (ob?.contractFile ? 1 : 0),
+      branding: ob?.brandingFiles?.length ?? 0,
+      reportes: reports.filter(
+        (r) => r.status === "approved" || r.status === "draft",
+      ).length,
+      contenidos: pieces.length,
+      campanas: campaigns.length,
+    } as Record<FolderKey, number>;
+  }, [client, reports, pieces, campaigns]);
 
-  const folders = client.type === "gp" ? GP_FOLDERS : DEV_FOLDERS;
-  const totalCampaignPieces = campaigns.reduce((s, c) => s + (c.resultFiles ?? 0), 0);
+  if (!client) return null;
 
   return (
     <>
       <div className={ui.head}>
         <div>
           <div className={ui.eyebrow}>Gestión · Biblioteca del cliente</div>
-          <h1>Todo lo generado</h1>
-        </div>
-        <button className={ui.btnSolid}>+ Subir archivo</button>
-      </div>
-
-      <div className={ui.kpiGrid} style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Carpetas</div>
-          <div className={ui.kValue}>{folders.length + (client.type === "gp" ? 1 : 0)}</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Campañas · Resultados</div>
-          <div className={ui.kValue}>{campaigns.length}</div>
-          <div className={ui.kDelta}>{totalCampaignPieces} piezas</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Tipo cliente</div>
-          <div className={ui.kValue} style={{ fontSize: 18 }}>
-            {client.type === "gp" ? "Growth Partner" : "Desarrollo"}
-          </div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Último update</div>
-          <div className={ui.kValue} style={{ fontSize: 16 }}>Hoy</div>
+          <h1>Todo lo del cliente</h1>
         </div>
       </div>
 
-      <ContentPiecesPanel clientId={id} pieces={pieces} loading={piecesLoading} />
-
-      <OnboardingFilesPanel onboarding={client.onboarding} />
-
-      <div className={ui.panel} style={{ marginBottom: 24 }}>
-        <div className={ui.panelHead}>
-          <div className={ui.panelTitle}>Carpetas</div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            Los agentes leen estos archivos para aprender del cliente
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-          {folders.map((f) => (
-            <div
-              key={f.name}
+      {/* Tabs / cards de folder */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${FOLDERS.length}, 1fr)`,
+          gap: 8,
+          marginBottom: 28,
+        }}
+      >
+        {FOLDERS.map((f) => {
+          const active = folder === f.key;
+          const count = counts[f.key];
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFolder(f.key)}
               style={{
-                padding: 20,
-                border: "1px solid rgba(10,26,12,0.08)",
+                padding: "16px 14px",
+                background: active ? "var(--deep-green)" : "var(--white)",
+                color: active ? "var(--off-white)" : "var(--deep-green)",
+                border: `1px solid ${
+                  active ? "var(--deep-green)" : "rgba(10,26,12,0.08)"
+                }`,
                 cursor: "pointer",
-                background: f.type === "generated" ? "var(--off-white)" : "var(--white)",
+                fontFamily: "inherit",
+                textAlign: "left",
                 transition: "all 0.15s",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>{f.name}</div>
-                <div style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: f.type === "generated" ? "var(--sand-dark)" : "var(--text-muted)", fontWeight: 600 }}>
-                  {f.type === "generated" ? "⚡ IA" : "Input"}
-                </div>
+              <div
+                style={{
+                  fontSize: 18,
+                  marginBottom: 6,
+                  color: active ? "var(--sand)" : "var(--sand-dark)",
+                }}
+              >
+                {f.icon}
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>{f.desc}</div>
-            </div>
-          ))}
-        </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: "-0.01em",
+                  marginBottom: 4,
+                }}
+              >
+                {f.name}
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: active ? "var(--sand)" : "var(--text-muted)",
+                  fontWeight: 600,
+                }}
+              >
+                {count} {count === 1 ? "archivo" : "archivos"}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Campañas · Resultados */}
-      {client.type === "gp" && (
-        <div className={ui.panel} style={{ borderLeft: "3px solid var(--sand)" }}>
-          <div className={ui.panelHead}>
-            <div className={ui.panelTitle}>◎ Campañas · Resultados</div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              Una subcarpeta por cada campaña de producción
-            </div>
-          </div>
-          {campaigns.length === 0 ? (
-            <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-              Sin campañas todavía. Creá una desde la sección <strong>Campañas</strong> y las piezas resultantes se cargan acá.
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {campaigns.map((c) => (
-                <div key={c.id} style={{ padding: 20, background: "var(--white)", border: "1px solid rgba(10,26,12,0.08)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                        <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>▢ {c.title}</div>
-                        <span className={`${ui.pill} ${c.status === "active" ? ui.pillGreen : ui.pillGrey}`}>
-                          {c.status === "active" ? "En curso" : "Finalizada"}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
-                        {c.resultFiles ?? 0} piezas · {c.type}
-                      </div>
-                    </div>
-                    <button className={ui.btnGhost} style={{ flexShrink: 0 }}>+ Subir piezas</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Contenido del folder activo */}
+      {folder === "onboarding" && (
+        <OnboardingFolder client={client} />
+      )}
+      {folder === "branding" && <BrandingFolder client={client} />}
+      {folder === "reportes" && (
+        <ReportesFolder clientId={id} reports={reports} />
+      )}
+      {folder === "contenidos" && (
+        <ContenidosFolder clientId={id} pieces={pieces} />
+      )}
+      {folder === "campanas" && (
+        <CampanasFolder campaigns={campaigns} />
       )}
     </>
   );
 }
 
-function ContentPiecesPanel({
+// ============ FOLDER: Onboarding ============
+function OnboardingFolder({ client }: { client: Client }) {
+  const ob = client.onboarding;
+  const items: { name: string; file: OnboardingFile | string; tag: string }[] =
+    [];
+  if (ob?.kickoffFile) items.push({ name: "Kickoff", file: ob.kickoffFile, tag: "Kickoff" });
+  if (ob?.contractFile) items.push({ name: "Contrato", file: ob.contractFile, tag: "Contrato" });
+
+  return (
+    <FolderShell title="Onboarding" emptyMsg="Todavía no se cargó kickoff ni contrato.">
+      {items.length > 0 && <FilesList files={items} />}
+    </FolderShell>
+  );
+}
+
+// ============ FOLDER: Branding ============
+function BrandingFolder({ client }: { client: Client }) {
+  const files = client.onboarding?.brandingFiles ?? [];
+  const items = files.map((f, i) => ({ name: `Branding ${i + 1}`, file: f, tag: "Branding" }));
+  return (
+    <FolderShell title="Branding" emptyMsg="No hay archivos de branding cargados.">
+      {items.length > 0 && <FilesList files={items} />}
+    </FolderShell>
+  );
+}
+
+// ============ FOLDER: Reportes ============
+function ReportesFolder({
+  clientId,
+  reports,
+}: {
+  clientId: string;
+  reports: PhaseReport[];
+}) {
+  const visible = reports.filter(
+    (r) => r.status === "approved" || r.status === "draft",
+  );
+
+  if (visible.length === 0) {
+    return (
+      <FolderShell
+        title="Reportes"
+        emptyMsg="Todavía no hay reportes generados. Andá a Fases del negocio para generar el Diagnóstico."
+      />
+    );
+  }
+
+  const labelMap = {
+    diagnostico: "Diagnóstico · Growth Diagnosis Plan",
+    estrategia: "Estrategia · Growth Strategy Plan",
+    setup: "Setup técnico",
+    lanzamiento: "Lanzamiento · Growth Launch Plan",
+  } as const;
+
+  return (
+    <FolderShell title="Reportes" emptyMsg="">
+      <div style={{ display: "grid", gap: 8 }}>
+        {visible.map((r) => {
+          const isDraft = r.status === "draft";
+          return (
+            <Link
+              key={r.id}
+              href={`/cliente/${clientId}/fases/${r.phase}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "12px 14px",
+                background: isDraft
+                  ? "var(--off-white)"
+                  : "rgba(58,139,92,0.05)",
+                border: "1px solid rgba(10,26,12,0.06)",
+                borderLeft: `3px solid ${
+                  isDraft ? "var(--yellow-warn)" : "var(--green-ok)"
+                }`,
+                textDecoration: "none",
+                color: "inherit",
+                transition: "all 0.15s",
+              }}
+            >
+              <div style={{ fontSize: 22, color: "var(--sand-dark)" }}>▢</div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--deep-green)",
+                  }}
+                >
+                  {labelMap[r.phase]}
+                  {r.version > 1 && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        fontWeight: 400,
+                      }}
+                    >
+                      v{r.version}
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginTop: 4,
+                  }}
+                >
+                  {r.generated_at
+                    ? `Generado ${new Date(r.generated_at).toLocaleString("es-AR")}`
+                    : "—"}
+                  {r.approved_at &&
+                    ` · Aprobado ${new Date(r.approved_at).toLocaleDateString("es-AR")}`}
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  background: isDraft ? "var(--yellow-warn)" : "var(--green-ok)",
+                  color: "var(--white)",
+                }}
+              >
+                {isDraft ? "Draft" : "Aprobado"}
+              </div>
+              <div style={{ color: "var(--sand-dark)" }}>→</div>
+            </Link>
+          );
+        })}
+      </div>
+    </FolderShell>
+  );
+}
+
+// ============ FOLDER: Contenidos ============
+function ContenidosFolder({
   clientId,
   pieces,
-  loading,
 }: {
   clientId: string;
   pieces: ContentPieceRow[];
-  loading: boolean;
 }) {
-  const withVideo = pieces.filter((p) => p.video_path);
-  const withoutVideo = pieces.filter((p) => !p.video_path);
+  if (pieces.length === 0) {
+    return (
+      <FolderShell
+        title="Contenidos"
+        emptyMsg="No hay contenidos generados. Pedile al Content Creator un reel desde Agentes IA."
+      >
+        <div style={{ marginTop: 8 }}>
+          <Link href={`/cliente/${clientId}/agentes`} className={ui.btnSolid}>
+            Ir a Agentes IA →
+          </Link>
+        </div>
+      </FolderShell>
+    );
+  }
 
   return (
-    <div className={ui.panel} style={{ marginBottom: 24, borderLeft: "3px solid var(--green-ok)" }}>
-      <div className={ui.panelHead}>
-        <div className={ui.panelTitle}>▶ Contenido producido</div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-          Videos, statics y scripts generados por el Content Creator
-        </div>
+    <FolderShell title="Contenidos" emptyMsg="">
+      <div style={{ display: "grid", gap: 8 }}>
+        {pieces.map((p) => {
+          const fecha = new Date(p.created_at).toLocaleString("es-AR", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return (
+            <div
+              key={p.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "12px 14px",
+                background: "var(--white)",
+                border: "1px solid rgba(10,26,12,0.08)",
+              }}
+            >
+              <div style={{ fontSize: 22, color: "var(--sand-dark)" }}>
+                {p.video_path ? "▶" : "▢"}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                  Pieza #{p.piece_id}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginTop: 2,
+                  }}
+                >
+                  {p.piece_type}
+                  {p.angle ? ` · ${p.angle}` : ""} · {fecha}
+                </div>
+              </div>
+              <Link
+                href={`/cliente/${clientId}/agentes`}
+                className={ui.btnGhost}
+                style={{ fontSize: 11 }}
+              >
+                Ver
+              </Link>
+            </div>
+          );
+        })}
       </div>
+    </FolderShell>
+  );
+}
 
-      {loading ? (
-        <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-          Cargando piezas…
-        </div>
-      ) : pieces.length === 0 ? (
-        <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-          Todavía no hay piezas producidas. Pedile al Consultor que dispare un reel desde{" "}
-          <Link href={`/cliente/${clientId}/agentes`} style={{ color: "var(--deep-green)", textDecoration: "underline" }}>
-            la pantalla de Agentes
-          </Link>
-          .
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: 16 }}>
-          {withVideo.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--sand-dark)", fontWeight: 600, marginBottom: 10 }}>
-                Videos · {withVideo.length}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-                {withVideo.map((p) => (
-                  <PieceCard key={p.id} clientId={clientId} piece={p} />
-                ))}
-              </div>
+// ============ FOLDER: Campañas ============
+function CampanasFolder({ campaigns }: { campaigns: ProductionCampaign[] }) {
+  if (campaigns.length === 0) {
+    return (
+      <FolderShell
+        title="Campañas · Resultados"
+        emptyMsg="No hay campañas. Creá una en Campañas y los resultados aparecen acá."
+      />
+    );
+  }
+  return (
+    <FolderShell title="Campañas · Resultados" emptyMsg="">
+      <div style={{ display: "grid", gap: 12 }}>
+        {campaigns.map((c) => (
+          <div
+            key={c.id}
+            style={{
+              padding: 18,
+              background: "var(--white)",
+              border: "1px solid rgba(10,26,12,0.08)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600 }}>▢ {c.title}</div>
+              <span
+                className={`${ui.pill} ${c.status === "active" ? ui.pillGreen : ui.pillGrey}`}
+              >
+                {c.status === "active" ? "En curso" : "Finalizada"}
+              </span>
             </div>
-          )}
-          {withoutVideo.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--sand-dark)", fontWeight: 600, marginBottom: 10 }}>
-                Solo script · {withoutVideo.length}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-                {withoutVideo.map((p) => (
-                  <PieceCard key={p.id} clientId={clientId} piece={p} />
-                ))}
-              </div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              {c.resultFiles ?? 0} piezas · {c.type}
             </div>
-          )}
+          </div>
+        ))}
+      </div>
+    </FolderShell>
+  );
+}
+
+// ============ Helpers ============
+function FolderShell({
+  title,
+  emptyMsg,
+  children,
+}: {
+  title: string;
+  emptyMsg: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={ui.panel} style={{ marginBottom: 24 }}>
+      <div className={ui.panelHead}>
+        <div className={ui.panelTitle}>{title}</div>
+      </div>
+      {children}
+      {!children && emptyMsg && (
+        <div
+          style={{
+            padding: 32,
+            textAlign: "center",
+            background: "var(--off-white)",
+            borderLeft: "3px solid var(--sand)",
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontStyle: "italic",
+          }}
+        >
+          {emptyMsg}
         </div>
       )}
     </div>
   );
 }
 
-function PieceCard({ clientId, piece }: { clientId: string; piece: ContentPieceRow }) {
-  const hasVideo = Boolean(piece.video_path);
-  const videoUrl = hasVideo
-    ? `/api/clients/${clientId}/videos/${piece.piece_id}`
-    : null;
-  const fecha = new Date(piece.created_at).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function FilesList({
+  files,
+}: {
+  files: { name: string; file: OnboardingFile | string; tag: string }[];
+}) {
+  const [downloading, setDownloading] = useState<string | null>(null);
 
-  const statusColor =
-    piece.status === "published"
-      ? "var(--green-ok)"
-      : piece.status === "produced"
-      ? "var(--deep-green)"
-      : "var(--sand-dark)";
+  async function handleDownload(path: string) {
+    setDownloading(path);
+    try {
+      const url = await getDownloadUrl(path);
+      if (!url) {
+        alert("No se pudo generar el link de descarga.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(null);
+    }
+  }
 
   return (
-    <div
-      style={{
-        padding: 16,
-        background: "var(--white)",
-        border: "1px solid rgba(10,26,12,0.08)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--deep-green)", letterSpacing: "-0.01em" }}>
-            Pieza #{piece.piece_id}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-            {piece.piece_type}
-            {piece.angle ? ` · ${piece.angle}` : ""}
-          </div>
-        </div>
-        <span
-          style={{
-            fontSize: 9,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontWeight: 700,
-            color: statusColor,
-            border: `1px solid ${statusColor}`,
-            padding: "2px 6px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {piece.status}
-        </span>
-      </div>
-
-      {hasVideo && videoUrl && (
-        <video
-          controls
-          preload="metadata"
-          src={videoUrl}
-          style={{ width: "100%", aspectRatio: "9 / 16", maxHeight: 360, background: "#000", objectFit: "contain" }}
-        />
-      )}
-
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>
-        {hasVideo && videoUrl && (
-          <a
-            href={`${videoUrl}?download=1`}
+    <div style={{ display: "grid", gap: 8 }}>
+      {files.map((it, idx) => {
+        const isObj = typeof it.file !== "string";
+        const path = isObj ? (it.file as OnboardingFile).path : (it.file as string);
+        const fileName = isObj
+          ? (it.file as OnboardingFile).name
+          : path.split("/").pop() ?? path;
+        const size = isObj ? (it.file as OnboardingFile).size : undefined;
+        const isLoading = downloading === path;
+        return (
+          <div
+            key={`${idx}-${path}`}
             style={{
-              padding: "5px 10px",
-              background: "var(--deep-green)",
-              color: "var(--off-white)",
-              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              background: "var(--white)",
+              border: "1px solid rgba(10,26,12,0.08)",
             }}
           >
-            ↓ Descargar MP4
-          </a>
-        )}
-        <Link
-          href={`/cliente/${clientId}/agentes`}
-          style={{
-            padding: "5px 10px",
-            border: "1px solid rgba(10,26,12,0.15)",
-            color: "var(--deep-green)",
-            textDecoration: "none",
-          }}
-        >
-          📄 Ver script en agentes
-        </Link>
-      </div>
-
-      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{fecha}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "var(--deep-green)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={fileName}
+              >
+                {fileName}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                {it.tag}
+                {size !== undefined ? ` · ${formatBytes(size)}` : ""}
+              </div>
+            </div>
+            <button
+              className={ui.btnGhost}
+              disabled={isLoading}
+              onClick={() => handleDownload(path)}
+              style={{ flexShrink: 0 }}
+            >
+              {isLoading ? "Generando…" : "Descargar"}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -3,11 +3,12 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getClient } from "@/lib/storage";
-import type { Client } from "@/lib/types";
+import { listPhaseReports, phaseStatusLabel, phaseStatusColor } from "@/lib/phases";
+import type { Client, PhaseKey, PhaseReport } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
 
 type Phase = {
-  key: "kickoff" | "diagnostico" | "estrategia" | "setup" | "lanzamiento";
+  key: PhaseKey;
   name: string;
   desc: string;
   report: string;
@@ -25,7 +26,7 @@ const PHASES: Phase[] = [
   {
     key: "estrategia",
     name: "Estrategia",
-    desc: "Definición de buyer persona, plan de medios, posicionamiento, KPIs objetivo y roadmap.",
+    desc: "Buyer personas, plan de medios, posicionamiento, KPIs objetivo y roadmap.",
     report: "Growth Strategy Plan",
     reportDesc: "Plan estratégico ejecutable",
   },
@@ -49,24 +50,63 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
   const { id } = use(params);
   const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
+  const [reports, setReports] = useState<PhaseReport[]>([]);
+  const [reloadFlag, setReloadFlag] = useState(0);
+
+  // Polling cuando hay alguna fase generando, para auto-refrescar.
+  const anyGenerating = reports.some((r) => r.status === "generating");
 
   useEffect(() => {
-    getClient(id).then((c) => setClient(c ?? null));
-  }, [id]);
+    let cancelled = false;
+    const load = async () => {
+      const [c, rs] = await Promise.all([
+        getClient(id),
+        listPhaseReports(id),
+      ]);
+      if (cancelled) return;
+      setClient(c ?? null);
+      setReports(rs);
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, reloadFlag]);
+
+  useEffect(() => {
+    if (!anyGenerating) return;
+    // Polling 5s mientras hay algo generando
+    const interval = setInterval(() => {
+      setReloadFlag((f) => f + 1);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [anyGenerating]);
 
   if (!client) return null;
 
-  const isOnboarding = client.status === "onboarding";
-  // Calculamos estado de cada fase
-  const statusFor = (idx: number): "done" | "active" | "pending" => {
-    if (client.status === "active") return "done";
-    if (isOnboarding) {
-      if (idx < 2) return "done";
-      if (idx === 2) return "active";
-      return "pending";
+  // Index para acceso rápido
+  const reportByPhase = new Map<PhaseKey, PhaseReport>();
+  for (const r of reports) reportByPhase.set(r.phase, r);
+
+  // Calcular el status efectivo de cada fase: locked si la anterior
+  // no está aprobada, pending si está lista para generar, etc.
+  function effectiveStatus(idx: number): {
+    status: PhaseReport["status"] | "locked" | "pending";
+    report?: PhaseReport;
+  } {
+    const phase = PHASES[idx].key;
+    const report = reportByPhase.get(phase);
+    if (idx === 0) {
+      return { status: report?.status ?? "pending", report };
     }
-    return "done";
-  };
+    const prevApproved =
+      reportByPhase.get(PHASES[idx - 1].key)?.status === "approved";
+    if (!prevApproved && !report) return { status: "locked" };
+    if (!prevApproved && report?.status !== "approved") {
+      return { status: "locked" };
+    }
+    return { status: report?.status ?? "pending", report };
+  }
 
   return (
     <>
@@ -75,8 +115,12 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
           <div className={ui.eyebrow}>Metodología · Fases del negocio</div>
           <h1>Recorrido del cliente</h1>
         </div>
-        <div className={`${ui.phaseBadge} ${client.status === "active" ? ui.phaseBadgeExec : ""}`}>
-          {isOnboarding ? "On-boarding · 3/4" : "Execution activa"}
+        <div
+          className={`${ui.phaseBadge} ${
+            client.status === "active" ? ui.phaseBadgeExec : ""
+          }`}
+        >
+          {client.phase}
         </div>
       </div>
 
@@ -92,103 +136,161 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
         }}
         onClick={() => router.push(`/cliente/${id}/fases/kickoff`)}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 24,
+          }}
+        >
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--sand)", fontWeight: 600, marginBottom: 10 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand)",
+                fontWeight: 600,
+                marginBottom: 10,
+              }}
+            >
               ⚑ Fase 00 · Kickoff · Fuente de verdad
             </div>
-            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.025em", marginBottom: 10 }}>
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                letterSpacing: "-0.025em",
+                marginBottom: 10,
+              }}
+            >
               Punto de entrada de toda la información
             </div>
-            <div style={{ fontSize: 13, color: "rgba(232,228,220,0.75)", lineHeight: 1.6, maxWidth: 680 }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: "rgba(232,228,220,0.75)",
+                lineHeight: 1.6,
+                maxWidth: 680,
+              }}
+            >
               Acá se carga el kickoff, el branding y todo lo que define al
-              cliente. De acá salen los objetivos, se alimentan los agentes, se
-              establecen los presupuestos y se arman los reportes.
+              cliente. De acá salen los reportes de diagnóstico, estrategia,
+              setup y lanzamiento.
             </div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--sand)", fontWeight: 600, marginBottom: 6 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--sand)",
+                fontWeight: 600,
+                marginBottom: 6,
+              }}
+            >
               Estado
             </div>
-            <div style={{ padding: "6px 14px", background: "var(--sand)", color: "var(--deep-green)", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700, display: "inline-block" }}>
-              ✓ Completo
+            <div
+              style={{
+                padding: "6px 14px",
+                background: "var(--sand)",
+                color: "var(--deep-green)",
+                fontSize: 11,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                display: "inline-block",
+              }}
+            >
+              ✓ Cargado
             </div>
-            <div style={{ fontSize: 11, color: "var(--sand)", marginTop: 14, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--sand)",
+                marginTop: 14,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
               Abrir detalle →
             </div>
           </div>
         </div>
       </div>
 
-      {/* Timeline */}
-      <div className={ui.panel} style={{ marginBottom: 28 }}>
-        <div className={ui.panelHead}>
-          <div className={ui.panelTitle}>On-boarding · 4 fases</div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            Click en cada fase para abrir el detalle
-          </div>
+      {anyGenerating && (
+        <div
+          style={{
+            padding: "12px 18px",
+            background: "rgba(196,168,130,0.12)",
+            borderLeft: "3px solid var(--sand)",
+            fontSize: 13,
+            color: "var(--deep-green)",
+            marginBottom: 24,
+          }}
+        >
+          ⏳ Hay una fase generándose. Esto puede tardar 30-60 segundos.
+          La página se actualiza sola.
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", position: "relative" }}>
-          <div style={{ position: "absolute", top: 42, left: "8%", right: "8%", height: 1, background: "var(--rule)", zIndex: 0 }} />
-          {PHASES.map((p, i) => {
-            const st = statusFor(i);
-            return (
-              <div key={p.key} style={{ textAlign: "center", padding: "0 12px", position: "relative", zIndex: 1 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: st === "done" ? "var(--green-ok)" : st === "active" ? "var(--sand)" : "var(--white)",
-                    border: `2px solid ${st === "done" ? "var(--green-ok)" : st === "active" ? "var(--sand)" : "var(--rule)"}`,
-                    color: st === "pending" ? "var(--text-muted)" : "var(--white)",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto 14px",
-                  }}
-                >
-                  {st === "done" ? "✓" : i + 1}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: "0.15em",
-                    textTransform: "uppercase",
-                    color: st === "active" ? "var(--sand-dark)" : st === "done" ? "var(--green-ok)" : "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  {st === "done" ? "Completada" : st === "active" ? "En curso" : "Pendiente"}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
-      {/* Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
+      {/* Cards de fases */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: 20,
+        }}
+      >
         {PHASES.map((p, i) => {
-          const st = statusFor(i);
+          const eff = effectiveStatus(i);
+          const color = phaseStatusColor(eff.status);
+          const isLocked = eff.status === "locked";
+
           return (
             <div
               key={p.key}
-              onClick={() => router.push(`/cliente/${id}/fases/${p.key}`)}
+              onClick={() =>
+                !isLocked && router.push(`/cliente/${id}/fases/${p.key}`)
+              }
               style={{
                 padding: 24,
-                background: st === "active" ? "var(--off-white)" : "var(--white)",
+                background: isLocked
+                  ? "rgba(10,26,12,0.03)"
+                  : eff.status === "approved"
+                  ? "rgba(58,139,92,0.04)"
+                  : eff.status === "draft"
+                  ? "var(--off-white)"
+                  : "var(--white)",
                 border: "1px solid rgba(10,26,12,0.08)",
-                borderLeft: `3px solid ${st === "done" ? "var(--green-ok)" : st === "active" ? "var(--sand)" : "var(--rule)"}`,
-                cursor: "pointer",
+                borderLeft: `3px solid ${color}`,
+                cursor: isLocked ? "not-allowed" : "pointer",
+                opacity: isLocked ? 0.55 : 1,
                 transition: "all 0.2s",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--sand-dark)", fontWeight: 600 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 600,
+                  }}
+                >
                   Fase 0{i + 1}
                 </div>
                 <div
@@ -196,26 +298,78 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
                     fontSize: 10,
                     letterSpacing: "0.15em",
                     textTransform: "uppercase",
-                    color: st === "active" ? "var(--sand-dark)" : st === "done" ? "var(--green-ok)" : "var(--text-muted)",
+                    color,
                     fontWeight: 600,
                   }}
                 >
-                  {st === "done" ? "✓ Completada" : st === "active" ? "● En curso" : "○ Pendiente"}
+                  {phaseStatusLabel(eff.status)}
+                  {eff.report && eff.report.version > 1 && (
+                    <span style={{ marginLeft: 6, color: "var(--text-muted)" }}>
+                      · v{eff.report.version}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 10 }}>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  marginBottom: 10,
+                }}
+              >
                 {p.name}
               </div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, marginBottom: 16 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                  lineHeight: 1.5,
+                  marginBottom: 16,
+                }}
+              >
                 {p.desc}
               </div>
-              <div style={{ padding: 14, background: "var(--deep-green)", color: "var(--off-white)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div
+                style={{
+                  padding: 14,
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sand)" }}>▢ {p.report}</div>
-                  <div style={{ fontSize: 11, color: "rgba(232,228,220,0.6)", marginTop: 2 }}>{p.reportDesc}</div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--sand)",
+                    }}
+                  >
+                    ▢ {p.report}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "rgba(232,228,220,0.6)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {p.reportDesc}
+                  </div>
                 </div>
-                <span style={{ color: "var(--sand)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>
-                  Abrir →
+                <span
+                  style={{
+                    color: "var(--sand)",
+                    fontSize: 11,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                  }}
+                >
+                  {isLocked ? "Bloqueada" : "Abrir →"}
                 </span>
               </div>
             </div>

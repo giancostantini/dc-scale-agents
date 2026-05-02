@@ -299,10 +299,38 @@ export default function NewClientModal({
         }),
       }).catch((err) => console.error("bootstrap dispatch failed:", err));
 
+      // Fire-and-forget: arrancar la generación del Diagnóstico.
+      // Si hay kickoff cargado, Claude lo usa como fuente principal.
+      // El usuario es redirigido al dashboard del cliente y verá el
+      // status "generating" en /fases mientras Claude trabaja.
+      try {
+        const supabase = (await import("@/lib/supabase/client")).getSupabase();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session) {
+          fetch("/api/phases/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              clientId: newClient.id,
+              phase: "diagnostico",
+            }),
+          }).catch((err) =>
+            console.error("phase generate dispatch failed:", err),
+          );
+        }
+      } catch (err) {
+        console.error("could not dispatch phase generation:", err);
+      }
+
       reset();
       onClose();
       onCreated?.();
-      router.push(`/cliente/${newClient.id}`);
+      router.push(`/cliente/${newClient.id}/fases`);
     } catch (err) {
       const e = err as { code?: string; message?: string; details?: string; hint?: string };
       console.error(
