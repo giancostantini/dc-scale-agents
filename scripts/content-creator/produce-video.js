@@ -13,8 +13,9 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { execSync } from "child_process";
+import { createRequire } from "module";
 import { syncClientAssets, buildAssetMapBlock } from "../lib/asset-sync.js";
 import { loadBrandFiles } from "../lib/brand-loader.js";
 
@@ -122,6 +123,67 @@ function validateRemotionCode(code, compositionId) {
 }
 
 /**
+ * Detección heurística de truncamiento por max_tokens. Corre SIEMPRE — no
+ * depende de esbuild ni de ninguna dep externa. Si Claude se quedó sin
+ * tokens a media generación, vamos a ver braces/tags desbalanceados o un
+ * cierre abrupto. Esto es defensa en profundidad: aunque tryParseTsx falle
+ * en resolver esbuild, este check atrapa el caso y devuelve un mensaje
+ * accionable ("subir brief.remotionMaxTokens").
+ *
+ * Retorna null si parece completo, o string con el motivo si parece truncado.
+ */
+function detectTruncation(code) {
+  const trimmed = (code || "").trim();
+  if (!trimmed) return "TSX vacío";
+
+  const tail = trimmed.slice(-200);
+  const lastChar = trimmed[trimmed.length - 1];
+  // Cierres válidos: } ; ) > ] /. Cualquier otra cosa = truncamiento.
+  if (!"};)>]/".includes(lastChar)) {
+    return `TSX termina abrupto con "${lastChar}". Últimos 200 chars: ${JSON.stringify(tail)}`;
+  }
+
+  const stripped = stripStringsAndComments(trimmed);
+  const openBraces = (stripped.match(/\{/g) || []).length;
+  const closeBraces = (stripped.match(/\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    return `Braces desbalanceadas (${openBraces} abre vs ${closeBraces} cierra). Últimos 200 chars: ${JSON.stringify(tail)}`;
+  }
+
+  const divOpen = (stripped.match(/<div(?:\s|>)/g) || []).length;
+  const divClose = (stripped.match(/<\/div>/g) || []).length;
+  if (divOpen !== divClose) {
+    return `<div> desbalanceados (${divOpen} abre vs ${divClose} cierra). Últimos 200 chars: ${JSON.stringify(tail)}`;
+  }
+
+  for (const tag of ["AbsoluteFill", "Sequence", "SafeZone"]) {
+    const open = (stripped.match(new RegExp(`<${tag}(?:\\s|>)`, "g")) || []).length;
+    const close = (stripped.match(new RegExp(`</${tag}>`, "g")) || []).length;
+    // Tolerar self-closing (open puede exceder por 1 si el último <Tag ... />).
+    if (close > open || open > close + 1) {
+      return `<${tag}> desbalanceados (${open} abre vs ${close} cierra)`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Helper: borra strings, template literals y comentarios. Heurística simple
+ * (no parser) para que el conteo de braces no confunda `${expr}` ni un
+ * string con `{` adentro. Atrapa los casos comunes; cualquier falso positivo
+ * cae en el siguiente stage (validate o esbuild).
+ */
+function stripStringsAndComments(code) {
+  return code
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '""')
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''");
+}
+
+/**
  * Intenta parsear el TSX con esbuild para detectar errores de sintaxis ANTES
  * de invocar `npx remotion render`. esbuild viene como transitive dep de
  * @remotion/bundler — usamos un import dinámico para no agregar dep nueva
@@ -133,9 +195,22 @@ function validateRemotionCode(code, compositionId) {
 async function tryParseTsx(code, file) {
   let esbuild;
   try {
-    esbuild = await import("esbuild");
-  } catch {
-    console.warn("[produce-video] esbuild no disponible — saltamos pre-validación de TSX");
+    // Resolver esbuild desde remotion-studio explícitamente (es transitive dep
+    // de @remotion/bundler). Sin esto, `import("esbuild")` busca en el ancestor
+    // chain de scripts/content-creator/, donde no hay node_modules — falla
+    // silenciosamente y la pre-validación se saltea. createRequire desde el
+    // package.json de remotion-studio usa el resolver oficial de Node desde
+    // SU node_modules tree.
+    const requireFromStudio = createRequire(
+      pathToFileURL(resolve(REMOTION_DIR, "package.json")).href,
+    );
+    const esbuildPath = requireFromStudio.resolve("esbuild");
+    esbuild = await import(pathToFileURL(esbuildPath).href);
+  } catch (resolveErr) {
+    console.warn(
+      `[produce-video] esbuild no resoluble desde remotion-studio ` +
+      `(${resolveErr.code || resolveErr.message}) — saltamos pre-validación`,
+    );
     return null;
   }
   try {
@@ -163,7 +238,7 @@ async function tryParseTsx(code, file) {
   }
 }
 
-async function callClaude(prompt, maxTokens = 8000) {
+async function callClaude(prompt, maxTokens = 32000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -309,16 +384,20 @@ Convención del brandbook (revisar visual-identity.md arriba):
 Decidí qué camino usar inspeccionando ASSETS DISPONIBLES arriba.
 
 --- RULES ---
-1. All text MUST be inside <SafeZone> — never place text outside safe zone
-2. Background images use <ImageScene> OUTSIDE SafeZone (full bleed)
+1. All text MUST be rendered using the <TextOverlay> component wrapped in <SafeZone>. NEVER write \`<div style={{ ... }}>...text...</div>\` blocks for text — the templates already handle animation, font stack, safe zone, and shadows. Reimplementing them with <div> inflates the file by 3-4x and risks max_tokens truncation.
+2. Background images use <ImageScene> OUTSIDE SafeZone (full bleed). Background colors use <ColorScene>.
 3. Use ONLY hex codes from the IDENTIDAD VISUAL section above. Don't invent palette.
-4. First 3 seconds (frames 0-90): 6+ visual changes for pattern interruption
-5. Text hook must appear within first 30 frames (1 second)
-6. Each scene transition should use either hard cut, FadeTransition, or FlashTransition
-7. If no image assets available for a frame, use ColorScene with brand gradient using palette hex
+4. First 3 seconds (frames 0-90): 3-5 distinct visual states for pattern interruption — staggered <TextOverlay> entrances with different "delay" props + scale/color shifts. Use the built-in animation prop (\"scale-in\" / \"slide-up\" / \"fade-in\") instead of writing custom spring()/interpolate() per scene.
+5. Text hook must appear within first 30 frames (1 second).
+6. Each scene transition should use either hard cut, FadeTransition, or FlashTransition.
+7. If no image assets available for a frame, use ColorScene with brand gradient using palette hex.
 8. Cuando referencies un asset del library (logos, mascot, patterns), usá EXACTAMENTE el publicPath listado en ASSETS DISPONIBLES arriba con \`staticFile(...)\`. NO inventes paths.
 9. Si el storyboard menciona un asset que NO está en ASSETS DISPONIBLES, sustituílo por un placeholder visual razonable (ColorScene + texto descriptivo) y agregá un comentario \`// TODO MISSING ASSET: <descripción>\` en el código.
 10. Font sizes: títulos hook 64-80px, subtítulos 36-48px, cuerpo 24-32px (escalas del brandbook).
+11. **Target duration**: 900 frames (30 seconds) at 30fps. Maximum allowed: 1200 frames (40s). Do NOT generate longer compositions — vertical reels over 40s burn render time and audience attention.
+12. **Scene count**: 4-5 scenes maximum. Each scene = one <Sequence>. More scenes ≠ better video; usually means copy-paste filler.
+13. **DRY (CRITICAL)**: define ONE reusable internal Scene component parametrized by props (e.g. {bgColor, headline, subhead, assetSrc, animation}) and call it multiple times with different props. Do NOT generate Scene1, Scene2, ... Scene6 as separate functions with copy-pasted bodies — that pattern produces 700+ lines of dead weight, maxes out the token budget, and is what caused previous renders to fail. Target file size: under 500 lines.
+14. **Animations**: prefer the built-in \`animation\` prop on <TextOverlay> / <ImageScene> over custom spring() / interpolate() calls per scene. Custom interpolate is fine for ONE special transition, not for routine entrances.
 
 --- OUTPUT FORMAT ---
 Output ONLY a single TypeScript/TSX file. No explanations, no markdown fences, no code blocks.
@@ -335,30 +414,78 @@ The file must:
 - Export a const COMPOSITION_CONFIG with: { id, width: 1080, height: 1920, fps: 30, durationInFrames }
 - Use only the templates listed above + Remotion core imports + @remotion/google-fonts imports
 
-Example structure:
+Example structure (DRY pattern — follow this shape, do NOT make Scene1...Scene6):
+
 import React from "react";
-import { AbsoluteFill, Sequence, useCurrentFrame, interpolate, staticFile, Img } from "remotion";
+import { AbsoluteFill, Sequence, Audio, staticFile } from "remotion";
 import { loadFont as loadBricolage } from "@remotion/google-fonts/BricolageGrotesque";
 import { loadFont as loadHostGrotesk } from "@remotion/google-fonts/HostGrotesk";
 import { TextOverlay } from "../../templates/TextOverlay";
 import { ImageScene } from "../../templates/ImageScene";
+import { ColorScene } from "../../templates/ColorScene";
 import { SafeZone } from "../../templates/SafeZone";
 import { FadeTransition } from "../../templates/Transition";
 
 const { fontFamily: bricolage } = loadBricolage();
 const { fontFamily: hostGrotesk } = loadHostGrotesk();
 
+const C = { bg: "#0E0E0E", accent: "#E2B33A", text: "#FFFFFF" };
+
 export const COMPOSITION_CONFIG = {
   id: "${compositionId}",
   width: 1080,
   height: 1920,
   fps: 30,
-  durationInFrames: 900, // 30 seconds
+  durationInFrames: 900, // 30 seconds — see RULE 11
 };
 
-export const ${compositionId}: React.FC = () => {
-  // ... scenes
-};`;
+interface SceneProps {
+  headline: string;
+  subhead?: string;
+  assetSrc?: string;
+  bgColor?: string;
+}
+const Scene: React.FC<SceneProps> = ({ headline, subhead, assetSrc, bgColor }) => (
+  <AbsoluteFill style={{ backgroundColor: bgColor ?? C.bg }}>
+    {assetSrc && (
+      <ImageScene src={assetSrc} animation="zoom-in" overlayColor={C.bg} overlayOpacity={0.3} />
+    )}
+    <SafeZone>
+      <TextOverlay
+        text={headline}
+        fontSize={72}
+        color={C.accent}
+        animation="slide-up"
+        fontFamily={bricolage}
+        top="35%"
+      />
+      {subhead && (
+        <TextOverlay
+          text={subhead}
+          fontSize={32}
+          color={C.text}
+          animation="fade-in"
+          delay={15}
+          fontFamily={hostGrotesk}
+          top="55%"
+        />
+      )}
+    </SafeZone>
+  </AbsoluteFill>
+);
+
+export const ${compositionId}: React.FC = () => (
+  <AbsoluteFill style={{ backgroundColor: C.bg }}>
+    {/* <Audio src={voicePath} /> if voice available */}
+    <Sequence from={0}   durationInFrames={180}><Scene headline="Hook line" /></Sequence>
+    <Sequence from={180} durationInFrames={210}><Scene headline="Point 1" subhead="detalle" /></Sequence>
+    <Sequence from={390} durationInFrames={210}><Scene headline="Point 2" assetSrc={staticFile("...")} /></Sequence>
+    <Sequence from={600} durationInFrames={300}><Scene headline="CTA" subhead="..." /></Sequence>
+  </AbsoluteFill>
+);
+
+The example above is ~70 lines. Your output should be similar in shape and size.
+Bigger files = max_tokens truncation = render fails.`;
 }
 
 // --- Register composition in Root.tsx ---
@@ -456,7 +583,14 @@ export async function produceVideo(brief, storyboard, pieceId) {
     compositionId,
     assetBlock,
   );
-  const rawRemotionCode = await callClaude(remotionPrompt);
+  // Permitir override por brief para piezas long-form. Default 32000 es ~4x
+  // el peor caso observado (TSX inflado de wiztrip-010 ~7500 tokens).
+  const remotionMaxTokens =
+    Number.isFinite(brief.remotionMaxTokens) && brief.remotionMaxTokens > 0
+      ? brief.remotionMaxTokens
+      : 32000;
+  console.log(`[produce-video] callClaude maxTokens=${remotionMaxTokens}`);
+  const rawRemotionCode = await callClaude(remotionPrompt, remotionMaxTokens);
 
   // 5. Sanitize + validate. Si Claude emitió markdown fences los pelamos;
   //    si emitió texto narrativo o algo sin imports/exports, fallamos rápido
@@ -476,16 +610,45 @@ export async function produceVideo(brief, storyboard, pieceId) {
     throw err;
   }
 
+  // 5a2. Detección heurística de truncamiento. Corre SIEMPRE (no depende
+  //      de esbuild). Si Claude se quedó sin max_tokens, el TSX queda con
+  //      braces o tags JSX sin cerrar — atrapamos acá con mensaje claro
+  //      ("subir brief.remotionMaxTokens").
+  const truncation = detectTruncation(remotionCode);
+  if (truncation) {
+    const err = new Error(
+      `Composition TSX truncada: ${truncation}\n` +
+      `Probablemente Claude se quedó sin max_tokens. Subir brief.remotionMaxTokens ` +
+      `o pedirle al consultor que genere una pieza con menos escenas.`,
+    );
+    err._stage = "truncated";
+    err._stderr = null;
+    err._compositionTsx = remotionCode;
+    err._compositionFile = compositionFile;
+    throw err;
+  }
+
   // 5b. Write the composition file
   writeFileSync(compositionFile, remotionCode, "utf-8");
   console.log(`Composition written: ${compositionFile} (${remotionCode.length} chars)`);
 
-  // 5c. Pre-validar el TSX con esbuild antes de invocar el bundler de Remotion.
+  // 5c. Asegurar que remotion-studio/node_modules existe ANTES de la pre-
+  //      validación con esbuild. Si es la primera vez que corre el agente
+  //      en el runner, node_modules no está y tryParseTsx no puede resolver
+  //      esbuild → la pre-validación se skippea silenciosamente. El install
+  //      acá garantiza que esbuild esté disponible.
+  const nodeModulesPath = resolve(REMOTION_DIR, "node_modules");
+  if (!existsSync(nodeModulesPath)) {
+    console.log("Installing Remotion dependencies...");
+    execSync("npm install", { cwd: REMOTION_DIR, stdio: "inherit" });
+  }
+
+  // 5d. Pre-validar el TSX con esbuild antes de invocar el bundler de Remotion.
   //     Si Claude generó código con error de sintaxis (e.g. arrow function rota,
   //     type annotation mal puesto, destructuring sin cerrar), esbuild nos da
   //     línea:columna exactas y un mensaje accionable. Sin este chequeo, el
   //     bundler de Remotion termina en setup-cache.js con un stack de Node
-  //     opaco. esbuild es transitive de @remotion/bundler — ya está instalado.
+  //     opaco. esbuild es transitive de @remotion/bundler.
   const parseError = await tryParseTsx(remotionCode, compositionFile);
   if (parseError) {
     const err = new Error(
@@ -510,14 +673,7 @@ export async function produceVideo(brief, storyboard, pieceId) {
   mkdirSync(videosDir, { recursive: true });
   const outputPath = resolve(videosDir, `${pieceId}.mp4`);
 
-  // 8. Install dependencies if needed
-  const nodeModulesPath = resolve(REMOTION_DIR, "node_modules");
-  if (!existsSync(nodeModulesPath)) {
-    console.log("Installing Remotion dependencies...");
-    execSync("npm install", { cwd: REMOTION_DIR, stdio: "inherit" });
-  }
-
-  // 9. Render the video
+  // 8. Render the video — node_modules ya está instalado en paso 5c.
   console.log(`Rendering video: ${compositionId}...`);
   console.log("Preview available at http://localhost:3000 (run: npm run studio)");
 
