@@ -7,6 +7,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { logAction } from "@/lib/audit";
@@ -44,6 +45,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Leer JWT para identificar el director que crea el cliente. Las notifs
+  // que generen los agentes (client-bootstrap, brandbook-processor) van
+  // a llevar to_user_id de este actor para que solo él las vea.
+  let triggeredByUserId: string | null = null;
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const callerToken = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (callerToken && supaUrl && anonKey) {
+    try {
+      const callerClient = createClient(supaUrl, anonKey, {
+        global: { headers: { Authorization: `Bearer ${callerToken}` } },
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const {
+        data: { user: caller },
+      } = await callerClient.auth.getUser();
+      if (caller) triggeredByUserId = caller.id;
+    } catch (err) {
+      console.warn(
+        "[bootstrap] could not validate JWT (continuing without actor):",
+        err,
+      );
+    }
+  }
+
   const supabase = getSupabaseAdmin();
 
   const brief = {
@@ -64,7 +90,11 @@ export async function POST(req: NextRequest) {
       agent: "client-bootstrap",
       status: "running",
       summary: "scaffolding vault",
-      metadata: { brief, source: "dashboard" },
+      metadata: {
+        brief,
+        source: "dashboard",
+        triggered_by_user_id: triggeredByUserId,
+      },
       performance: {},
     })
     .select()
@@ -82,7 +112,11 @@ export async function POST(req: NextRequest) {
       eventType: "client-bootstrap",
       payload: {
         runId: run.id,
-        brief: { ...brief, runId: run.id },
+        brief: {
+          ...brief,
+          runId: run.id,
+          triggered_by_user_id: triggeredByUserId,
+        },
       },
     });
   } catch (err) {
@@ -140,6 +174,7 @@ export async function POST(req: NextRequest) {
               source: "dashboard",
               reprocess: false,
               runId: bbRun.id,
+              triggered_by_user_id: triggeredByUserId,
             },
           },
         });
