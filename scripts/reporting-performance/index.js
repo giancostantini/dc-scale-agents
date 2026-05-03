@@ -625,6 +625,7 @@ export async function runAnalyticsAgent(briefInput) {
     await pushNotification(brief.client, "info", `Analytics ${brief.mode} listo`, notifBody, {
       agent: AGENT,
       link: `/cliente/${brief.client}`,
+      to_user_id: brief.triggered_by_user_id ?? null,
     });
   }
 
@@ -672,7 +673,10 @@ if (isMain) {
     if (fallbackBrief.runId) {
       await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
     }
-    await pushNotification(fallbackBrief.client, "error", `Analytics falló`, err.message, { agent: AGENT });
+    await pushNotification(fallbackBrief.client, "error", `Analytics falló`, err.message, {
+      agent: AGENT,
+      to_user_id: fallbackBrief.triggered_by_user_id ?? null,
+    });
     process.exit(1);
   });
 }

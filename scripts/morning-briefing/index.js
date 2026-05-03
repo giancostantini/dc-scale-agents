@@ -91,7 +91,12 @@ async function callClaude(prompt) {
 export async function run(briefInput) {
   const startTime = Date.now();
   const brief = briefInput ?? loadBriefFromArgs();
-  const { client, runId = null, vaultContext = null } = brief;
+  const {
+    client,
+    runId = null,
+    vaultContext = null,
+    triggered_by_user_id = null,
+  } = brief;
   if (!client || typeof client !== "string" || !client.trim()) {
     throw new Error(
       `[${AGENT}] client slug missing — brief must include a 'client' string (no hay defaults)`,
@@ -183,6 +188,7 @@ Sé directo, útil y breve. Máximo 800 caracteres. Basate en el contexto del cl
   await pushNotification(client, "info", `Morning briefing listo`, shortSummary, {
     agent: AGENT,
     link: `/cliente/${client}`,
+    to_user_id: triggered_by_user_id,
   });
 
   console.log(`[${AGENT}] done.`);
@@ -215,6 +221,7 @@ if (isMain) {
     }
     await pushNotification(brief.client, "error", `Morning briefing falló`, err.message, {
       agent: AGENT,
+      to_user_id: brief.triggered_by_user_id ?? null,
     });
     process.exit(1);
   });

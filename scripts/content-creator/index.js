@@ -693,7 +693,11 @@ export async function createContent(briefInput) {
     isPublished ? "success" : "info",
     `Pieza #${pieceId} ${isPublished ? "publicada" : "lista"}`,
     `${brief.pieceType}${brief.angle ? ` · ${brief.angle}` : ""}`,
-    { agent: AGENT, link: `/cliente/${brief.client}/biblioteca` },
+    {
+      agent: AGENT,
+      link: `/cliente/${brief.client}/biblioteca`,
+      to_user_id: brief.triggered_by_user_id ?? null,
+    },
   );
 
   return {
@@ -729,6 +733,7 @@ async function main() {
     }
     await pushNotification(brief.client, "error", `Content Creator falló`, err.message, {
       agent: AGENT,
+      to_user_id: brief.triggered_by_user_id ?? null,
     });
     process.exit(1);
   }

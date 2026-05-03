@@ -213,7 +213,11 @@ async function main() {
     "success",
     `${brief.name} listo en la vault`,
     `Los agentes ya pueden leer el contexto del cliente.`,
-    { agent: "client-bootstrap", link: `/cliente/${brief.client}` },
+    {
+      agent: "client-bootstrap",
+      link: `/cliente/${brief.client}`,
+      to_user_id: brief.triggered_by_user_id ?? null,
+    },
   );
 }
 

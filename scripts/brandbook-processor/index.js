@@ -497,7 +497,11 @@ export async function run(briefInput) {
     "success",
     `Brandbook listo para ${brief.client}`,
     `Los agentes ya pueden generar contenido respetando la marca.`,
-    { agent: AGENT, link: `/cliente/${brief.client}/brandbook` },
+    {
+      agent: AGENT,
+      link: `/cliente/${brief.client}/brandbook`,
+      to_user_id: brief.triggered_by_user_id ?? null,
+    },
   );
 
   console.log(`[${AGENT}] done.`);
