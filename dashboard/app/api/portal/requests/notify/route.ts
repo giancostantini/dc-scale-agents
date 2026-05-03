@@ -61,12 +61,14 @@ export async function POST(req: NextRequest) {
 
   const { error: insertError } = await supabase.from("notifications").insert({
     client: request.client_id,
+    to_role: "team", // visible para director + team asignado al cliente
     agent: "portal",
     level,
     title: `Nueva ${typeLabel} del cliente`,
     body: request.title,
     link: `/cliente/${request.client_id}/solicitudes`,
     read: false,
+    email_sent: false,
   });
 
   if (insertError) {
@@ -75,6 +77,17 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+
+  // Disparar email transaccional al director + team asignado al cliente.
+  // Fire-and-forget para no bloquear la respuesta. Si falla, queda la notif
+  // in-app y un cron posterior puede reintentar.
+  fetch(`${req.nextUrl.origin}/api/notifications/dispatch-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requestId: request.id }),
+  }).catch((err) => {
+    console.warn("[notify] dispatch-email failed (non-blocking):", err);
+  });
 
   return Response.json({ ok: true });
 }

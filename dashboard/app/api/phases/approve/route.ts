@@ -167,6 +167,7 @@ export async function POST(req: NextRequest) {
 
   const { error: notifErr } = await admin.from("notifications").insert({
     client: clientId,
+    to_role: "client", // dirigida solo al cliente del portal
     agent: "phases",
     level: "success",
     title: `Reporte de ${phaseLabels[phaseKey]} aprobado`,
@@ -175,10 +176,20 @@ export async function POST(req: NextRequest) {
       : "Resumen ejecutivo disponible en tu portal.",
     link: "/portal",
     read: false,
+    email_sent: false,
   });
   if (notifErr) {
     console.warn("[phases/approve] notif insert failed:", notifErr.message);
   }
+
+  // Disparar email transaccional al cliente. Fire-and-forget.
+  fetch(`${req.nextUrl.origin}/api/notifications/dispatch-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phase: phaseKey, clientId }),
+  }).catch((err) => {
+    console.warn("[phases/approve] dispatch-email failed:", err);
+  });
 
   await logAction({
     actorId: caller.id,

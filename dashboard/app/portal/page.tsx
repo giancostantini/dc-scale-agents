@@ -21,6 +21,7 @@ import { getDownloadUrl } from "@/lib/upload";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import Lockup from "@/components/Lockup";
 import PortalOnboardingTour from "@/components/PortalOnboardingTour";
+import NotificationBell from "@/components/NotificationBell";
 import type {
   CalEvent,
   Client,
@@ -204,6 +205,9 @@ export default function PortalPage() {
           <div className={styles.eyebrow}>Portal · {client.name}</div>
         </div>
         <div className={styles.headerRight}>
+          {/* Bell de notificaciones del cliente. La RLS filtra solo las
+              suyas (to_role='client' AND auth_client_id() = client). */}
+          <NotificationBell />
           {profile && (
             <button
               className={styles.userBtn}
