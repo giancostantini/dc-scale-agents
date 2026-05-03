@@ -64,7 +64,14 @@ export default function ClientSolicitudesPage({
   if (loading || !client || !me) return null;
 
   const isDirector = me.role === "director";
-  const canManage = isDirector || me.role === "team";
+  const isTeam = me.role === "team";
+  // El director toma todas las decisiones (asignar, responder, status).
+  // El team solo puede mover el status — pero solo de las solicitudes
+  // que tiene asignadas (no puede cambiar status de tareas de otros).
+  // No puede asignar a otros ni editar la respuesta al cliente
+  // (eso lo decide el director).
+  const canSetAssigned = isDirector;
+  const canEditResponse = isDirector;
 
   async function changeStatus(req: ClientRequest, status: ClientRequestStatus) {
     setBusy(req.id);
@@ -137,8 +144,12 @@ export default function ClientSolicitudesPage({
           <RequestRow
             key={r.id}
             req={r}
+            me={me}
             team={team}
-            canManage={canManage}
+            isDirector={isDirector}
+            isTeam={isTeam}
+            canSetAssigned={canSetAssigned}
+            canEditResponse={canEditResponse}
             busy={busy === r.id}
             onChangeStatus={(s) => changeStatus(r, s)}
             onChangeAssigned={(u) => changeAssigned(r, u)}
@@ -155,8 +166,12 @@ export default function ClientSolicitudesPage({
           <RequestRow
             key={r.id}
             req={r}
+            me={me}
             team={team}
-            canManage={canManage}
+            isDirector={isDirector}
+            isTeam={isTeam}
+            canSetAssigned={canSetAssigned}
+            canEditResponse={canEditResponse}
             busy={busy === r.id}
             onChangeStatus={(s) => changeStatus(r, s)}
             onChangeAssigned={(u) => changeAssigned(r, u)}
@@ -208,16 +223,24 @@ function Section({
 
 function RequestRow({
   req,
+  me,
   team,
-  canManage,
+  isDirector,
+  isTeam,
+  canSetAssigned,
+  canEditResponse,
   busy,
   onChangeStatus,
   onChangeAssigned,
   onSaveResponse,
 }: {
   req: ClientRequest;
+  me: Profile;
   team: Profile[];
-  canManage: boolean;
+  isDirector: boolean;
+  isTeam: boolean;
+  canSetAssigned: boolean;
+  canEditResponse: boolean;
   busy: boolean;
   onChangeStatus: (s: ClientRequestStatus) => void;
   onChangeAssigned: (userId: string | null) => void;
@@ -225,6 +248,16 @@ function RequestRow({
 }) {
   const [responseDraft, setResponseDraft] = useState(req.response ?? "");
   const [editingResponse, setEditingResponse] = useState(false);
+
+  // El team puede cambiar status SOLO si la solicitud está asignada a él.
+  // Si la solicitud no está asignada o está asignada a otro, el team la
+  // ve en read-only.
+  const isAssignedToMe = req.assigned_to === me.id;
+  const canChangeStatus = isDirector || (isTeam && isAssignedToMe);
+  // El "asignado a" se muestra siempre — al team como read-only, al
+  // director como editable.
+  const showAssigned = true;
+  const assignedProfile = team.find((t) => t.id === req.assigned_to);
 
   return (
     <div
@@ -336,30 +369,53 @@ function RequestRow({
         </div>
       )}
 
-      {/* Controles del equipo/director */}
-      {canManage && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            paddingTop: 14,
-            borderTop: "1px solid rgba(10,26,12,0.06)",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 9,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 600,
-                marginBottom: 6,
-              }}
-            >
-              Status
-            </div>
+      {/* ===== Controles ===== */}
+      {/* Status:
+            - Director: puede cambiar siempre (dropdown editable)
+            - Team asignado: puede cambiar (dropdown editable)
+            - Team NO asignado: ve el status pero NO lo puede editar
+              (el badge arriba ya lo muestra) */}
+      {/* Asignado a:
+            - Director: dropdown editable (decide a quién asignar)
+            - Team: read-only (ve quién está asignado pero no puede cambiar) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 12,
+          paddingTop: 14,
+          borderTop: "1px solid rgba(10,26,12,0.06)",
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 600,
+              marginBottom: 6,
+            }}
+          >
+            Status
+            {isTeam && !isAssignedToMe && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  textTransform: "none",
+                  letterSpacing: 0,
+                  fontSize: 10,
+                  fontWeight: 400,
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
+                }}
+              >
+                (solo el responsable o el director pueden moverlo)
+              </span>
+            )}
+          </div>
+          {canChangeStatus ? (
             <select
               value={req.status}
               onChange={(e) =>
@@ -382,7 +438,21 @@ function RequestRow({
                 </option>
               ))}
             </select>
-          </div>
+          ) : (
+            <div
+              style={{
+                padding: "8px 10px",
+                background: "var(--off-white)",
+                border: "1px solid rgba(10,26,12,0.06)",
+                fontSize: 13,
+                color: "var(--text-muted)",
+              }}
+            >
+              {requestStatusLabel(req.status)}
+            </div>
+          )}
+        </div>
+        {showAssigned && (
           <div>
             <div
               style={{
@@ -395,102 +465,164 @@ function RequestRow({
               }}
             >
               Asignado a
+              {isTeam && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    textTransform: "none",
+                    letterSpacing: 0,
+                    fontSize: 10,
+                    fontWeight: 400,
+                    color: "var(--text-muted)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  (solo el director puede reasignar)
+                </span>
+              )}
             </div>
-            <select
-              value={req.assigned_to ?? ""}
-              onChange={(e) => onChangeAssigned(e.target.value || null)}
-              disabled={busy}
-              style={{
-                width: "100%",
-                background: "var(--ivory)",
-                border: "1px solid rgba(10,26,12,0.12)",
-                padding: "8px 10px",
-                fontSize: 13,
-                fontFamily: "inherit",
-                color: "var(--deep-green)",
-              }}
-            >
-              <option value="">— sin asignar —</option>
-              {team.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                  {u.position ? ` · ${u.position}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
-      {/* Respuesta al cliente */}
-      {canManage && (
-        <div style={{ marginTop: 14 }}>
-          <div
-            style={{
-              fontSize: 9,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "var(--sand-dark)",
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            Respuesta para el cliente
-          </div>
-          {editingResponse ? (
-            <>
-              <textarea
-                value={responseDraft}
-                onChange={(e) => setResponseDraft(e.target.value)}
-                rows={3}
-                placeholder="Lo que el cliente va a ver en su portal."
+            {canSetAssigned ? (
+              <select
+                value={req.assigned_to ?? ""}
+                onChange={(e) => onChangeAssigned(e.target.value || null)}
+                disabled={busy}
                 style={{
                   width: "100%",
                   background: "var(--ivory)",
                   border: "1px solid rgba(10,26,12,0.12)",
-                  padding: 10,
+                  padding: "8px 10px",
                   fontSize: 13,
                   fontFamily: "inherit",
                   color: "var(--deep-green)",
-                  resize: "vertical",
-                  marginBottom: 8,
                 }}
-              />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className={ui.btnSolid}
-                  onClick={() => {
-                    onSaveResponse(responseDraft);
-                    setEditingResponse(false);
-                  }}
-                  disabled={busy}
-                >
-                  Guardar
-                </button>
-                <button
-                  className={ui.btnGhost}
-                  onClick={() => {
-                    setResponseDraft(req.response ?? "");
-                    setEditingResponse(false);
-                  }}
-                >
-                  Cancelar
-                </button>
+              >
+                <option value="">— sin asignar —</option>
+                {team.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                    {u.position ? ` · ${u.position}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div
+                style={{
+                  padding: "8px 10px",
+                  background: "var(--off-white)",
+                  border: "1px solid rgba(10,26,12,0.06)",
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                }}
+              >
+                {assignedProfile
+                  ? `${assignedProfile.name}${assignedProfile.position ? ` · ${assignedProfile.position}` : ""}`
+                  : "— sin asignar —"}
+                {isAssignedToMe && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      color: "var(--green-ok)",
+                    }}
+                  >
+                    · VOS
+                  </span>
+                )}
               </div>
-            </>
-          ) : req.response ? (
-            <div
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Respuesta al cliente:
+            - Director: puede editar/agregar siempre.
+            - Team: ve la respuesta del director (read-only) si existe,
+              pero NO puede editarla (esa decisión es del director). */}
+      <div style={{ marginTop: 14 }}>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 600,
+            marginBottom: 6,
+          }}
+        >
+          Respuesta para el cliente
+          {isTeam && (
+            <span
               style={{
-                padding: 12,
-                background: "rgba(58,139,92,0.06)",
-                borderLeft: "3px solid var(--green-ok)",
-                fontSize: 13,
-                color: "var(--deep-green)",
-                whiteSpace: "pre-wrap",
-                marginBottom: 8,
+                marginLeft: 8,
+                textTransform: "none",
+                letterSpacing: 0,
+                fontSize: 10,
+                fontWeight: 400,
+                color: "var(--text-muted)",
+                fontStyle: "italic",
               }}
             >
-              {req.response}
+              (solo el director redacta la respuesta)
+            </span>
+          )}
+        </div>
+        {canEditResponse && editingResponse ? (
+          <>
+            <textarea
+              value={responseDraft}
+              onChange={(e) => setResponseDraft(e.target.value)}
+              rows={3}
+              placeholder="Lo que el cliente va a ver en su portal."
+              style={{
+                width: "100%",
+                background: "var(--ivory)",
+                border: "1px solid rgba(10,26,12,0.12)",
+                padding: 10,
+                fontSize: 13,
+                fontFamily: "inherit",
+                color: "var(--deep-green)",
+                resize: "vertical",
+                marginBottom: 8,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className={ui.btnSolid}
+                onClick={() => {
+                  onSaveResponse(responseDraft);
+                  setEditingResponse(false);
+                }}
+                disabled={busy}
+              >
+                Guardar
+              </button>
+              <button
+                className={ui.btnGhost}
+                onClick={() => {
+                  setResponseDraft(req.response ?? "");
+                  setEditingResponse(false);
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        ) : req.response ? (
+          <div
+            style={{
+              padding: 12,
+              background: "rgba(58,139,92,0.06)",
+              borderLeft: "3px solid var(--green-ok)",
+              fontSize: 13,
+              color: "var(--deep-green)",
+              whiteSpace: "pre-wrap",
+              marginBottom: 8,
+            }}
+          >
+            {req.response}
+            {canEditResponse && (
               <div style={{ marginTop: 8 }}>
                 <button
                   className={ui.btnGhost}
@@ -501,18 +633,30 @@ function RequestRow({
                   Editar
                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              className={ui.btnGhost}
-              onClick={() => setEditingResponse(true)}
-              style={{ fontSize: 12 }}
-            >
-              + Agregar respuesta
-            </button>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        ) : canEditResponse ? (
+          <button
+            className={ui.btnGhost}
+            onClick={() => setEditingResponse(true)}
+            style={{ fontSize: 12 }}
+          >
+            + Agregar respuesta
+          </button>
+        ) : (
+          <div
+            style={{
+              padding: 12,
+              background: "var(--off-white)",
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+            }}
+          >
+            El director todavía no escribió respuesta para el cliente.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
