@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/Topbar";
@@ -32,7 +32,35 @@ const URGENCY_COLORS: Record<string, string> = {
   baja: "var(--text-muted)",
 };
 
+/**
+ * Next.js 16 requiere que useSearchParams() esté dentro de un boundary
+ * de Suspense (breaking change vs Next 14/15). Sin esto el build prod
+ * falla con "useSearchParams() should be wrapped in a suspense boundary".
+ * Por eso movemos la página a un componente hijo (TareasContent) y la
+ * página exportada solo monta el Suspense wrapper.
+ */
 export default function TareasPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            padding: 60,
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: 13,
+          }}
+        >
+          Cargando tareas…
+        </main>
+      }
+    >
+      <TareasContent />
+    </Suspense>
+  );
+}
+
+function TareasContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialFilter = searchParams.get("filter") as StatusFilter | null;
