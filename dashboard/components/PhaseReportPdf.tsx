@@ -490,7 +490,11 @@ function renderSpans(spans: InlineSpan[]) {
   });
 }
 
-function renderBlock(block: Block, idx: number): React.ReactElement | null {
+function renderBlock(
+  block: Block,
+  idx: number,
+  isFirstH2: boolean = false,
+): React.ReactElement | null {
   switch (block.type) {
     case "h1":
       return (
@@ -499,10 +503,12 @@ function renderBlock(block: Block, idx: number): React.ReactElement | null {
         </Text>
       );
     case "h2":
+      // Cada H2 después del primero arranca en una página nueva.
+      // El primer H2 NO necesita break (ya está al inicio del contenido).
       return (
-        <Text key={idx} style={styles.h2}>
-          {renderSpans(block.spans)}
-        </Text>
+        <View key={idx} break={!isFirstH2} wrap={false}>
+          <Text style={styles.h2}>{renderSpans(block.spans)}</Text>
+        </View>
       );
     case "h3":
       return (
@@ -789,7 +795,19 @@ export default function PhaseReportPdf({
 
         {/* Contenido */}
         <View style={styles.contentInner}>
-          {blocks.map((block, idx) => renderBlock(block, idx))}
+          {(() => {
+            // Track si ya pasamos el primer H2 — solo el primero NO
+            // arranca en página nueva (ya está al inicio del contenido).
+            let seenFirstH2 = false;
+            return blocks.map((block, idx) => {
+              if (block.type === "h2") {
+                const isFirst = !seenFirstH2;
+                seenFirstH2 = true;
+                return renderBlock(block, idx, isFirst);
+              }
+              return renderBlock(block, idx);
+            });
+          })()}
         </View>
       </Page>
     </Document>
