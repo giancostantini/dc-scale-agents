@@ -21,6 +21,35 @@ export interface ClientKPIs {
   invested: string;
   revenue: string;
   conv: string;
+  /** Métricas detalladas por plataforma · cargadas manualmente desde
+   *  /paid-media hasta que tengamos OAuth con Meta/Google. */
+  paid_media?: PaidMediaMetrics;
+}
+
+export type PaidMediaPlatform = "meta" | "google" | "tiktok" | "email";
+
+export interface PlatformMetrics {
+  spent?: number;        // gasto del mes en USD
+  impressions?: number;
+  clicks?: number;
+  ctr?: number;          // 0..1
+  cpc?: number;          // USD por click
+  cpm?: number;          // USD por 1000 impresiones
+  conversions?: number;
+  cpa?: number;          // USD por conversión
+  roas?: number;         // x veces el gasto
+  notes?: string;
+}
+
+export interface PaidMediaMetrics {
+  meta?: PlatformMetrics;
+  google?: PlatformMetrics;
+  tiktok?: PlatformMetrics;
+  email?: PlatformMetrics;
+  /** ISO timestamp del último update */
+  updated_at?: string;
+  /** user_id del miembro que cargó */
+  updated_by?: string;
 }
 
 export interface ClientModules {
@@ -345,6 +374,11 @@ export interface Integration {
   group: string;
   status: "connected" | "pending" | "disconnected";
   account?: string;
+  // Migration 014: credenciales/IDs cargadas por el cliente desde el portal.
+  // Shape libre por integración — ver lib/integration-tutorials.ts.
+  credentials?: Record<string, string>;
+  submittedBy?: string | null;    // user id del que cargó las credenciales
+  submittedAt?: string | null;    // ISO timestamp
 }
 
 // ==================== AGENTES ====================
@@ -402,6 +436,94 @@ export interface ContentPieceRow {
   status: "draft" | "published" | "evaluated" | string;
   metrics: Record<string, unknown>;
   created_at: string;
+}
+
+// ==================== PHASE REPORTS ====================
+
+export type PhaseKey = "diagnostico" | "estrategia" | "setup" | "lanzamiento";
+
+export type PhaseStatus =
+  | "pending"
+  | "generating"
+  | "draft"
+  | "changes_requested"
+  | "approved";
+
+export interface PhaseReport {
+  id: string;
+  client_id: string;
+  phase: PhaseKey;
+  status: PhaseStatus;
+  content_md: string | null;
+  feedback: string | null;
+  version: number;
+  model: string | null;
+  usage: Record<string, unknown> | null;
+  generated_at: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Orden secuencial de las fases — usado para desbloquear la siguiente
+// cuando una se aprueba.
+export const PHASE_ORDER: PhaseKey[] = [
+  "diagnostico",
+  "estrategia",
+  "setup",
+  "lanzamiento",
+];
+
+export function nextPhase(current: PhaseKey): PhaseKey | null {
+  const idx = PHASE_ORDER.indexOf(current);
+  if (idx === -1 || idx === PHASE_ORDER.length - 1) return null;
+  return PHASE_ORDER[idx + 1];
+}
+
+// ==================== CLIENT REQUESTS · Solicitudes del cliente ====================
+// Inbox de cosas que el cliente carga desde su portal: ofertas
+// (campañas/promos específicas) y acciones (ideas/pedidos libres).
+
+export type ClientRequestType = "oferta" | "accion";
+
+export type ClientRequestUrgency = "baja" | "media" | "alta";
+
+export type ClientRequestStatus =
+  | "pending"
+  | "reviewing"
+  | "in_progress"
+  | "done"
+  | "rejected";
+
+// Metadata específica por tipo. Schema flexible vía jsonb.
+export interface OfertaMetadata {
+  startDate?: string;
+  endDate?: string;
+  discountPct?: number;
+  product?: string;
+}
+
+export interface AccionMetadata {
+  area?: "ads" | "contenido" | "seo" | "dev" | "otro";
+  desiredDate?: string;
+}
+
+export interface ClientRequest {
+  id: string;
+  client_id: string;
+  type: ClientRequestType;
+  title: string;
+  description: string;
+  metadata: OfertaMetadata | AccionMetadata | Record<string, unknown>;
+  urgency: ClientRequestUrgency;
+  status: ClientRequestStatus;
+  submitted_by: string;
+  submitted_at: string;
+  assigned_to: string | null;
+  response: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type NotificationLevel = "info" | "success" | "warning" | "error";

@@ -2,11 +2,20 @@
 
 import { getSupabase } from "./client";
 
+export type UserRole = "director" | "team" | "client";
+
+export interface ProfilePermissions {
+  /** Si true, el team member ve el módulo Pipeline (CRM). Default false. */
+  pipeline_access?: boolean;
+  /** Si true, el cliente ya vio el onboarding tour del portal. Solo role='client'. */
+  tour_seen?: boolean;
+}
+
 export interface Profile {
   id: string;
   email: string;
   name: string;
-  role: "director" | "team";
+  role: UserRole;
   initials: string;
   // Campos del equipo (migration 004) — opcionales hasta que el
   // director los completa desde /equipo.
@@ -17,6 +26,9 @@ export interface Profile {
   start_date?: string | null;
   phone?: string | null;
   notes?: string | null;
+  // Migration 007:
+  client_id?: string | null;     // solo si role='client'
+  permissions?: ProfilePermissions | null;
 }
 
 export type TeamPosition =
@@ -63,6 +75,47 @@ export interface ClientAssignment {
   created_at: string;
 }
 
+// ==================== ROLE HELPERS (client-side) ====================
+// Estos helpers reflejan las funciones SECURITY DEFINER del DB
+// (auth_role, auth_client_id, etc) pero del lado cliente para guardar
+// y filtrar UI. La autoridad sigue siendo la DB vía RLS.
+
+export function isDirector(profile: Profile | null | undefined): boolean {
+  return profile?.role === "director";
+}
+
+export function isTeam(profile: Profile | null | undefined): boolean {
+  return profile?.role === "team";
+}
+
+export function isClient(profile: Profile | null | undefined): boolean {
+  return profile?.role === "client";
+}
+
+export function hasPipelineAccess(
+  profile: Profile | null | undefined,
+): boolean {
+  if (!profile) return false;
+  if (profile.role === "director") return true;
+  if (profile.role === "team") {
+    return profile.permissions?.pipeline_access === true;
+  }
+  return false;
+}
+
+export function hasFinanzasAccess(
+  profile: Profile | null | undefined,
+): boolean {
+  return profile?.role === "director";
+}
+
+/** A dónde redirigir después de login según el rol. */
+export function homeForRole(profile: Profile | null | undefined): string {
+  if (!profile) return "/";
+  if (profile.role === "client") return "/portal";
+  return "/hub";
+}
+
 /**
  * Retorna el usuario autenticado actual + su profile, o null si no hay sesión.
  */
@@ -77,7 +130,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions",
     )
     .eq("id", user.id)
     .single();

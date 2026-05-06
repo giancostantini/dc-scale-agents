@@ -5,10 +5,14 @@
 // (confiamos en la DB como source of truth de permisos).
 
 import { getSupabase } from "./supabase/client";
-import type { Profile, ClientAssignment } from "./supabase/auth";
+import type {
+  Profile,
+  ClientAssignment,
+  ProfilePermissions,
+} from "./supabase/auth";
 
 const PROFILE_COLS =
-  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes";
+  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions";
 
 // ============ PROFILES ============
 
@@ -48,6 +52,8 @@ export interface UpdateProfileInput {
   notes?: string | null;
   role?: Profile["role"];
   initials?: string;
+  permissions?: ProfilePermissions;
+  client_id?: string | null;
 }
 
 export async function updateProfile(

@@ -9,6 +9,11 @@
 <meta property="og:description" content="No entregamos informes. Ejecutamos. Agendá 30 minutos con los socios.">
 <meta property="og:type" content="website">
 
+<!-- Favicons -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#0A1A0C">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@200;300;400&family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -56,25 +61,6 @@
   button { font-family: inherit; cursor: pointer; border: none; background: none; }
   ::selection { background: var(--arena); color: var(--bosque); }
 
-  /* ============ STICKY BOOK CTA (mobile) ============ */
-  .book-sticky {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    right: 16px;
-    z-index: 90;
-    background: var(--arena);
-    color: var(--bosque);
-    padding: 16px 20px;
-    font-size: 13px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-weight: 600;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(10, 26, 12, 0.25);
-    display: none;
-  }
-
   /* ============ NAV ============ */
   .nav {
     position: fixed;
@@ -117,16 +103,17 @@
 
   .nav-links {
     display: flex;
-    gap: 40px;
+    gap: 28px;
     align-items: center;
   }
 
   .nav-links a {
-    font-size: 12px;
-    letter-spacing: 0.18em;
+    font-size: 11px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(232, 228, 220, 0.72);
     transition: color 0.2s;
+    white-space: nowrap;
   }
   .nav-links a:hover { color: var(--arena); }
 
@@ -154,15 +141,138 @@
     50% { opacity: 0.4; }
   }
 
-  /* ============ HERO ============ */
-  .hero {
-    min-height: 100vh;
+  /* ============ BURGER + MOBILE MENU ============ */
+  .nav-burger {
+    display: none;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid rgba(232, 228, 220, 0.25);
+    cursor: pointer;
+    padding: 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    border-radius: 4px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .nav-burger:hover { border-color: var(--arena); }
+  .nav-burger span {
+    display: block;
+    width: 18px;
+    height: 1.5px;
+    background: var(--lino);
+    transition: transform 0.3s, opacity 0.3s;
+    transform-origin: center;
+  }
+  /* Burger animado a "X" cuando abierto */
+  .nav-burger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .nav-burger.open span:nth-child(2) { opacity: 0; }
+  .nav-burger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  .mobile-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
     background: var(--bosque);
     color: var(--lino);
-    padding: 160px 80px 80px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
+  .mobile-menu.open {
+    transform: translateX(0);
+  }
+  .mobile-menu-header {
+    display: flex;
     justify-content: space-between;
+    align-items: center;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+    margin-bottom: 32px;
+  }
+  .mobile-menu-brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .mobile-menu-brand .soft { font-weight: 300; opacity: 0.55; }
+  .mobile-menu-close {
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid rgba(232, 228, 220, 0.25);
+    color: var(--lino);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mobile-menu-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+  }
+  .mobile-menu-links a {
+    padding: 18px 4px;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--lino);
+    border-bottom: 1px solid rgba(196, 168, 130, 0.1);
+    transition: color 0.2s, padding-left 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mobile-menu-links a::before {
+    content: '';
+    width: 0;
+    height: 1px;
+    background: var(--arena);
+    transition: width 0.2s;
+  }
+  .mobile-menu-links a:hover,
+  .mobile-menu-links a:active {
+    color: var(--arena);
+    padding-left: 8px;
+  }
+  .mobile-menu-links a:hover::before,
+  .mobile-menu-links a:active::before {
+    width: 24px;
+  }
+  .mobile-menu-footer {
+    padding-top: 32px;
+    border-top: 1px solid rgba(196, 168, 130, 0.15);
+  }
+  .mobile-menu-meta {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: rgba(232, 228, 220, 0.5);
+    text-align: center;
+  }
+
+  /* Bloquear scroll del body cuando el menu esta abierto */
+  body.menu-open { overflow: hidden; }
+
+  /* ============ HERO ============ */
+  .hero {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 160px 80px 120px;
     position: relative;
     overflow: hidden;
   }
@@ -233,25 +343,24 @@
   .hero-title {
     font-weight: 700;
     letter-spacing: -0.04em;
-    line-height: 1;
-    font-size: clamp(40px, 6.2vw, 108px);
-    white-space: nowrap;
+    line-height: 1.02;
+    font-size: clamp(40px, 6vw, 96px);
   }
 
-  .hero-title .line1 { color: var(--arena); display: block; font-weight: 700; }
-  .hero-title .line2 {
-    color: rgba(232, 228, 220, 0.55);
-    font-weight: 300;
-    display: block;
+  /* Hero — 1 columna full width, contenido fluyendo horizontal */
+  .hero-mid {
+    max-width: none;
+    width: 100%;
   }
-  .hero-title .sand-accent { color: var(--arena); }
+  .hero-title { max-width: none; }
+  .hero-title .sand { color: var(--arena); font-weight: 700; }
 
   .hero-sub {
     margin-top: 44px;
     font-size: clamp(17px, 1.65vw, 21px);
     font-weight: 300;
     color: rgba(232, 228, 220, 0.82);
-    max-width: 700px;
+    max-width: none;
     line-height: 1.55;
   }
   .hero-sub strong { color: var(--lino); font-weight: 500; }
@@ -1570,25 +1679,95 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s;
+    transition: transform 0.25s, box-shadow 0.25s;
+    overflow: hidden;
+    cursor: default;
   }
+  .slot:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(10, 26, 12, 0.18); }
+  .slot.occupied { background: var(--bosque); }
+  .slot.occupied.has-logo {
+    background: var(--lino);
+    padding: 12px;
+  }
+  .slot.occupied.nda { background: var(--noche); }
   .slot.available {
     background: var(--arena);
     animation: slotPulse 3s ease-in-out infinite;
+    cursor: pointer;
   }
   @keyframes slotPulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
-  .slot .slot-num {
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 200;
-    font-size: 20px;
-    color: rgba(232, 228, 220, 0.35);
+  .slot .slot-mark {
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--arena);
+    text-align: center;
+    line-height: 1;
   }
-  .slot.available .slot-num {
-    color: var(--bosque);
+  .slot.occupied.nda .slot-mark {
+    font-size: 13px;
+    letter-spacing: 0.18em;
     font-weight: 600;
+    color: rgba(196, 168, 130, 0.55);
+  }
+  .slot.available .slot-mark {
+    color: var(--bosque);
+    font-weight: 300;
+    font-size: 36px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  /* Soporte para img logos cuando los reemplaces */
+  .slot img {
+    max-width: 70%;
+    max-height: 70%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Tooltip on hover */
+  .slot[data-tooltip] {
+    position: relative;
+  }
+  .slot[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 10;
+    font-weight: 500;
+  }
+  .slot[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--bosque);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 10;
+  }
+  .slot[data-tooltip]:hover::after,
+  .slot[data-tooltip]:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
   .cupo-legend {
     display: flex;
@@ -1673,6 +1852,686 @@
   section.tight-bottom { padding-bottom: 40px; }
   section.tight-bottom + section { padding-top: 80px; }
 
+  /* ============ CHATBOT WIDGET ============ */
+  .chat-widget {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 95;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* --- Burbuja de "Estoy acá para ayudarte" --- */
+  .chat-bubble {
+    position: absolute;
+    bottom: 78px;
+    right: 0;
+    background: var(--marfil);
+    color: var(--bosque);
+    padding: 12px 38px 12px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 10px 30px rgba(10, 26, 12, 0.18);
+    border: 1px solid rgba(10, 26, 12, 0.06);
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .chat-bubble.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    animation: bubblePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes bubblePop {
+    0% { transform: translateY(8px) scale(0.85); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .chat-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    right: 22px;
+    width: 12px; height: 12px;
+    background: var(--marfil);
+    border-right: 1px solid rgba(10, 26, 12, 0.06);
+    border-bottom: 1px solid rgba(10, 26, 12, 0.06);
+    transform: rotate(45deg);
+  }
+  .chat-bubble-close {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: rgba(10, 26, 12, 0.06);
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--neblina);
+    cursor: pointer;
+  }
+  .chat-bubble-close:hover { background: rgba(10, 26, 12, 0.12); color: var(--bosque); }
+
+  /* --- Botón flotante (dorado / arena) --- */
+  .chat-toggle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--arena);
+    color: var(--bosque);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 36px rgba(196, 168, 130, 0.45),
+                0 4px 12px rgba(10, 26, 12, 0.2);
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .chat-toggle:hover {
+    transform: scale(1.06);
+    background: var(--trigo);
+    box-shadow: 0 16px 44px rgba(196, 168, 130, 0.55),
+                0 6px 16px rgba(10, 26, 12, 0.25);
+  }
+  .chat-toggle svg { transition: opacity 0.2s, transform 0.2s; }
+  .chat-toggle .chat-icon-close { position: absolute; opacity: 0; transform: rotate(-45deg); }
+  .chat-toggle.active .chat-icon-open { opacity: 0; transform: rotate(45deg); }
+  .chat-toggle.active .chat-icon-close { opacity: 1; transform: rotate(0); }
+
+  /* Dot pulsante: ahora bosque (oscuro) sobre fondo dorado para que contraste */
+  .chat-pulse-dot {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 14px; height: 14px;
+    background: var(--bosque);
+    border: 2px solid var(--arena);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(10, 26, 12, 0.5);
+    animation: chatPulse 2s ease-in-out infinite;
+  }
+  .chat-toggle.active .chat-pulse-dot { display: none; }
+  @keyframes chatPulse {
+    0% { box-shadow: 0 0 0 0 rgba(10, 26, 12, 0.5); }
+    70% { box-shadow: 0 0 0 14px rgba(10, 26, 12, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(10, 26, 12, 0); }
+  }
+
+  /* --- Ventana del chat --- */
+  .chat-window {
+    position: absolute;
+    bottom: 76px;
+    right: 0;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 560px;
+    max-height: calc(100vh - 120px);
+    background: var(--marfil);
+    border: 1px solid rgba(10, 26, 12, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(10, 26, 12, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform-origin: bottom right;
+    transform: scale(0.85) translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .chat-window.open {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .chat-header {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 16px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .chat-header-info { display: flex; align-items: center; gap: 12px; }
+  .chat-header-avatars { display: flex; }
+  .ch-av {
+    width: 34px;
+    height: 34px;
+    background: var(--arena);
+    color: var(--bosque);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid var(--bosque);
+  }
+  .ch-av-2 {
+    background: var(--lino);
+    color: var(--bosque);
+    margin-left: -10px;
+  }
+  .chat-header-name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .chat-header-status {
+    font-size: 11px;
+    color: rgba(232, 228, 220, 0.65);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ch-dot {
+    width: 7px; height: 7px;
+    background: #4caf50;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+  }
+  .chat-close {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid rgba(232, 228, 220, 0.2);
+    color: var(--lino);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chat-close:hover { border-color: var(--arena); color: var(--arena); }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--marfil);
+    scroll-behavior: smooth;
+  }
+  .chat-msg {
+    max-width: 85%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    animation: msgIn 0.3s ease;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chat-msg p { margin: 0 0 8px 0; font-size: 14px; }
+  .chat-msg p:last-child { margin-bottom: 0; }
+  .chat-msg-bot {
+    background: var(--lino);
+    color: var(--bosque);
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .chat-msg-user {
+    background: var(--bosque);
+    color: var(--lino);
+    border-bottom-right-radius: 4px;
+    align-self: flex-end;
+  }
+  .chat-msg-typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 14px;
+  }
+  .chat-msg-typing span {
+    width: 7px;
+    height: 7px;
+    background: var(--neblina);
+    border-radius: 50%;
+    animation: typingDot 1.2s ease-in-out infinite;
+  }
+  .chat-msg-typing span:nth-child(2) { animation-delay: 0.2s; }
+  .chat-msg-typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* Cursor parpadeante cuando el bot esta streaming */
+  .chat-msg-streaming p:last-child::after {
+    content: '▍';
+    display: inline-block;
+    color: var(--arena);
+    margin-left: 2px;
+    font-weight: 400;
+    animation: streamCursor 0.7s steps(2) infinite;
+  }
+  @keyframes streamCursor {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  .chat-cta-inline {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--arena);
+    color: var(--bosque);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .chat-cta-inline:hover { background: var(--trigo); transform: translateY(-1px); }
+
+  .chat-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 18px 0;
+    background: var(--marfil);
+  }
+  .chat-qa {
+    background: transparent;
+    border: 1px solid rgba(10, 26, 12, 0.15);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--bosque);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .chat-qa:hover {
+    background: var(--lino);
+    border-color: var(--arena);
+  }
+  .chat-quick-actions.hidden { display: none; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 14px 14px 8px;
+    background: var(--marfil);
+    border-top: 1px solid rgba(10, 26, 12, 0.06);
+    align-items: flex-end;
+  }
+  .chat-input {
+    flex: 1;
+    border: 1px solid rgba(10, 26, 12, 0.15);
+    background: var(--white);
+    color: var(--bosque);
+    padding: 10px 14px;
+    border-radius: 22px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    max-height: 100px;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus {
+    outline: none;
+    border-color: var(--arena);
+  }
+  .chat-send {
+    width: 40px;
+    height: 40px;
+    background: var(--bosque);
+    color: var(--arena);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+    flex-shrink: 0;
+  }
+  .chat-send:hover { background: var(--noche); transform: scale(1.05); }
+  .chat-send:disabled { background: var(--neblina); cursor: not-allowed; opacity: 0.6; }
+  .chat-send:disabled:hover { transform: none; }
+
+  .chat-footer {
+    padding: 6px 14px 12px;
+    font-size: 10px;
+    color: var(--neblina);
+    text-align: center;
+    background: var(--marfil);
+    line-height: 1.4;
+  }
+
+  /* ============ PREBOOK MODAL ============ */
+  .prebook-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 26, 12, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .prebook-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .prebook-modal {
+    background: var(--marfil);
+    color: var(--bosque);
+    width: 100%;
+    max-width: 540px;
+    padding: 56px 48px;
+    border-top: 4px solid var(--arena);
+    position: relative;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .prebook-overlay.open .prebook-modal {
+    transform: translateY(0);
+  }
+  .prebook-close {
+    position: absolute;
+    top: 16px; right: 20px;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--neblina);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    transition: color 0.2s;
+  }
+  .prebook-close:hover { color: var(--bosque); }
+
+  .prebook-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .prebook-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .prebook-sub {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--neblina);
+    margin-bottom: 32px;
+  }
+
+  .prebook-form { display: grid; gap: 18px; }
+  .pb-field { display: grid; gap: 6px; }
+  .pb-field label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--bosque);
+  }
+  .pb-field input,
+  .pb-field textarea {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--bosque);
+    background: var(--white);
+    border: 1px solid rgba(10, 26, 12, 0.15);
+    padding: 12px 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .pb-field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .pb-field input:focus,
+  .pb-field textarea:focus {
+    outline: none;
+    border-color: var(--arena);
+    box-shadow: 0 0 0 3px rgba(196, 168, 130, 0.18);
+  }
+  .pb-field input::placeholder,
+  .pb-field textarea::placeholder { color: rgba(122, 138, 126, 0.7); }
+
+  .pb-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--neblina);
+    cursor: pointer;
+    user-select: none;
+  }
+  .pb-consent input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: var(--arena);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .pb-consent a {
+    color: var(--dorado);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .pb-consent a:hover { color: var(--bosque); }
+
+  .pb-submit {
+    margin-top: 8px;
+    width: 100%;
+    justify-content: center;
+    padding: 18px 28px;
+  }
+
+  @media (max-width: 540px) {
+    .prebook-modal { padding: 40px 28px; }
+    .prebook-title { font-size: 26px; }
+  }
+
+  /* ============ CASE LOGOS + LINK ============ */
+  .cases-intro-simple { display: block; margin-bottom: 56px; }
+
+  .case-logo-wrap {
+    background: var(--lino);
+    color: var(--bosque);
+    height: 120px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 32px;
+    overflow: hidden;
+    border: 1px solid rgba(10, 26, 12, 0.06);
+  }
+  .case-logo-wrap.has-logo { padding: 24px 32px; }
+  .case-logo-wrap.nda {
+    background: var(--lino);
+    color: var(--neblina);
+    border: 1px dashed rgba(10, 26, 12, 0.2);
+  }
+  .case-logo-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .case-logo-text {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .case-logo-wrap.nda .case-logo-text {
+    font-size: 14px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .case-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(10, 26, 12, 0.08);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--dorado);
+    transition: color 0.2s, gap 0.2s;
+  }
+  .case-link:hover { color: var(--bosque); gap: 12px; }
+  .case-link .arrow { transition: transform 0.2s; }
+  .case-link:hover .arrow { transform: translateX(4px); }
+
+  .case.dark-case .case-link {
+    color: var(--arena);
+    border-top-color: rgba(232, 228, 220, 0.1);
+  }
+  .case.dark-case .case-link:hover { color: var(--lino); }
+
+  /* ============ URGENCY PILL (cupos en rojo) ============ */
+  .urgency-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(176, 75, 58, 0.14);
+    border: 1px solid rgba(176, 75, 58, 0.45);
+    color: #E26B58;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 36px;
+    border-radius: 999px;
+    position: relative;
+    z-index: 2;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .urgency-pill:hover {
+    background: rgba(176, 75, 58, 0.2);
+    border-color: rgba(176, 75, 58, 0.7);
+  }
+  .urgency-pill strong { font-weight: 800; }
+  .urgency-pill .up-dot {
+    width: 8px; height: 8px;
+    background: #E26B58;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(226, 107, 88, 0.6);
+    animation: urgencyPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes urgencyPulse {
+    0% { box-shadow: 0 0 0 0 rgba(226, 107, 88, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(226, 107, 88, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(226, 107, 88, 0); }
+  }
+
+  /* Variante grande, dentro de la seccion cupo (fondo claro) */
+  .urgency-pill-large {
+    display: inline-flex;
+    margin-top: 24px;
+    margin-bottom: 0;
+    padding: 12px 22px;
+    font-size: 13px;
+    background: rgba(176, 75, 58, 0.1);
+    border-color: rgba(176, 75, 58, 0.4);
+    color: #B04B3A;
+  }
+  .urgency-pill-large .up-dot { background: #B04B3A; }
+
+  /* ============ STATEMENT (the question) ============ */
+  .statement-section {
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 80px 80px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .statement-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+    pointer-events: none;
+  }
+  .statement-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(196, 168, 130, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .statement-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .statement-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--arena);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .statement-text {
+    font-size: clamp(28px, 3.6vw, 52px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin-bottom: 32px;
+    color: var(--lino);
+  }
+  .statement-text .sand { color: var(--arena); }
+  .statement-btn { padding: 18px 32px; font-size: 12px; }
+
   /* ============ REVEAL ANIM ============ */
   .reveal {
     opacity: 0;
@@ -1682,41 +2541,182 @@
   .reveal.visible { opacity: 1; transform: translateY(0); }
 
   /* ============ RESPONSIVE ============ */
+  /* ============ MOBILE / TABLET ============ */
   @media (max-width: 900px) {
-    .nav { padding: 14px 20px; }
-    .nav-links { gap: 0; }
-    .nav-links a:not(.nav-cta) { display: none; }
-    .nav-cta { padding: 10px 16px; font-size: 11px; }
-    .hero { padding: 110px 24px 140px; }
-    section { padding: 72px 24px; }
-    .cta-final { padding: 90px 24px; }
+    /* Anti-overflow base */
+    body { overflow-x: hidden; }
+    h1, h2, h3, p, li, a, span, div {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+    }
+
+    /* Nav */
+    .nav { padding: 14px 18px; }
+    .nav-brand { font-size: 14px; }
+    .nav-brand .tagline { font-size: 7px; letter-spacing: 0.18em; }
+    .nav-links { display: none; }
+    .nav-burger { display: flex; }
+
+    /* Sections base */
+    .hero { padding: 100px 24px 60px; min-height: auto; }
+    .case-logo-wrap { height: 80px; padding: 12px 18px; }
+    .case-logo-text { font-size: 20px; }
+    section { padding: 64px 24px; }
+    .cta-final { padding: 80px 24px; }
     footer { padding: 48px 24px; }
-    .book-sticky { display: block; }
-    .concept, .cases-intro { grid-template-columns: 1fr; gap: 32px; }
+
+    /* Hero title — sin nowrap, deja que el navegador wrappee */
+    .hero-title {
+      font-size: clamp(34px, 9vw, 52px) !important;
+      white-space: normal !important;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+    .hero-sub { font-size: 16px; margin-top: 28px; line-height: 1.55; }
+    .hero-ctas { margin-top: 36px; gap: 12px; flex-direction: column; align-items: stretch; }
+    .hero-ctas .btn { width: 100%; justify-content: center; padding: 16px 24px; font-size: 12px; }
+    .hero-proof { margin-top: 24px; font-size: 11px; line-height: 1.5; }
+
+    /* Hero stats */
+    .hero-bottom {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 48px;
+      padding-top: 32px;
+    }
+    .hero-stat .stat-num { font-size: 24px; }
+    .hero-stat .stat-label { font-size: 11px; }
+
+    /* Headings */
+    h2 { font-size: clamp(30px, 7.5vw, 42px); margin-bottom: 32px; line-height: 1.1; }
+    .lead { font-size: 17px; line-height: 1.5; }
+    p { font-size: 15px; }
+
+    /* Layout grids → 1 columna */
+    .concept, .cases-intro { grid-template-columns: 1fr; gap: 24px; }
     .paths, .valores, .partners, .diffs, .cases-grid, .models { grid-template-columns: 1fr; }
+
+    /* Path cards */
+    .path { padding: 40px 28px; min-height: auto; }
+    .path-title { font-size: clamp(28px, 7vw, 36px); }
+    .path-desc, .path-leader { font-size: 14px; }
+
+    /* Process */
     .process { grid-template-columns: repeat(2, 1fr); }
-    .step { border-right: 1px solid rgba(10,26,12,0.08) !important; border-bottom: 1px solid rgba(10,26,12,0.08); }
+    .step { padding: 32px 20px; border-right: 1px solid rgba(10,26,12,0.08) !important; border-bottom: 1px solid rgba(10,26,12,0.08); }
     .step:nth-child(2n) { border-right: none !important; }
-    .hero-bottom { grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 56px; }
-    .hero-stat .stat-num { font-size: 28px; }
+    .step:nth-last-child(-n+2) { border-bottom: none; }
+    .step-num { font-size: 36px; margin-bottom: 16px; }
+    .step-title { font-size: 16px; }
+
+    /* Footer */
     .foot-grid { grid-template-columns: 1fr; gap: 32px; }
-    .foot-bottom { flex-direction: column; gap: 12px; }
+    .foot-bottom { flex-direction: column; gap: 12px; padding-top: 28px; text-align: center; }
+    .foot-brand { font-size: 26px; }
+
+    /* Cases */
     .cases-meta { grid-template-columns: 1fr; gap: 16px; }
+    .case { min-height: auto; }
+    .case-head, .case-body { padding: 28px 24px; }
+    .case-metric { font-size: clamp(40px, 11vw, 56px); }
+    .case-name { font-size: 17px; }
+
+    /* Diffs (legacy CSS, sin uso pero dejo por si vuelve) */
     .diff:nth-child(2n) { border-right: none; }
-    .diff { border-right: none !important; }
-    .testimonial { padding: 48px 28px; }
-    .testimonial::before { font-size: 160px; top: -20px; left: 12px; }
-    .skin-section { padding: 80px 24px; }
-    .skin-question { padding: 32px 24px; }
-    .skin-explain { grid-template-columns: 1fr; }
-    .skin-explain-item { border-right: none !important; border-bottom: 1px solid rgba(196, 168, 130, 0.12); padding: 32px 0 !important; }
+    .diff { border-right: none !important; padding: 36px 24px; }
+
+    /* Testimonial */
+    .testimonial { padding: 40px 24px; margin-top: 40px; }
+    .testimonial::before { font-size: 140px; top: -16px; left: 10px; }
+    .testimonial-text { font-size: 19px; }
+
+    /* Skin in the game */
+    .skin-section { padding: 72px 24px; }
+    .skin-eyebrow { margin-bottom: 20px; }
+    .skin-headline { font-size: clamp(28px, 7.5vw, 40px); margin-bottom: 32px; }
+    .skin-question { padding: 32px 24px; margin: 36px 0; }
+    .skin-question::before { font-size: 110px; top: -10px; left: 14px; }
+    .skin-question-text { font-size: clamp(20px, 5.6vw, 26px); line-height: 1.35; }
+    .skin-explain { grid-template-columns: 1fr; margin-top: 40px; }
+    .skin-explain-item { border-right: none !important; border-bottom: 1px solid rgba(196, 168, 130, 0.12); padding: 28px 0 !important; }
     .skin-explain-item:last-child { border-bottom: none; }
-    .cupo-section { padding: 80px 24px; }
-    .cupo-intro { grid-template-columns: 1fr; gap: 32px; }
-    .cupo-grid-slots { grid-template-columns: repeat(6, 1fr); }
-    .cupo-summary { grid-template-columns: 1fr; text-align: center; padding: 28px; }
+    .skin-cta-row { margin-top: 40px; padding-top: 32px; flex-direction: column; align-items: stretch; }
+    .skin-cta-row .btn { width: 100%; justify-content: center; }
+
+    /* Cupo */
+    .cupo-section { padding: 72px 24px; }
+    .cupo-intro { grid-template-columns: 1fr; gap: 24px; }
+    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .slot .slot-num { font-size: 16px; }
+    .urgency-pill { font-size: 11px; padding: 8px 14px; gap: 8px; margin-bottom: 28px; }
+    .urgency-pill-large { font-size: 12px; padding: 10px 18px; }
+    .cupo-legend { flex-direction: column; gap: 10px; font-size: 11px; }
+    .cupo-summary { grid-template-columns: 1fr; text-align: center; gap: 20px; padding: 28px 24px; }
     .cupo-summary .cs-num { font-size: 48px; }
-    .inline-cta { padding: 28px 24px; }
+    .cupo-summary .cs-text { font-size: 14px; }
+    .cupo-summary .btn { width: 100%; justify-content: center; }
+
+    /* Partners */
+    .partner { padding: 40px 28px; min-height: auto; }
+    .partner-name { font-size: 24px; }
+    .partner-quote { padding: 16px 18px; font-size: 14px; }
+
+    /* Valores */
+    .valor { padding: 40px 28px; min-height: auto; }
+    .valor-name { font-size: 24px; }
+    .valor-num { font-size: 56px; margin-bottom: 20px; }
+
+    /* Modelos comerciales */
+    .model { padding: 40px 28px; }
+    .model-title { font-size: clamp(26px, 6vw, 32px); }
+
+    /* Inline CTA */
+    .inline-cta {
+      padding: 28px 24px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 20px;
+      text-align: left;
+    }
+    .inline-cta-title { font-size: 18px; }
+    .inline-cta .btn { width: 100%; justify-content: center; }
+
+    /* CTA final */
+    .cta-final h2 { font-size: clamp(34px, 9vw, 52px); }
+    .cta-final-sub { font-size: 16px; margin-bottom: 36px; }
+    .cta-big { padding: 18px 28px; font-size: 12px; width: 100%; justify-content: center; }
+    .cta-meta { gap: 16px; flex-direction: column; align-items: center; font-size: 12px; }
+
+    /* Statement (la pregunta) */
+    .statement-section { padding: 56px 24px; }
+    .statement-text { font-size: clamp(24px, 6.5vw, 34px); margin-bottom: 24px; }
+    .statement-btn { width: 100%; justify-content: center; padding: 16px 24px; font-size: 12px; }
+
+    /* Chatbot */
+    .chat-widget { bottom: 16px; right: 16px; }
+    .chat-toggle { width: 56px; height: 56px; }
+    .chat-bubble { font-size: 12px; padding: 10px 32px 10px 14px; }
+    .chat-window { width: calc(100vw - 32px); height: calc(100vh - 100px); bottom: 70px; }
+
+    /* FAQ */
+    .faq-q { font-size: 16px; gap: 16px; padding: 22px 0; }
+    .faq-a { font-size: 14px; }
+  }
+
+  /* ============ MOBILE EXTRA SMALL ============ */
+  @media (max-width: 380px) {
+    section, .hero, .skin-section, .cupo-section, .cta-final, footer { padding-left: 18px; padding-right: 18px; }
+    .nav { padding: 12px 14px; }
+    .nav-cta { padding: 8px 12px; font-size: 9.5px; }
+    .nav-cta .dot { display: none; }
+    .hero-title { font-size: clamp(28px, 8.5vw, 40px) !important; }
+    h2 { font-size: clamp(26px, 7vw, 36px); }
+    .skin-headline { font-size: clamp(24px, 7vw, 34px); }
+    .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
+    .cases-meta .cm-num { font-size: 30px; }
+    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); }
   }
 </style>
 </head>
@@ -1740,10 +2740,12 @@
     <span class="tagline">Business Growth Partners</span>
   </a>
   <div class="nav-links">
-    <a href="#caminos">Caminos</a>
-    <a href="#casos">Casos</a>
-    <a href="#skin">Modelo</a>
+    <a href="#nosotros">Nuestra firma</a>
+    <a href="#caminos">Modelo</a>
+    <a href="#casos">Resultados</a>
     <a href="#cupo">Cupos</a>
+    <a href="#skin">Skin in the game</a>
+    <a href="#modelo">Precio</a>
     <a href="#socios">Socios</a>
     <a href="#faq">FAQ</a>
     <a href="#agendar" class="nav-cta" onclick="openCalendly(event)">
@@ -1751,10 +2753,37 @@
       Agendar 30 min
     </a>
   </div>
+  <button class="nav-burger" id="navBurger" aria-label="Abrir menú" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
-<!-- ============ STICKY MOBILE CTA ============ -->
-<a href="#agendar" class="book-sticky" onclick="openCalendly(event)">Agendar 30 min con los socios →</a>
+<!-- ============ MOBILE MENU OVERLAY ============ -->
+<div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+  <div class="mobile-menu-header">
+    <span class="mobile-menu-brand">Dearmas <span class="soft">Costantini</span></span>
+    <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Cerrar menú">×</button>
+  </div>
+  <nav class="mobile-menu-links">
+    <a href="#nosotros" data-mm-link>Nuestra firma</a>
+    <a href="#caminos" data-mm-link>Modelo</a>
+    <a href="#casos" data-mm-link>Resultados</a>
+    <a href="#cupo" data-mm-link>Cupos</a>
+    <a href="#skin" data-mm-link>Skin in the game</a>
+    <a href="#modelo" data-mm-link>Precio</a>
+    <a href="#socios" data-mm-link>Socios</a>
+    <a href="#faq" data-mm-link>FAQ</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <button class="btn btn-primary" onclick="openCalendlyFromMenu(event)" style="width: 100%; justify-content: center;">
+      Agendar 30 min con los socios <span class="arrow">→</span>
+    </button>
+    <div class="mobile-menu-meta">
+      <span>Federico Dearmas · Gianluca Costantini</span>
+      <span>LATAM · 2026</span>
+    </div>
+  </div>
+</div>
 
 <!-- ============ HERO ============ -->
 <section class="hero" id="top">
@@ -1762,9 +2791,12 @@
   <div class="hero-glow"></div>
 
   <div class="hero-mid">
+    <a href="#cupo" class="urgency-pill">
+      <span class="up-dot"></span>
+      Solo <strong>2 cupos disponibles</strong> · 2026
+    </a>
     <h1 class="hero-title">
-      <span class="line1">Tu socio de crecimiento</span>
-      <span class="line2">en LATAM.</span>
+      Tu socio de <span class="sand">crecimiento empresarial</span>.
     </h1>
     <p class="hero-sub">
       No somos una agencia. Somos una firma que se asocia a tu empresa con <strong>ejecución directa</strong> y <strong>responsabilidad sobre los resultados</strong>. Estrategia digital para quien vende online. IA para quien opera offline.
@@ -1778,35 +2810,17 @@
       </a>
     </div>
     <div class="hero-proof">
-      <span class="check">✓</span> Reunión directa con Fede o Gian — no con un comercial · Sin compromiso
+      <span class="check">✓</span> Reuníte con uno de los socios — no con un comercial · Sin compromiso
     </div>
   </div>
 
-  <div class="hero-bottom">
-    <div class="hero-stat">
-      <div class="stat-num">2</div>
-      <div class="stat-label">Socios involucrados<br>en todas las cuentas</div>
-    </div>
-    <div class="hero-stat">
-      <div class="stat-num">5<span style="font-size: 0.65em;">+</span></div>
-      <div class="stat-label">Años ejecutando<br>en negocios reales</div>
-    </div>
-    <div class="hero-stat">
-      <div class="stat-num">LATAM</div>
-      <div class="stat-label">Uruguay, Argentina,<br>Chile, México, Colombia</div>
-    </div>
-    <div class="hero-stat hero-stat-cupo">
-      <div class="stat-num"><span id="cupo-disponibles">3</span><span style="font-size: 0.5em; color: rgba(232,228,220,0.55); font-weight: 300;">/11</span></div>
-      <div class="stat-label"><span style="color: var(--arena); font-weight: 500;">Cupos disponibles</span><br>este año · atención directa</div>
-    </div>
-  </div>
-</section>
+  </section>
 
 <!-- ============ POSITIONING ============ -->
-<section class="marfil reveal">
+<section class="marfil reveal" id="nosotros">
   <div class="concept">
     <div>
-      <div class="label">Posicionamiento</div>
+      <div class="label">Nuestra firma</div>
       <h2>No es una agencia.<br>Es un socio.</h2>
     </div>
     <div>
@@ -1817,6 +2831,21 @@
         DC nace de quienes ejecutan en lugar de informar, de quienes se asocian en lugar de vender servicios — y entendieron que el crecimiento no se terceriza, se construye en conjunto.
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ STATEMENT QUESTION ============ -->
+<section class="statement-section reveal">
+  <div class="statement-grid"></div>
+  <div class="statement-glow"></div>
+  <div class="statement-inner">
+    <div class="statement-eyebrow">La pregunta</div>
+    <h2 class="statement-text">
+      ¿Estás dispuesto a <span class="sand">crecer un 30%</span> en tu negocio?
+    </h2>
+    <button class="btn btn-primary statement-btn" onclick="openCalendly(event)">
+      Agendar 30 min con los socios <span class="arrow">→</span>
+    </button>
   </div>
 </section>
 
@@ -1877,40 +2906,20 @@
 
 <!-- ============ CASES ============ -->
 <section class="marfil reveal tight-bottom" id="casos">
-  <div class="cases-intro">
-    <div>
-      <div class="label">Casos de éxito</div>
-      <h2>Resultados reales.<br>Empresas reales.</h2>
-      <p class="lead" style="color: var(--neblina);">
-        No mostramos capturas de pantalla genéricas ni proyecciones. Mostramos lo que ejecutamos con clientes que hoy siguen creciendo con nosotros.
-      </p>
-    </div>
-    <div class="cases-meta">
-      <div>
-        <div class="cm-num">+180%</div>
-        <div class="cm-label">Ventas online<br>en 6 meses</div>
-      </div>
-      <div>
-        <div class="cm-num">3x</div>
-        <div class="cm-label">Conversión<br>con nuevo embudo</div>
-      </div>
-      <div>
-        <div class="cm-num">60%</div>
-        <div class="cm-label">Consultas resueltas<br>por IA sin operador</div>
-      </div>
-    </div>
+  <div class="cases-intro cases-intro-simple">
+    <div class="label">Casos de éxito</div>
+    <h2>Resultados reales.<br>Empresas reales.</h2>
+    <p class="lead" style="color: var(--neblina);">
+      No mostramos capturas de pantalla genéricas ni proyecciones. Mostramos lo que ejecutamos con clientes que hoy siguen creciendo con nosotros.
+    </p>
   </div>
 
   <div class="cases-grid">
-    <!-- Caso 1 -->
+    <!-- Caso 1: Glassy Waves -->
     <div class="case">
       <div class="case-head">
-        <div class="case-client">
-          <div class="case-logo">GW</div>
-          <div>
-            <div class="case-name">Glassy Waves</div>
-            <div class="case-sector">Surf · Lifestyle · Uruguay</div>
-          </div>
+        <div class="case-logo-wrap has-logo">
+          <img src="logos/glassy.svg" alt="Glassy Waves">
         </div>
         <div class="case-tag">Camino 01 · Digital</div>
         <div class="case-metric">+180%</div>
@@ -1924,18 +2933,17 @@
           "Empezamos sin saber qué pedirles. Terminamos con una operación digital que funciona sin que tengamos que pensar en ella."
           <div class="case-author">— Fundador · Glassy Waves · referencia bajo pedido</div>
         </div>
+        <a href="https://glassywaves.com.uy" target="_blank" rel="noopener" class="case-link">
+          Visitar glassywaves.com.uy <span class="arrow">→</span>
+        </a>
       </div>
     </div>
 
-    <!-- Caso 2 -->
+    <!-- Caso 2: Wiz Trip -->
     <div class="case dark-case">
       <div class="case-head">
-        <div class="case-client">
-          <div class="case-logo">WT</div>
-          <div>
-            <div class="case-name">Wiz Trip</div>
-            <div class="case-sector">Turismo · Viajes · Uruguay</div>
-          </div>
+        <div class="case-logo-wrap has-logo">
+          <img src="logos/wiztrip.svg" alt="Wiz Trip">
         </div>
         <div class="case-tag">Camino 01 · Digital</div>
         <div class="case-metric">3x</div>
@@ -1949,18 +2957,17 @@
           "La diferencia es que no esperamos una presentación. Abrimos Slack y están ahí, haciendo."
           <div class="case-author">— Equipo fundador · Wiz Trip</div>
         </div>
+        <a href="https://wiz-trip.com" target="_blank" rel="noopener" class="case-link">
+          Visitar wiz-trip.com <span class="arrow">→</span>
+        </a>
       </div>
     </div>
 
-    <!-- Caso 3 -->
+    <!-- Caso 3: NDA -->
     <div class="case">
       <div class="case-head">
-        <div class="case-client">
-          <div class="case-logo">IA</div>
-          <div>
-            <div class="case-name">Caso IA · Retail</div>
-            <div class="case-sector">40 pedidos/día · LATAM</div>
-          </div>
+        <div class="case-logo-wrap nda">
+          <div class="case-logo-text">Cliente bajo NDA</div>
         </div>
         <div class="case-tag">Camino 02 · IA</div>
         <div class="case-metric">60%</div>
@@ -2029,25 +3036,42 @@
   <div class="cupo-intro">
     <div>
       <div class="label">Cupos disponibles</div>
-      <h2>11 clientes totales.<br>3 cupos abiertos.</h2>
+      <h2>8 clientes totales.<br>2 cupos abiertos.</h2>
+      <div class="urgency-pill urgency-pill-large">
+        <span class="up-dot"></span>
+        Solo <strong>2 cupos disponibles</strong>
+      </div>
     </div>
     <p class="lead" style="color: var(--neblina);">
-      No escalamos con más juniors ni account managers. La firma opera con <strong>11 cuentas activas como máximo</strong> — es la única forma de que Fede y Gian estén en todas. Cuando se llena, cerramos inscripciones hasta que un cliente cierra su ciclo.
+      La firma opera con <strong>8 cuentas activas como máximo</strong> — es la única forma de garantizar que los socios estén involucrados en cada una. Cuando se completan los cupos, cerramos inscripciones hasta que un cliente termina su ciclo.
     </p>
   </div>
 
   <div class="cupo-grid-slots" id="cupo-grid">
-    <div class="slot"><span class="slot-num">01</span></div>
-    <div class="slot"><span class="slot-num">02</span></div>
-    <div class="slot"><span class="slot-num">03</span></div>
-    <div class="slot"><span class="slot-num">04</span></div>
-    <div class="slot"><span class="slot-num">05</span></div>
-    <div class="slot"><span class="slot-num">06</span></div>
-    <div class="slot"><span class="slot-num">07</span></div>
-    <div class="slot"><span class="slot-num">08</span></div>
-    <div class="slot available"><span class="slot-num">09</span></div>
-    <div class="slot available"><span class="slot-num">10</span></div>
-    <div class="slot available"><span class="slot-num">11</span></div>
+    <div class="slot occupied has-logo" data-tooltip="Glassy Waves">
+      <img src="logos/glassy.svg" alt="Glassy Waves">
+    </div>
+    <div class="slot occupied has-logo" data-tooltip="Wiz Trip">
+      <img src="logos/wiztrip.svg" alt="Wiz Trip">
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA · Camino 02">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
+      <span class="slot-mark">NDA</span>
+    </div>
+    <div class="slot available" data-tooltip="Cupo disponible">
+      <span class="slot-mark">+</span>
+    </div>
+    <div class="slot available" data-tooltip="Cupo disponible">
+      <span class="slot-mark">+</span>
+    </div>
   </div>
 
   <div class="cupo-legend">
@@ -2056,9 +3080,9 @@
   </div>
 
   <div class="cupo-summary">
-    <div class="cs-num">3</div>
+    <div class="cs-num">2</div>
     <div class="cs-text">
-      Quedan <strong>3 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
+      Quedan <strong>solo 2 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
     </div>
     <button class="btn btn-primary" onclick="openCalendly(event)">
       Agendar reunión <span class="arrow">→</span>
@@ -2303,7 +3327,7 @@
     </div>
     <div class="faq-item">
       <div class="faq-q">¿Siempre hablo con los socios o con un ejecutivo de cuenta? <span class="faq-toggle">+</span></div>
-      <div class="faq-a">Los dos. Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong> — firman, deciden y están al tanto de cada decisión crítica. En el día a día operativo puede haber ida y vuelta con un ejecutivo de cuenta del equipo (es lo que permite escalar sin perder calidad), pero los socios nunca desaparecen. No es el modelo "account manager como traductor" de una agencia.</div>
+      <div class="faq-a">Los dos. Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong> — firman, deciden y están al tanto de cada decisión crítica. En el día a día operativo trabajás con un ejecutivo de cuenta del equipo, que articula con los socios y mantiene el ritmo de ejecución. La diferencia con una agencia es que las decisiones estratégicas siempre vuelven a los fundadores.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">¿Trabajan con cualquier tipo de empresa? <span class="faq-toggle">+</span></div>
@@ -2359,11 +3383,12 @@
     <div>
       <div class="foot-label">Navegación</div>
       <ul class="foot-list">
-        <li><a href="#caminos">Caminos</a></li>
-        <li><a href="#casos">Casos</a></li>
-        <li><a href="#cupo">Cupos disponibles</a></li>
+        <li><a href="#nosotros">Nuestra firma</a></li>
+        <li><a href="#caminos">Modelo</a></li>
+        <li><a href="#casos">Resultados</a></li>
+        <li><a href="#cupo">Cupos</a></li>
         <li><a href="#skin">Skin in the game</a></li>
-        <li><a href="#modelo">Modelo comercial</a></li>
+        <li><a href="#modelo">Precio</a></li>
         <li><a href="#socios">Socios</a></li>
         <li><a href="#faq">FAQ</a></li>
       </ul>
@@ -2388,26 +3413,219 @@
     </div>
   </div>
   <div class="foot-bottom">
-    <div>© 2026 Dearmas Costantini</div>
+    <div>© 2026 Dearmas Costantini · <a href="/privacidad" style="color: rgba(196, 168, 130, 0.7); text-decoration: underline; text-underline-offset: 3px;">Política de Privacidad</a></div>
     <div>Business Growth Partners · LATAM</div>
   </div>
 </footer>
 
+<!-- ============ CHATBOT WIDGET ============ -->
+<div class="chat-widget" id="chatWidget" aria-live="polite">
+  <!-- Burbuja "Estoy acá para ayudarte" -->
+  <div class="chat-bubble" id="chatBubble" role="button" tabindex="0">
+    <span class="chat-bubble-text">Estoy acá para ayudarte</span>
+    <button class="chat-bubble-close" id="chatBubbleClose" aria-label="Cerrar mensaje">×</button>
+  </div>
+
+  <!-- Botón flotante -->
+  <button class="chat-toggle" id="chatToggle" aria-label="Abrir chat" aria-expanded="false">
+    <svg class="chat-icon-open" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+    </svg>
+    <svg class="chat-icon-close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6L6 18M6 6l12 12"/>
+    </svg>
+    <span class="chat-pulse-dot"></span>
+  </button>
+
+  <!-- Ventana del chat -->
+  <div class="chat-window" id="chatWindow" aria-hidden="true">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <div class="chat-header-avatars">
+          <span class="ch-av">FD</span>
+          <span class="ch-av ch-av-2">GC</span>
+        </div>
+        <div>
+          <div class="chat-header-name">Asistente DC</div>
+          <div class="chat-header-status"><span class="ch-dot"></span> En línea · respuesta inmediata</div>
+        </div>
+      </div>
+      <button class="chat-close" id="chatClose" aria-label="Cerrar chat">×</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg chat-msg-bot">
+        <p>Hola, soy el asistente de Dearmas Costantini. Estoy acá para resolver dudas sobre cómo trabajamos, los casos, el modelo comercial o lo que necesites antes de agendar una reunión con los socios.</p>
+        <p>¿En qué te ayudo?</p>
+      </div>
+    </div>
+    <div class="chat-quick-actions" id="chatQuickActions">
+      <button class="chat-qa" data-prompt="¿En qué se diferencian de una agencia tradicional?">¿Diferencia con agencia?</button>
+      <button class="chat-qa" data-prompt="¿Cómo es el modelo de precios?">¿Cómo cobran?</button>
+      <button class="chat-qa" data-prompt="¿Pueden ayudar a un negocio como el mío?">¿Encajo con ustedes?</button>
+    </div>
+    <form class="chat-input-row" id="chatForm">
+      <textarea
+        id="chatInput"
+        class="chat-input"
+        placeholder="Escribí tu pregunta…"
+        rows="1"
+        aria-label="Escribe tu mensaje"
+      ></textarea>
+      <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar mensaje">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+        </svg>
+      </button>
+    </form>
+    <div class="chat-footer">Asistente IA · respuestas reales pero no reemplazan a una reunión con los socios</div>
+  </div>
+</div>
+
+<!-- ============ MODAL: pre-form antes de Calendly ============ -->
+<div class="prebook-overlay" id="prebookOverlay" aria-hidden="true">
+  <div class="prebook-modal" role="dialog" aria-modal="true" aria-labelledby="prebookTitle">
+    <button class="prebook-close" id="prebookClose" aria-label="Cerrar">×</button>
+    <div class="prebook-eyebrow">Antes de agendar</div>
+    <h3 class="prebook-title" id="prebookTitle">Contanos quién sos.</h3>
+    <p class="prebook-sub">Tres datos rápidos para que la reunión arranque con contexto. Tarda menos de un minuto.</p>
+
+    <form id="prebookForm" class="prebook-form" novalidate>
+      <div class="pb-field">
+        <label for="pb-name">Tu nombre</label>
+        <input type="text" id="pb-name" name="name" required autocomplete="name" placeholder="Federico Pérez">
+      </div>
+      <div class="pb-field">
+        <label for="pb-email">Email</label>
+        <input type="email" id="pb-email" name="email" required autocomplete="email" placeholder="federico@empresa.com">
+      </div>
+      <div class="pb-field">
+        <label for="pb-company">Empresa</label>
+        <input type="text" id="pb-company" name="company" required autocomplete="organization" placeholder="Nombre de tu empresa">
+      </div>
+      <div class="pb-field">
+        <label for="pb-reason">¿Por qué te contactás?</label>
+        <textarea id="pb-reason" name="reason" rows="3" required placeholder="Contanos brevemente qué buscás resolver."></textarea>
+      </div>
+      <label class="pb-consent">
+        <input type="checkbox" id="pb-consent" name="consent" required>
+        <span>
+          Acepto el tratamiento de mis datos personales según la
+          <a href="/privacidad" target="_blank" rel="noopener">Política de Privacidad</a>.
+        </span>
+      </label>
+      <button type="submit" class="btn btn-primary pb-submit">
+        Continuar al calendario <span class="arrow">→</span>
+      </button>
+    </form>
+  </div>
+</div>
+
 <script>
   // ============ Calendly ============
-  // REEMPLAZAR_CALENDLY: reemplazá esta URL con el Calendly real de Dearmas Costantini
-  const CALENDLY_URL = 'https://calendly.com/dearmascostantini/30min';
+  const CALENDLY_URL = 'https://calendly.com/dearmascostantini';
+
+  // Modal pre-booking
+  const overlay = document.getElementById('prebookOverlay');
+  const closeBtn = document.getElementById('prebookClose');
+  const form = document.getElementById('prebookForm');
 
   function openCalendly(e) {
     if (e) e.preventDefault();
-    if (window.Calendly && window.Calendly.initPopupWidget) {
-      Calendly.initPopupWidget({ url: CALENDLY_URL });
-    } else {
-      // Fallback: abrir en nueva pestaña si el widget no cargó
-      window.open(CALENDLY_URL, '_blank', 'noopener');
-    }
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('pb-name').focus(), 300);
     return false;
   }
+
+  function closeOverlay() {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  closeBtn.addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay(); });
+
+  // Endpoint del dashboard que recibe los leads de la landing.
+  // Si el dashboard no responde (CORS / down / etc), no bloqueamos al usuario:
+  // igual le abrimos Calendly. La idea es maximizar conversion, no perder
+  // bookings por un servidor caído.
+  const LEADS_ENDPOINT = 'https://sistemadearmascostantini.com/api/leads/from-landing';
+
+  async function sendLeadToDashboard(data) {
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 4000);
+      const res = await fetch(LEADS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        signal: ctrl.signal,
+        credentials: 'omit'
+      });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        console.warn('[lead] dashboard non-200:', res.status);
+      }
+    } catch (err) {
+      // No bloqueamos UX por errores del backend
+      console.warn('[lead] dashboard unreachable:', err);
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('pb-name').value.trim();
+    const email = document.getElementById('pb-email').value.trim();
+    const company = document.getElementById('pb-company').value.trim();
+    const reason = document.getElementById('pb-reason').value.trim();
+    const consent = document.getElementById('pb-consent').checked;
+
+    if (!name || !email || !company || !reason) return;
+    if (!consent) {
+      const consentLabel = document.querySelector('.pb-consent');
+      if (consentLabel) {
+        consentLabel.style.color = 'var(--bosque)';
+        consentLabel.style.fontWeight = '500';
+      }
+      return;
+    }
+
+    // Fire-and-forget al dashboard para crear el lead en pipeline.
+    // No esperamos la respuesta: abrimos Calendly al toque.
+    sendLeadToDashboard({ name, email, company, reason });
+
+    closeOverlay();
+
+    // Pasar datos a Calendly como prefill.
+    // El name va concatenado con la empresa por si no hay custom questions
+    // configuradas en Calendly — así el booker la ve igual.
+    // Si configurás a1 (motivo) y a2 (empresa) en el Event Type,
+    // se prefillean automáticamente con customAnswers abajo.
+    const prefillData = {
+      name: `${name} (${company})`,
+      email: email,
+      customAnswers: {
+        a1: reason,
+        a2: company
+      }
+    };
+
+    if (window.Calendly && window.Calendly.initPopupWidget) {
+      Calendly.initPopupWidget({ url: CALENDLY_URL, prefill: prefillData });
+    } else {
+      // Fallback URL params
+      const params = new URLSearchParams({
+        name: prefillData.name,
+        email: email,
+        a1: reason,
+        a2: company
+      });
+      window.open(`${CALENDLY_URL}?${params.toString()}`, '_blank', 'noopener');
+    }
+  });
 
   // ============ Nav scroll ============
   const nav = document.getElementById('nav');
@@ -2432,6 +3650,309 @@
   document.querySelectorAll('.faq-item').forEach(item => {
     item.querySelector('.faq-q').addEventListener('click', () => {
       item.classList.toggle('open');
+    });
+  });
+
+  // ============ Mobile menu (hamburger) ============
+  const burger = document.getElementById('navBurger');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const mobileClose = document.getElementById('mobileMenuClose');
+
+  function toggleMobileMenu(forceState) {
+    const isOpen = typeof forceState === 'boolean' ? forceState : !mobileMenu.classList.contains('open');
+    mobileMenu.classList.toggle('open', isOpen);
+    burger.classList.toggle('open', isOpen);
+    burger.setAttribute('aria-expanded', String(isOpen));
+    mobileMenu.setAttribute('aria-hidden', String(!isOpen));
+    document.body.classList.toggle('menu-open', isOpen);
+  }
+
+  burger.addEventListener('click', () => toggleMobileMenu());
+  mobileClose.addEventListener('click', () => toggleMobileMenu(false));
+
+  // Cerrar al click en cualquier link del menu mobile
+  document.querySelectorAll('[data-mm-link]').forEach(link => {
+    link.addEventListener('click', () => toggleMobileMenu(false));
+  });
+
+  // Cerrar con Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mobileMenu.classList.contains('open')) toggleMobileMenu(false);
+  });
+
+  // Wrapper para que el CTA del mobile menu cierre el menu y abra Calendly
+  function openCalendlyFromMenu(e) {
+    toggleMobileMenu(false);
+    // Pequeño delay para que la animación de cierre del menu termine antes del modal
+    setTimeout(() => openCalendly(e), 200);
+    return false;
+  }
+  window.openCalendlyFromMenu = openCalendlyFromMenu;
+
+  // ============ CHATBOT ============
+  const CHAT_ENDPOINT = 'https://sistemadearmascostantini.com/api/chat';
+  const chatWidget = document.getElementById('chatWidget');
+  const chatToggle = document.getElementById('chatToggle');
+  const chatWindow = document.getElementById('chatWindow');
+  const chatClose = document.getElementById('chatClose');
+  const chatBubble = document.getElementById('chatBubble');
+  const chatBubbleClose = document.getElementById('chatBubbleClose');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+  const chatSend = document.getElementById('chatSend');
+  const chatQuickActions = document.getElementById('chatQuickActions');
+
+  // Historial de mensajes (in-memory, solo durante esta visita)
+  const chatHistory = [];
+  let chatBubbleShown = false;
+  let chatOpened = false;
+
+  function showChatBubble() {
+    if (chatBubbleShown || chatOpened) return;
+    chatBubbleShown = true;
+    chatBubble.classList.add('show');
+    // Auto-hide después de 8 segundos
+    setTimeout(() => {
+      if (!chatOpened) chatBubble.classList.remove('show');
+    }, 8000);
+  }
+
+  function toggleChat(forceState) {
+    const open = typeof forceState === 'boolean' ? forceState : !chatWindow.classList.contains('open');
+    chatWindow.classList.toggle('open', open);
+    chatToggle.classList.toggle('active', open);
+    chatToggle.setAttribute('aria-expanded', String(open));
+    chatWindow.setAttribute('aria-hidden', String(!open));
+    if (open) {
+      chatOpened = true;
+      chatBubble.classList.remove('show');
+      setTimeout(() => chatInput.focus(), 250);
+    }
+  }
+
+  // Mostrar burbuja después de 6 segundos en la página
+  setTimeout(showChatBubble, 6000);
+  chatBubble.addEventListener('click', (e) => {
+    if (e.target.closest('.chat-bubble-close')) return;
+    toggleChat(true);
+  });
+  chatBubbleClose.addEventListener('click', (e) => {
+    e.stopPropagation();
+    chatBubble.classList.remove('show');
+  });
+
+  chatToggle.addEventListener('click', () => toggleChat());
+  chatClose.addEventListener('click', () => toggleChat(false));
+
+  // Auto-resize del textarea
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+  });
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      chatForm.requestSubmit();
+    }
+  });
+
+  function appendMessage(role, text, opts = {}) {
+    const div = document.createElement('div');
+    div.className = `chat-msg chat-msg-${role}`;
+    // Render simple: cada doble salto de línea es un párrafo nuevo
+    text.split(/\n\n+/).forEach(para => {
+      const p = document.createElement('p');
+      p.textContent = para.trim();
+      div.appendChild(p);
+    });
+    if (opts.cta) {
+      const btn = document.createElement('button');
+      btn.className = 'chat-cta-inline';
+      btn.innerHTML = 'Agendar 30 min con los socios <span>→</span>';
+      btn.onclick = () => {
+        toggleChat(false);
+        setTimeout(() => openCalendly(), 200);
+      };
+      div.appendChild(btn);
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+
+  function appendTyping() {
+    const div = document.createElement('div');
+    div.className = 'chat-msg chat-msg-bot chat-msg-typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    div.id = 'chatTypingIndicator';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+  function removeTyping() {
+    const t = document.getElementById('chatTypingIndicator');
+    if (t) t.remove();
+  }
+
+  // Heurística simple para detectar señales de intención de agendar
+  // y mostrar CTA inline después del mensaje del bot.
+  function detectsIntent(userText, botText) {
+    const text = (userText + ' ' + botText).toLowerCase();
+    const triggers = [
+      'agendar', 'reunir', 'reunion', 'llamada', 'cita', 'presupuesto',
+      'cuanto cuesta', 'cuánto cuesta', 'precio', 'tarifa', 'fee',
+      'me interesa', 'me sirve', 'cómo empiezo', 'como empiezo',
+      'siguiente paso', 'cuándo podemos', 'cuando podemos', 'evaluar'
+    ];
+    return triggers.some(t => text.includes(t));
+  }
+
+  // Crea un mensaje vacío para irlo rellenando con el stream.
+  // Devuelve { container, append, finalize } donde append agrega texto y
+  // finalize cierra el render (re-parsea párrafos y opcionalmente agrega CTA).
+  function createStreamingBotMessage() {
+    const div = document.createElement('div');
+    div.className = 'chat-msg chat-msg-bot chat-msg-streaming';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    let accumulated = '';
+    // Buffer interno para no manipular el DOM en cada caracter (lento).
+    // Dibujamos en frame con requestAnimationFrame.
+    let pendingFrame = false;
+
+    function paint() {
+      pendingFrame = false;
+      // Re-render del contenido como párrafos. Mantenemos la lógica simple:
+      // doble salto = nuevo párrafo. Mientras stream no termina, el último
+      // párrafo va creciendo.
+      const parts = accumulated.split(/\n\n+/);
+      div.innerHTML = '';
+      parts.forEach(text => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        div.appendChild(p);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function append(chunk) {
+      accumulated += chunk;
+      if (!pendingFrame) {
+        pendingFrame = true;
+        requestAnimationFrame(paint);
+      }
+    }
+
+    function finalize(opts = {}) {
+      paint();
+      div.classList.remove('chat-msg-streaming');
+      if (opts.cta) {
+        const btn = document.createElement('button');
+        btn.className = 'chat-cta-inline';
+        btn.innerHTML = 'Agendar 30 min con los socios <span>→</span>';
+        btn.onclick = () => {
+          toggleChat(false);
+          setTimeout(() => openCalendly(), 200);
+        };
+        div.appendChild(btn);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      return accumulated;
+    }
+
+    return { append, finalize, get text() { return accumulated; } };
+  }
+
+  async function sendChatMessage(userText) {
+    if (!userText.trim()) return;
+
+    // UI del user
+    appendMessage('user', userText);
+    chatHistory.push({ role: 'user', content: userText });
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    chatSend.disabled = true;
+    chatQuickActions.classList.add('hidden');
+
+    // Indicador "escribiendo…" mientras esperamos el primer chunk
+    const typingEl = appendTyping();
+
+    let botMsg = null;
+    let firstChunkReceived = false;
+
+    try {
+      const res = await fetch(CHAT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: chatHistory })
+      });
+
+      if (!res.ok) {
+        removeTyping();
+        appendMessage('bot', 'Tuve un problema técnico. Probá de nuevo en un momento, o agendá directamente una reunión y los socios te responden.', { cta: true });
+        chatSend.disabled = false;
+        return;
+      }
+
+      // Leer el stream chunk por chunk
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          removeTyping();
+          botMsg = createStreamingBotMessage();
+        }
+        botMsg.append(chunk);
+      }
+
+      // Stream cerrado — finalizar mensaje
+      if (!botMsg) {
+        // No llegó ni un chunk, fallback
+        appendMessage('bot', 'No pude responder esto. ¿Querés agendar 30 min con los socios y lo charlamos en vivo?', { cta: true });
+        chatSend.disabled = false;
+        return;
+      }
+
+      const fullReply = botMsg.text.trim();
+      const showCta = detectsIntent(userText, fullReply);
+      botMsg.finalize({ cta: showCta });
+      chatHistory.push({ role: 'assistant', content: fullReply });
+
+    } catch (err) {
+      removeTyping();
+      console.warn('[chat] error:', err);
+      if (botMsg) {
+        botMsg.finalize();
+      } else {
+        appendMessage('bot', 'No me pude conectar. Probá agendar directamente con los socios.', { cta: true });
+      }
+    } finally {
+      chatSend.disabled = false;
+      chatInput.focus();
+    }
+  }
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (text) sendChatMessage(text);
+  });
+
+  // Quick action buttons
+  document.querySelectorAll('.chat-qa').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.getAttribute('data-prompt');
+      if (prompt) sendChatMessage(prompt);
     });
   });
 </script>

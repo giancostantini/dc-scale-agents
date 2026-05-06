@@ -30,6 +30,7 @@ function loadBrief() {
 const BRIEF = loadBrief();
 const CLIENT = BRIEF.client;
 const RUN_ID = BRIEF.runId ?? null;
+const TRIGGERED_BY_USER_ID = BRIEF.triggered_by_user_id ?? null;
 
 if (!CLIENT || typeof CLIENT !== "string" || !CLIENT.trim()) {
   console.error(
@@ -49,7 +50,14 @@ function readVaultFile(relativePath) {
 }
 
 function writeVaultFile(relativePath, content) {
-  writeFileSync(resolve(VAULT, relativePath), content, "utf-8");
+  // Auto-creamos el directorio padre antes de escribir. Si vault/clients/X
+  // no existe (cliente nuevo, primer run del agente, vault no scaffold-eado
+  // todavía), writeFileSync tira ENOENT silenciosamente y se pierde el
+  // output del agente. Con esto, mkdirSync recursive garantiza que la
+  // jerarquía completa existe antes del write.
+  const filePath = resolve(VAULT, relativePath);
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, content, "utf-8");
 }
 
 function ensureDir(path) {
@@ -467,6 +475,7 @@ Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Lo
   await pushNotification(CLIENT, "success", `Calendario semanal listo`, shortSummary, {
     agent: AGENT,
     link: `/cliente/${CLIENT}/biblioteca`,
+    to_user_id: TRIGGERED_BY_USER_ID,
   });
 
   console.log(`[${AGENT}] done. ${shortSummary}`);
@@ -481,6 +490,9 @@ run().catch(async (err) => {
   if (RUN_ID) {
     await updateAgentRun(RUN_ID, { status: "error", summary: err.message });
   }
-  await pushNotification(CLIENT, "error", `Content strategy falló`, err.message, { agent: AGENT });
+  await pushNotification(CLIENT, "error", `Content strategy falló`, err.message, {
+    agent: AGENT,
+    to_user_id: TRIGGERED_BY_USER_ID,
+  });
   process.exit(1);
 });

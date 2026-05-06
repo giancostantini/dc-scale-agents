@@ -41,7 +41,10 @@ export default function EquipoDetailPage({
   // edit fields
   const [editName, setEditName] = useState("");
   const [editPosition, setEditPosition] = useState("");
-  const [editRole, setEditRole] = useState<"director" | "team">("team");
+  // role ahora incluye 'client' — un user puede ser cliente del portal
+  // vinculado a un cliente específico via client_id.
+  const [editRole, setEditRole] = useState<"director" | "team" | "client">("team");
+  const [editClientId, setEditClientId] = useState<string>("");
   const [editPaymentAmount, setEditPaymentAmount] = useState("");
   const [editPaymentCurrency, setEditPaymentCurrency] = useState("USD");
   const [editPaymentType, setEditPaymentType] = useState<
@@ -50,6 +53,8 @@ export default function EquipoDetailPage({
   const [editStartDate, setEditStartDate] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  // Permisos granulares (migration 007)
+  const [editPipelineAccess, setEditPipelineAccess] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // assignment form
@@ -80,7 +85,8 @@ export default function EquipoDetailPage({
       if (p) {
         setEditName(p.name);
         setEditPosition(p.position ?? "");
-        setEditRole(p.role);
+        setEditRole(p.role); // ahora preservamos 'client' tal cual
+        setEditClientId(p.client_id ?? "");
         setEditPaymentAmount(
           p.payment_amount != null ? String(p.payment_amount) : "",
         );
@@ -89,6 +95,7 @@ export default function EquipoDetailPage({
         setEditStartDate(p.start_date ?? "");
         setEditPhone(p.phone ?? "");
         setEditNotes(p.notes ?? "");
+        setEditPipelineAccess(p.permissions?.pipeline_access === true);
         await loadAssignments();
       }
     });
@@ -116,27 +123,45 @@ export default function EquipoDetailPage({
 
   async function save() {
     if (!profile || !canEdit) return;
+    // Validación: si role='client' obligatorio elegir cliente vinculado.
+    if (editRole === "client" && !editClientId) {
+      alert(
+        "Si el rol es 'client', tenés que vincularlo a un cliente. Elegí uno del dropdown.",
+      );
+      return;
+    }
     setSaving(true);
     try {
+      // Si role='client', limpiamos campos que no aplican al cliente final
+      // (pago, position, permisos del equipo) y obligamos client_id.
+      // Si role='team' o 'director', limpiamos client_id (no debe quedar
+      // colgado de un cambio previo).
+      const isClientRole = editRole === "client";
       const updated = await updateProfile(profile.id, {
         name: editName.trim() || profile.name,
-        position: editPosition || null,
+        position: isClientRole ? null : editPosition || null,
         role: editRole,
-        payment_amount: editPaymentAmount
-          ? Number(editPaymentAmount) || null
-          : null,
-        payment_currency: editPaymentCurrency || null,
-        payment_type: editPaymentType,
-        start_date: editStartDate || null,
+        client_id: isClientRole ? editClientId : null,
+        payment_amount: isClientRole
+          ? null
+          : editPaymentAmount
+            ? Number(editPaymentAmount) || null
+            : null,
+        payment_currency: isClientRole ? null : editPaymentCurrency || null,
+        payment_type: isClientRole ? null : editPaymentType,
+        start_date: isClientRole ? null : editStartDate || null,
         phone: editPhone || null,
         notes: editNotes || null,
+        permissions: isClientRole
+          ? {}
+          : { pipeline_access: editPipelineAccess },
       });
       if (updated) setProfile(updated);
       alert("Cambios guardados.");
     } catch (err) {
       console.error("update profile error:", err);
       alert(
-        "No se pudo guardar. Asegurate de ser director y de que la migration 004 esté aplicada en Supabase.",
+        "No se pudo guardar. Asegurate de ser director y de que la migration 004/007 esté aplicada en Supabase.",
       );
     } finally {
       setSaving(false);
@@ -235,65 +260,141 @@ export default function EquipoDetailPage({
               disabled={!canEdit}
             />
             <SelectField
-              label="Posición en la firma"
-              value={editPosition}
-              setValue={setEditPosition}
-              options={[""].concat(TEAM_POSITIONS.map((p) => p))}
-              disabled={!canEdit}
-            />
-            <SelectField
               label="Rol en el sistema"
               value={editRole}
-              setValue={(v) => setEditRole(v as "director" | "team")}
-              options={["team", "director"]}
+              setValue={(v) =>
+                setEditRole(v as "director" | "team" | "client")
+              }
+              options={["team", "director", "client"]}
               disabled={!canEdit}
             />
+            {/* Si role='client': dropdown de cliente vinculado.
+                Si role='team' o 'director': campos de equipo (position, fecha inicio). */}
+            {editRole === "client" ? (
+              <SelectField
+                label="Cliente vinculado · obligatorio"
+                value={editClientId}
+                setValue={setEditClientId}
+                options={[""].concat(clients.map((c) => c.id))}
+                disabled={!canEdit}
+              />
+            ) : (
+              <SelectField
+                label="Posición en la firma"
+                value={editPosition}
+                setValue={setEditPosition}
+                options={[""].concat(TEAM_POSITIONS.map((p) => p))}
+                disabled={!canEdit}
+              />
+            )}
             <Field
               label="Teléfono"
               value={editPhone}
               setValue={setEditPhone}
               disabled={!canEdit}
             />
-            <Field
-              label="Fecha de inicio"
-              type="date"
-              value={editStartDate}
-              setValue={setEditStartDate}
-              disabled={!canEdit}
-            />
+            {editRole !== "client" && (
+              <Field
+                label="Fecha de inicio"
+                type="date"
+                value={editStartDate}
+                setValue={setEditStartDate}
+                disabled={!canEdit}
+              />
+            )}
           </div>
+          {editRole === "client" && editClientId && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+                fontSize: 12,
+                color: "var(--text-muted)",
+              }}
+            >
+              Cliente vinculado:{" "}
+              <strong>
+                {clients.find((c) => c.id === editClientId)?.name ?? editClientId}
+              </strong>
+              . Cuando entre al sistema, accede solo a <code>/portal</code>.
+            </div>
+          )}
         </Section>
 
-        {/* ===== Pago ===== */}
-        <Section title="Pago">
-          <div className={detail.fieldGrid3}>
-            <SelectField
-              label="Tipo"
-              value={editPaymentType}
-              setValue={(v) =>
-                setEditPaymentType(
-                  v as "fijo" | "por_proyecto" | "por_hora" | "mixto",
-                )
-              }
-              options={["fijo", "por_proyecto", "por_hora", "mixto"]}
-              disabled={!canEdit}
-            />
-            <Field
-              label="Monto"
-              type="number"
-              value={editPaymentAmount}
-              setValue={setEditPaymentAmount}
-              disabled={!canEdit}
-            />
-            <SelectField
-              label="Moneda"
-              value={editPaymentCurrency}
-              setValue={setEditPaymentCurrency}
-              options={["USD", "UYU", "ARS", "EUR"]}
-              disabled={!canEdit}
-            />
-          </div>
-        </Section>
+        {/* ===== Pago (solo team/director) ===== */}
+        {editRole !== "client" && (
+          <Section title="Pago">
+            <div className={detail.fieldGrid3}>
+              <SelectField
+                label="Tipo"
+                value={editPaymentType}
+                setValue={(v) =>
+                  setEditPaymentType(
+                    v as "fijo" | "por_proyecto" | "por_hora" | "mixto",
+                  )
+                }
+                options={["fijo", "por_proyecto", "por_hora", "mixto"]}
+                disabled={!canEdit}
+              />
+              <Field
+                label="Monto"
+                type="number"
+                value={editPaymentAmount}
+                setValue={setEditPaymentAmount}
+                disabled={!canEdit}
+              />
+              <SelectField
+                label="Moneda"
+                value={editPaymentCurrency}
+                setValue={setEditPaymentCurrency}
+                options={["USD", "UYU", "ARS", "EUR"]}
+                disabled={!canEdit}
+              />
+            </div>
+          </Section>
+        )}
+
+        {/* ===== Permisos granulares ===== */}
+        {canEdit && editRole === "team" && (
+          <Section title="Permisos">
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                cursor: "pointer",
+                padding: 14,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={editPipelineAccess}
+                onChange={(e) => setEditPipelineAccess(e.target.checked)}
+                style={{ width: 18, height: 18, marginTop: 2 }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                  Acceso al Pipeline (CRM)
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Por defecto el equipo no ve leads ni campañas de prospección.
+                  Activá esto si {profile.name.split(" ")[0]} necesita acceder
+                  al CRM para gestionar prospección y outbound.
+                </div>
+              </div>
+            </label>
+          </Section>
+        )}
 
         {/* ===== Notas ===== */}
         {canEdit && (
@@ -321,7 +422,10 @@ export default function EquipoDetailPage({
           </div>
         )}
 
-        {/* ===== Asignaciones a clientes ===== */}
+        {/* ===== Asignaciones a clientes (solo team — los clients no se
+             asignan a clientes, ellos SON el cliente) ===== */}
+        {editRole !== "client" && (
+          <>
         <Section title={`Clientes asignados (${assignments.length})`}>
           {assignments.length === 0 ? (
             <div className={detail.empty}>
@@ -408,6 +512,8 @@ export default function EquipoDetailPage({
             </div>
           )}
         </Section>
+          </>
+        )}
       </main>
     </>
   );

@@ -810,6 +810,7 @@ export async function runStockAgent(briefInput) {
   await pushNotification(brief.client, notifLevel, `Stock ${brief.mode} listo`, notifBody, {
     agent: AGENT,
     link: `/cliente/${brief.client}`,
+    to_user_id: brief.triggered_by_user_id ?? null,
   });
 
   return {
@@ -848,6 +849,9 @@ main().catch(async (err) => {
   if (fallbackBrief.runId) {
     await updateAgentRun(fallbackBrief.runId, { status: "error", summary: err.message });
   }
-  await pushNotification(fallbackBrief.client, "error", `Stock falló`, err.message, { agent: AGENT });
+  await pushNotification(fallbackBrief.client, "error", `Stock falló`, err.message, {
+    agent: AGENT,
+    to_user_id: fallbackBrief.triggered_by_user_id ?? null,
+  });
   process.exit(1);
 });

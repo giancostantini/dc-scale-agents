@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
@@ -61,6 +61,7 @@ function readVaultFile(relativePath) {
 
 function appendToVaultFile(relativePath, content) {
   const filePath = resolve(VAULT, relativePath);
+  mkdirSync(dirname(filePath), { recursive: true });
   const existing = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
   writeFileSync(filePath, existing + "\n" + content, "utf-8");
 }
@@ -692,7 +693,11 @@ export async function createContent(briefInput) {
     isPublished ? "success" : "info",
     `Pieza #${pieceId} ${isPublished ? "publicada" : "lista"}`,
     `${brief.pieceType}${brief.angle ? ` · ${brief.angle}` : ""}`,
-    { agent: AGENT, link: `/cliente/${brief.client}/biblioteca` },
+    {
+      agent: AGENT,
+      link: `/cliente/${brief.client}/biblioteca`,
+      to_user_id: brief.triggered_by_user_id ?? null,
+    },
   );
 
   return {
@@ -728,6 +733,7 @@ async function main() {
     }
     await pushNotification(brief.client, "error", `Content Creator falló`, err.message, {
       agent: AGENT,
+      to_user_id: brief.triggered_by_user_id ?? null,
     });
     process.exit(1);
   }

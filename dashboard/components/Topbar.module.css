@@ -165,3 +165,29 @@
     max-width: 100%;
   }
 }
+
+@media (max-width: 460px) {
+  .topbar {
+    padding: 12px 14px;
+  }
+  .brandText {
+    font-size: 14px;
+  }
+  .actions {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .btn {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .userName,
+  .userRole {
+    display: none;
+  }
+  .user {
+    padding-left: 8px;
+    margin-left: 4px;
+  }
+}

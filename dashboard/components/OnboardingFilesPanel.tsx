@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 import { getDownloadUrl, formatBytes } from "@/lib/upload";
+import AssetViewer from "@/components/AssetViewer";
 import type { ClientOnboarding, OnboardingFile } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
+
+function isPreviewable(name: string): boolean {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return (
+    ext === "pdf" ||
+    ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"].includes(ext)
+  );
+}
 
 interface Props {
   onboarding?: ClientOnboarding;
@@ -45,6 +54,9 @@ function describe(file: OnboardingFile | string): {
 export default function OnboardingFilesPanel({ onboarding }: Props) {
   const entries = flatten(onboarding);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<{ path: string; name: string } | null>(
+    null,
+  );
 
   if (entries.length === 0) return null;
 
@@ -142,14 +154,23 @@ export default function OnboardingFilesPanel({ onboarding }: Props) {
                           </div>
                         )}
                       </div>
-                      <button
-                        className={ui.btnGhost}
-                        style={{ flexShrink: 0 }}
-                        disabled={isLoading}
-                        onClick={() => handleDownload(path)}
-                      >
-                        {isLoading ? "Generando…" : "Descargar"}
-                      </button>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {isPreviewable(name) && (
+                          <button
+                            className={ui.btnGhost}
+                            onClick={() => setViewing({ path, name })}
+                          >
+                            Ver
+                          </button>
+                        )}
+                        <button
+                          className={ui.btnGhost}
+                          disabled={isLoading}
+                          onClick={() => handleDownload(path)}
+                        >
+                          {isLoading ? "Generando…" : "Descargar"}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -158,6 +179,14 @@ export default function OnboardingFilesPanel({ onboarding }: Props) {
           );
         })}
       </div>
+
+      <AssetViewer
+        key={viewing?.path ?? "closed"}
+        open={viewing !== null}
+        path={viewing?.path ?? null}
+        name={viewing?.name ?? ""}
+        onClose={() => setViewing(null)}
+      />
     </div>
   );
 }

@@ -1076,6 +1076,9 @@ interface IntRow {
   group_name: string;
   status: Integration["status"];
   account: string | null;
+  credentials: Record<string, string> | null;
+  submitted_by: string | null;
+  submitted_at: string | null;
 }
 
 function intFromRow(r: IntRow): Integration {
@@ -1087,6 +1090,9 @@ function intFromRow(r: IntRow): Integration {
     group: r.group_name,
     status: r.status,
     account: r.account ?? undefined,
+    credentials: r.credentials ?? {},
+    submittedBy: r.submitted_by,
+    submittedAt: r.submitted_at,
   };
 }
 
@@ -1094,7 +1100,7 @@ export async function getIntegrations(clientId: string): Promise<Integration[]> 
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("integrations")
-    .select("*")
+    .select("id, client_id, key, name, group_name, status, account, credentials, submitted_by, submitted_at")
     .eq("client_id", clientId);
   if (error) return [];
   return (data as IntRow[]).map(intFromRow);
@@ -1117,6 +1123,7 @@ export async function saveIntegrations(
       group_name: i.group,
       status: i.status,
       account: i.account ?? null,
+      credentials: i.credentials ?? {},
     })),
   );
 }
@@ -1137,4 +1144,30 @@ export async function toggleIntegration(clientId: string, key: string): Promise<
     .update({ status: next })
     .eq("client_id", clientId)
     .eq("key", key);
+}
+
+/**
+ * Guarda credenciales/IDs cargadas por el cliente desde el portal.
+ * Setea status='connected' automáticamente y registra submitted_by/at.
+ * El trigger SQL `audit_integration_update` se encarga del audit_log
+ * y la notif al team.
+ */
+export async function updateIntegrationCredentials(
+  clientId: string,
+  key: string,
+  credentials: Record<string, string>,
+  userId: string,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("integrations")
+    .update({
+      credentials,
+      status: "connected",
+      submitted_by: userId,
+      submitted_at: new Date().toISOString(),
+    })
+    .eq("client_id", clientId)
+    .eq("key", key);
+  if (error) throw new Error(`No pude guardar las credenciales: ${error.message}`);
 }

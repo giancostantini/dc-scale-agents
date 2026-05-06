@@ -13,7 +13,11 @@ import {
   deleteLead,
   deleteCampaign,
 } from "@/lib/storage";
-import { hasSession } from "@/lib/supabase/auth";
+import {
+  hasSession,
+  getCurrentProfile,
+  hasPipelineAccess,
+} from "@/lib/supabase/auth";
 import type { Lead, PipelineStage, ProspectCampaign } from "@/lib/types";
 import styles from "./pipeline.module.css";
 
@@ -46,9 +50,15 @@ export default function PipelinePage() {
   }, []);
 
   useEffect(() => {
-    hasSession().then((has) => {
+    hasSession().then(async (has) => {
       if (!has) {
         router.replace("/");
+        return;
+      }
+      // Gate: solo director y team con pipeline_access
+      const profile = await getCurrentProfile();
+      if (!hasPipelineAccess(profile)) {
+        router.replace(profile?.role === "client" ? "/portal" : "/hub");
         return;
       }
       setAuthChecked(true);

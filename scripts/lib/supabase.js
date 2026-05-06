@@ -371,6 +371,14 @@ export async function registerAgentOutput(runId, client, agent, output) {
  * Push a notification to the dashboard bell. Replaces Telegram as the primary
  * channel for agent-to-user messages.
  *
+ * **Visibilidad** — la notif puede ser personal o por rol:
+ *   - `to_user_id`: solo ese user la ve. Usar para notifs de runs disparados
+ *     por un actor específico (Pieza #X lista, Content Creator falló).
+ *   - `to_role`: todos los del rol con acceso al cliente la ven.
+ *     Usar para eventos compartidos (cliente cargó solicitud → 'team').
+ *   - Si no se pasa ninguno, fallback a `to_role='director'` (no contamina
+ *     la bandeja del team con runs no atribuidos).
+ *
  * @param {string} client
  * @param {"info"|"success"|"warning"|"error"} level
  * @param {string} title
@@ -378,10 +386,17 @@ export async function registerAgentOutput(runId, client, agent, output) {
  * @param {Object} [opts]
  * @param {string} [opts.agent]
  * @param {string} [opts.link] - Deep link the dashboard should navigate to
+ * @param {string|null} [opts.to_user_id] - User-specific. Overrides to_role.
+ * @param {"director"|"team"|"client"} [opts.to_role] - Role-broadcast.
  * @returns {Promise<Object|null>}
  */
 export async function pushNotification(client, level, title, body, opts = {}) {
   try {
+    // Si vino to_user_id (notif personal), usarlo. Sino to_role explícito.
+    // Sino fallback a 'director' para que las notifs huérfanas no terminen
+    // visibles a todo el equipo (era el bug que reportó el usuario).
+    const to_user_id = opts.to_user_id ?? null;
+    const to_role = opts.to_role ?? (to_user_id ? null : "director");
     return await insert("notifications", {
       client,
       agent: opts.agent ?? null,
@@ -389,6 +404,9 @@ export async function pushNotification(client, level, title, body, opts = {}) {
       title,
       body: body ?? null,
       link: opts.link ?? null,
+      to_user_id,
+      to_role,
+      email_sent: false,
     });
   } catch (err) {
     console.warn(`[supabase] pushNotification failed (non-fatal): ${err.message}`);

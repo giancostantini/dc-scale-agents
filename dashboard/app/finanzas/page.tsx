@@ -48,14 +48,20 @@ export default function FinanzasPage() {
   }, []);
 
   useEffect(() => {
-    hasSession().then((has) => {
+    hasSession().then(async (has) => {
       if (!has) {
         router.replace("/");
         return;
       }
+      // Gate: solo director ve Finanzas (info sensible: pagos, payroll, expenses)
+      const profile = await getCurrentProfile();
+      if (profile?.role !== "director") {
+        router.replace(profile?.role === "client" ? "/portal" : "/hub");
+        return;
+      }
+      setIsDirector(true);
       setAuthChecked(true);
       refresh();
-      getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
     });
   }, [router, refresh]);
 

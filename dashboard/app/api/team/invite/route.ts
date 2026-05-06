@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logAction } from "@/lib/audit";
 
 function makeInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -92,12 +93,18 @@ export async function POST(req: NextRequest) {
   type InviteBody = {
     email?: string;
     name?: string;
+    // Para role='team' (default): los campos de equipo
+    role?: "team" | "client";
     position?: string;
     paymentAmount?: number | string;
     paymentCurrency?: string;
     paymentType?: "fijo" | "por_proyecto" | "por_hora" | "mixto";
     startDate?: string;
     phone?: string;
+    // Para role='client'
+    clientId?: string;
+    // Permisos granulares (team)
+    pipelineAccess?: boolean;
   };
 
   let body: InviteBody;
@@ -109,10 +116,18 @@ export async function POST(req: NextRequest) {
 
   const email = body.email?.trim().toLowerCase();
   const name = body.name?.trim() ?? "";
+  const targetRole: "team" | "client" = body.role === "client" ? "client" : "team";
+  const clientId = body.clientId?.trim();
 
   if (!email || !name) {
     return NextResponse.json(
       { error: "email y name son requeridos" },
+      { status: 400 },
+    );
+  }
+  if (targetRole === "client" && !clientId) {
+    return NextResponse.json(
+      { error: "Para invitar un cliente necesitás clientId." },
       { status: 400 },
     );
   }
@@ -122,9 +137,21 @@ export async function POST(req: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Construimos la URL de "set password" para que el link del email lleve
+  // al usuario directo a setear su contraseña (no al login que no funciona
+  // sin password). Tomamos el origin del request y le agregamos /auth/reset
+  // (la misma página sirve para invite + password recovery: ambos casos
+  // resultan en una sesión activa donde el user setea su password).
+  // Esta URL DEBE estar en la allowlist de Redirect URLs en Supabase Auth.
+  const origin = req.headers.get("origin") ||
+    req.headers.get("referer")?.replace(/\/[^/]*$/, "") ||
+    `https://${req.headers.get("host")}`;
+  const redirectTo = `${origin}/auth/reset`;
+
   const { data: invite, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(email, {
       data: { name },
+      redirectTo,
     });
 
   if (inviteError) {
@@ -144,26 +171,60 @@ export async function POST(req: NextRequest) {
   // Acá pisamos los campos del wizard.
   const newUserId = invite.user?.id;
   if (newUserId) {
-    const paymentAmt =
-      typeof body.paymentAmount === "string"
-        ? Number(body.paymentAmount)
-        : body.paymentAmount;
+    if (targetRole === "client") {
+      // Cliente final: profile con role='client', client_id seteado.
+      // Sin info de pago (eso es interno del equipo).
+      await admin
+        .from("profiles")
+        .update({
+          name,
+          initials: makeInitials(name),
+          role: "client",
+          client_id: clientId,
+          phone: body.phone ?? null,
+        })
+        .eq("id", newUserId);
+    } else {
+      // Team: con info de pago + permisos granulares
+      const paymentAmt =
+        typeof body.paymentAmount === "string"
+          ? Number(body.paymentAmount)
+          : body.paymentAmount;
 
-    await admin
-      .from("profiles")
-      .update({
-        name,
-        initials: makeInitials(name),
-        position: body.position ?? null,
-        payment_amount:
-          paymentAmt && !Number.isNaN(paymentAmt) ? paymentAmt : null,
-        payment_currency: body.paymentCurrency ?? "USD",
-        payment_type: body.paymentType ?? "fijo",
-        start_date: body.startDate || null,
-        phone: body.phone ?? null,
-      })
-      .eq("id", newUserId);
+      await admin
+        .from("profiles")
+        .update({
+          name,
+          initials: makeInitials(name),
+          role: "team",
+          position: body.position ?? null,
+          payment_amount:
+            paymentAmt && !Number.isNaN(paymentAmt) ? paymentAmt : null,
+          payment_currency: body.paymentCurrency ?? "USD",
+          payment_type: body.paymentType ?? "fijo",
+          start_date: body.startDate || null,
+          phone: body.phone ?? null,
+          permissions: body.pipelineAccess
+            ? { pipeline_access: true }
+            : {},
+        })
+        .eq("id", newUserId);
+    }
   }
+
+  await logAction({
+    actorId: caller.id,
+    actorEmail: caller.email ?? null,
+    action: "team.invite",
+    targetType: "profile",
+    targetId: newUserId ?? email,
+    metadata: {
+      email,
+      name,
+      role: targetRole,
+      clientId: clientId ?? null,
+    },
+  });
 
   return NextResponse.json({
     success: true,

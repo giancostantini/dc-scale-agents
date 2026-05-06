@@ -17,9 +17,11 @@
  */
 
 import { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext } from "@/lib/vault-loader";
+import { logAction } from "@/lib/audit";
 
 interface RunRequest {
   clientId: string;
@@ -79,6 +81,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Leer JWT del caller para identificar el actor que dispara el agente.
+  // Este user_id se propaga al brief y los agentes lo usan para crear
+  // notifs personales (to_user_id) — sin esto las notifs quedan globales
+  // del rol team y todos los del equipo + directores las ven.
+  // Si falla la auth, igual permitimos pero sin actor (fallback to_role).
+  let triggeredByUserId: string | null = null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const callerToken = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (callerToken && url && anonKey) {
+    try {
+      const callerClient = createClient(url, anonKey, {
+        global: { headers: { Authorization: `Bearer ${callerToken}` } },
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const {
+        data: { user: caller },
+      } = await callerClient.auth.getUser();
+      if (caller) triggeredByUserId = caller.id;
+    } catch (err) {
+      console.warn(
+        "[agents/run] could not validate JWT (continuing without actor):",
+        err,
+      );
+    }
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data: run, error: insertError } = await supabase
@@ -88,7 +117,14 @@ export async function POST(req: NextRequest) {
       agent,
       status: "running",
       summary: "dispatched from dashboard",
-      metadata: { brief, source: "dashboard" },
+      // Guardamos el actor en metadata.triggered_by_user_id para
+      // poder reconstruir auditoría aunque el agente falle antes
+      // de leer el brief.
+      metadata: {
+        brief,
+        source: "dashboard",
+        triggered_by_user_id: triggeredByUserId,
+      },
       performance: {},
     })
     .select()
@@ -137,6 +173,7 @@ export async function POST(req: NextRequest) {
         client: clientId,
         runId: run.id,
         source: "dashboard",
+        triggered_by_user_id: triggeredByUserId,
         vaultContext,
       });
 
@@ -175,6 +212,10 @@ export async function POST(req: NextRequest) {
           client: clientId,
           source: "dashboard",
           runId: run.id,
+          // Propagamos el actor para que el agente pueda crear notifs
+          // personales (to_user_id) cuando termine. Sin esto, las notifs
+          // quedan to_role='team' y todo el equipo las ve.
+          triggered_by_user_id: triggeredByUserId,
         },
       },
     });
@@ -193,6 +234,14 @@ export async function POST(req: NextRequest) {
       { status: 502 },
     );
   }
+
+  await logAction({
+    actorId: null,
+    action: "agent.dispatch",
+    targetType: "agent_run",
+    targetId: String(run.id),
+    metadata: { agent, clientId, fast: false },
+  });
 
   return Response.json({ runId: run.id, dispatched: true });
 }

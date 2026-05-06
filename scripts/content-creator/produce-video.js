@@ -123,64 +123,145 @@ function validateRemotionCode(code, compositionId) {
 }
 
 /**
- * Detección heurística de truncamiento por max_tokens. Corre SIEMPRE — no
- * depende de esbuild ni de ninguna dep externa. Si Claude se quedó sin
- * tokens a media generación, vamos a ver braces/tags desbalanceados o un
- * cierre abrupto. Esto es defensa en profundidad: aunque tryParseTsx falle
- * en resolver esbuild, este check atrapa el caso y devuelve un mensaje
- * accionable ("subir brief.remotionMaxTokens").
+ * Strips de comentarios y string literals antes de contar tags/braces. Un
+ * comentario JSX `{/* missing </div> *\/}` o un string `"<div>"` puede
+ * inflar artificialmente el count y darnos un falso "balanced". Quitamos:
+ *   - `// line comment`
+ *   - `/* block comment *\/`
+ *   - `{/* JSX comment *\/}`
+ *   - strings con comillas dobles, simples, y backticks
  *
- * Retorna null si parece completo, o string con el motivo si parece truncado.
+ * Es heurístico (no un parser TS real) pero alcanza para los outputs de Claude
+ * que son código bien formado salvo por el bug que estamos cazando.
  */
-function detectTruncation(code) {
-  const trimmed = (code || "").trim();
-  if (!trimmed) return "TSX vacío";
-
-  const tail = trimmed.slice(-200);
-  const lastChar = trimmed[trimmed.length - 1];
-  // Cierres válidos: } ; ) > ] /. Cualquier otra cosa = truncamiento.
-  if (!"};)>]/".includes(lastChar)) {
-    return `TSX termina abrupto con "${lastChar}". Últimos 200 chars: ${JSON.stringify(tail)}`;
-  }
-
-  const stripped = stripStringsAndComments(trimmed);
-  const openBraces = (stripped.match(/\{/g) || []).length;
-  const closeBraces = (stripped.match(/\}/g) || []).length;
-  if (openBraces !== closeBraces) {
-    return `Braces desbalanceadas (${openBraces} abre vs ${closeBraces} cierra). Últimos 200 chars: ${JSON.stringify(tail)}`;
-  }
-
-  const divOpen = (stripped.match(/<div(?:\s|>)/g) || []).length;
-  const divClose = (stripped.match(/<\/div>/g) || []).length;
-  if (divOpen !== divClose) {
-    return `<div> desbalanceados (${divOpen} abre vs ${divClose} cierra). Últimos 200 chars: ${JSON.stringify(tail)}`;
-  }
-
-  for (const tag of ["AbsoluteFill", "Sequence", "SafeZone"]) {
-    const open = (stripped.match(new RegExp(`<${tag}(?:\\s|>)`, "g")) || []).length;
-    const close = (stripped.match(new RegExp(`</${tag}>`, "g")) || []).length;
-    // Tolerar self-closing (open puede exceder por 1 si el último <Tag ... />).
-    if (close > open || open > close + 1) {
-      return `<${tag}> desbalanceados (${open} abre vs ${close} cierra)`;
-    }
-  }
-
-  return null;
+function stripCommentsAndStrings(code) {
+  let out = code;
+  // 1. JSX comments: {/* ... */}
+  out = out.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  // 2. Block comments: /* ... */
+  out = out.replace(/\/\*[\s\S]*?\*\//g, "");
+  // 3. Line comments: // ...
+  out = out.replace(/\/\/[^\n]*/g, "");
+  // 4. Template literals: `...` (incluyendo escaped)
+  out = out.replace(/`(?:[^`\\]|\\.)*`/g, "``");
+  // 5. Strings con comillas dobles
+  out = out.replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
+  // 6. Strings con comillas simples
+  out = out.replace(/'(?:[^'\\\n]|\\.)*'/g, "''");
+  return out;
 }
 
 /**
- * Helper: borra strings, template literals y comentarios. Heurística simple
- * (no parser) para que el conteo de braces no confunda `${expr}` ni un
- * string con `{` adentro. Atrapa los casos comunes; cualquier falso positivo
- * cae en el siguiente stage (validate o esbuild).
+ * Valida balance de tags JSX + cierres de braces + último char. Si Claude
+ * cortó la generación a mitad de un componente (max_tokens) suele dejar:
+ *   1. Último caracter abrupto (no es `}`, `;`, `>`, `)`, `]` ni `/`).
+ *   2. Braces `{` `}` desbalanceados.
+ *   3. Tags JSX abiertos sin cerrar.
+ *
+ * Las 3 son señales válidas e independientes — corremos las 3 porque algunos
+ * truncamientos solo se ven en uno de los tres y no en los otros. Si alguna
+ * falla, throw error que el retry loop captura para pedir regeneración.
+ *
+ * Antes de contar, strippeamos comentarios y strings: un `{/* </div> *\/}`
+ * o un `"<div>"` no debe contar.
  */
-function stripStringsAndComments(code) {
-  return code
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/[^\n]*/g, "")
-    .replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '""')
-    .replace(/"(?:\\.|[^"\\])*"/g, '""')
-    .replace(/'(?:\\.|[^'\\])*'/g, "''");
+function validateJsxBalance(code) {
+  const trimmed = (code || "").trim();
+  if (!trimmed) {
+    throw new Error("TSX vacío — Claude no devolvió código");
+  }
+
+  const cleaned = stripCommentsAndStrings(trimmed);
+
+  // 1. Último caracter útil debe cerrar algo. Cierres válidos: } ; ) > ] /.
+  const lastChar = trimmed[trimmed.length - 1];
+  if (!"};)>]/".includes(lastChar)) {
+    const tail = trimmed.slice(-200);
+    throw new Error(
+      `TSX termina abrupto con "${lastChar}" — probable truncamiento por max_tokens. ` +
+      `Últimos 200 chars: ${JSON.stringify(tail)}`,
+    );
+  }
+
+  // 2. Braces { y } balanceados (típico de objetos / cuerpos de funciones
+  //    cortados a mitad).
+  const openBraces = (cleaned.match(/\{/g) || []).length;
+  const closeBraces = (cleaned.match(/\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    throw new Error(
+      `Braces desbalanceadas (${openBraces} abren vs ${closeBraces} cierran). ` +
+      `Diferencia: ${openBraces - closeBraces}. Probable truncamiento por max_tokens.`,
+    );
+  }
+
+  // 3. Tags JSX balanceados. Self-closing (<Img />, <Audio />) excluidos.
+  const balancedTags = [
+    "div",
+    "span",
+    "AbsoluteFill",
+    "Sequence",
+    "SafeZone",
+    "ColorScene",
+    "ImageScene",
+    "TextOverlay",
+    "FadeTransition",
+    "FlashTransition",
+  ];
+
+  const issues = [];
+  for (const tag of balancedTags) {
+    const openRegex = new RegExp(`<${tag}(?:\\s[^>]*)?(?<!/)>`, "g");
+    const closeRegex = new RegExp(`</${tag}\\s*>`, "g");
+    const opens = (cleaned.match(openRegex) || []).length;
+    const closes = (cleaned.match(closeRegex) || []).length;
+    if (opens !== closes) {
+      issues.push(`<${tag}>: ${opens} aperturas vs ${closes} cierres`);
+    }
+  }
+
+  if (issues.length > 0) {
+    throw new Error(
+      `Tags JSX desbalanceados — Claude probablemente cortó el output a mitad de un componente:\n` +
+      issues.map((i) => `  - ${i}`).join("\n") +
+      `\nEsto suele pasar cuando max_tokens se alcanza durante la generación. ` +
+      `El retry va a pedirle a Claude que cierre todos los tags.`,
+    );
+  }
+}
+
+/**
+ * Prompt de retry: le mostramos a Claude el código que devolvió + el error
+ * exacto y le pedimos una versión corregida. Mucho más corto que el prompt
+ * inicial — solo lleva contexto suficiente para arreglar el bug.
+ */
+function buildRetryPrompt(previousCode, errorMessage, compositionId) {
+  return `You previously generated this Remotion composition for ID "${compositionId}":
+
+\`\`\`tsx
+${previousCode}
+\`\`\`
+
+But it FAILED with this error:
+
+${errorMessage}
+
+YOUR TASK: Generate a COMPLETE, CORRECTED version of the same component that fixes this specific error.
+
+CRITICAL REQUIREMENTS:
+1. Output ONLY the corrected TSX file. No explanations, no markdown fences, no preamble.
+2. The file must be a complete, self-contained TypeScript/React module.
+3. Every opening JSX tag MUST have a matching closing tag — count them mentally before finishing:
+   - Every <div> needs </div>
+   - Every <AbsoluteFill> needs </AbsoluteFill>
+   - Every <Sequence> needs </Sequence>
+   - Every <SafeZone> needs </SafeZone>
+   - Self-closing tags like <Img />, <Audio /> are fine as-is.
+4. Keep the same structure, scenes, animations, and visual identity as the original — only fix the bug.
+5. Export default ${compositionId} and export const COMPOSITION_CONFIG.
+6. Do NOT shorten the composition to "fit" — finish all sequences. Quality matters.
+7. Verify the TSX is syntactically valid before responding.
+
+Output the corrected component now:`;
 }
 
 /**
@@ -575,145 +656,184 @@ export async function produceVideo(brief, storyboard, pieceId) {
   }
   const assetBlock = buildAssetMapBlock(assetMap);
 
-  // 4. Generate Remotion components via Claude
-  console.log("Generating Remotion components...");
-  const remotionPrompt = buildRemotionPrompt(
-    storyboard,
-    brief,
-    compositionId,
-    assetBlock,
-  );
-  // Permitir override por brief para piezas long-form. Default 32000 es ~4x
-  // el peor caso observado (TSX inflado de wiztrip-010 ~7500 tokens).
+  // 4-9. Generate + validate + render con retry loop.
+  //
+  // Hasta MAX_ATTEMPTS intentos: la primera vez con prompt completo, las
+  // siguientes con prompt de retry pasándole a Claude el código previo + el
+  // error específico para que lo arregle.
+  //
+  // Stages que pueden fallar y disparan retry:
+  //   - "validate" : TSX no es módulo válido o tags JSX desbalanceados
+  //   - "parse"    : esbuild detecta error de sintaxis
+  //   - "render"   : el bundler de Remotion falla
+  //
+  // Si después de todos los retries seguimos fallando, propagamos el último
+  // error con stderr completo para que el dashboard lo muestre.
+  const MAX_ATTEMPTS = 3;
+  const compositionFile = resolve(compositionDir, "index.tsx");
+
+  // maxTokens: 32000 es el cap de output que reservamos para Claude (Sonnet
+  // 4.6 soporta hasta 64000). 32000 da margen 4x sobre el peor caso observado
+  // (~7500 tokens del TSX inflado de wiztrip-010). Permitir override por
+  // brief.remotionMaxTokens para piezas long-form puntuales.
   const remotionMaxTokens =
     Number.isFinite(brief.remotionMaxTokens) && brief.remotionMaxTokens > 0
       ? brief.remotionMaxTokens
       : 32000;
   console.log(`[produce-video] callClaude maxTokens=${remotionMaxTokens}`);
-  const rawRemotionCode = await callClaude(remotionPrompt, remotionMaxTokens);
 
-  // 5. Sanitize + validate. Si Claude emitió markdown fences los pelamos;
-  //    si emitió texto narrativo o algo sin imports/exports, fallamos rápido
-  //    con error accionable en vez de dejar que esbuild explote más adelante.
-  //    En cualquier falla acá, adjuntamos el TSX raw al Error para que el
-  //    drawer del dashboard lo muestre (y veas exactamente qué emitió Claude).
-  const compositionFile = resolve(compositionDir, "index.tsx");
-  let remotionCode;
-  try {
-    remotionCode = sanitizeRemotionCode(rawRemotionCode);
-    validateRemotionCode(remotionCode, compositionId);
-  } catch (err) {
-    err._stage = "validate";
-    err._stderr = null;
-    err._compositionTsx = rawRemotionCode;
-    err._compositionFile = compositionFile;
-    throw err;
-  }
+  // Output dir + dependencias de Remotion (se setean fuera del loop — no
+  // cambian entre intentos). El npm install corre ANTES del loop para que
+  // tryParseTsx pueda resolver esbuild desde remotion-studio/node_modules
+  // en el primer intento (sin esto, la pre-validación se skippea silenciosa).
+  const videosDir = resolve(VAULT, `clients/${brief.client}/videos`);
+  mkdirSync(videosDir, { recursive: true });
+  const outputPath = resolve(videosDir, `${pieceId}.mp4`);
 
-  // 5a2. Detección heurística de truncamiento. Corre SIEMPRE (no depende
-  //      de esbuild). Si Claude se quedó sin max_tokens, el TSX queda con
-  //      braces o tags JSX sin cerrar — atrapamos acá con mensaje claro
-  //      ("subir brief.remotionMaxTokens").
-  const truncation = detectTruncation(remotionCode);
-  if (truncation) {
-    const err = new Error(
-      `Composition TSX truncada: ${truncation}\n` +
-      `Probablemente Claude se quedó sin max_tokens. Subir brief.remotionMaxTokens ` +
-      `o pedirle al consultor que genere una pieza con menos escenas.`,
-    );
-    err._stage = "truncated";
-    err._stderr = null;
-    err._compositionTsx = remotionCode;
-    err._compositionFile = compositionFile;
-    throw err;
-  }
-
-  // 5b. Write the composition file
-  writeFileSync(compositionFile, remotionCode, "utf-8");
-  console.log(`Composition written: ${compositionFile} (${remotionCode.length} chars)`);
-
-  // 5c. Asegurar que remotion-studio/node_modules existe ANTES de la pre-
-  //      validación con esbuild. Si es la primera vez que corre el agente
-  //      en el runner, node_modules no está y tryParseTsx no puede resolver
-  //      esbuild → la pre-validación se skippea silenciosamente. El install
-  //      acá garantiza que esbuild esté disponible.
   const nodeModulesPath = resolve(REMOTION_DIR, "node_modules");
   if (!existsSync(nodeModulesPath)) {
     console.log("Installing Remotion dependencies...");
     execSync("npm install", { cwd: REMOTION_DIR, stdio: "inherit" });
   }
 
-  // 5d. Pre-validar el TSX con esbuild antes de invocar el bundler de Remotion.
-  //     Si Claude generó código con error de sintaxis (e.g. arrow function rota,
-  //     type annotation mal puesto, destructuring sin cerrar), esbuild nos da
-  //     línea:columna exactas y un mensaje accionable. Sin este chequeo, el
-  //     bundler de Remotion termina en setup-cache.js con un stack de Node
-  //     opaco. esbuild es transitive de @remotion/bundler.
-  const parseError = await tryParseTsx(remotionCode, compositionFile);
-  if (parseError) {
-    const err = new Error(
-      `Composition TSX inválida (parse fail): ${parseError}\n` +
-      `Esto significa que Claude emitió código con un error de sintaxis. ` +
-      `El TSX exacto está adjunto en el output del run para que veas qué pasó.`,
+  let lastCode = null;
+  let lastError = null;
+  let registeredInRoot = false;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const isRetry = attempt > 1;
+    console.log(
+      `[produce-video] attempt ${attempt}/${MAX_ATTEMPTS}${isRetry ? " (retry tras error previo)" : ""}`,
     );
-    err._stage = "parse";
-    err._stderr = null;
-    err._compositionTsx = remotionCode;
-    err._compositionFile = compositionFile;
-    throw err;
+
+    // 4. Generate Remotion components via Claude
+    let prompt;
+    if (isRetry && lastCode && lastError) {
+      prompt = buildRetryPrompt(lastCode, lastError.message, compositionId);
+    } else {
+      console.log("Generating Remotion components...");
+      prompt = buildRemotionPrompt(storyboard, brief, compositionId, assetBlock);
+    }
+    const rawRemotionCode = await callClaude(prompt, remotionMaxTokens);
+
+    // 5a. Sanitize + validar estructura básica + balance de tags JSX.
+    let remotionCode;
+    try {
+      remotionCode = sanitizeRemotionCode(rawRemotionCode);
+      validateRemotionCode(remotionCode, compositionId);
+      validateJsxBalance(remotionCode);
+    } catch (err) {
+      err._stage = "validate";
+      err._stderr = null;
+      err._compositionTsx = rawRemotionCode;
+      err._compositionFile = compositionFile;
+      lastCode = rawRemotionCode;
+      lastError = err;
+      console.error(
+        `[produce-video] attempt ${attempt} validate failed: ${err.message.slice(0, 300)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw err;
+    }
+
+    // 5b. Write the composition file
+    writeFileSync(compositionFile, remotionCode, "utf-8");
+    console.log(
+      `Composition written: ${compositionFile} (${remotionCode.length} chars)`,
+    );
+
+    // 5c. Pre-validar con esbuild
+    const parseError = await tryParseTsx(remotionCode, compositionFile);
+    if (parseError) {
+      const err = new Error(
+        `Composition TSX inválida (parse fail): ${parseError}\n` +
+        `Esto significa que Claude emitió código con un error de sintaxis.`,
+      );
+      err._stage = "parse";
+      err._stderr = null;
+      err._compositionTsx = remotionCode;
+      err._compositionFile = compositionFile;
+      lastCode = remotionCode;
+      lastError = err;
+      console.error(
+        `[produce-video] attempt ${attempt} esbuild parse failed: ${parseError.slice(0, 400)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw err;
+    }
+
+    // 6. Register in Root.tsx (solo la primera vez que llegamos acá)
+    if (!registeredInRoot) {
+      const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
+      registerComposition(compositionId, relativeCompositionPath);
+      console.log(`Composition registered: ${compositionId}`);
+      registeredInRoot = true;
+    }
+
+    // 7. Render
+    console.log(
+      `Rendering video: ${compositionId}... (attempt ${attempt}/${MAX_ATTEMPTS})`,
+    );
+    console.log(
+      "Preview available at http://localhost:3000 (run: npm run studio)",
+    );
+
+    try {
+      const renderResult = execSync(
+        `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
+        {
+          cwd: REMOTION_DIR,
+          stdio: "pipe",
+          timeout: 300000,
+          encoding: "utf-8",
+        },
+      );
+      if (renderResult) console.log(renderResult);
+      console.log(
+        `Video rendered: ${outputPath} (en attempt ${attempt}/${MAX_ATTEMPTS})`,
+      );
+      return { outputPath, compositionTsx: remotionCode, compositionFile };
+    } catch (err) {
+      // El bundler de Remotion imprime la causa al INICIO del stderr (e.g.
+      // "Could not resolve '@remotion/google-fonts/Foo'") y luego pinta el
+      // stack de Node. El final del stderr es ruido — buscamos la primera
+      // línea con "error" para enmarcar 20 líneas desde ahí.
+      const rawStderr = err.stderr ? err.stderr.toString() : "";
+      const rawStdout = err.stdout ? err.stdout.toString() : "";
+      const stderr = stripAnsi(rawStderr);
+      const stdout = stripAnsi(rawStdout);
+      if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
+      if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
+
+      const lines = stderr.trim().split(/\r?\n/);
+      const firstErrorIdx = lines.findIndex((l) =>
+        /\b(error|Error|Failed|failed)\b/.test(l),
+      );
+      const window =
+        firstErrorIdx >= 0
+          ? lines.slice(firstErrorIdx, firstErrorIdx + 20)
+          : lines.slice(-20);
+      const message = window.join("\n").slice(0, 3000) || err.message;
+
+      const richError = new Error(
+        `Remotion render failed: ${message}\n` +
+        `Para reproducir local: cd remotion-studio && npm run studio`,
+      );
+      richError._stage = "render";
+      richError._stderr = stderr.slice(0, 6000);
+      richError._compositionTsx = remotionCode;
+      richError._compositionFile = compositionFile;
+      lastCode = remotionCode;
+      lastError = richError;
+      console.error(
+        `[produce-video] attempt ${attempt} render failed: ${message.slice(0, 300)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw richError;
+    }
   }
 
-  // 6. Register in Root.tsx
-  const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
-  registerComposition(compositionId, relativeCompositionPath);
-  console.log(`Composition registered: ${compositionId}`);
-
-  // 7. Create output directory
-  const videosDir = resolve(VAULT, `clients/${brief.client}/videos`);
-  mkdirSync(videosDir, { recursive: true });
-  const outputPath = resolve(videosDir, `${pieceId}.mp4`);
-
-  // 8. Render the video — node_modules ya está instalado en paso 5c.
-  console.log(`Rendering video: ${compositionId}...`);
-  console.log("Preview available at http://localhost:3000 (run: npm run studio)");
-
-  try {
-    const renderResult = execSync(
-      `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
-      { cwd: REMOTION_DIR, stdio: "pipe", timeout: 300000, encoding: "utf-8" },
-    );
-    if (renderResult) console.log(renderResult);
-    console.log(`Video rendered: ${outputPath}`);
-    return { outputPath, compositionTsx: remotionCode, compositionFile };
-  } catch (err) {
-    // El bundler de Remotion imprime la causa al INICIO del stderr (e.g.
-    // "Could not resolve '@remotion/google-fonts/Foo'") y luego pinta el
-    // stack de Node. El final del stderr es ruido — por eso buscamos la
-    // primera línea con "error" para enmarcar 20 líneas desde ahí.
-    const rawStderr = err.stderr ? err.stderr.toString() : "";
-    const rawStdout = err.stdout ? err.stdout.toString() : "";
-    const stderr = stripAnsi(rawStderr);
-    const stdout = stripAnsi(rawStdout);
-    if (stdout) console.log("--- Remotion stdout ---\n" + stdout);
-    if (stderr) console.error("--- Remotion stderr ---\n" + stderr);
-
-    const lines = stderr.trim().split(/\r?\n/);
-    const firstErrorIdx = lines.findIndex((l) =>
-      /\b(error|Error|Failed|failed)\b/.test(l),
-    );
-    const window = firstErrorIdx >= 0
-      ? lines.slice(firstErrorIdx, firstErrorIdx + 20)
-      : lines.slice(-20);
-    const message = window.join("\n").slice(0, 3000) || err.message;
-
-    const richError = new Error(
-      `Remotion render failed: ${message}\n` +
-      `Para reproducir local: cd remotion-studio && npm run studio`,
-    );
-    richError._stage = "render";
-    richError._stderr = stderr.slice(0, 6000);
-    richError._compositionTsx = remotionCode;
-    richError._compositionFile = compositionFile;
-    throw richError;
-  }
+  // No deberíamos llegar acá (el loop siempre return o throw), pero por
+  // seguridad TypeScript-grade:
+  throw lastError ?? new Error("produceVideo failed sin error capturado");
 }

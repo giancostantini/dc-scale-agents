@@ -12,9 +12,15 @@ interface UseNotificationsOptions {
 }
 
 /**
- * Subscribes to the `notifications` table via Supabase Realtime and keeps a
- * rolling list of recent notifications. If `clientId` is provided, filters to
- * that client; otherwise returns cross-client notifications (hub view).
+ * Subscribes to the `notifications` table via Supabase Realtime y devuelve
+ * solo las notifs visibles para el current user. La RLS (migración 011) ya
+ * filtra por rol/cliente, este hook NO necesita filtros adicionales más
+ * que opcionalmente acotar por client_id (ej. dentro de un ClientSidebar).
+ *
+ * Roles y qué ve cada uno:
+ *   - director → ve to_role='director' + to_role='team' + to_user_id=él
+ *   - team    → ve to_role='team' con clientes asignados + to_user_id=él
+ *   - client  → ve to_role='client' con auth_client_id() = client
  */
 export function useNotifications({ clientId, limit = 30, onNew }: UseNotificationsOptions = {}) {
   const [items, setItems] = useState<Notification[]>([]);
@@ -30,6 +36,9 @@ export function useNotifications({ clientId, limit = 30, onNew }: UseNotificatio
         .select("*")
         .order("created_at", { ascending: false })
         .limit(limit);
+      // El filtro por client solo se aplica si el componente lo pidió
+      // explícitamente (vista de cliente específica). En el hub o portal
+      // dejamos que la RLS decida qué se ve.
       if (clientId) q = q.eq("client", clientId);
       q.then(({ data }) => {
         if (cancelled) return;

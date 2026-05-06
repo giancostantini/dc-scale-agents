@@ -1,0 +1,156 @@
+.view {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--deep-green);
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+  pointer-events: none;
+}
+
+.box {
+  width: 100%;
+  max-width: 460px;
+  position: relative;
+  z-index: 2;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--sand);
+  margin-top: 24px;
+}
+
+.card {
+  background: rgba(232, 228, 220, 0.04);
+  border: 1px solid rgba(196, 168, 130, 0.2);
+  padding: 48px;
+  backdrop-filter: blur(20px);
+}
+
+.card h3 {
+  font-size: 24px;
+  color: var(--off-white);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--sand);
+  margin-bottom: 36px;
+  line-height: 1.5;
+}
+
+.field {
+  margin-bottom: 24px;
+}
+
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.field input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(196, 168, 130, 0.3);
+  padding: 12px 0;
+  color: var(--off-white);
+  font-size: 15px;
+  font-weight: 300;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field input:focus {
+  border-color: var(--sand);
+}
+
+.btnPrimary {
+  width: 100%;
+  padding: 16px;
+  background: var(--sand);
+  color: var(--deep-green);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.2s;
+  border: none;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.btnPrimary:hover {
+  background: var(--sand-light);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.backRow {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.backLink {
+  font-size: 12px;
+  color: var(--sand);
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(196, 168, 130, 0.2);
+  padding-bottom: 2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.backLink:hover {
+  color: var(--sand-light);
+  border-color: var(--sand-light);
+}
+
+.errorMsg {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: rgba(176, 75, 58, 0.15);
+  border-left: 2px solid var(--red-warn);
+  color: var(--off-white);
+  font-size: 12px;
+}
+
+.successMsg {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(120, 160, 100, 0.12);
+  border-left: 2px solid var(--green-ok);
+  color: var(--off-white);
+  font-size: 13px;
+  line-height: 1.5;
+}

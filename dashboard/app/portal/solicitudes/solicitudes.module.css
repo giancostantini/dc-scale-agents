@@ -1,0 +1,150 @@
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.headActions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.btnSolid {
+  padding: 12px 22px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--off-white);
+  background: var(--deep-green);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSolid:hover {
+  background: var(--forest);
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--off-white);
+  border-left: 3px solid var(--sand);
+  font-style: italic;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  padding: 24px;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cardTitle {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--deep-green);
+  margin-bottom: 4px;
+}
+
+.cardDate {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.urgentTag {
+  color: var(--red-warn);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.statusBadge {
+  padding: 5px 12px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.cardDesc {
+  font-size: 14px;
+  color: var(--deep-green);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 14px;
+  background: var(--off-white);
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metaLabel {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+}
+
+.metaValue {
+  font-size: 13px;
+  color: var(--deep-green);
+  font-weight: 500;
+}
+
+.responseBox {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: rgba(58, 139, 92, 0.06);
+  border-left: 3px solid var(--green-ok);
+}
+
+.responseLabel {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--green-ok);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.responseText {
+  font-size: 13px;
+  color: var(--deep-green);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

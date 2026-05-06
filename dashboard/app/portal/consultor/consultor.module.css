@@ -1,0 +1,52 @@
+/* ================================================================
+   /portal/consultor — vista fullscreen del Consultor IA.
+   El chat vive en components/ConsultorChatPanel.module.css; acá solo
+   están el wrap, el intro y el disclaimer.
+   ================================================================ */
+
+.wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 56px 80px;
+}
+
+.intro {
+  margin-bottom: 36px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.disclaimer {
+  margin-top: 28px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding: 14px 18px;
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.06);
+  border-left: 3px solid var(--sand);
+}
+
+.link {
+  color: var(--deep-green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: color 180ms ease-out;
+}
+
+.link:hover {
+  color: var(--sand-dark);
+}
+
+@media (max-width: 900px) {
+  .wrap {
+    padding: 36px 28px 64px;
+  }
+}
+
+@media (max-width: 600px) {
+  .wrap {
+    padding: 24px 18px 56px;
+  }
+}

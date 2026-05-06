@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, hasSession } from "@/lib/supabase/auth";
+import Link from "next/link";
+import {
+  signIn,
+  hasSession,
+  getCurrentProfile,
+  homeForRole,
+} from "@/lib/supabase/auth";
 import Lockup from "@/components/Lockup";
 import styles from "./page.module.css";
 
@@ -14,11 +20,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // Si ya hay sesión, redirigir al hub
+  // Si ya hay sesión, redirigir según rol (director/team → /hub, client → /portal)
   useEffect(() => {
-    hasSession().then((has) => {
-      if (has) router.replace("/hub");
-      else setChecking(false);
+    hasSession().then(async (has) => {
+      if (!has) {
+        setChecking(false);
+        return;
+      }
+      const profile = await getCurrentProfile();
+      router.replace(homeForRole(profile));
     });
   }, [router]);
 
@@ -33,9 +43,9 @@ export default function LoginPage() {
 
     setLoading(true);
     const { error: authError } = await signIn(email, password);
-    setLoading(false);
 
     if (authError) {
+      setLoading(false);
       setError(
         authError.message === "Invalid login credentials"
           ? "Email o contraseña incorrectos"
@@ -44,7 +54,10 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/hub");
+    // Redirigir al home correcto según rol
+    const profile = await getCurrentProfile();
+    setLoading(false);
+    router.push(homeForRole(profile));
   }
 
   if (checking) {
@@ -103,6 +116,12 @@ export default function LoginPage() {
           </button>
 
           {error && <div className={styles.errorMsg}>{error}</div>}
+
+          <div className={styles.forgotRow}>
+            <Link href="/auth/forgot" className={styles.forgotLink}>
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
           <div className={styles.loginHint}>
             Acceso restringido al equipo de Dearmas Costantini.
