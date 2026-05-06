@@ -353,15 +353,50 @@ export default function FaseDetailPage({
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) throw new Error("Sin sesión");
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
+
+    // Network-level failure ("Failed to fetch") es un TypeError que tira
+    // fetch() antes de tener Response. Lo reescribimos con contexto para
+    // que en el alert se vea qué endpoint murió y por qué (offline,
+    // función timeoutada, deploy en curso, etc).
+    let res: Response;
+    try {
+      res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (netErr) {
+      const cause = netErr instanceof Error ? netErr.message : String(netErr);
+      console.error("[callPhaseEndpoint] network error", endpoint, netErr);
+      throw new Error(
+        `Red caída o función no respondió (${endpoint}): ${cause}. ` +
+          `Probá de nuevo; si persiste, revisá Network tab.`,
+      );
+    }
+
+    // Si el body no es JSON parseable (HTML 404, página de error de Vercel,
+    // respuesta vacía por timeout) damos un mensaje claro con el status.
+    let data: {
+      error?: unknown;
+      detail?: unknown;
+      extra?: unknown;
+      hint?: unknown;
+    } = {};
+    try {
+      data = await res.json();
+    } catch {
+      if (!res.ok) {
+        throw new Error(
+          `HTTP ${res.status} ${res.statusText} (${endpoint}) — respuesta sin JSON.`,
+        );
+      }
+      // 2xx sin body: lo tratamos como éxito vacío.
+      return {};
+    }
+
     if (!res.ok) {
       // Concatenar error + detail para que el usuario vea TODO en el alert.
       const parts = [data?.error, data?.detail, data?.extra, data?.hint]
