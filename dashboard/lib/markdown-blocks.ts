@@ -11,7 +11,8 @@ export type InlineSpan =
   | { type: "text"; text: string }
   | { type: "bold"; text: string }
   | { type: "italic"; text: string }
-  | { type: "code"; text: string };
+  | { type: "code"; text: string }
+  | { type: "link"; text: string; href: string };
 
 export type Block =
   | { type: "h1"; spans: InlineSpan[] }
@@ -32,9 +33,15 @@ export type Block =
  */
 export function parseInline(text: string): InlineSpan[] {
   const spans: InlineSpan[] = [];
-  // Regex que matchea secuencialmente bold / italic / code y deja
-  // texto plano entre matches.
-  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`)/g;
+  // Regex que matchea secuencialmente:
+  //   - markdown links [texto](URL)
+  //   - bold **texto**
+  //   - italic *texto* o _texto_
+  //   - code `texto`
+  //   - URL plana http(s)://... (la convertimos en link clickable)
+  // El orden importa: links primero, después emphasis, después URLs sueltas.
+  const re =
+    /(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|(https?:\/\/[^\s)]+))/g;
   let lastIndex = 0;
   let m: RegExpExecArray | null;
 
@@ -42,14 +49,20 @@ export function parseInline(text: string): InlineSpan[] {
     if (m.index > lastIndex) {
       spans.push({ type: "text", text: text.slice(lastIndex, m.index) });
     }
-    if (m[2] !== undefined) {
-      spans.push({ type: "bold", text: m[2] });
-    } else if (m[3] !== undefined) {
-      spans.push({ type: "italic", text: m[3] });
+    if (m[2] !== undefined && m[3] !== undefined) {
+      // [text](url)
+      spans.push({ type: "link", text: m[2], href: m[3] });
     } else if (m[4] !== undefined) {
-      spans.push({ type: "italic", text: m[4] });
+      spans.push({ type: "bold", text: m[4] });
     } else if (m[5] !== undefined) {
-      spans.push({ type: "code", text: m[5] });
+      spans.push({ type: "italic", text: m[5] });
+    } else if (m[6] !== undefined) {
+      spans.push({ type: "italic", text: m[6] });
+    } else if (m[7] !== undefined) {
+      spans.push({ type: "code", text: m[7] });
+    } else if (m[8] !== undefined) {
+      // URL plana
+      spans.push({ type: "link", text: m[8], href: m[8] });
     }
     lastIndex = m.index + m[0].length;
   }

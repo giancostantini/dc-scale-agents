@@ -8,6 +8,7 @@ import {
   Image,
   StyleSheet,
   Font,
+  Link,
 } from "@react-pdf/renderer";
 import {
   parseMarkdownBlocks,
@@ -328,6 +329,83 @@ const styles = StyleSheet.create({
     lineHeight: 1.55,
   },
 
+  // ===== TOC (Index) =====
+  tocPage: {
+    backgroundColor: "#FFFFFF",
+    padding: 0,
+    paddingTop: 56,
+    paddingBottom: 56,
+  },
+  tocInner: {
+    paddingHorizontal: 56,
+  },
+  tocEyebrow: {
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
+    fontSize: 9,
+    letterSpacing: 2,
+    color: C.sandDark,
+    textTransform: "uppercase",
+    marginBottom: 14,
+  },
+  tocTitle: {
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
+    fontSize: 36,
+    letterSpacing: -1,
+    color: C.deepGreen,
+    marginBottom: 8,
+    lineHeight: 1.05,
+  },
+  tocSubtitle: {
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
+    fontSize: 12,
+    color: C.textMuted,
+    marginBottom: 36,
+  },
+  tocDivider: {
+    width: 60,
+    height: 2,
+    backgroundColor: C.sand,
+    marginBottom: 28,
+  },
+  tocList: {
+    flexDirection: "column",
+  },
+  tocItem: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    paddingVertical: 9,
+    borderBottomWidth: 0.3,
+    borderBottomColor: "rgba(10,26,12,0.10)",
+    borderBottomStyle: "solid",
+  },
+  tocNumber: {
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
+    fontSize: 11,
+    color: C.sandDark,
+    width: 32,
+    letterSpacing: 0.5,
+  },
+  tocLabel: {
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
+    fontSize: 12,
+    color: C.deepGreen,
+    flex: 1,
+    paddingRight: 16,
+  },
+  tocPageNumberPlaceholder: {
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
+    fontSize: 9,
+    color: C.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+
   // ===== Tables =====
   table: {
     marginTop: 8,
@@ -380,6 +458,19 @@ function renderSpans(spans: InlineSpan[]) {
         <Text key={idx} style={{ fontFamily: FONT_OBLIQUE }}>
           {s.text}
         </Text>
+      );
+    if (s.type === "link")
+      return (
+        <Link
+          key={idx}
+          src={s.href}
+          style={{
+            color: C.sandDark,
+            textDecoration: "underline",
+          }}
+        >
+          {s.text}
+        </Link>
       );
     if (s.type === "code")
       return (
@@ -507,6 +598,29 @@ export interface PhaseReportPdfProps {
   contentMd: string;
 }
 
+// Extrae los headings H2 del contenido para listar el TOC.
+// Solo agarra blocks con type='h2' que es el nivel de las secciones
+// principales del reporte (## 1. Executive Summary, etc).
+function extractTocEntries(blocks: Block[]): { number: string; title: string }[] {
+  const entries: { number: string; title: string }[] = [];
+  for (const block of blocks) {
+    if (block.type !== "h2") continue;
+    // El texto crudo del heading lo armamos concatenando los spans
+    const raw = block.spans.map((s) => ("text" in s ? s.text : "")).join("");
+    // Headings vienen como "1. Executive Summary" — parseamos el número
+    const m = raw.match(/^\s*(\d+)\.\s*(.+?)\s*$/);
+    if (m) {
+      entries.push({
+        number: m[1].padStart(2, "0"),
+        title: m[2],
+      });
+    } else {
+      entries.push({ number: "·", title: raw });
+    }
+  }
+  return entries;
+}
+
 export default function PhaseReportPdf({
   phaseLabel,
   reportName,
@@ -518,6 +632,7 @@ export default function PhaseReportPdf({
   contentMd,
 }: PhaseReportPdfProps) {
   const blocks = parseMarkdownBlocks(contentMd);
+  const tocEntries = extractTocEntries(blocks);
 
   const fmtDate = (iso: string | null) => {
     if (!iso) return "—";

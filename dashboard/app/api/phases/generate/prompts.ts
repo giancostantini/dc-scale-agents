@@ -76,15 +76,32 @@ NOTA SOBRE FORMATO BILINGÜE:
 - El CONTENIDO va en español rioplatense (vos, tu empresa).
 - Esto es deliberado y NO opinable.
 
-ESTRUCTURA OBLIGATORIA del reporte (usá estos 13 headings ##, en este
-orden, sin agregar ni sacar secciones):
+ESTRUCTURA OBLIGATORIA del reporte (usá estos 12 headings ##, en este
+orden, sin agregar ni sacar secciones).
+
+NOTA: el embudo de conversión (Funnel Assessment) NO va en este reporte
+— ese análisis pertenece a la fase de Estrategia. NO lo incluyas.
 
 ## 1. Executive Summary
-Visión general del estado actual del negocio digital, principales
-oportunidades y recomendación estratégica. 5-7 bullets como máximo.
-El director tiene que poder leer SOLO esta sección y entender la foto
-completa. Cada bullet debe terminar con un número, una fecha o una
-acción concreta — nada vago.
+Texto NARRATIVO de 250-400 palabras (NO bullets, NO listas) que
+resume los principales INDICADORES que surgieron de toda la
+evaluación. Estilo: como el "executive summary" de un informe de
+consultoría profesional. Estructura sugerida (no la nombres
+explícitamente, pero seguila):
+
+  Párrafo 1: Foto del estado actual del negocio digital (madurez,
+  posicionamiento, momentum, principales números — los indicadores
+  centrales que el director ve primero).
+
+  Párrafo 2: Hallazgos críticos transversales (qué descubrimos en
+  el análisis: brecha de mensaje, problema de canales, números que
+  no cierran, lo que sea más relevante).
+
+  Párrafo 3: Recomendación estratégica de alto nivel (en una oración,
+  qué dirección tomar).
+
+NO incluyas oportunidades específicas acá — esas viven en la sección
+"Growth Opportunities". NO uses bullets ni numeración. Es prosa.
 
 ## 2. Business & Digital Context
 Análisis del negocio:
@@ -96,14 +113,50 @@ Análisis del negocio:
 - Contexto regional (LATAM / país específico).
 
 ## 3. Market & Competitive Landscape
-Evaluación del mercado y competencia:
+Evaluación del mercado y competencia.
+
+### Mercado
 - Tamaño aproximado del mercado en LATAM / país del cliente.
 - Tendencias y momentum (creciendo / estancado / contrayendo).
-- 5 competidores directos. Para cada uno una tabla con: nombre,
-  proposición de valor, fortaleza principal, debilidad explotable,
-  posicionamiento de precio (premium / mid / low).
-- Posicionamiento relativo del cliente vs los 5.
-- Oportunidades competitivas (gaps que el cliente puede explotar).
+- Posicionamiento relativo del cliente vs el resto del mercado.
+
+### Competidores
+Para cada competidor (mínimo 5), un bloque ### con su nombre seguido
+de la siguiente estructura:
+
+**Posicionamiento**
+- Proposición de valor (1 oración).
+- Posicionamiento de precio: premium / mid / low.
+- Fortaleza principal (qué hace mejor que la mayoría).
+- Debilidad explotable (qué pueden ganarle).
+
+**Comunicación visual y de canales**
+Esta es la parte clave. Para que el equipo pueda VER cómo comunican
+y entender su tono visual sin tener que adivinar:
+
+- **Sitio web:** [Nombre](URL) — ej: [Empresa X](https://empresax.com)
+  Describí el estilo visual del sitio (paleta, tipografía, formato
+  de hero, claridad del mensaje).
+- **Instagram:** [@handle](https://instagram.com/handle) si tienen.
+  Describí el grid (uniforme/caótico, fotos/diseños, tono).
+- **LinkedIn:** [URL](https://linkedin.com/company/handle) si tienen.
+  Describí el tipo de contenido (corporativo/casual, cadencia).
+- **TikTok:** [@handle](URL) si tienen.
+- **Otros canales relevantes** (YouTube, blog, podcast).
+
+**Estilo de comunicación**
+2-3 bullets sobre cómo comunican: tono (formal/cercano/técnico),
+formatos preferidos (videos cortos, carruseles, blog largo), ángulo
+narrativo dominante (precio, expertise, comunidad, lifestyle).
+
+**Qué tomar de ellos / qué evitar**
+1 bullet con lo que el cliente puede aprender de este competidor.
+1 bullet con lo que NO debe imitar.
+
+IMPORTANTE: las URLs van en formato markdown clickeable [texto](URL).
+El PDF las renderiza como links. Si no conocés la URL exacta de un
+competidor, escribí "(URL desconocida — buscar manual)" en lugar de
+inventarla.
 
 ## 4. Customer & Value Proposition Diagnosis
 Análisis del cliente ideal y la propuesta de valor:
@@ -116,19 +169,7 @@ Análisis del cliente ideal y la propuesta de valor:
   de la competencia? ¿qué le falta?
 - Recomendación inicial de refinamiento (no resolver — solo señalar).
 
-## 5. Digital Funnel Assessment
-Diagnóstico del recorrido completo del usuario, etapa por etapa:
-- **Atracción** (top of funnel): de dónde llega el tráfico, calidad,
-  costo aproximado.
-- **Consideración** (mid): cómo evalúan, qué consumen.
-- **Conversión** (bottom): tasa de conversión estimada, fricciones.
-- **Retención**: tasa de recompra estimada, programas activos.
-- **Recompra**: ciclo de vida del cliente, LTV proxy.
-
-Para cada etapa: estimación de conversión actual (marcá si es
-estimación con "(est.)"), benchmark del sector, leak identificado.
-
-## 6. Channel Performance Review
+## 5. Channel Performance Review
 Evaluación canal por canal con verdict ✓ ok · ◐ parcial · ✗ falta · ⚠ roto:
 - **Sitio web** (UX, performance, SEO técnico, móvil).
 - **Redes sociales** (IG, TikTok, LinkedIn, FB — presencia y engagement).
@@ -140,7 +181,7 @@ Evaluación canal por canal con verdict ✓ ok · ◐ parcial · ✗ falta · �
 
 Cada canal con 2-3 bullets de hallazgos concretos.
 
-## 7. Metrics & Unit Economics
+## 6. Metrics & Unit Economics
 Análisis financiero del motor de growth:
 - Tráfico actual mensual (sesiones, fuentes, calidad).
 - Conversión visit → lead → cliente.
@@ -154,7 +195,7 @@ Análisis financiero del motor de growth:
 
 Si falta data, marcalo "(est.)" o "⚠ Falta info" — no inventes.
 
-## 8. Key Findings
+## 7. Key Findings
 Síntesis estructurada de los hallazgos más críticos. Categorizados:
 - **Estratégicos** (modelo, posicionamiento, propuesta).
 - **Comerciales** (conversión, embudo, equipo).
@@ -163,7 +204,7 @@ Síntesis estructurada de los hallazgos más críticos. Categorizados:
 
 Cada hallazgo en una línea con su criticidad: 🔴 alta · 🟡 media · 🟢 baja.
 
-## 9. Growth Opportunities
+## 8. Growth Opportunities
 Tabla priorizada de oportunidades. Columnas obligatorias:
 | # | Oportunidad | Impacto | Urgencia | Facilidad | Score |
 
@@ -177,7 +218,7 @@ Donde:
 Mix de quick wins (alto impacto + alta facilidad) y estratégicas
 (alto impacto + facilidad media). Mínimo 8 oportunidades, máximo 15.
 
-## 10. Strategic Recommendations
+## 9. Strategic Recommendations
 Recomendaciones concretas, organizadas en 5 frentes:
 - **Adquisición** (cómo traer más / mejor tráfico).
 - **Conversión** (cómo cerrar más).
@@ -188,7 +229,7 @@ Recomendaciones concretas, organizadas en 5 frentes:
 Para cada frente, 2-4 recomendaciones específicas. Cada recomendación
 con justificación corta (por qué) y outcome esperado.
 
-## 11. 90-Day Growth Roadmap
+## 10. 90-Day Growth Roadmap
 Plan dividido en 3 sprints de 30 días. Para cada sprint, una tabla:
 | Prioridad | Acción | Responsable | Recursos | KPI que mueve |
 
@@ -197,7 +238,7 @@ herramientas, headcount.
 
 Mínimo 4 acciones por sprint, máximo 8.
 
-## 12. Expected Business Impact
+## 11. Expected Business Impact
 Estimación cuantitativa del impacto esperado a 3-6 meses si se ejecuta
 el roadmap:
 - Crecimiento de revenue (% o rango).
@@ -210,7 +251,7 @@ el roadmap:
 Tabla con: KPI, baseline actual (o "sin data"), target a 90d, target
 a 180d. Marcá supuestos clave que sostienen los targets.
 
-## 13. Final Conclusion & Next Steps
+## 12. Final Conclusion & Next Steps
 Conclusión ejecutiva en 2-3 párrafos: dónde está el cliente, qué
 oportunidad concreta tiene en los próximos 6 meses, y qué se necesita
 para capturarla.
@@ -226,9 +267,13 @@ REGLAS DE CALIDAD (no opinables):
 - Headings en inglés exactamente como están arriba (## 1. Executive Summary,
   ## 2. Business & Digital Context, etc). Mantené la numeración.
 - Contenido en español rioplatense.
+- Executive Summary es PROSA — sin bullets, sin listas, sin oportunidades.
+- Las URLs de competidores van en formato markdown [texto](URL) para
+  que el PDF las haga clickeables.
 - Si para una sección no tenés info suficiente del kickoff/branding,
   escribí "⚠ Falta info: ..." con la pregunta específica que
-  necesitás responder. NO inventes números ni nombres de competidores.
+  necesitás responder. NO inventes números ni nombres de competidores
+  ni URLs.
 - Las tablas (competencia, oportunidades, roadmap, impact) usan
   formato markdown con pipes y headers.
 - El tono del CONTENIDO matchea el tono del branding del cliente
