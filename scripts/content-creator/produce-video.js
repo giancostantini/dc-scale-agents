@@ -377,7 +377,7 @@ function buildRemotionPrompt(storyboard, brief, compositionId, assetBlock) {
 
 Generate a complete, production-ready Remotion composition based on this storyboard.
 
-COMPOSITION ID: ${compositionId}
+COMPOSITION ID: ${compositionId}  ← EXACT identifier — use it verbatim with underscores. NEVER replace underscores with hyphens. The id in COMPOSITION_CONFIG MUST be the literal string "${compositionId}" (case-sensitive, with underscores).
 CLIENT: ${brief.client}
 ASPECT RATIO: 9:16 (1080x1920 — vertical video for Instagram Reels / TikTok)
 FPS: 30
@@ -585,8 +585,13 @@ function registerComposition(compositionId, compositionPath) {
   let root = readFileSync(rootPath, "utf-8");
 
   const importLine = `import { ${compositionId}, COMPOSITION_CONFIG as ${compositionId}_CONFIG } from "${compositionPath}";`;
+  // El id se hardcodea como string literal a propósito: el CLI de Remotion
+  // lo busca por ese exact string. Si lo leemos de CONFIG.id y Claude lo
+  // escribió mal (e.g. con guión "wiztrip-012" en lugar de underscore
+  // "wiztrip_012" copiando del nombre del folder), el render falla con
+  // "Could not find composition with ID X". Forzamos el id correcto acá.
   const compositionEntry = `      <Composition
-        id={${compositionId}_CONFIG.id}
+        id="${compositionId}"
         component={${compositionId}}
         width={${compositionId}_CONFIG.width}
         height={${compositionId}_CONFIG.height}
@@ -611,7 +616,7 @@ function registerComposition(compositionId, compositionPath) {
     );
   }
 
-  if (!root.includes(`id={${compositionId}_CONFIG.id}`)) {
+  if (!root.includes(`id="${compositionId}"`)) {
     root = root.replace(
       compositionsEndMarker,
       `${compositionEntry}\n      ${compositionsEndMarker}`,
