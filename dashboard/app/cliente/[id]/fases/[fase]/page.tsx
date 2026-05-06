@@ -422,25 +422,52 @@ export default function FaseDetailPage({
       return;
     }
     setBusy(true);
+
+    // Paso 1: guardar el feedback (marca como changes_requested).
+    // Si falla, abortamos antes de regenerar — al menos el feedback
+    // no se pierde porque ni se llegó a guardar en el draft anterior.
     try {
-      // 1) marca como changes_requested guardando el feedback
       await callPhaseEndpoint("/api/phases/request-changes", {
         clientId: id,
         phase: phaseKey,
         feedback: feedbackText.trim(),
       });
-      // 2) regenera con ese feedback
+    } catch (err) {
+      const e = err as Error;
+      alert(
+        `No se pudo guardar el feedback:\n\n${e.message}\n\n` +
+          `El reporte sigue en su estado anterior. Probá de nuevo en unos segundos.`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    // Paso 2: regenerar con el feedback como contexto.
+    // Si esto falla (rate limit, créditos, etc), el feedback ya quedó
+    // guardado — el director puede reintentar con "Regenerar con feedback"
+    // sin tener que reescribirlo.
+    try {
       await callPhaseEndpoint("/api/phases/generate", {
         clientId: id,
         phase: phaseKey,
         feedback: feedbackText.trim(),
       });
+      // Éxito en ambos pasos — limpiamos y cerramos el modal.
       setFeedbackText("");
       setFeedbackOpen(false);
       setReloadFlag((f) => f + 1);
     } catch (err) {
       const e = err as Error;
-      alert(`No se pudo enviar el feedback:\n${e.message}`);
+      // El feedback YA está guardado; falla solo la regeneración.
+      // Cerramos el modal pero refrescamos para mostrar el banner
+      // de "changes_requested" con el feedback persistido.
+      setFeedbackText("");
+      setFeedbackOpen(false);
+      setReloadFlag((f) => f + 1);
+      alert(
+        `Tu feedback se guardó, pero la regeneración falló:\n\n${e.message}\n\n` +
+          `Click en "Regenerar con feedback" cuando quieras reintentar (no hace falta reescribirlo).`,
+      );
     } finally {
       setBusy(false);
     }
