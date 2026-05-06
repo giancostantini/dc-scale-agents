@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Lockup from "@/components/Lockup";
 import NotificationBell from "@/components/NotificationBell";
 import { signOut, type Profile } from "@/lib/supabase/auth";
-import { getSupabase } from "@/lib/supabase/client";
 import type { Client } from "@/lib/types";
 import styles from "./PortalHeader.module.css";
 
@@ -26,9 +24,9 @@ export interface PortalHeaderProps {
  *   - Eyebrow contextual centrado
  *   - Conexiones · Alertas · Perfil · Salir
  *
- * Antes este markup estaba duplicado en /portal, /portal/consultor y
- * /portal/solicitudes. Centralizado para mantener consistencia visual
- * y agregar el nuevo botón "Conexiones".
+ * Todos los botones del lado derecho mantienen la misma altura/padding
+ * para sentirse uniformes (el styling del NotificationBell se sobreescribe
+ * con :global en PortalHeader.module.css).
  */
 export default function PortalHeader({
   client,
@@ -38,28 +36,6 @@ export default function PortalHeader({
   showBack = false,
 }: PortalHeaderProps) {
   const router = useRouter();
-  const [pendingConnections, setPendingConnections] = useState<number | null>(null);
-
-  // Cuenta cuántas integraciones del cliente están sin conectar.
-  // Usado para el badge dot en el botón Conexiones.
-  useEffect(() => {
-    if (!client?.id) return;
-    const supabase = getSupabase();
-    let active = true;
-    supabase
-      .from("integrations")
-      .select("status", { count: "exact", head: true })
-      .eq("client_id", client.id)
-      .in("status", ["disconnected", "pending"])
-      .then(({ count }) => {
-        if (active) setPendingConnections(count ?? 0);
-      });
-    return () => {
-      active = false;
-    };
-  }, [client?.id]);
-
-  const showPendingDot = pendingConnections !== null && pendingConnections > 0;
 
   return (
     <header className={styles.header}>
@@ -81,44 +57,34 @@ export default function PortalHeader({
 
       <div className={styles.headerRight}>
         {showBack ? (
-          <Link href="/portal" className={styles.btnGhost}>
+          <Link href="/portal" className={styles.headerBtn}>
             ← Portal
           </Link>
         ) : (
-          <>
-            <Link
-              href="/portal/conexiones"
-              className={styles.btnGhost}
-              title={
-                showPendingDot
-                  ? `${pendingConnections} herramientas sin conectar`
-                  : "Tus integraciones"
-              }
-            >
-              <span className={styles.btnLabel}>Conexiones</span>
-              {showPendingDot && (
-                <span className={styles.badge}>{pendingConnections}</span>
-              )}
-            </Link>
-          </>
+          <Link
+            href="/portal/conexiones"
+            className={styles.headerBtn}
+            title="Tus integraciones"
+          >
+            Conexiones
+          </Link>
         )}
 
         <NotificationBell />
 
         <button
-          className={styles.userBtn}
+          type="button"
+          className={`${styles.headerBtn} ${styles.userBtn}`}
           onClick={() => router.push("/perfil")}
           title="Mi perfil"
         >
-          <div className={styles.avatar}>{profile.initials}</div>
-          <div className={styles.userMeta}>
-            <div className={styles.userName}>{profile.name}</div>
-            <div className={styles.userRole}>Cliente</div>
-          </div>
+          <span className={styles.avatar}>{profile.initials}</span>
+          <span className={styles.userName}>{profile.name}</span>
         </button>
 
         <button
-          className={styles.btnGhost}
+          type="button"
+          className={styles.headerBtn}
           onClick={() => signOut().then(() => router.replace("/"))}
         >
           Salir

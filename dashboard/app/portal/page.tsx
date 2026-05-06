@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   getCurrentProfile,
   hasSession,
@@ -300,6 +301,19 @@ export default function PortalPage() {
                 </div>
               </div>
             </div>
+
+            {/* CTA Solicitudes — generar nueva oferta o acción */}
+            <Link href="/portal/solicitudes" className={styles.requestCta}>
+              <div className={styles.requestCtaEyebrow}>Cargar solicitud</div>
+              <div className={styles.requestCtaTitle}>
+                ¿Tenés una promo o idea para ejecutar?
+              </div>
+              <div className={styles.requestCtaBody}>
+                Cargá ofertas comerciales (descuentos, promos) o pedidos
+                libres y el equipo los toma desde acá.
+              </div>
+              <div className={styles.requestCtaArrow}>+ Nueva solicitud →</div>
+            </Link>
           </aside>
         </section>
 
