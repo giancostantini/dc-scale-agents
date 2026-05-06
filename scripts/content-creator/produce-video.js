@@ -13,8 +13,9 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { execSync } from "child_process";
+import { createRequire } from "module";
 import { syncClientAssets, buildAssetMapBlock } from "../lib/asset-sync.js";
 import { loadBrandFiles } from "../lib/brand-loader.js";
 
@@ -122,9 +123,9 @@ function validateRemotionCode(code, compositionId) {
 }
 
 /**
- * Strips de comentarios y string literals antes de contar tags. Un comentario
- * JSX `{/* missing </div> *\/}` o un string `"<div>"` puede inflar artificialmente
- * el count y darnos un falso "balanced". Quitamos:
+ * Strips de comentarios y string literals antes de contar tags/braces. Un
+ * comentario JSX `{/* missing </div> *\/}` o un string `"<div>"` puede
+ * inflar artificialmente el count y darnos un falso "balanced". Quitamos:
  *   - `// line comment`
  *   - `/* block comment *\/`
  *   - `{/* JSX comment *\/}`
@@ -151,22 +152,49 @@ function stripCommentsAndStrings(code) {
 }
 
 /**
- * Cuenta tags JSX abiertos vs cerrados de los componentes críticos. Si Claude
- * cortó la generación a mitad de un componente (límite de tokens, prompt
- * largo) suele dejar tags sin cerrar — esbuild a veces los detecta y a veces
- * no, dependiendo de dónde queda el corte. Este check es complementario al
- * pre-validate de esbuild y asegura que ningún tag balanceado queda colgado.
+ * Valida balance de tags JSX + cierres de braces + último char. Si Claude
+ * cortó la generación a mitad de un componente (max_tokens) suele dejar:
+ *   1. Último caracter abrupto (no es `}`, `;`, `>`, `)`, `]` ni `/`).
+ *   2. Braces `{` `}` desbalanceados.
+ *   3. Tags JSX abiertos sin cerrar.
  *
- * Si encontramos desbalance, tiramos error que el retry loop captura para
- * pedirle a Claude que regenere con el bug específico señalado.
- *
- * Tags self-closing (<Img />, <Audio />) se ignoran del conteo: solo
- * contamos los <Tag> que NO terminan en `/>` ni son closing tags ya.
+ * Las 3 son señales válidas e independientes — corremos las 3 porque algunos
+ * truncamientos solo se ven en uno de los tres y no en los otros. Si alguna
+ * falla, throw error que el retry loop captura para pedir regeneración.
  *
  * Antes de contar, strippeamos comentarios y strings: un `{/* </div> *\/}`
- * o un `"<div>"` no debe contar como tag JSX real.
+ * o un `"<div>"` no debe contar.
  */
 function validateJsxBalance(code) {
+  const trimmed = (code || "").trim();
+  if (!trimmed) {
+    throw new Error("TSX vacío — Claude no devolvió código");
+  }
+
+  const cleaned = stripCommentsAndStrings(trimmed);
+
+  // 1. Último caracter útil debe cerrar algo. Cierres válidos: } ; ) > ] /.
+  const lastChar = trimmed[trimmed.length - 1];
+  if (!"};)>]/".includes(lastChar)) {
+    const tail = trimmed.slice(-200);
+    throw new Error(
+      `TSX termina abrupto con "${lastChar}" — probable truncamiento por max_tokens. ` +
+      `Últimos 200 chars: ${JSON.stringify(tail)}`,
+    );
+  }
+
+  // 2. Braces { y } balanceados (típico de objetos / cuerpos de funciones
+  //    cortados a mitad).
+  const openBraces = (cleaned.match(/\{/g) || []).length;
+  const closeBraces = (cleaned.match(/\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    throw new Error(
+      `Braces desbalanceadas (${openBraces} abren vs ${closeBraces} cierran). ` +
+      `Diferencia: ${openBraces - closeBraces}. Probable truncamiento por max_tokens.`,
+    );
+  }
+
+  // 3. Tags JSX balanceados. Self-closing (<Img />, <Audio />) excluidos.
   const balancedTags = [
     "div",
     "span",
@@ -180,14 +208,8 @@ function validateJsxBalance(code) {
     "FlashTransition",
   ];
 
-  const cleaned = stripCommentsAndStrings(code);
-
   const issues = [];
   for (const tag of balancedTags) {
-    // Open tag: <Tag ...> que NO sea <Tag.../> (self-closing) ni </Tag> (close)
-    // Estrategia: matchear `<Tag` seguido de cualquier cosa que NO sea `/`
-    // hasta el `>`. Excluimos self-closing chequeando que el char antes del
-    // `>` final no sea `/`.
     const openRegex = new RegExp(`<${tag}(?:\\s[^>]*)?(?<!/)>`, "g");
     const closeRegex = new RegExp(`</${tag}\\s*>`, "g");
     const opens = (cleaned.match(openRegex) || []).length;
@@ -209,13 +231,8 @@ function validateJsxBalance(code) {
 
 /**
  * Prompt de retry: le mostramos a Claude el código que devolvió + el error
- * exacto y le pedimos una versión corregida. El prompt es mucho más corto que
- * el inicial — solo lleva contexto suficiente para que arregle el bug, sin
- * volver a explicarle todo el storyboard / brand / templates.
- *
- * Si el error es de balance de tags, le insistimos en cerrar todos. Si es de
- * sintaxis (esbuild), le pasamos el lineText exacto. Si es del bundler de
- * Remotion (resolve fail, etc.), le pasamos el stderr para que entienda.
+ * exacto y le pedimos una versión corregida. Mucho más corto que el prompt
+ * inicial — solo lleva contexto suficiente para arreglar el bug.
  */
 function buildRetryPrompt(previousCode, errorMessage, compositionId) {
   return `You previously generated this Remotion composition for ID "${compositionId}":
@@ -259,9 +276,22 @@ Output the corrected component now:`;
 async function tryParseTsx(code, file) {
   let esbuild;
   try {
-    esbuild = await import("esbuild");
-  } catch {
-    console.warn("[produce-video] esbuild no disponible — saltamos pre-validación de TSX");
+    // Resolver esbuild desde remotion-studio explícitamente (es transitive dep
+    // de @remotion/bundler). Sin esto, `import("esbuild")` busca en el ancestor
+    // chain de scripts/content-creator/, donde no hay node_modules — falla
+    // silenciosamente y la pre-validación se saltea. createRequire desde el
+    // package.json de remotion-studio usa el resolver oficial de Node desde
+    // SU node_modules tree.
+    const requireFromStudio = createRequire(
+      pathToFileURL(resolve(REMOTION_DIR, "package.json")).href,
+    );
+    const esbuildPath = requireFromStudio.resolve("esbuild");
+    esbuild = await import(pathToFileURL(esbuildPath).href);
+  } catch (resolveErr) {
+    console.warn(
+      `[produce-video] esbuild no resoluble desde remotion-studio ` +
+      `(${resolveErr.code || resolveErr.message}) — saltamos pre-validación`,
+    );
     return null;
   }
   try {
@@ -289,7 +319,7 @@ async function tryParseTsx(code, file) {
   }
 }
 
-async function callClaude(prompt, maxTokens = 8000) {
+async function callClaude(prompt, maxTokens = 32000) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -435,16 +465,20 @@ Convención del brandbook (revisar visual-identity.md arriba):
 Decidí qué camino usar inspeccionando ASSETS DISPONIBLES arriba.
 
 --- RULES ---
-1. All text MUST be inside <SafeZone> — never place text outside safe zone
-2. Background images use <ImageScene> OUTSIDE SafeZone (full bleed)
+1. All text MUST be rendered using the <TextOverlay> component wrapped in <SafeZone>. NEVER write \`<div style={{ ... }}>...text...</div>\` blocks for text — the templates already handle animation, font stack, safe zone, and shadows. Reimplementing them with <div> inflates the file by 3-4x and risks max_tokens truncation.
+2. Background images use <ImageScene> OUTSIDE SafeZone (full bleed). Background colors use <ColorScene>.
 3. Use ONLY hex codes from the IDENTIDAD VISUAL section above. Don't invent palette.
-4. First 3 seconds (frames 0-90): 6+ visual changes for pattern interruption
-5. Text hook must appear within first 30 frames (1 second)
-6. Each scene transition should use either hard cut, FadeTransition, or FlashTransition
-7. If no image assets available for a frame, use ColorScene with brand gradient using palette hex
+4. First 3 seconds (frames 0-90): 3-5 distinct visual states for pattern interruption — staggered <TextOverlay> entrances with different "delay" props + scale/color shifts. Use the built-in animation prop (\"scale-in\" / \"slide-up\" / \"fade-in\") instead of writing custom spring()/interpolate() per scene.
+5. Text hook must appear within first 30 frames (1 second).
+6. Each scene transition should use either hard cut, FadeTransition, or FlashTransition.
+7. If no image assets available for a frame, use ColorScene with brand gradient using palette hex.
 8. Cuando referencies un asset del library (logos, mascot, patterns), usá EXACTAMENTE el publicPath listado en ASSETS DISPONIBLES arriba con \`staticFile(...)\`. NO inventes paths.
 9. Si el storyboard menciona un asset que NO está en ASSETS DISPONIBLES, sustituílo por un placeholder visual razonable (ColorScene + texto descriptivo) y agregá un comentario \`// TODO MISSING ASSET: <descripción>\` en el código.
 10. Font sizes: títulos hook 64-80px, subtítulos 36-48px, cuerpo 24-32px (escalas del brandbook).
+11. **Target duration**: 900 frames (30 seconds) at 30fps. Maximum allowed: 1200 frames (40s). Do NOT generate longer compositions — vertical reels over 40s burn render time and audience attention.
+12. **Scene count**: 4-5 scenes maximum. Each scene = one <Sequence>. More scenes ≠ better video; usually means copy-paste filler.
+13. **DRY (CRITICAL)**: define ONE reusable internal Scene component parametrized by props (e.g. {bgColor, headline, subhead, assetSrc, animation}) and call it multiple times with different props. Do NOT generate Scene1, Scene2, ... Scene6 as separate functions with copy-pasted bodies — that pattern produces 700+ lines of dead weight, maxes out the token budget, and is what caused previous renders to fail. Target file size: under 500 lines.
+14. **Animations**: prefer the built-in \`animation\` prop on <TextOverlay> / <ImageScene> over custom spring() / interpolate() calls per scene. Custom interpolate is fine for ONE special transition, not for routine entrances.
 
 --- OUTPUT FORMAT ---
 Output ONLY a single TypeScript/TSX file. No explanations, no markdown fences, no code blocks.
@@ -461,30 +495,78 @@ The file must:
 - Export a const COMPOSITION_CONFIG with: { id, width: 1080, height: 1920, fps: 30, durationInFrames }
 - Use only the templates listed above + Remotion core imports + @remotion/google-fonts imports
 
-Example structure:
+Example structure (DRY pattern — follow this shape, do NOT make Scene1...Scene6):
+
 import React from "react";
-import { AbsoluteFill, Sequence, useCurrentFrame, interpolate, staticFile, Img } from "remotion";
+import { AbsoluteFill, Sequence, Audio, staticFile } from "remotion";
 import { loadFont as loadBricolage } from "@remotion/google-fonts/BricolageGrotesque";
 import { loadFont as loadHostGrotesk } from "@remotion/google-fonts/HostGrotesk";
 import { TextOverlay } from "../../templates/TextOverlay";
 import { ImageScene } from "../../templates/ImageScene";
+import { ColorScene } from "../../templates/ColorScene";
 import { SafeZone } from "../../templates/SafeZone";
 import { FadeTransition } from "../../templates/Transition";
 
 const { fontFamily: bricolage } = loadBricolage();
 const { fontFamily: hostGrotesk } = loadHostGrotesk();
 
+const C = { bg: "#0E0E0E", accent: "#E2B33A", text: "#FFFFFF" };
+
 export const COMPOSITION_CONFIG = {
   id: "${compositionId}",
   width: 1080,
   height: 1920,
   fps: 30,
-  durationInFrames: 900, // 30 seconds
+  durationInFrames: 900, // 30 seconds — see RULE 11
 };
 
-export const ${compositionId}: React.FC = () => {
-  // ... scenes
-};`;
+interface SceneProps {
+  headline: string;
+  subhead?: string;
+  assetSrc?: string;
+  bgColor?: string;
+}
+const Scene: React.FC<SceneProps> = ({ headline, subhead, assetSrc, bgColor }) => (
+  <AbsoluteFill style={{ backgroundColor: bgColor ?? C.bg }}>
+    {assetSrc && (
+      <ImageScene src={assetSrc} animation="zoom-in" overlayColor={C.bg} overlayOpacity={0.3} />
+    )}
+    <SafeZone>
+      <TextOverlay
+        text={headline}
+        fontSize={72}
+        color={C.accent}
+        animation="slide-up"
+        fontFamily={bricolage}
+        top="35%"
+      />
+      {subhead && (
+        <TextOverlay
+          text={subhead}
+          fontSize={32}
+          color={C.text}
+          animation="fade-in"
+          delay={15}
+          fontFamily={hostGrotesk}
+          top="55%"
+        />
+      )}
+    </SafeZone>
+  </AbsoluteFill>
+);
+
+export const ${compositionId}: React.FC = () => (
+  <AbsoluteFill style={{ backgroundColor: C.bg }}>
+    {/* <Audio src={voicePath} /> if voice available */}
+    <Sequence from={0}   durationInFrames={180}><Scene headline="Hook line" /></Sequence>
+    <Sequence from={180} durationInFrames={210}><Scene headline="Point 1" subhead="detalle" /></Sequence>
+    <Sequence from={390} durationInFrames={210}><Scene headline="Point 2" assetSrc={staticFile("...")} /></Sequence>
+    <Sequence from={600} durationInFrames={300}><Scene headline="CTA" subhead="..." /></Sequence>
+  </AbsoluteFill>
+);
+
+The example above is ~70 lines. Your output should be similar in shape and size.
+Bigger files = max_tokens truncation = render fails.`;
 }
 
 // --- Register composition in Root.tsx ---
@@ -590,8 +672,20 @@ export async function produceVideo(brief, storyboard, pieceId) {
   const MAX_ATTEMPTS = 3;
   const compositionFile = resolve(compositionDir, "index.tsx");
 
-  // Output dir + dependencias de Remotion (se setean fuera del loop —
-  // no cambian entre intentos).
+  // maxTokens: 32000 es el cap de output que reservamos para Claude (Sonnet
+  // 4.6 soporta hasta 64000). 32000 da margen 4x sobre el peor caso observado
+  // (~7500 tokens del TSX inflado de wiztrip-010). Permitir override por
+  // brief.remotionMaxTokens para piezas long-form puntuales.
+  const remotionMaxTokens =
+    Number.isFinite(brief.remotionMaxTokens) && brief.remotionMaxTokens > 0
+      ? brief.remotionMaxTokens
+      : 32000;
+  console.log(`[produce-video] callClaude maxTokens=${remotionMaxTokens}`);
+
+  // Output dir + dependencias de Remotion (se setean fuera del loop — no
+  // cambian entre intentos). El npm install corre ANTES del loop para que
+  // tryParseTsx pueda resolver esbuild desde remotion-studio/node_modules
+  // en el primer intento (sin esto, la pre-validación se skippea silenciosa).
   const videosDir = resolve(VAULT, `clients/${brief.client}/videos`);
   mkdirSync(videosDir, { recursive: true });
   const outputPath = resolve(videosDir, `${pieceId}.mp4`);
@@ -620,7 +714,7 @@ export async function produceVideo(brief, storyboard, pieceId) {
       console.log("Generating Remotion components...");
       prompt = buildRemotionPrompt(storyboard, brief, compositionId, assetBlock);
     }
-    const rawRemotionCode = await callClaude(prompt);
+    const rawRemotionCode = await callClaude(prompt, remotionMaxTokens);
 
     // 5a. Sanitize + validar estructura básica + balance de tags JSX.
     let remotionCode;
