@@ -361,7 +361,14 @@ export default function FaseDetailPage({
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data?.error ?? "Error desconocido");
+    if (!res.ok) {
+      // Concatenar error + detail para que el usuario vea TODO en el alert.
+      const parts = [data?.error, data?.detail, data?.extra, data?.hint]
+        .filter(Boolean)
+        .map((p) => String(p));
+      const msg = parts.length > 0 ? parts.join("\n— ") : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
     return data;
   }
 

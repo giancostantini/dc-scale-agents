@@ -331,7 +331,10 @@ export async function POST(req: NextRequest) {
   try {
     claudeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
-      max_tokens: 8000,
+      // 16k da margen para los reportes largos en español (12 secciones
+      // densas con tablas). Antes tenía 8k y el output se cortaba en
+      // reportes ricos.
+      max_tokens: 16000,
       system: [
         {
           type: "text",
@@ -350,26 +353,49 @@ export async function POST(req: NextRequest) {
       .eq("client_id", clientId)
       .eq("phase", phaseKey);
 
-    console.error("Claude API error:", err);
+    console.error("[phases.generate] Claude API error:", err);
     if (err instanceof Anthropic.AuthenticationError) {
       return Response.json(
-        { error: "ANTHROPIC_API_KEY inválida." },
+        {
+          error: "ANTHROPIC_API_KEY inválida o revocada.",
+          detail: err.message,
+        },
         { status: 401 },
       );
     }
     if (err instanceof Anthropic.RateLimitError) {
       return Response.json(
-        { error: "Rate limit. Esperá unos segundos y reintenta." },
+        {
+          error: "Rate limit alcanzado. Esperá unos segundos y reintenta.",
+          detail: err.message,
+        },
         { status: 429 },
       );
     }
     if (err instanceof Anthropic.APIError) {
       return Response.json(
-        { error: `Claude API: ${err.message}` },
+        {
+          error: `Claude API · ${err.status ?? "?"}`,
+          detail: err.message,
+          // Algunos errores de Claude vienen con un body útil (ej: token limit, content policy)
+          // que ayuda mucho para debuggear. Lo incluimos.
+          extra:
+            err instanceof Anthropic.BadRequestError
+              ? "Bad request — revisá el contenido del kickoff/branding (puede ser muy grande o tener algo que el modelo rechaza)"
+              : undefined,
+        },
         { status: err.status ?? 500 },
       );
     }
-    return Response.json({ error: "Error generando." }, { status: 500 });
+    const e = err as { message?: string; name?: string };
+    return Response.json(
+      {
+        error: "Error inesperado generando el reporte.",
+        detail: e.message ?? String(err),
+        type: e.name ?? "Unknown",
+      },
+      { status: 500 },
+    );
   }
 
   const textBlock = claudeResponse.content.find((b) => b.type === "text");
