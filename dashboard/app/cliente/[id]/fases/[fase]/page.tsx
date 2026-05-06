@@ -5,9 +5,28 @@ import { useRouter } from "next/navigation";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { getSupabase } from "@/lib/supabase/client";
+import { getClient } from "@/lib/storage";
+import { getDownloadUrl } from "@/lib/upload";
 import { getPhaseReport, phaseStatusLabel, phaseStatusColor } from "@/lib/phases";
-import type { PhaseKey, PhaseReport } from "@/lib/types";
+import type { Client, OnboardingFile, PhaseKey, PhaseReport } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
+
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
+
+function pickClientLogo(client: Client | null): OnboardingFile | string | null {
+  if (!client) return null;
+  const branding = client.onboarding?.brandingFiles ?? [];
+  for (const f of branding) {
+    const name = typeof f === "string" ? f : f.name;
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    if (IMAGE_EXTS.includes(ext)) return f;
+  }
+  return null;
+}
+
+function getPath(f: OnboardingFile | string): string {
+  return typeof f === "string" ? f : f.path;
+}
 
 type FaseKey = PhaseKey | "kickoff";
 
@@ -69,6 +88,10 @@ export default function FaseDetailPage({
   const [reloadFlag, setReloadFlag] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+  const [client, setClient] = useState<Client | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingPptx, setDownloadingPptx] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +99,15 @@ export default function FaseDetailPage({
       const profile = await getCurrentProfile();
       if (cancelled) return;
       setIsDirector(profile?.role === "director");
+      const c = await getClient(id);
+      if (cancelled) return;
+      setClient(c ?? null);
+      // Resolver el logo del cliente (signed URL — Claude PDF lo embebe)
+      const logo = pickClientLogo(c ?? null);
+      if (logo) {
+        const u = await getDownloadUrl(getPath(logo));
+        if (!cancelled) setLogoUrl(u);
+      }
       if (key === "kickoff") {
         setReport(null);
         return;
@@ -89,6 +121,150 @@ export default function FaseDetailPage({
       cancelled = true;
     };
   }, [id, key, reloadFlag]);
+
+  async function downloadPdf() {
+    if (!report || !report.content_md || !client) return;
+    setDownloadingPdf(true);
+    try {
+      // Lazy-load — react-pdf no entra en SSR
+      const { pdf } = await import("@react-pdf/renderer");
+      const PhaseReportPdf = (
+        await import("@/components/PhaseReportPdf")
+      ).default;
+
+      const phaseLabel =
+        key === "diagnostico"
+          ? "Diagnóstico"
+          : key === "estrategia"
+          ? "Estrategia"
+          : key === "setup"
+          ? "Setup"
+          : key === "lanzamiento"
+          ? "Lanzamiento"
+          : "Reporte";
+
+      // Convertir el logo del cliente a data URL antes de pasarlo al
+      // PDF — evita CORS al embeber. Si falla (red, archivo borrado),
+      // seguimos sin logo en lugar de romper la generación entera.
+      let logoDataUrl: string | null = null;
+      if (logoUrl) {
+        try {
+          const imgRes = await fetch(logoUrl);
+          if (imgRes.ok) {
+            const blobImg = await imgRes.blob();
+            logoDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blobImg);
+            });
+          }
+        } catch (e) {
+          console.warn("[downloadPdf] no se pudo cargar el logo, sigue sin él:", e);
+        }
+      }
+
+      const blob = await pdf(
+        <PhaseReportPdf
+          phaseLabel={phaseLabel}
+          reportName={meta?.reportName ?? phaseLabel}
+          clientName={client.name}
+          clientLogoUrl={logoDataUrl ?? undefined}
+          generatedAt={report.generated_at}
+          approvedAt={report.approved_at}
+          version={report.version}
+          contentMd={report.content_md}
+        />,
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("downloadPdf error:", err);
+      const e = err as Error;
+      alert(
+        `No se pudo generar el PDF.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
+      );
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
+  async function downloadPptx() {
+    if (!report || !report.content_md || !client) return;
+    setDownloadingPptx(true);
+    try {
+      const phaseLabel =
+        key === "diagnostico"
+          ? "Diagnóstico"
+          : key === "estrategia"
+          ? "Estrategia"
+          : key === "setup"
+          ? "Setup"
+          : key === "lanzamiento"
+          ? "Lanzamiento"
+          : "Reporte";
+
+      // Convertir el logo del cliente a data URL (mismo flujo que el PDF)
+      let logoDataUrl: string | null = null;
+      if (logoUrl) {
+        try {
+          const imgRes = await fetch(logoUrl);
+          if (imgRes.ok) {
+            const blobImg = await imgRes.blob();
+            logoDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blobImg);
+            });
+          }
+        } catch (e) {
+          console.warn("[downloadPptx] no se pudo cargar el logo, sigue sin él:", e);
+        }
+      }
+
+      // Lazy import — pptxgenjs es ~700 KB, fuera del bundle inicial
+      const { buildPhaseReportPptx } = await import(
+        "@/lib/phase-report-pptx"
+      );
+
+      const blob = await buildPhaseReportPptx({
+        phaseLabel,
+        reportName: meta?.reportName ?? phaseLabel,
+        clientName: client.name,
+        clientLogoDataUrl: logoDataUrl,
+        generatedAt: report.generated_at,
+        approvedAt: report.approved_at,
+        version: report.version,
+        contentMd: report.content_md,
+        isBrandLaunch: client.onboarding?.isBrandLaunch === true,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("downloadPptx error:", err);
+      const e = err as Error;
+      alert(
+        `No se pudo generar la presentación.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
+      );
+    } finally {
+      setDownloadingPptx(false);
+    }
+  }
 
   // Polling cuando está generando
   useEffect(() => {
@@ -177,16 +353,58 @@ export default function FaseDetailPage({
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) throw new Error("Sin sesión");
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error ?? "Error desconocido");
+
+    // Network-level failure ("Failed to fetch") es un TypeError que tira
+    // fetch() antes de tener Response. Lo reescribimos con contexto para
+    // que en el alert se vea qué endpoint murió y por qué (offline,
+    // función timeoutada, deploy en curso, etc).
+    let res: Response;
+    try {
+      res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (netErr) {
+      const cause = netErr instanceof Error ? netErr.message : String(netErr);
+      console.error("[callPhaseEndpoint] network error", endpoint, netErr);
+      throw new Error(
+        `Red caída o función no respondió (${endpoint}): ${cause}. ` +
+          `Probá de nuevo; si persiste, revisá Network tab.`,
+      );
+    }
+
+    // Si el body no es JSON parseable (HTML 404, página de error de Vercel,
+    // respuesta vacía por timeout) damos un mensaje claro con el status.
+    let data: {
+      error?: unknown;
+      detail?: unknown;
+      extra?: unknown;
+      hint?: unknown;
+    } = {};
+    try {
+      data = await res.json();
+    } catch {
+      if (!res.ok) {
+        throw new Error(
+          `HTTP ${res.status} ${res.statusText} (${endpoint}) — respuesta sin JSON.`,
+        );
+      }
+      // 2xx sin body: lo tratamos como éxito vacío.
+      return {};
+    }
+
+    if (!res.ok) {
+      // Concatenar error + detail para que el usuario vea TODO en el alert.
+      const parts = [data?.error, data?.detail, data?.extra, data?.hint]
+        .filter(Boolean)
+        .map((p) => String(p));
+      const msg = parts.length > 0 ? parts.join("\n— ") : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
     return data;
   }
 
@@ -239,25 +457,52 @@ export default function FaseDetailPage({
       return;
     }
     setBusy(true);
+
+    // Paso 1: guardar el feedback (marca como changes_requested).
+    // Si falla, abortamos antes de regenerar — al menos el feedback
+    // no se pierde porque ni se llegó a guardar en el draft anterior.
     try {
-      // 1) marca como changes_requested guardando el feedback
       await callPhaseEndpoint("/api/phases/request-changes", {
         clientId: id,
         phase: phaseKey,
         feedback: feedbackText.trim(),
       });
-      // 2) regenera con ese feedback
+    } catch (err) {
+      const e = err as Error;
+      alert(
+        `No se pudo guardar el feedback:\n\n${e.message}\n\n` +
+          `El reporte sigue en su estado anterior. Probá de nuevo en unos segundos.`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    // Paso 2: regenerar con el feedback como contexto.
+    // Si esto falla (rate limit, créditos, etc), el feedback ya quedó
+    // guardado — el director puede reintentar con "Regenerar con feedback"
+    // sin tener que reescribirlo.
+    try {
       await callPhaseEndpoint("/api/phases/generate", {
         clientId: id,
         phase: phaseKey,
         feedback: feedbackText.trim(),
       });
+      // Éxito en ambos pasos — limpiamos y cerramos el modal.
       setFeedbackText("");
       setFeedbackOpen(false);
       setReloadFlag((f) => f + 1);
     } catch (err) {
       const e = err as Error;
-      alert(`No se pudo enviar el feedback:\n${e.message}`);
+      // El feedback YA está guardado; falla solo la regeneración.
+      // Cerramos el modal pero refrescamos para mostrar el banner
+      // de "changes_requested" con el feedback persistido.
+      setFeedbackText("");
+      setFeedbackOpen(false);
+      setReloadFlag((f) => f + 1);
+      alert(
+        `Tu feedback se guardó, pero la regeneración falló:\n\n${e.message}\n\n` +
+          `Click en "Regenerar con feedback" cuando quieras reintentar (no hace falta reescribirlo).`,
+      );
     } finally {
       setBusy(false);
     }
@@ -350,6 +595,40 @@ export default function FaseDetailPage({
               style={{ fontSize: 11 }}
             >
               Regenerar desde cero
+            </button>
+          )}
+
+          {/* Descargar PDF — al lado de los demás botones de acción */}
+          {hasContent && (
+            <button
+              className={ui.btnGhost}
+              onClick={downloadPdf}
+              disabled={downloadingPdf}
+              style={{
+                borderColor: "var(--sand)",
+                color: "var(--deep-green)",
+                fontWeight: 600,
+              }}
+            >
+              {downloadingPdf ? "Generando PDF…" : "↓ Descargar PDF"}
+            </button>
+          )}
+
+          {/* Descargar PPT — para presentar al cliente */}
+          {hasContent && (
+            <button
+              className={ui.btnGhost}
+              onClick={downloadPptx}
+              disabled={downloadingPptx}
+              style={{
+                borderColor: "var(--sand)",
+                color: "var(--deep-green)",
+                fontWeight: 600,
+              }}
+            >
+              {downloadingPptx
+                ? "Generando PPT…"
+                : "↓ Descargar PPT (10 slides)"}
             </button>
           )}
         </div>

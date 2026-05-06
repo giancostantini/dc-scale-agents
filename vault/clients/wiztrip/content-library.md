@@ -3309,3 +3309,547 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #012 — reel
+Date: 2026-05-06 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: 3 piques de Wizzo para comer pasta auténtica en Roma sin caer en trampas turísticas. Formato Piques (voz Wizzo, sabio cercano con guiños). Cada pique = un tip concreto y accionable: dónde ir, qué pedir o qué evitar. Tono cálido, criterio experto, nada de superlativos vacíos. Cierre con CTA suave a WizTrip como copiloto de viaje.
+
+### Generated Content
+## Resumen
+
+- **Objetivo:** Valor / Comunidad (orgánico — generar saves, shares y consideración de marca)
+- **Formato de script elegido: B — "Direct Value"** porque el contenido es educativo/accionable, ideal para guardar. Los "piques" funcionan mejor cuando se perciben como información útil concreta, no como drama. El usuario quiere salvar el video antes del viaje a Roma.
+- **Trigger emocional elegido:** Enojo/asombro — "¿cómo no sabía esto?" El viajero que alguna vez cayó en una trampa turística se identifica. El que planea ir quiere evitarla.
+- **Plataformas destino:** Instagram Reels + TikTok
+- **Duración estimada:** 42–48 segundos
+
+---
+
+## Triple Hook
+
+- **Visual:** Wizzo en pose `Color_magia` sobre fondo violeta `#4C167C`, mano señalando directo a cámara. Aparece sin intro — cut directo. En el frame hay UN destino visible detrás: detalle de plato de pasta en mesa de madera rústica, luz cálida. Nada más.
+- **Textual:** `"Roma te está timando."`
+- **Verbal:** *"Si vas a Roma y querés comer pasta de verdad, escuchame bien."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s-2s] — HOOK
+  Visual: Cut directo. Wizzo (Color_magia expresión) en primer plano, 
+          fondo dividido: izquierda violeta #4C167C, derecha imagen borrosa 
+          de turistas haciendo fila frente a restaurant con carta en varios idiomas.
+          Sin intro de logo. Sin música previa.
+  Texto en pantalla: "Roma te está timando." 
+          — Bricolage ExtraBold, 72px, color #FAB402 (wizzo gold), 
+          centrado, zona media-alta (y: 400px desde arriba).
+  Narración: "Si vas a Roma y querés comer pasta de verdad, escuchame bien."
+  Música/SFX: Silencio los primeros 0.5s, luego beat lo-fi suave entra en fade.
+  Transición: Hard cut a Escena 2.
+
+---
+
+Escena 2 [2s-4s] — PRESENTACIÓN DEL FORMATO
+  Visual: Texto animado entra desde abajo. Wizzo desaparece. 
+          Fondo crema #FFF2CA, limpio. 
+          Aparece etiqueta "PIQUE DE WIZZO" en violeta + sello dorado.
+          Asset: Logo_Tag_Violeta (esquina inferior derecha, tamaño mínimo).
+  Texto en pantalla: "3 piques para comer auténtico." 
+          — Bricolage Bold, 56px, color #222524, centrado.
+          Subtexto: "Sin caer en trampas turísticas." 
+          — Host Grotesk Regular, 28px, color #4C167C.
+  Narración: "Tres piques concretos. Dónde ir, qué pedir, qué evitar."
+  Música/SFX: Beat lo-fi continúa, leve subida de volumen.
+  Transición: Wipe lateral rápido (0.15s) → Escena 3.
+
+---
+
+Escena 3 [4s-17s] — PIQUE 1: DÓNDE IR
+  Visual: Fondo fotografía — trattoria de barrio, luz natural entrante por 
+          ventana pequeña, dos personas mayores comiendo, sin turistas. 
+          Encuadre espontáneo, levemente inclinado. 
+          Overlay de color violeta #4C167C al 35% de opacidad en la mitad inferior.
+          Número "01" animado entra en top-left en dorado grande (Bricolage ExtraBold, 96px).
+  Texto en pantalla (aparece con delay de 1s):
+          Línea 1: "Evitá el radio de 300m" — Bricolage Bold, 44px, #FFF2CA
+          Línea 2: "de cualquier monumento." — Bricolage Bold, 44px, #FAB402
+          (zona media del frame, y: 700-800px)
+  Narración: "Pique uno: hay una regla de oro en Roma. 
+          Cuanto más cerca estás de una atracción turística, 
+          peor es la comida y más cara. 
+          Alejate a mínimo tres cuadras de cualquier monumento conocido — 
+          el Coliseo, el Vaticano, la Fontana di Trevi. 
+          Ahí empieza la comida real."
+  Música/SFX: Beat continúa. SFX sutil de 'whoosh' al aparecer el número 01.
+  Transición: Hard cut con flash blanco rápido (2 frames) → Escena 4.
+
+---
+
+Escena 4 [17s-30s] — PIQUE 2: QUÉ PEDIR
+  Visual: Fondo fotografía — plato de cacio e pepe en mesa de madera, 
+          luz lateral cálida, sin decoración de restaurante de lujo. 
+          Manos de persona real agarrando el tenedor (no modelo, movimiento natural). 
+          Overlay crema #FFF2CA al 40% en franja inferior.
+          Número "02" entra igual que el anterior.
+  Texto en pantalla:
+          Línea 1: "Tres platos. Solo tres." — Bricolage Bold, 44px, #4C167C
+          Línea 2: "Cacio e pepe · Carbonara · Amatriciana" 
+          — Host Grotesk SemiBold, 24px, #222524
+          (zona media-baja, y: 750-850px)
+  Narración: "Pique dos: en Roma, la carta de la trattoria correcta 
+          tiene pocos platos. 
+          Si ves pasta bolognesa — sí, la que todos conocen — 
+          es señal de trampa turística. 
+          Los romanos no comen bolognesa. 
+          Pedí cacio e pepe, carbonara o amatriciana. 
+          Esos tres son la prueba del nueve."
+  Música/SFX: Beat continúa. Al mencionar "trampa turística" — SFX sutil de alarma discreta (1 frame corto, cómico sin exagerar).
+  Transición: Wipe lateral → Escena 5.
+
+---
+
+Escena 5 [30s-42s] — PIQUE 3: QUÉ EVITAR
+  Visual: Pantalla dividida (split screen). 
+          Izquierda (40%): foto restaurant con carta plastificada en inglés, 
+          mozo en la puerta llamando gente. Overlay rojo suave.
+          Derecha (60%): trattoria sin cartel, puerta entreabierta, 
+          se ve solo a locales adentro. Sin overlay.
+          Wizzo en sticker pequeño (Sticker_error) sobre la imagen izquierda, 
+          Sticker_bien sobre la imagen derecha.
+          Número "03" aparece centrado arriba.
+  Texto en pantalla:
+          Sobre imagen izquierda: "TRAMPA" — Bricolage ExtraBold, 38px, #E5F53F
+          Sobre imagen derecha: "PIQUE" — Bricolage ExtraBold, 38px, #FAB402
+          (y: 500-560px en cada mitad respectivamente)
+  Narración: "Pique tres, y este es el más fácil de aplicar: 
+          si hay alguien afuera del restaurant llamándote a entrar, 
+          no entrés. 
+          Si la carta está en cinco idiomas con fotos, no entrés. 
+          Las mejores trattorias en Roma no tienen que convencer a nadie. 
+          Están llenas de locales y no necesitan cartel."
+  Música/SFX: Beat sube muy leve. SFX de 'check' al aparecer "PIQUE".
+  Transición: Fade rápido a negro (0.3s) → Escena 6.
+
+---
+
+Escena 6 [42s-48s] — CIERRE + CTA SUAVE
+  Visual: Fondo violeta #4C167C. 
+          Wizzo centrado en versión Color_festejo (pequeño, no ocupa todo el frame). 
+          Logo_Tag_Crema en zona inferior centrada (y: 1680-1720px).
+          Curva_lila como elemento decorativo detrás de Wizzo, animada (scale-up leve).
+  Texto en pantalla:
+          Línea 1: "WizTrip te lleva con ventaja." 
+          — Bricolage Bold, 48px, #FAB402, centrado (y: 900px)
+          Línea 2: "Tu copiloto de viaje." 
+          — Host Grotesk Regular, 26px, #B99FFF, centrado (y: 970px)
+  Narración: "Para el resto del viaje, contás con WizTrip. 
+          El copiloto que te da el pique justo antes de que lo necesites. 
+          Elegiste bien."
+  Música/SFX: Beat baja a fade out en últimos 2s.
+  Transición: Hold 1s → End card (estático 0.5s con logo).
+```
+
+---
+
+## Storyboard de producción
+
+**Especificaciones técnicas globales**
+- Resolución: 1080 × 1920 px (9:16)
+- FPS: 30
+- Safe zone superior: 0–150px → sin texto crítico
+- Safe zone inferior: 1670–1920px → solo logo permitido (no CTA, no texto narrativo)
+- Fuente título: `BricolageGrotesque_48pt-ExtraBold.ttf`
+- Fuente cuerpo: `HostGrotesk-SemiBold.ttf` / `HostGrotesk-Regular.ttf`
+- Fuente detalle: reservada (no se usa en este reel)
+- Color fondo default piezas Wizzo: `#4C167C`
+- Color texto hero: `#FAB402`
+- Color texto cuerpo: `#FFF2CA`
+
+---
+
+**Frame 1 — Hook (0s–2s)**
+
+| Elemento | Especificación |
+|---|---|
+| Asset mascot | `wiztrip/mascot/color/Color_magia.svg` — posición: centrado-izquierda, escala 60% del alto del frame, animación: scale-in desde 0.85 → 1.0 en 0.3s |
+| Fondo derecha | Footage real: turistas en restaurante trampa turística — overlay `#4C167C` 50% opacidad |
+| Texto "Roma te está timando." | Bricolage ExtraBold 72px · `#FAB402` · x: centrado · y: 420px · animación: slide-up desde y+30px, ease-out 0.25s · aparece en frame 8 (0.27s) |
+| Logo | Ausente en este frame (no contaminar el hook) |
+| Música | Silent → lo-fi beat fade-in desde 0.5s |
+
+---
+
+**Frame 2 — Presentación formato (2s–4s)**
+
+| Elemento | Especificación |
+|---|---|
+| Fondo | `#FFF2CA` sólido |
+| Texto principal | "3 piques para comer auténtico." · Bricolage Bold 56px · `#222524` · centrado · y: 860px |
+| Subtexto | "Sin caer en trampas turísticas." · Host Grotesk Regular 28px · `#4C167C` · centrado · y: 940px |
+| Etiqueta "PIQUE DE WIZZO" | Rectángulo redondeado `#4C167C` · texto `#FAB402` · Bricolage SemiBold 22px · x: centrado · y: 780px · animación: bounce-in 0.2s |
+| Logo | `wiztrip/logo/Logo_Tag_Violeta.svg` · esquina inferior derecha · x: 850px · y: 1680px · altura: 60px |
+
+---
+
+**Frame 3 — Pique 01 (4s–17s)**
+
+| Elemento | Especificación |
+|---|---|
+| Fondo | MISSING_ASSET: footage — trattoria de barrio romana, luz natural, personas mayores comiendo, sin turistas. Encuadre espontáneo. |
+| Overlay inferior | Gradiente vertical: transparente → `#4C167C` 80% · desde y: 1100px hacia abajo |
+| Número "01" | Bricolage ExtraBold 120px · `#FAB402` · x: 60px · y: 220px · animación: fade+scale-in 0.2s |
+| Texto línea 1 | "Evitá el radio de 300m" · Bricolage Bold 44px · `#FFF2CA` · centrado · y: 1380px |
+| Texto línea 2 | "de cualquier monumento." · Bricolage Bold 44px · `#FAB402` · centrado · y: 1440px |
+| Aparición textos | delay 1.0s desde inicio de escena · slide-up 0.25s ease-out |
+| Curva decorativa | `wiztrip/curvas/Curva_lila.svg` · top-right · opacidad 30% · estática |
+
+---
+
+**Frame 4 — Pique 02 (17s–30s)**
+
+| Elemento | Especificación |
+|---|---|
+| Fondo | MISSING_ASSET: footage — plato de cacio e pepe auténtico, mesa madera, luz lateral cálida, manos reales con tenedor en movimiento. |
+| Overlay inferior | Gradiente `#FFF2CA` 70% · desde y: 1200px |
+| Número "02" | Bricolage ExtraBold 120px · `#4C167C` · x: 60px · y: 220px · misma animación que "01" |
+| Texto línea 1 | "Tres platos. Solo tres." · Bricolage Bold 44px · `#4C167C` · centrado · y: 1370px |
+| Texto línea 2 | "Cacio e pepe · Carbonara · Amatriciana" · Host Grotesk SemiBold 24px · `#222524` · centrado · y: 1430px |
+| SFX visual trampa turística | Frame único rojo flash (2 frames, 0.07s) al segundo 22 (momento verbal de la mención) |
+
+---
+
+**Frame 5 — Pique 03 (30s–42s)**
+
+| Elemento | Especificación |
+|---|---|
+| Layout | Split screen vertical: izquierda 432px · derecha 648px |
+| Fondo izquierda | MISSING_ASSET: footage — restaurant trampa turística, carta plastificada, mozo en puerta. Overlay `#E5F53F` 20% + viñeta roja sutil. |
+| Fondo derecha | MISSING_ASSET: footage — trattoria pequeña sin cartel exterior, locales adentro, puerta entreabierta. Sin overlay. |
+| Sticker izquierda | `wiztrip/mascot/sticker/Sticker_error.svg` · x: 120px · y: 880px · escala: 22% del frame · rotación: -8deg |
+| Sticker derecha | `wiztrip/mascot/sticker/Sticker_bien.svg` ·
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
+
+
+## Piece #013 — reel
+Date: 2026-05-06 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: 3 piques de Wizzo para comer pasta auténtica en Roma sin caer en trampas turísticas. Formato Piques. Tono Wizzo: cercano, con sabiduría de quien ya estuvo y conoce los lugares de los locales. Cada pique = barrio/zona + tipo de lugar + el truco para reconocerlo (ej: menú solo en italiano, pocas mesas, abuela cocinando). Cerrar con CTA suave a WizTrip como copiloto del viaje.
+
+### Generated Content
+# Reel/TikTok — "3 Piques de Wizzo: Pasta Auténtica en Roma"
+
+---
+
+## Resumen
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Viral / Valor (awareness + posicionamiento de Wizzo como voz experta) |
+| **Formato de script** | **B — "Direct Value"** · Promesa clara → 3 piques concretos con estructura consistente → CTA suave. Es el formato natural del contenido Piques: aporta valor real, es guardable, y cada pique tiene el mismo peso → ritmo hipnótico que retiene |
+| **Trigger emocional** | **Enojo / validación** — "yo sabía que algo estaba mal cuando comí en esa plaza". El viajero se siente traicionado por las trampas turísticas. Wizzo le da la razón y lo arma para el próximo viaje |
+| **Plataformas destino** | TikTok · Instagram Reels |
+| **Duración estimada** | 42–48 segundos |
+
+---
+
+## Triple Hook
+
+| Canal | Elemento | Contenido |
+|---|---|---|
+| 👁️ **Visual** | Frame 0–1s | Wizzo (Color_magia.svg) aparece de golpe sobre fondo violeta `#4C167C`, señalando con el dedo hacia cámara. Zoom rápido de entrada. Sin texto todavía |
+| 📝 **Textual** | Texto en pantalla | **"Nadie te dice esto en Roma."** |
+| 🎙️ **Verbal** | Narración Wizzo | *"Si fuiste a Roma y comiste pasta frente a una plaza famosa… te robaron."* |
+
+> El primer segundo combina acusación directa + identidad de Wizzo + curiosidad extrema. La palabra "robaron" es el pattern interrupt que detiene el scroll.
+
+---
+
+## Script completo
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 1 [0s–3s] — HOOK / PATTERN INTERRUPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Corte 1 [0.0s]: Flash — fondo violeta sólido #4C167C.
+    Wizzo en pose "señalando" (Color_magia.svg), zoom rápido de 80%→100%.
+  Corte 2 [0.5s]: Texto aparece con pop (scale 0→1 con spring).
+  Corte 3 [1.0s]: Corte seco → B-roll: turistas haciendo fila enorme
+    frente a un restaurante con menú en 5 idiomas y fotos en la
+    vidriera (imagen estilo aspiracional WizTrip — gente real,
+    situación espontánea).
+  Corte 4 [1.5s]: Wizzo vuelve, cara de "¿ves lo que te digo?"
+    (Color_pensar.svg), fondo #4C167C.
+  Corte 5 [2.0s]: Corte seco → primer texto del pique.
+  Corte 6 [2.5s]: Zoom ligero sobre el texto.
+
+Texto en pantalla:
+  "Nadie te dice esto en Roma."
+  Fuente: BricolageGrotesque_72pt-ExtraBold · 72px
+  Color: #FAB402 (Wizzo Gold)
+  Posición: centro pantalla, zona segura
+
+Narración:
+  "Si fuiste a Roma y comiste pasta frente a una plaza famosa...
+   te robaron."
+
+Música/SFX:
+  Beat con glitch/snap en los cortes. Música instrumental
+  italiana distorsionada → corte seco al silencio antes del pique 1.
+
+Transición: Corte seco + swipe de color violeta → Escena 2
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 2 [3s–14s] — PIQUE 1: TRASTEVERE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: foto aspiracional de callejuela Trastevere —
+    adoquines mojados, ropa colgada entre edificios
+    ocres, pocos turistas. Encuadre natural, sin postal.
+  Overlay: gradiente sutil de #4C167C (0% opacidad arriba →
+    60% abajo) para legibilidad del texto.
+  Esquina superior izquierda: Sello "Pique #1" en tag
+    dorado (#FAB402), texto Host Grotesk SemiBold 28px.
+  Mascota: Wizzo sticker pequeño (Sticker_bien.svg)
+    animado con bounce, esquina inferior derecha
+    (fuera de safe zone inferior → lo cortamos en 300px del borde).
+
+Texto en pantalla:
+  Línea 1: "TRASTEVERE" — BricolageGrotesque-ExtraBold · 88px · #FAB402
+  Línea 2: "Buscá la trattoria sin fotos en la puerta."
+           — Host Grotesk-Medium · 36px · #FFF2CA
+  Línea 3 (badge): "🍝 El menú: solo en italiano." — 
+           Host Grotesk-Regular · 28px · #E5F53F
+  Posición: zona central-baja, safe zone respetada
+
+Narración (voz Wizzo):
+  "Pique número uno: Trastevere.
+   El barrio que los romanos eligieron para vivir —
+   no para fotos.
+   Mi truco: si el menú tiene fotos de los platos
+   o está en inglés antes que en italiano,
+   girá y caminá.
+   Las mejores trattorias tienen tres mesas,
+   escriben el menú a mano y la nonna
+   aparece desde la cocina a las 7 de la tarde.
+   Esa es la señal."
+
+Música/SFX:
+  Acordeón suave italiano de fondo, bajo volumen.
+  SFX: sonido de "tick" al aparecer cada línea de texto.
+
+Transición: Wipe horizontal con curva derivada de la W
+  (Curva_lila.svg animada de izquierda a derecha) → Escena 3
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 3 [14s–26s] — PIQUE 2: PIGNETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: foto aspiracional de Pigneto — mercado local,
+    gente comprando, vegetales frescos, no postcard.
+    Movimiento en la imagen (ligero parallax).
+  Overlay: gradiente #222524 (oscuro) en base.
+  Sello "Pique #2" idéntico al anterior.
+  Wizzo en pose advertencia → mascota (Sticker_error.svg)
+    pequeño, animado, señalando hacia afuera del frame.
+
+Texto en pantalla:
+  Línea 1: "PIGNETO" — BricolageGrotesque-ExtraBold · 88px · #FAB402
+  Línea 2: "El barrio donde comen los romanos jóvenes."
+           — Host Grotesk-Medium · 36px · #FFF2CA
+  Línea 3 (badge con ícono ⚠️): "Trampa turística: zona del Panteón."
+           — Host Grotesk-Regular · 28px · #E5F53F
+
+Narración (voz Wizzo):
+  "Pique número dos: Pigneto.
+   Barrio obrero que se convirtió en el favorito
+   de los romanos que saben comer.
+   Ningún tour te lleva ahí. Eso es exactamente
+   por qué tenés que ir.
+   ¿El truco? Buscá un local con pocas mesas
+   afuera, sin tablero con precio por menú turístico.
+   Si ves precios en pizarrón sin traducción,
+   estás en el lugar correcto.
+   Y si el que te atiende te pregunta de dónde sos
+   antes de darte la carta... elegiste bien."
+
+Música/SFX:
+  Continuidad del acordeón + SFX tick en textos.
+  Micro-pausa de 0.3s antes de "elegiste bien" —
+  énfasis en la frase Wizzo.
+
+Transición: Corte seco con flash dorado (#FAB402, 2 frames) → Escena 4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 4 [26s–38s] — PIQUE 3: TESTACCIO (el mejor al final)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo: foto aspiracional de Testaccio —
+    mercado cubierto, luz cálida interior,
+    dos personas locales conversando con tendero.
+    Color vibrante y auténtico.
+  Overlay: gradient crema #FFF2CA (arriba) → transparente.
+  Sello "Pique #3" con estrella animada ✨ girando 360° al aparecer.
+  Wizzo héroe: Color_magia.svg en tamaño mayor (20% del frame),
+    esquina inferior izquierda, con shimmer/brillo animado
+    en el color dorado.
+
+Texto en pantalla:
+  Línea 1: "TESTACCIO" — BricolageGrotesque-ExtraBold · 88px · #4C167C
+    (sobre fondo claro crema, para contraste)
+  Línea 2: "El barrio que inventó la cocina romana real."
+           — Host Grotesk-Medium · 36px · #222524
+  Línea 3 (highlight box #FAB402): "🔑 El pique: Mercato di Testaccio."
+           — Host Grotesk-Bold · 30px · #222524
+
+Narración (voz Wizzo, más cálida, como si revelara el secreto mayor):
+  "Y el mejor pique — el que me guardé para el final —
+   es Testaccio.
+   El barrio donde nació la cocina romana de verdad.
+   ¿Qué hacés? Entrás al Mercato di Testaccio —
+   un mercado cubierto, sin turistas, lleno de puestos
+   donde los productores venden directo.
+   Pedís un plato de cacio e pepe en cualquier puesto
+   que tenga cola de locales.
+   Si tiene cola de locales, no fallás.
+   Esa es la única review que importa."
+
+Música/SFX:
+  Beat sube levemente en intensidad.
+  SFX: campana suave (revelación) al aparecer "Mercato di Testaccio".
+
+Transición: Wipe con Curva_neon.svg (verde-amarillo vibrante) → Escena 5
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCENA 5 [38s–45s] — CIERRE + CTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Visual:
+  Fondo sólido #4C167C.
+  Wizzo en pose festejo (Color_festejo.svg), centrado,
+    con animación de entrada desde abajo (slide up + fade in).
+  Logo WizTrip (Logo_Crema.svg) aparece en esquina inferior
+    centrada, dentro de safe zone.
+  Curva decorativa (Curva_lila.svg) como elemento de fondo,
+    rotando lentamente, baja opacidad (15%).
+
+Texto en pantalla:
+  Línea 1: "¿Vas a Roma?" — BricolageGrotesque-Bold · 64px · #FAB402
+    Animación: typewriter effect, 0.8s
+  Línea 2: "WizTrip es tu copiloto." — Host Grotesk-Medium · 36px · #FFF2CA
+    Fade in después de Línea 1.
+  Línea 3: "wiz-trip.com" — Host Grotesk-SemiBold · 30px · #E5F53F
+    Underline animado de izquierda a derecha.
+
+Narración (voz Wizzo, cierre amable — no vende, acompaña):
+  "Estos son mis tres piques para comer pasta
+   como si vivieras ahí.
+   Y si querés que te arme todo el viaje
+   con este mismo criterio...
+   en WizTrip somos tu copiloto.
+   Viajá con ventaja."
+
+Música/SFX:
+  Beat resuelve en acorde mayor cálido.
+  SFX: sonido sutil tipo "magia/chispa" al aparecer el logo.
+
+Transición: Fade out suave a negro. FIN.
+```
+
+---
+
+## Storyboard de producción
+
+> Resolución: **1080 × 1920px** (9:16 vertical)
+> Safe zones: texto **nunca** por encima de `y=150px` ni por debajo de `y=1670px`
+> Framework: **Remotion** — todos los assets cargados desde path local
+
+---
+
+### Frame 1 — Hook (0s–1s)
+
+```
+Especificaciones técnicas:
+  Fondo: backgroundColor = '#4C167C'
+  Asset: wiztrip/mascot/color/Color_magia.svg
+    → posición: center x, y=680px
+    → tamaño: 420px ancho (mantiene proporción)
+    → animación: spring scale 0.8→1.0, spring({ frame, fps, config: {
+        mass:0.4, stiffness:180, damping:12 } })
+
+  Texto "Nadie te dice esto en Roma."
+    → fontFamily: 'BricolageGrotesque_72pt-ExtraBold'
+    → fontSize: 72px
+    → color: '#FAB402'
+    → position: center x, y=1100px
+    → animación: scale spring 0→1, frame 8→15
+    → letterSpacing: -1px
+    → textAlign: center
+    → maxWidth: 900px (padding lateral 90px c/lado)
+```
+
+---
+
+### Frame 2 — Pique 1: Trastevere (3s–14s)
+
+```
+Especificaciones técnicas:
+  Fondo: imagen aspiracional Trastevere
+    → objectFit: 'cover', parallax sutil (translateY: -20px→0 en 11s)
+  Overlay: linearGradient('#4C167C' 0%→ rgba(76,22,124,0.6) 100%)
+    → desde abajo hacia arriba, altura 60% del frame
+
+  Badge "Pique #1":
+    → background: '#
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING

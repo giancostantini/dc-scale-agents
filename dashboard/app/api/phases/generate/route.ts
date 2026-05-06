@@ -26,6 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import {
   PHASE_PROMPTS,
+  PHASE_PROMPTS_BRAND_LAUNCH,
   buildPhaseUserPrompt,
   type PhaseGenerationInput,
 } from "./prompts";
@@ -180,37 +181,101 @@ export async function POST(req: NextRequest) {
       { onConflict: "client_id,phase" },
     );
 
-  // ====== 7. Bajar el kickoff del bucket si está cargado ======
-  let kickoffPdfBase64: string | null = null;
-  let kickoffMime: string | null = null;
-  let kickoffName: string | null = null;
-  const onboarding = (client.onboarding ?? {}) as Record<string, unknown>;
-  const kickoffMeta = onboarding.kickoffFile;
+  // ====== 7. Bajar TODOS los inputs del cliente del bucket ======
+  // El cliente sube el kickoff y el branding como PDFs (ese es el caso
+  // estándar). Tomamos los dos y los pasamos a Claude como document
+  // content blocks. Si alguno es imagen (logo PNG, paleta), va como
+  // image content block. Cualquier otra cosa (zip, doc/docx) la
+  // skippeamos con un warning — en ese caso el agente trabajará sólo
+  // con la metadata del cliente.
+  //
+  // Claude API soporta hasta 100 documentos y 100 imágenes por request,
+  // 32MB cada uno. Para nuestros volúmenes (1 kickoff + 1-3 branding)
+  // es más que suficiente.
 
-  if (kickoffMeta && typeof kickoffMeta === "object" && "path" in kickoffMeta) {
-    const meta = kickoffMeta as { path: string; name?: string; type?: string };
+  interface DownloadedAsset {
+    role: "kickoff" | "branding";
+    name: string;
+    mime: string;
+    base64: string;
+  }
+
+  const onboarding = (client.onboarding ?? {}) as Record<string, unknown>;
+
+  function isPdfMime(mime: string): boolean {
+    return mime.toLowerCase().includes("pdf");
+  }
+  function isImageMime(mime: string): boolean {
+    return /^image\/(png|jpe?g|gif|webp)$/i.test(mime);
+  }
+
+  async function downloadAsset(
+    pathLike: unknown,
+    role: "kickoff" | "branding",
+    fallbackName: string,
+  ): Promise<DownloadedAsset | null> {
+    if (!pathLike) return null;
+    if (typeof pathLike === "string") {
+      // Compat con datos viejos que guardaban solo el filename.
+      // No tenemos forma de descargar sin el path real.
+      return null;
+    }
+    if (typeof pathLike !== "object" || !("path" in pathLike)) return null;
+    const meta = pathLike as { path: string; name?: string; type?: string };
     try {
       const { data: blob, error: dlErr } = await admin.storage
         .from("client-onboarding")
         .download(meta.path);
-      if (dlErr) {
-        console.warn("kickoff download failed:", dlErr);
-      } else if (blob) {
-        const arrayBuf = await blob.arrayBuffer();
-        const buf = Buffer.from(arrayBuf);
-        kickoffPdfBase64 = buf.toString("base64");
-        kickoffMime = meta.type || blob.type || "application/pdf";
-        kickoffName = meta.name ?? "kickoff.pdf";
+      if (dlErr || !blob) {
+        console.warn(`[phases.generate] ${role} download failed:`, dlErr);
+        return null;
       }
+      const buf = Buffer.from(await blob.arrayBuffer());
+      const mime = meta.type || blob.type || "application/octet-stream";
+      const name = meta.name ?? fallbackName;
+      return { role, name, mime, base64: buf.toString("base64") };
     } catch (err) {
-      console.warn("kickoff download exception:", err);
+      console.warn(`[phases.generate] ${role} download exception:`, err);
+      return null;
     }
   }
+
+  // Bajamos kickoff + todos los branding files en paralelo
+  const brandingArr = Array.isArray(onboarding.brandingFiles)
+    ? (onboarding.brandingFiles as unknown[])
+    : [];
+
+  const [kickoffAsset, ...brandingAssets] = await Promise.all([
+    downloadAsset(onboarding.kickoffFile, "kickoff", "kickoff.pdf"),
+    ...brandingArr.map((f, i) =>
+      downloadAsset(f, "branding", `branding-${i + 1}.pdf`),
+    ),
+  ]);
+
+  const allAssets: DownloadedAsset[] = [
+    ...(kickoffAsset ? [kickoffAsset] : []),
+    ...brandingAssets.filter((a): a is DownloadedAsset => a !== null),
+  ];
+
+  // Resúmenes para el prompt (texto)
+  const kickoffName = kickoffAsset?.name ?? null;
+  const brandingNames = allAssets
+    .filter((a) => a.role === "branding")
+    .map((a) => a.name);
+  const skippedAssets = brandingArr.length - brandingNames.length - 0;
 
   // ====== 8. Llamar Claude ======
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
-  const promptCfg = PHASE_PROMPTS[phaseKey];
+  // Elegir variante del prompt según onboarding.isBrandLaunch.
+  // Cuando el cliente es un lanzamiento de marca, usamos un prompt de
+  // diagnóstico con 9 secciones (sin canales, sin oportunidades, sin
+  // roadmap a 90 días — esos no aplican). Las otras fases (Estrategia,
+  // Setup, Lanzamiento) usan los prompts regulares.
+  const isBrandLaunch = (onboarding as { isBrandLaunch?: boolean }).isBrandLaunch === true;
+  const promptCfg = isBrandLaunch
+    ? PHASE_PROMPTS_BRAND_LAUNCH[phaseKey]
+    : PHASE_PROMPTS[phaseKey];
   const input: PhaseGenerationInput = {
     client: {
       name: client.name,
@@ -226,29 +291,59 @@ export async function POST(req: NextRequest) {
     previousReports,
     feedback: feedback ?? null,
     kickoffName,
+    brandingNames,
+    skippedAssets: skippedAssets > 0 ? skippedAssets : null,
   };
 
   const userPrompt = buildPhaseUserPrompt(phaseKey, input);
 
-  // Content blocks: [doc del kickoff?, texto del prompt]
+  // Content blocks: [docs del kickoff + branding] + texto del prompt.
+  // Orden importante: docs primero para que el cache hit pegue mejor
+  // si re-generamos con el mismo cliente.
   const userContent: Anthropic.Messages.ContentBlockParam[] = [];
-  if (kickoffPdfBase64 && kickoffMime?.includes("pdf")) {
-    userContent.push({
-      type: "document",
-      source: {
-        type: "base64",
-        media_type: "application/pdf",
-        data: kickoffPdfBase64,
-      },
-    } as Anthropic.Messages.ContentBlockParam);
+
+  for (const asset of allAssets) {
+    if (isPdfMime(asset.mime)) {
+      userContent.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: asset.base64,
+        },
+      } as Anthropic.Messages.ContentBlockParam);
+    } else if (isImageMime(asset.mime)) {
+      userContent.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: asset.mime as
+            | "image/png"
+            | "image/jpeg"
+            | "image/gif"
+            | "image/webp",
+          data: asset.base64,
+        },
+      } as Anthropic.Messages.ContentBlockParam);
+    } else {
+      // Formato no soportado nativamente (zip, doc, docx, etc).
+      // No lo adjuntamos. El agente lo va a saber por el texto del prompt.
+      console.warn(
+        `[phases.generate] asset ${asset.name} (${asset.mime}) no se adjunta — formato no soportado nativo por Claude. Pediselo al cliente en PDF.`,
+      );
+    }
   }
+
   userContent.push({ type: "text", text: userPrompt });
 
   let claudeResponse;
   try {
     claudeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
-      max_tokens: 8000,
+      // 16k da margen para los reportes largos en español (12 secciones
+      // densas con tablas). Antes tenía 8k y el output se cortaba en
+      // reportes ricos.
+      max_tokens: 16000,
       system: [
         {
           type: "text",
@@ -267,26 +362,49 @@ export async function POST(req: NextRequest) {
       .eq("client_id", clientId)
       .eq("phase", phaseKey);
 
-    console.error("Claude API error:", err);
+    console.error("[phases.generate] Claude API error:", err);
     if (err instanceof Anthropic.AuthenticationError) {
       return Response.json(
-        { error: "ANTHROPIC_API_KEY inválida." },
+        {
+          error: "ANTHROPIC_API_KEY inválida o revocada.",
+          detail: err.message,
+        },
         { status: 401 },
       );
     }
     if (err instanceof Anthropic.RateLimitError) {
       return Response.json(
-        { error: "Rate limit. Esperá unos segundos y reintenta." },
+        {
+          error: "Rate limit alcanzado. Esperá unos segundos y reintenta.",
+          detail: err.message,
+        },
         { status: 429 },
       );
     }
     if (err instanceof Anthropic.APIError) {
       return Response.json(
-        { error: `Claude API: ${err.message}` },
+        {
+          error: `Claude API · ${err.status ?? "?"}`,
+          detail: err.message,
+          // Algunos errores de Claude vienen con un body útil (ej: token limit, content policy)
+          // que ayuda mucho para debuggear. Lo incluimos.
+          extra:
+            err instanceof Anthropic.BadRequestError
+              ? "Bad request — revisá el contenido del kickoff/branding (puede ser muy grande o tener algo que el modelo rechaza)"
+              : undefined,
+        },
         { status: err.status ?? 500 },
       );
     }
-    return Response.json({ error: "Error generando." }, { status: 500 });
+    const e = err as { message?: string; name?: string };
+    return Response.json(
+      {
+        error: "Error inesperado generando el reporte.",
+        detail: e.message ?? String(err),
+        type: e.name ?? "Unknown",
+      },
+      { status: 500 },
+    );
   }
 
   const textBlock = claudeResponse.content.find((b) => b.type === "text");

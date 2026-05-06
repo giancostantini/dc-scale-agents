@@ -10,10 +10,13 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "next": "16.2.4",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.624",
+    "pptxgenjs": "^4.0.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
