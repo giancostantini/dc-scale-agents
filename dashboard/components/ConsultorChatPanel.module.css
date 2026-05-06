@@ -472,3 +472,109 @@
     max-width: 100%;
   }
 }
+
+/* Mobile chico (375px-480px) — chat pegado al bottom para que el composer
+   nunca se pierda al hacer focus en el textarea. Suggestions más grandes
+   para tappear cómodo (44x44 mínimo). */
+@media (max-width: 480px) {
+  .panel {
+    min-height: calc(100vh - 220px);
+    height: auto;
+    border-left: none;
+    border-top: 2px solid var(--sand);
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .panelHeader {
+    padding: 12px 14px;
+    background: linear-gradient(180deg, var(--ivory) 0%, rgba(196, 168, 130, 0.06) 100%);
+  }
+  .consultorAvatar {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .headerTitle {
+    font-size: 13px;
+  }
+  .headerSub {
+    font-size: 9px;
+  }
+  .expandBtn {
+    padding: 6px 10px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .messages {
+    padding: 14px 12px 12px;
+    gap: 14px;
+  }
+
+  .assistantAvatar,
+  .thinkingAvatar {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .assistantBubble,
+  .userBubble,
+  .thinkingDots {
+    padding: 11px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .userBubble {
+    max-width: 92%;
+  }
+
+  .welcomeLabel {
+    font-size: 8px;
+    letter-spacing: 0.25em;
+  }
+
+  /* Suggestions: tipografía más grande, más padding para tap, full-width */
+  .suggestions {
+    padding: 12px 14px 4px;
+  }
+  .suggestionBtn {
+    padding: 13px 14px;
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 44px;
+  }
+
+  /* Composer pegado al bottom — usa safe-area para iOS notch.
+     Sticky-bottom evita que el textarea suba al hacer focus y deje
+     un gap raro. */
+  .composer {
+    padding: 10px 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    border-top: 1px solid rgba(10, 26, 12, 0.08);
+    box-shadow: 0 -4px 12px rgba(10, 26, 12, 0.04);
+  }
+
+  .input {
+    padding: 11px 12px;
+    font-size: 16px; /* 16px evita zoom de iOS Safari al hacer focus */
+    line-height: 1.4;
+  }
+
+  .sendBtn {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .chatError {
+    margin: 0 12px 10px;
+    font-size: 11px;
+  }
+}
