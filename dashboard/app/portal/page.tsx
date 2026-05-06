@@ -23,6 +23,8 @@ import Lockup from "@/components/Lockup";
 import PortalOnboardingTour from "@/components/PortalOnboardingTour";
 import PortalHeader from "@/components/PortalHeader";
 import ConsultorChatPanel from "@/components/ConsultorChatPanel";
+import PhaseRoadmap from "@/components/PhaseRoadmap";
+import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
 import type {
   CalEvent,
   Client,
@@ -69,6 +71,11 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
+  const [commentsDrawer, setCommentsDrawer] = useState<{
+    open: boolean;
+    reportId: string | null;
+    reportLabel: string;
+  }>({ open: false, reportId: null, reportLabel: "" });
 
   useEffect(() => {
     if (!client) return;
@@ -129,7 +136,10 @@ export default function PortalPage() {
         ev.filter((e) => e.clientId === p.client_id || e.clientLabel === c?.name),
       );
       setPayments(pay.filter((pp) => pp.clientId === p.client_id));
-      setReports(rs.filter((r) => r.status === "approved"));
+      // Reportes: TODOS los estados — el PhaseRoadmap necesita ver
+      // approved/draft/review/pending para pintar la barra de fases.
+      // Para la sección "Reportes aprobados" más abajo filtramos a approved.
+      setReports(rs);
       setContent(ct);
       setLoading(false);
     });
@@ -194,6 +204,9 @@ export default function PortalPage() {
             {client.name} · {client.sector}
           </div>
         </section>
+
+        {/* ROADMAP DE FASES — visible siempre, da contexto del progreso */}
+        <PhaseRoadmap client={client} reports={reports} />
 
         {/* CHAT-FIRST LAYOUT */}
         <section className={styles.chatLayout}>
@@ -319,38 +332,69 @@ export default function PortalPage() {
 
         {/* DETALLE SCROLLEABLE */}
 
-        {reports.length > 0 && (
+        {reports.filter((r) => r.status === "approved").length > 0 && (
           <section className={styles.detailSection}>
             <div className={styles.sectionLabel}>Reportes aprobados</div>
             <div className={styles.panel}>
-              {reports.map((r) => {
-                const summary = extractExecutiveSummary(r.content_md);
-                return (
-                  <div key={r.id} className={styles.reportRow}>
-                    <div className={styles.reportHead}>
-                      <div className={styles.reportTitle}>
-                        {PHASE_LABELS[r.phase] ?? r.phase}
+              {reports
+                .filter((r) => r.status === "approved")
+                .map((r) => {
+                  const summary = extractExecutiveSummary(r.content_md);
+                  const phaseLabel = PHASE_LABELS[r.phase] ?? r.phase;
+                  return (
+                    <div key={r.id} className={styles.reportRow}>
+                      <div className={styles.reportHead}>
+                        <div className={styles.reportTitle}>{phaseLabel}</div>
+                        <div className={styles.reportHeadActions}>
+                          <span className={styles.reportDate}>
+                            {r.approved_at &&
+                              new Date(r.approved_at).toLocaleDateString(
+                                "es-AR",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
+                          </span>
+                          <button
+                            type="button"
+                            className={styles.reportCommentBtn}
+                            onClick={() =>
+                              setCommentsDrawer({
+                                open: true,
+                                reportId: r.id,
+                                reportLabel: phaseLabel,
+                              })
+                            }
+                          >
+                            Comentar
+                          </button>
+                        </div>
                       </div>
-                      <div className={styles.reportDate}>
-                        {r.approved_at &&
-                          new Date(r.approved_at).toLocaleDateString("es-AR", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                      </div>
+                      {summary ? (
+                        <MarkdownRenderer content={summary} shiftHeadings />
+                      ) : (
+                        <div className={styles.muted}>
+                          Sin resumen disponible.
+                        </div>
+                      )}
                     </div>
-                    {summary ? (
-                      <MarkdownRenderer content={summary} shiftHeadings />
-                    ) : (
-                      <div className={styles.muted}>Sin resumen disponible.</div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </section>
         )}
+
+        <ReportCommentsDrawer
+          open={commentsDrawer.open}
+          reportId={commentsDrawer.reportId}
+          reportLabel={commentsDrawer.reportLabel}
+          onClose={() =>
+            setCommentsDrawer({ open: false, reportId: null, reportLabel: "" })
+          }
+        />
+
 
         {content.length > 0 && (
           <section className={styles.detailSection}>
@@ -386,6 +430,9 @@ export default function PortalPage() {
           </div>
           <div className={styles.footerRight}>
             ¿Necesitás algo? Hablá con tu account lead o pediselo a D&C Advisor.
+            <Link href="/portal/faq" className={styles.footerLink}>
+              ¿Cómo funciona el portal? →
+            </Link>
           </div>
         </footer>
       </main>

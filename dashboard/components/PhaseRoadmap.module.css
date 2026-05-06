@@ -1,0 +1,367 @@
+/* ================================================================
+   PhaseRoadmap — barra horizontal con las 4 fases del cliente.
+   ================================================================ */
+
+.wrapper {
+  margin-bottom: 36px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+}
+
+.subtle {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ===== Steps ===== */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.stepWrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.stepWrap:last-child {
+  flex: 0 0 auto;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out;
+  border-radius: 1px;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--deep-green);
+  width: 100%;
+  text-align: left;
+}
+
+.step:hover:not(:disabled) {
+  border-color: var(--sand);
+  background: var(--ivory);
+}
+
+.step:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.stepNum {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--off-white);
+  color: var(--deep-green);
+  flex-shrink: 0;
+}
+
+.stepLabelDesktop {
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stepLabelMobile {
+  display: none;
+  font-weight: 500;
+  flex: 1;
+}
+
+.stepBadge {
+  font-size: 13px;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+/* ===== Variantes por estado ===== */
+
+.step_approved {
+  background: rgba(58, 139, 92, 0.08);
+  border-color: var(--green-ok);
+  border-left: 3px solid var(--green-ok);
+}
+
+.step_approved .stepNum {
+  background: var(--green-ok);
+  color: var(--off-white);
+}
+
+.step_approved .stepBadge {
+  color: var(--green-ok);
+}
+
+.step_active {
+  background: var(--deep-green);
+  border-color: var(--deep-green);
+  border-left: 3px solid var(--sand);
+  color: var(--off-white);
+}
+
+.step_active .stepNum {
+  background: var(--sand);
+  color: var(--deep-green);
+}
+
+.step_active .stepBadge {
+  color: var(--sand);
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+.step_draft,
+.step_review {
+  background: rgba(201, 161, 74, 0.10);
+  border-color: var(--yellow-warn);
+  border-left: 3px solid var(--yellow-warn);
+}
+
+.step_draft .stepBadge,
+.step_review .stepBadge {
+  color: var(--yellow-warn);
+}
+
+.step_generating {
+  background: rgba(196, 168, 130, 0.08);
+  border-color: var(--sand);
+  border-left: 3px solid var(--sand);
+}
+
+.step_generating .stepBadge {
+  color: var(--sand-dark);
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.step_pending {
+  background: var(--white);
+  color: var(--text-muted);
+}
+
+.step_pending .stepBadge {
+  color: var(--text-muted);
+}
+
+.step_locked {
+  background: rgba(10, 26, 12, 0.04);
+  color: var(--text-muted);
+  border-color: rgba(10, 26, 12, 0.06);
+}
+
+.step_locked .stepBadge {
+  color: var(--text-muted);
+}
+
+/* ===== Connector ===== */
+
+.connector {
+  flex: 0 0 12px;
+  height: 1px;
+  background: rgba(10, 26, 12, 0.15);
+  margin: 0 4px;
+}
+
+.connectorDone {
+  background: var(--green-ok);
+  height: 2px;
+}
+
+/* ===== Drawer (resumen del reporte al click) ===== */
+
+.drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 26, 12, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 56px 20px;
+  overflow-y: auto;
+  animation: fadeIn 180ms ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.drawer {
+  background: var(--white);
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100vh - 112px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(10, 26, 12, 0.32);
+  border-top: 3px solid var(--sand);
+  animation: slideUp 220ms ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.drawerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.06);
+  flex-shrink: 0;
+}
+
+.drawerEyebrow {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.drawerTitle {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--deep-green);
+  line-height: 1.15;
+}
+
+.drawerClose {
+  background: transparent;
+  border: 1px solid rgba(10, 26, 12, 0.12);
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1px;
+  transition: border-color 180ms ease-out, color 180ms ease-out;
+}
+
+.drawerClose:hover {
+  border-color: var(--deep-green);
+  color: var(--deep-green);
+}
+
+.drawerBody {
+  padding: 22px 28px 28px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--deep-green);
+}
+
+.drawerMeta {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+
+.drawerMuted {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ===== Mobile ===== */
+
+@media (max-width: 760px) {
+  .steps {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .stepWrap {
+    width: 100%;
+  }
+  .connector {
+    display: none;
+  }
+  .step {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .stepLabelDesktop {
+    display: none;
+  }
+  .stepLabelMobile {
+    display: inline;
+  }
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .drawer {
+    max-height: 92vh;
+  }
+  .drawerHeader {
+    padding: 18px 20px 14px;
+  }
+  .drawerBody {
+    padding: 18px 20px 24px;
+  }
+  .drawerTitle {
+    font-size: 20px;
+  }
+}
