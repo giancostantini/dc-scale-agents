@@ -16,30 +16,16 @@ import {
 } from "@/lib/markdown-blocks";
 
 // ====== FONTS ======
-// Inter es la cara de marca. Lo registramos desde Google Fonts CDN.
-// react-pdf descarga las fonts al generar y las embebe en el PDF.
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v19/UcCm3FwrK3iLTcvneQg7Ca725Jhg.ttf",
-      fontWeight: 300,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v19/UcCm3FwrK3iLTcvneQg7Ca725JhhKKU.ttf",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v19/UcCm3FwrK3iLTcvneQg7Ca725JhgKKU.ttf",
-      fontWeight: 600,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v19/UcCm3FwrK3iLTcvneQg7Ca725JhpKKU.ttf",
-      fontWeight: 700,
-    },
-  ],
-});
-// Fallback para evitar errores si la red falla
+// Usamos Helvetica (built-in en react-pdf, no requiere fetch). Es
+// visualmente casi idéntica a Inter para nuestros tamaños de body
+// y es la fuente histórica del brand book de DC. Cero red, cero
+// puntos de falla.
+const FONT_REGULAR = "Helvetica";
+const FONT_BOLD = "Helvetica-Bold";
+const FONT_OBLIQUE = "Helvetica-Oblique";
+
+// Hyphenation callback custom para que no parta palabras raras en
+// rioplatense (ej: "marketing" en "mar-ke-ting").
 Font.registerHyphenationCallback((w) => [w]);
 
 // ====== BRAND COLORS ======
@@ -76,15 +62,15 @@ const styles = StyleSheet.create({
     flexDirection: "column",
   },
   coverDearmas: {
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 24,
     letterSpacing: -0.5,
     color: C.offWhite,
   },
   coverCostantini: {
-    fontFamily: "Inter",
-    fontWeight: 300,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 24,
     letterSpacing: -0.5,
     color: C.offWhite,
@@ -92,8 +78,8 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   coverTagline: {
-    fontFamily: "Inter",
-    fontWeight: 600,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 8,
     letterSpacing: 2,
     color: C.sand,
@@ -110,8 +96,8 @@ const styles = StyleSheet.create({
     objectFit: "contain",
   },
   clientName: {
-    fontFamily: "Inter",
-    fontWeight: 600,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 11,
     letterSpacing: 1.5,
     color: C.sand,
@@ -126,8 +112,8 @@ const styles = StyleSheet.create({
     marginVertical: 32,
   },
   coverEyebrow: {
-    fontFamily: "Inter",
-    fontWeight: 600,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 10,
     letterSpacing: 3,
     color: C.sand,
@@ -135,16 +121,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   coverTitle: {
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 56,
     letterSpacing: -2,
     color: C.offWhite,
     lineHeight: 1.05,
   },
   coverSubtitle: {
-    fontFamily: "Inter",
-    fontWeight: 300,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 16,
     color: C.sand,
     marginTop: 16,
@@ -163,8 +149,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   coverMetaLabel: {
-    fontFamily: "Inter",
-    fontWeight: 600,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 8,
     letterSpacing: 2,
     color: C.sand,
@@ -172,8 +158,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   coverMetaValue: {
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 11,
     color: C.offWhite,
   },
@@ -208,23 +194,23 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   pageHeaderDearmas: {
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 9,
     color: C.deepGreen,
     letterSpacing: -0.2,
   },
   pageHeaderCostantini: {
-    fontFamily: "Inter",
-    fontWeight: 300,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 9,
     color: C.deepGreen,
     opacity: 0.55,
     letterSpacing: -0.2,
   },
   pageHeaderRight: {
-    fontFamily: "Inter",
-    fontWeight: 600,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 8,
     color: C.sandDark,
     letterSpacing: 1.5,
@@ -245,16 +231,16 @@ const styles = StyleSheet.create({
     borderTopStyle: "solid",
   },
   pageFooterText: {
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 8,
     color: C.textMuted,
   },
 
   // ===== Typography =====
   h1: {
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 24,
     letterSpacing: -0.6,
     color: C.deepGreen,
@@ -262,8 +248,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   h2: {
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 16,
     letterSpacing: -0.4,
     color: C.deepGreen,
@@ -275,8 +261,8 @@ const styles = StyleSheet.create({
     borderBottomStyle: "solid",
   },
   h3: {
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 12,
     letterSpacing: 1.5,
     color: C.sandDark,
@@ -285,16 +271,16 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   h4: {
-    fontFamily: "Inter",
-    fontWeight: 600,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 11,
     color: C.deepGreen,
     marginTop: 14,
     marginBottom: 4,
   },
   paragraph: {
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 10,
     color: C.deepGreen,
     lineHeight: 1.55,
@@ -307,16 +293,16 @@ const styles = StyleSheet.create({
   },
   bulletMarker: {
     width: 16,
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 10,
     color: C.sandDark,
     lineHeight: 1.55,
   },
   bulletText: {
     flex: 1,
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 10,
     color: C.deepGreen,
     lineHeight: 1.55,
@@ -334,8 +320,8 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   blockquoteText: {
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 10,
     fontStyle: "italic",
     color: C.textMuted,
@@ -362,16 +348,16 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     padding: 6,
-    fontFamily: "Inter",
-    fontWeight: 400,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "normal",
     fontSize: 9,
     color: C.deepGreen,
     flex: 1,
   },
   tableCellHeader: {
     padding: 6,
-    fontFamily: "Inter",
-    fontWeight: 700,
+    fontFamily: FONT_REGULAR,
+    fontWeight: "bold",
     fontSize: 9,
     color: C.offWhite,
     flex: 1,
@@ -385,16 +371,13 @@ function renderSpans(spans: InlineSpan[]) {
     if (s.type === "text") return <Text key={idx}>{s.text}</Text>;
     if (s.type === "bold")
       return (
-        <Text
-          key={idx}
-          style={{ fontWeight: 700 }}
-        >
+        <Text key={idx} style={{ fontFamily: FONT_BOLD }}>
           {s.text}
         </Text>
       );
     if (s.type === "italic")
       return (
-        <Text key={idx} style={{ fontStyle: "italic" }}>
+        <Text key={idx} style={{ fontFamily: FONT_OBLIQUE }}>
           {s.text}
         </Text>
       );

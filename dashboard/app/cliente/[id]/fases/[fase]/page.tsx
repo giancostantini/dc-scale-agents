@@ -142,12 +142,33 @@ export default function FaseDetailPage({
           ? "Lanzamiento"
           : "Reporte";
 
+      // Convertir el logo del cliente a data URL antes de pasarlo al
+      // PDF — evita CORS al embeber. Si falla (red, archivo borrado),
+      // seguimos sin logo en lugar de romper la generación entera.
+      let logoDataUrl: string | null = null;
+      if (logoUrl) {
+        try {
+          const imgRes = await fetch(logoUrl);
+          if (imgRes.ok) {
+            const blobImg = await imgRes.blob();
+            logoDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blobImg);
+            });
+          }
+        } catch (e) {
+          console.warn("[downloadPdf] no se pudo cargar el logo, sigue sin él:", e);
+        }
+      }
+
       const blob = await pdf(
         <PhaseReportPdf
           phaseLabel={phaseLabel}
           reportName={meta?.reportName ?? phaseLabel}
           clientName={client.name}
-          clientLogoUrl={logoUrl ?? undefined}
+          clientLogoUrl={logoDataUrl ?? undefined}
           generatedAt={report.generated_at}
           approvedAt={report.approved_at}
           version={report.version}
@@ -165,7 +186,10 @@ export default function FaseDetailPage({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("downloadPdf error:", err);
-      alert("No se pudo generar el PDF. Probá de nuevo o revisá la consola.");
+      const e = err as Error;
+      alert(
+        `No se pudo generar el PDF.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
+      );
     } finally {
       setDownloadingPdf(false);
     }
