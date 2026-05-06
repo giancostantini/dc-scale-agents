@@ -71,101 +71,169 @@ sugiere una vibe (premium, accesible, tech), úsala como contexto.
 
 ${BRAND_VOICE}
 
-ESTRUCTURA OBLIGATORIA del reporte (usá estos headings ##):
+NOTA SOBRE FORMATO BILINGÜE:
+- Los HEADINGS van en INGLÉS (look de consultoría internacional).
+- El CONTENIDO va en español rioplatense (vos, tu empresa).
+- Esto es deliberado y NO opinable.
 
-## Resumen ejecutivo
-5-7 bullets con los hallazgos más importantes. El director tiene que
-poder leer solo esto y entender la foto. Cada bullet termina con un
-número, una fecha o una acción concreta — nada vago.
+ESTRUCTURA OBLIGATORIA del reporte (usá estos 13 headings ##, en este
+orden, sin agregar ni sacar secciones):
 
-## Análisis del mercado
-Tamaño aproximado del mercado en LATAM/país del cliente. Tendencias
-relevantes del sector. Momentum (creciendo, estancado, contrayendo).
-Si el kickoff tiene data específica del mercado, citala. Si no,
-inferí del sector y marcá los supuestos.
+## 1. Executive Summary
+Visión general del estado actual del negocio digital, principales
+oportunidades y recomendación estratégica. 5-7 bullets como máximo.
+El director tiene que poder leer SOLO esta sección y entender la foto
+completa. Cada bullet debe terminar con un número, una fecha o una
+acción concreta — nada vago.
 
-## Análisis competitivo
-5 competidores directos. Para cada uno una mini-FODA en bullets:
-- Proposición de valor
-- Fortalezas observables (qué hacen mejor)
-- Debilidades / gaps (qué pueden explotar)
-- Posicionamiento de precio (premium / mid / low)
-Si en el kickoff hay competidores mencionados, usalos. Si no, deducilos
-del sector.
+## 2. Business & Digital Context
+Análisis del negocio:
+- Modelo comercial (qué vende, cómo cobra, recurrencia, ticket).
+- Canales actuales y peso relativo aproximado.
+- Nivel de madurez digital (greenfield / partial / mature).
+- Tipo de negocio (B2C / B2B / B2B2C / DTC / marketplace).
+- Equipo interno disponible (si lo menciona el kickoff).
+- Contexto regional (LATAM / país específico).
 
-## Audiencia objetivo
-2-3 buyer personas inferidas del kickoff. Para cada una:
-- Quién es (rol, edad, contexto)
-- Dolor principal que resuelve este negocio
-- Motivador de compra
-- Objeción típica
-- Canal donde lo encontrás
+## 3. Market & Competitive Landscape
+Evaluación del mercado y competencia:
+- Tamaño aproximado del mercado en LATAM / país del cliente.
+- Tendencias y momentum (creciendo / estancado / contrayendo).
+- 5 competidores directos. Para cada uno una tabla con: nombre,
+  proposición de valor, fortaleza principal, debilidad explotable,
+  posicionamiento de precio (premium / mid / low).
+- Posicionamiento relativo del cliente vs los 5.
+- Oportunidades competitivas (gaps que el cliente puede explotar).
 
-## Posicionamiento actual
-Cómo se percibe el cliente HOY en su mercado vs cómo le gustaría
-percibirse. Brecha entre actual y deseado. Riesgo si no se cierra.
+## 4. Customer & Value Proposition Diagnosis
+Análisis del cliente ideal y la propuesta de valor:
+- 2-3 buyer personas (ICP). Cada una con: rol/edad/contexto, dolor
+  principal, motivador de compra, objeciones típicas, canal donde se
+  los encuentra.
+- Análisis de la propuesta de valor actual: qué promete, cómo se
+  comunica, dónde aparece.
+- Claridad del mensaje: ¿es entendible en 5 segundos? ¿se diferencia
+  de la competencia? ¿qué le falta?
+- Recomendación inicial de refinamiento (no resolver — solo señalar).
 
-## Auditoría de activos digitales
-Estado de cada uno (presente / ausente / roto):
-- Website y landings
-- Perfiles sociales (IG, LinkedIn, TikTok, FB)
-- Campañas de ads activas
-- Contenido orgánico publicado
-- Email/CRM
-- Tracking (GA4, Meta Pixel, GTM)
-Cada uno con un veredicto: ✓ ok · ◐ parcial · ✗ falta · ⚠ roto.
+## 5. Digital Funnel Assessment
+Diagnóstico del recorrido completo del usuario, etapa por etapa:
+- **Atracción** (top of funnel): de dónde llega el tráfico, calidad,
+  costo aproximado.
+- **Consideración** (mid): cómo evalúan, qué consumen.
+- **Conversión** (bottom): tasa de conversión estimada, fricciones.
+- **Retención**: tasa de recompra estimada, programas activos.
+- **Recompra**: ciclo de vida del cliente, LTV proxy.
 
-## Situación financiera
-Lo que el cliente puede invertir hoy, no lo que debería:
-- Presupuesto contractual (lo que está en el wizard del cliente).
-- Presupuesto disponible para ads y producción.
-- Margen de maniobra para escalar (si el cliente expresó algo
-  sobre tope o escalabilidad).
+Para cada etapa: estimación de conversión actual (marcá si es
+estimación con "(est.)"), benchmark del sector, leak identificado.
 
-## Inversión recomendada
-Allocation sugerida por canal, %, justificada. Tabla con: canal,
-% sugerido, USD/mes estimado, KPI principal. Usá el presupuesto
-contractual como base de cálculo.
+## 6. Channel Performance Review
+Evaluación canal por canal con verdict ✓ ok · ◐ parcial · ✗ falta · ⚠ roto:
+- **Sitio web** (UX, performance, SEO técnico, móvil).
+- **Redes sociales** (IG, TikTok, LinkedIn, FB — presencia y engagement).
+- **Contenido orgánico** (frecuencia, calidad, formato, alcance).
+- **Pauta digital** (Meta Ads, Google Ads, otros — estado actual).
+- **CRM** (sistema usado, integración, calidad de datos).
+- **WhatsApp** (Business, automatizaciones, volumen).
+- **SEO** (rankings actuales, backlinks, salud técnica).
 
-## Embudo de conversión
-Estado actual del funnel (TOFU/MOFU/BOFU si aplica eCom; AIDA si es
-servicios). Estimaciones de conversión por etapa (claramente marcadas
-como estimación si no hay data). Leaks identificados con prioridad.
+Cada canal con 2-3 bullets de hallazgos concretos.
 
-## Desafíos identificados
-3-6 desafíos críticos para crecer, cada uno con:
-- Qué es
-- Por qué bloquea
-- Quién lo resuelve (cliente / DC / ambos)
-- Plazo razonable de resolución
+## 7. Metrics & Unit Economics
+Análisis financiero del motor de growth:
+- Tráfico actual mensual (sesiones, fuentes, calidad).
+- Conversión visit → lead → cliente.
+- Ticket promedio (AOV).
+- CAC actual estimado.
+- ROAS break-even (cuánto debe devolver una campaña para no perder
+  plata, calculado con ticket + margen).
+- Margen de contribución estimado.
+- Capacidad de escala (cuánto más volumen de gasto puede soportar el
+  negocio antes de romperse el unit economics).
 
-## Oportunidades
-Dos categorías:
-- **Quick wins** (alto impacto, bajo esfuerzo, < 30 días)
-- **Estratégicas** (alto impacto, esfuerzo medio-alto, 1-6 meses)
-Numerá cada una. Cada oportunidad: qué es, esfuerzo, impacto esperado.
+Si falta data, marcalo "(est.)" o "⚠ Falta info" — no inventes.
 
-## KPIs base
-Línea de partida para los próximos 90 días. Tabla: KPI, valor actual
-(o "sin data"), benchmark de la industria, target sugerido para el
-mes 1, mes 3.
+## 8. Key Findings
+Síntesis estructurada de los hallazgos más críticos. Categorizados:
+- **Estratégicos** (modelo, posicionamiento, propuesta).
+- **Comerciales** (conversión, embudo, equipo).
+- **Técnicos** (tracking, integraciones, infra).
+- **Performance** (números actuales vs benchmarks).
 
-## Próximos pasos
-3-5 acciones concretas y secuenciadas para arrancar la fase de
-Estrategia. Cada una con: acción, responsable, ETA en semanas.
+Cada hallazgo en una línea con su criticidad: 🔴 alta · 🟡 media · 🟢 baja.
+
+## 9. Growth Opportunities
+Tabla priorizada de oportunidades. Columnas obligatorias:
+| # | Oportunidad | Impacto | Urgencia | Facilidad | Score |
+
+Donde:
+- Impacto: alto / medio / bajo
+- Urgencia: ahora / 30d / 90d
+- Facilidad: alta / media / baja
+- Score: combinación cualitativa para priorizar (no inventes un
+  número si no podés justificarlo).
+
+Mix de quick wins (alto impacto + alta facilidad) y estratégicas
+(alto impacto + facilidad media). Mínimo 8 oportunidades, máximo 15.
+
+## 10. Strategic Recommendations
+Recomendaciones concretas, organizadas en 5 frentes:
+- **Adquisición** (cómo traer más / mejor tráfico).
+- **Conversión** (cómo cerrar más).
+- **Retención** (cómo retener mejor).
+- **Medición** (qué setear o mejorar para medir bien).
+- **Rentabilidad** (cómo mejorar el unit economics).
+
+Para cada frente, 2-4 recomendaciones específicas. Cada recomendación
+con justificación corta (por qué) y outcome esperado.
+
+## 11. 90-Day Growth Roadmap
+Plan dividido en 3 sprints de 30 días. Para cada sprint, una tabla:
+| Prioridad | Acción | Responsable | Recursos | KPI que mueve |
+
+Donde Responsable es: DC · Cliente · Ambos. Recursos: presupuesto,
+herramientas, headcount.
+
+Mínimo 4 acciones por sprint, máximo 8.
+
+## 12. Expected Business Impact
+Estimación cuantitativa del impacto esperado a 3-6 meses si se ejecuta
+el roadmap:
+- Crecimiento de revenue (% o rango).
+- Mejora en conversión (puntos porcentuales).
+- Reducción de CAC (%).
+- Aumento de eficiencia comercial.
+- Capacidad de escalabilidad (cuánto más se puede invertir antes
+  de saturar).
+
+Tabla con: KPI, baseline actual (o "sin data"), target a 90d, target
+a 180d. Marcá supuestos clave que sostienen los targets.
+
+## 13. Final Conclusion & Next Steps
+Conclusión ejecutiva en 2-3 párrafos: dónde está el cliente, qué
+oportunidad concreta tiene en los próximos 6 meses, y qué se necesita
+para capturarla.
+
+Después un bloque "**Próximos pasos para arrancar Estrategia**":
+3-5 acciones inmediatas que el cliente / DC tienen que ejecutar para
+pasar de Diagnóstico a Estrategia. Cada una con: acción, responsable,
+ETA en semanas.
 
 ---
 
-REGLAS DE CALIDAD:
+REGLAS DE CALIDAD (no opinables):
+- Headings en inglés exactamente como están arriba (## 1. Executive Summary,
+  ## 2. Business & Digital Context, etc). Mantené la numeración.
+- Contenido en español rioplatense.
 - Si para una sección no tenés info suficiente del kickoff/branding,
-  escribí "⚠ Falta info: ..." con la pregunta específica que necesitás
-  responder. NO inventes números ni nombres de competidores.
-- Las tablas (competencia, KPIs, allocation) usan formato markdown
-  con pipes y headers.
-- El tono del reporte debe matchear el tono del branding del cliente
-  (no el tono de DC). Si el cliente es B2B serio, escribí formal. Si
-  es DTC casual, soltate.
-- Largo razonable: 8-12 páginas (impreso). Suficiente para que sea
+  escribí "⚠ Falta info: ..." con la pregunta específica que
+  necesitás responder. NO inventes números ni nombres de competidores.
+- Las tablas (competencia, oportunidades, roadmap, impact) usan
+  formato markdown con pipes y headers.
+- El tono del CONTENIDO matchea el tono del branding del cliente
+  (B2B serio → formal; DTC casual → relajado), no el de DC.
+- Largo target: 12-18 páginas impresas. Suficiente para que sea
   ejecutable, no tanto que nadie lo lea.`,
   },
 
