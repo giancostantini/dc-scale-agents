@@ -28,6 +28,10 @@ import {
   buildClientContextBlock,
   createAdminClient,
 } from "@/lib/consultant-context";
+import {
+  loadClientVaultForPortal,
+  buildPortalVaultBlock,
+} from "@/lib/portal-vault-context";
 
 const MODEL = "claude-opus-4-7";
 
@@ -35,8 +39,8 @@ const SYSTEM_PROMPT = `Sos el Consultor IA del portal de Dearmas Costantini para
 
 CONTEXTO DE TU ROL:
 - Vos no sos parte del equipo interno. Sos la cara amable del sistema para el cliente.
-- Tenés acceso a toda la info del cliente que se ve en su portal: KPIs, objetivos, fase actual del negocio, todos los reportes de fase (incluso los que están en draft o review), campañas activas, contenido publicado, próximas reuniones, pagos, solicitudes que cargó, herramientas conectadas y assets de marca subidos.
-- NO tenés acceso a info interna del equipo: notas internas, leads, prospect campaigns, expenses del team, audit logs.
+- Tenés acceso a toda la info del cliente que se ve en su portal Y al contenido textual cargado por el equipo: claude-client.md (overview), strategy.md (estrategia activa), brand/* (brandbook procesado en 8 archivos), content-library.md, content-calendar.md, ads-library.md, seo-library.md, metrics-log.md, performance-log.md, además de las tablas Supabase (KPIs, objetivos, fases, campañas, contenido publicado, reuniones, pagos, solicitudes, herramientas conectadas, assets).
+- NO tenés acceso a info interna del equipo: learning-log.md, calls-log.md, notas internas (tabla notes), memoria del consultor del team, leads, prospect campaigns, expenses, audit logs.
 
 QUÉ PODÉS HACER:
 - Resumir cómo va la cuenta este mes (ROAS, leads, CAC, etc).
@@ -46,6 +50,7 @@ QUÉ PODÉS HACER:
 - Listar solicitudes del cliente y en qué estado están.
 - Decir qué herramientas tiene conectadas (Meta, Google, etc.) y cuáles le faltan.
 - Mencionar qué assets de marca cargó (logos, brandbook, etc.) cuando sea útil.
+- Citar contenido textual del vault cuando responde — la estrategia activa, decisiones de marca (positioning, voz), criterios de contenido, restricciones, etc. Cuando lo hagas, mencioná de dónde sacaste el dato (ej. "según tu strategy.md" o "según tu brand/voice-character").
 - Comparaciones mes anterior vs actual cuando hay data.
 
 QUÉ NO PODÉS HACER (importante):
@@ -144,9 +149,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Cargar contexto extendido — incluye phase_reports en todos los estados,
-  // client_requests, content publicado, integraciones conectadas, assets, etc.
-  const bundle = await loadClientContext(admin, clientId);
+  // Cargar contexto extendido en paralelo:
+  // - Tablas Supabase (phase_reports en todos los estados, client_requests,
+  //   content publicado, integraciones conectadas, assets de onboarding).
+  // - Vault filtrado del cliente (claude-client, strategy, brand/*, libraries).
+  //   Sin learning-log ni calls-log → defensa en profundidad.
+  const [bundle, vault] = await Promise.all([
+    loadClientContext(admin, clientId),
+    loadClientVaultForPortal(clientId).catch((err) => {
+      console.warn(
+        `[portal-consultant] vault load falló para ${clientId}:`,
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    }),
+  ]);
+
   if (!bundle) {
     return Response.json(
       { error: "Cliente no encontrado." },
@@ -155,24 +173,38 @@ export async function POST(req: NextRequest) {
   }
 
   const contextBlock = buildClientContextBlock(bundle);
+  const vaultBlock = vault ? buildPortalVaultBlock(vault) : null;
 
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
   try {
+    const systemBlocks: Array<{
+      type: "text";
+      text: string;
+      cache_control?: { type: "ephemeral" };
+    }> = [
+      {
+        type: "text",
+        text: SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+      {
+        type: "text",
+        text: contextBlock,
+      },
+    ];
+    if (vaultBlock) {
+      systemBlocks.push({
+        type: "text",
+        text: vaultBlock,
+        cache_control: { type: "ephemeral" },
+      });
+    }
+
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 1500,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-        {
-          type: "text",
-          text: contextBlock,
-        },
-      ],
+      system: systemBlocks,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
 
