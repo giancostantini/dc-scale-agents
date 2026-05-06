@@ -5,9 +5,28 @@ import { useRouter } from "next/navigation";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { getSupabase } from "@/lib/supabase/client";
+import { getClient } from "@/lib/storage";
+import { getDownloadUrl } from "@/lib/upload";
 import { getPhaseReport, phaseStatusLabel, phaseStatusColor } from "@/lib/phases";
-import type { PhaseKey, PhaseReport } from "@/lib/types";
+import type { Client, OnboardingFile, PhaseKey, PhaseReport } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
+
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
+
+function pickClientLogo(client: Client | null): OnboardingFile | string | null {
+  if (!client) return null;
+  const branding = client.onboarding?.brandingFiles ?? [];
+  for (const f of branding) {
+    const name = typeof f === "string" ? f : f.name;
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    if (IMAGE_EXTS.includes(ext)) return f;
+  }
+  return null;
+}
+
+function getPath(f: OnboardingFile | string): string {
+  return typeof f === "string" ? f : f.path;
+}
 
 type FaseKey = PhaseKey | "kickoff";
 
@@ -69,6 +88,9 @@ export default function FaseDetailPage({
   const [reloadFlag, setReloadFlag] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+  const [client, setClient] = useState<Client | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +98,15 @@ export default function FaseDetailPage({
       const profile = await getCurrentProfile();
       if (cancelled) return;
       setIsDirector(profile?.role === "director");
+      const c = await getClient(id);
+      if (cancelled) return;
+      setClient(c ?? null);
+      // Resolver el logo del cliente (signed URL — Claude PDF lo embebe)
+      const logo = pickClientLogo(c ?? null);
+      if (logo) {
+        const u = await getDownloadUrl(getPath(logo));
+        if (!cancelled) setLogoUrl(u);
+      }
       if (key === "kickoff") {
         setReport(null);
         return;
@@ -89,6 +120,56 @@ export default function FaseDetailPage({
       cancelled = true;
     };
   }, [id, key, reloadFlag]);
+
+  async function downloadPdf() {
+    if (!report || !report.content_md || !client) return;
+    setDownloadingPdf(true);
+    try {
+      // Lazy-load — react-pdf no entra en SSR
+      const { pdf } = await import("@react-pdf/renderer");
+      const PhaseReportPdf = (
+        await import("@/components/PhaseReportPdf")
+      ).default;
+
+      const phaseLabel =
+        key === "diagnostico"
+          ? "Diagnóstico"
+          : key === "estrategia"
+          ? "Estrategia"
+          : key === "setup"
+          ? "Setup"
+          : key === "lanzamiento"
+          ? "Lanzamiento"
+          : "Reporte";
+
+      const blob = await pdf(
+        <PhaseReportPdf
+          phaseLabel={phaseLabel}
+          reportName={meta?.reportName ?? phaseLabel}
+          clientName={client.name}
+          clientLogoUrl={logoUrl ?? undefined}
+          generatedAt={report.generated_at}
+          approvedAt={report.approved_at}
+          version={report.version}
+          contentMd={report.content_md}
+        />,
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("downloadPdf error:", err);
+      alert("No se pudo generar el PDF. Probá de nuevo o revisá la consola.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
 
   // Polling cuando está generando
   useEffect(() => {
@@ -281,6 +362,43 @@ export default function FaseDetailPage({
       />
 
       {/* Acciones (director) */}
+      {/* Descargar PDF — visible siempre que haya contenido renderizable.
+          Director y team pueden descargar; el cliente final no llega
+          a esta ruta (ve el portal con resumen ejecutivo). */}
+      {hasContent && !isGenerating && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            marginBottom: 16,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <button
+            className={ui.btnGhost}
+            onClick={downloadPdf}
+            disabled={downloadingPdf}
+            style={{
+              borderColor: "var(--sand)",
+              color: "var(--deep-green)",
+              fontWeight: 600,
+            }}
+          >
+            {downloadingPdf ? "Generando PDF…" : "↓ Descargar como PDF"}
+          </button>
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+            }}
+          >
+            PDF brand-aligned con logo de DC y de {client?.name ?? "tu empresa"}
+          </span>
+        </div>
+      )}
+
       {isDirector && !isGenerating && (
         <div
           style={{
