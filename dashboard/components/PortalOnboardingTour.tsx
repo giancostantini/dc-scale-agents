@@ -25,9 +25,9 @@ const STEPS: Step[] = [
     cta: "Ir a solicitudes",
   },
   {
-    title: "Consultor IA",
-    body: "Tenés acceso a un consultor IA con contexto completo de tu cuenta. Preguntale lo que quieras: estado de campañas, estrategia, próximos pasos. Si pedís cambios concretos, te redirige al account lead.",
-    cta: "Probar el consultor",
+    title: "D&C Advisor",
+    body: "Tenés acceso a D&C Advisor, un asistente IA con contexto completo de tu cuenta. Preguntale lo que quieras: estado de campañas, estrategia, próximos pasos. Si pedís cambios concretos, te redirige al account lead.",
+    cta: "Probar D&C Advisor",
   },
 ];
 

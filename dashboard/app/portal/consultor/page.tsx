@@ -62,14 +62,14 @@ export default function PortalConsultorPage() {
       <PortalHeader
         client={client}
         profile={profile}
-        eyebrow="Consultor IA"
+        eyebrow="D&C Advisor"
         showBack
       />
 
       <main className={styles.wrap}>
         <section className={styles.intro}>
           <div className={portalStyles.heroEyebrow}>Asistente</div>
-          <h1 className={portalStyles.heroTitle}>Tu consultor IA</h1>
+          <h1 className={portalStyles.heroTitle}>Tu D&C Advisor</h1>
           <p className={portalStyles.heroSub}>
             Preguntale lo que quieras sobre tu cuenta. Tiene acceso en
             tiempo real a tus KPIs, reportes aprobados, campañas activas
