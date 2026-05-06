@@ -53,13 +53,26 @@ export default function InviteUserModal({
     }
   }, [open, userType, clients.length]);
 
-  // Reset cuando cambia el initialUserType (ej. abrir desde ClientSidebar)
-  useEffect(() => {
-    if (open) {
-      setUserType(initialUserType);
-      if (initialClientId) setClientId(initialClientId);
-    }
-  }, [open, initialUserType, initialClientId]);
+  // Reset cuando cambia el initialUserType (ej. abrir desde ClientSidebar).
+  // Patrón React 19: state derivation durante el render en lugar de
+  // useEffect + setState (evita el cascading render).
+  const [lastInitial, setLastInitial] = useState({
+    userType: initialUserType,
+    clientId: initialClientId,
+    open,
+  });
+  if (
+    open &&
+    (lastInitial.userType !== initialUserType ||
+      lastInitial.clientId !== initialClientId ||
+      !lastInitial.open)
+  ) {
+    setLastInitial({ userType: initialUserType, clientId: initialClientId, open });
+    setUserType(initialUserType);
+    if (initialClientId) setClientId(initialClientId);
+  } else if (!open && lastInitial.open) {
+    setLastInitial((prev) => ({ ...prev, open: false }));
+  }
 
   if (!open) return null;
 
@@ -153,7 +166,7 @@ export default function InviteUserModal({
   const eyebrow = isClient ? "Cliente · Invitar al portal" : "Equipo · Invitar persona";
   const title = isClient ? "Acceso al portal del cliente" : "Nuevo miembro del equipo";
   const description = isClient
-    ? `Vinculamos esta cuenta al cliente seleccionado. Cuando entre, accede sólo a ${"/portal"} (KPIs, reportes, solicitudes y consultor IA), sin ver datos internos del equipo.`
+    ? `Vinculamos esta cuenta al cliente seleccionado. Cuando entre, accede sólo a ${"/portal"} (KPIs, reportes, solicitudes y D&C Advisor), sin ver datos internos del equipo.`
     : `Le mandamos un email de invitación a ${email || "el correo que pongas"}. Cuando entre, queda registrada con los datos que cargues acá.`;
 
   return (

@@ -99,7 +99,7 @@ export default function InviteClientModal({
         <p className={styles.sub}>
           Mandamos un email de invitación. Cuando lo abre y crea contraseña,
           puede entrar al portal con acceso de solo lectura a sus métricas,
-          reportes aprobados, contenido publicado y consultor IA.
+          reportes aprobados, contenido publicado y D&C Advisor.
         </p>
 
         <div className={styles.fieldGrid2}>

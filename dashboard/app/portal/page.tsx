@@ -385,7 +385,7 @@ export default function PortalPage() {
             </div>
           </div>
           <div className={styles.footerRight}>
-            ¿Necesitás algo? Hablá con tu account lead o pediselo al consultor IA.
+            ¿Necesitás algo? Hablá con tu account lead o pediselo a D&C Advisor.
           </div>
         </footer>
       </main>

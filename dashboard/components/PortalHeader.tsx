@@ -12,7 +12,7 @@ export interface PortalHeaderProps {
   client: Client | null;
   profile: Profile;
   logoUrl?: string | null;
-  /** Texto pequeño arriba del lockup. Ej. "Portal · Wiztrip", "Consultor IA". */
+  /** Texto pequeño arriba del lockup. Ej. "Portal · Wiztrip", "D&C Advisor". */
   eyebrow?: string;
   /** Si true, muestra "← Portal" en lugar de los botones de navegación. */
   showBack?: boolean;

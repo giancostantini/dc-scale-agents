@@ -28,7 +28,7 @@ export interface ConsultorChatPanelProps {
 }
 
 /**
- * Panel de chat con el Consultor IA.
+ * Panel de chat con D&C Advisor (el consultor IA del cliente).
  *
  * Al montar:
  *   1. GET /api/portal/consultant/welcome → mensaje de bienvenida cacheado
@@ -181,13 +181,13 @@ export default function ConsultorChatPanel({
   return (
     <section
       className={`${styles.panel} ${variant === "fullscreen" ? styles.fullscreen : ""}`}
-      aria-label="Chat con el Consultor IA"
+      aria-label="Chat con D&C Advisor"
     >
       <header className={styles.panelHeader}>
         <div className={styles.headerLeft}>
           <div className={styles.consultorAvatar}>✦</div>
           <div>
-            <div className={styles.headerTitle}>Consultor IA</div>
+            <div className={styles.headerTitle}>D&C Advisor</div>
             <div className={styles.headerSub}>{clientName}</div>
           </div>
         </div>
