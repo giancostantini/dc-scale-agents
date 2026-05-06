@@ -19,12 +19,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import {
   loadClientContext,
   buildClientContextBlock,
   computeDataSignature,
   createAdminClient,
 } from "@/lib/consultant-context";
+import {
+  loadClientVaultForPortal,
+  buildPortalVaultBlock,
+  vaultSignatureFragment,
+} from "@/lib/portal-vault-context";
 
 const MODEL = "claude-opus-4-7";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
@@ -36,9 +42,14 @@ El cliente acaba de abrir el portal. Es lo primero que va a leer hoy.
 Saludalo brevemente por nombre y dale un resumen ejecutivo en este orden, usando markdown limpio:
 
 1) **Cómo va tu mes** — 1 oración con el estado de KPIs vs target (si hay objectives). Si no hay data, decílo.
-2) **Novedades** — bullets cortos con: reportes nuevos aprobados, decisiones tomadas, próximos pasos del equipo. Máximo 3 bullets.
+2) **Novedades** — bullets cortos con: reportes nuevos aprobados, decisiones tomadas, próximos pasos del equipo, cambios en strategy.md o brand/* recientes. Máximo 3 bullets.
 3) **Próximas reuniones** — hasta 2.
-4) **Te sugiero preguntarme** — 1 pregunta concreta que el cliente podría hacerte hoy basada en su estado actual (ej. "¿por qué bajó el ROAS esta semana?" si bajó, o "¿cómo escalamos esta campaña que está performando?" si performa bien).
+4) **Te sugiero preguntarme** — 1 pregunta concreta que el cliente podría hacerte hoy. Apoyate en lo que el equipo cargó en su vault (strategy, brandbook, content-library) para hacer la sugerencia más rica que un genérico "¿cómo va el ROAS?".
+
+CONTEXTO QUE TENÉS:
+- Tablas Supabase: KPIs, objetivos, fases, campañas, contenido publicado, reuniones, pagos, solicitudes, integraciones.
+- Vault textual cargado por el equipo: claude-client.md, strategy.md, brand/* (8 archivos), content-library, content-calendar, ads-library, seo-library, metrics-log, performance-log.
+- NO accedés a info interna (learning-log, calls-log, notas internas).
 
 REGLAS:
 - Tono cálido pero ejecutivo. Sin jerga ni promesas vacías.
@@ -46,7 +57,7 @@ REGLAS:
 - Prohibido: "sinergia", "potenciar", "transformar", "valor agregado", "ecosistema".
 - Concreto: números reales, fechas reales. Si no tenés data, decís "todavía no veo X cargado".
 - Nunca inventes métricas.
-- Máximo 200 palabras totales.
+- Máximo 220 palabras totales.
 - NO empezar con "¡Hola!" repetido — variar el saludo.`;
 
 export async function GET(req: NextRequest) {
@@ -104,8 +115,18 @@ export async function GET(req: NextRequest) {
 
   const clientId = callerProfile.client_id;
 
-  // Cargar contexto
-  const bundle = await loadClientContext(admin, clientId);
+  // Cargar contexto en paralelo: tablas Supabase + vault filtrado del repo.
+  const [bundle, vault] = await Promise.all([
+    loadClientContext(admin, clientId),
+    loadClientVaultForPortal(clientId).catch((err) => {
+      console.warn(
+        `[welcome] vault load falló para ${clientId}:`,
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    }),
+  ]);
+
   if (!bundle) {
     return Response.json(
       { error: "Cliente no encontrado." },
@@ -113,7 +134,16 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const signature = computeDataSignature(bundle);
+  // Signature = hash de tablas + hash del vault. Si el equipo edita
+  // strategy.md o brand/positioning.md, el cache se invalida automáticamente.
+  const tablesSig = computeDataSignature(bundle);
+  const vaultSig = vault
+    ? createHash("sha256")
+        .update(vaultSignatureFragment(vault))
+        .digest("hex")
+        .slice(0, 16)
+    : "novault";
+  const signature = `${tablesSig}-${vaultSig}`;
 
   // Chequear cache
   const { data: cached } = await admin
@@ -136,26 +166,40 @@ export async function GET(req: NextRequest) {
 
   // Cache miss — generar
   const contextBlock = buildClientContextBlock(bundle);
+  const vaultBlock = vault ? buildPortalVaultBlock(vault) : null;
   const userMessage = `Es la primera vez del día que el cliente ${bundle.client.name} entra a su portal. Generá el mensaje de bienvenida según las reglas.`;
 
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
   let welcome: string;
   try {
+    const systemBlocks: Array<{
+      type: "text";
+      text: string;
+      cache_control?: { type: "ephemeral" };
+    }> = [
+      {
+        type: "text",
+        text: SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+      {
+        type: "text",
+        text: contextBlock,
+      },
+    ];
+    if (vaultBlock) {
+      systemBlocks.push({
+        type: "text",
+        text: vaultBlock,
+        cache_control: { type: "ephemeral" },
+      });
+    }
+
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 800,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-        {
-          type: "text",
-          text: contextBlock,
-        },
-      ],
+      max_tokens: 1000,
+      system: systemBlocks,
       messages: [{ role: "user", content: userMessage }],
     });
 

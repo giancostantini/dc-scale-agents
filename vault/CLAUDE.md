@@ -90,3 +90,32 @@ Gianluca Costantini (estrategia y arquitectura de agentes) + Federico (dashboard
 3. Setup (1-3 semanas) — contenido, pixel, dashboard
 4. Lanzamiento (2-4 semanas) — campanas con presupuesto controlado
 5. Optimizacion (continua) — redistribuir a ganadores, escalar
+
+## Visibilidad al cliente — qué del vault/clients/<id>/ ve el Consultor-Cliente
+
+Hay dos consultores IA en el sistema y cada uno lee distintas fuentes:
+
+| | Consultor-Agencia (`/api/consultant`) | Consultor-Cliente (`/api/portal/consultant`) |
+|---|---|---|
+| Quién lo usa | director, team | role=client (portal del cliente) |
+| Qué del vault lee | TODO via `loadClientVaultContext()` | Filtrado via `loadClientVaultForPortal()` |
+
+**El Consultor-Cliente lee** (asumir que el cliente puede leerlo):
+- `claude-client.md`
+- `strategy.md`
+- `brand/*.md` (los 8 archivos del brandbook procesado)
+- `content-library.md`, `content-calendar.md`
+- `ads-library.md`
+- `seo-library.md`
+- `metrics-log.md`
+- `performance-log.md`
+
+**El Consultor-Cliente NUNCA lee** (info interna del equipo DC):
+- `learning-log.md`
+- `calls-log.md`
+- Cualquier archivo en `_archive/`
+- Tablas Supabase: `notes`, `consultant_memory`, `audit_log`, `leads`, `prospect_campaigns`, `expenses`
+
+**Convención al escribir en el vault:** si el equipo necesita registrar algo crítico o sensible que el cliente NO debe ver (dudas, criticas internas, decisiones todavía no comunicadas), va a `learning-log.md` o `calls-log.md`. Cualquier otra cosa que el equipo escriba en archivos "públicos" del cliente puede llegar al Consultor-Cliente y ser citada en una respuesta. Esta es defensa en profundidad: no dependemos de que el modelo respete instrucciones — directamente no le pasamos esos archivos al endpoint del cliente.
+
+Implementación: `dashboard/lib/portal-vault-context.ts`.

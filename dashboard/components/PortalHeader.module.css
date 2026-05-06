@@ -1,18 +1,14 @@
 /* ================================================================
    PortalHeader — header premium del portal del cliente.
-
-   Convenciones del sistema visual D&C:
-   - Fondo deep-green con leve gradient para dar profundidad.
-   - Acento sand en hover/foco — nunca azul, nunca púrpura.
-   - Tipografía: light de base, bold para identidad. Letter-spacing
-     amplio en eyebrows/CTAs para sensación editorial.
-   - Transiciones siempre 180ms ease-out.
+   Botones del lado derecho con MISMA altura, padding y tipografía
+   para sentirse uniformes. El NotificationBell vive en otro module
+   (Topbar) — sobrescribimos su .btn con :global() para alinearlo.
    ================================================================ */
 
 .header {
   background: linear-gradient(180deg, var(--deep-green) 0%, #08160A 100%);
   color: var(--off-white);
-  padding: 22px 56px;
+  padding: 18px 56px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -47,7 +43,7 @@
 }
 
 .eyebrow {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--sand);
@@ -62,18 +58,19 @@
   align-items: center;
 }
 
-/* ===== Botón ghost (Conexiones, Salir, ← Portal) ===== */
+/* ===== Botón unificado del header =====
+   Mismo height/padding/font para Conexiones, Alertas (NotificationBell),
+   Perfil y Salir. */
 
-.btnGhost {
-  position: relative;
-  padding: 9px 16px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--sand);
+.headerBtn {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--off-white);
   background: transparent;
-  border: 1px solid rgba(196, 168, 130, 0.3);
+  border: 1px solid rgba(196, 168, 130, 0.22);
   cursor: pointer;
   font-family: inherit;
   text-decoration: none;
@@ -82,115 +79,86 @@
   gap: 8px;
   transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out;
   border-radius: 1px;
+  white-space: nowrap;
 }
 
-.btnGhost:hover {
-  background: rgba(196, 168, 130, 0.12);
+.headerBtn:hover {
+  background: rgba(196, 168, 130, 0.10);
   border-color: var(--sand);
 }
 
-.btnGhost:active {
+.headerBtn:active {
   transform: scale(0.98);
 }
 
-.btnGhost:focus-visible {
+.headerBtn:focus-visible {
   outline: 2px solid var(--sand);
   outline-offset: 2px;
 }
 
-.btnLabel {
-  display: inline-block;
-}
-
-/* Badge dot/contador para Conexiones pendientes */
-.badge {
+/* Override del botón Alertas del NotificationBell — vive en otro CSS module
+   (Topbar.module.css) así que llegamos via :global() con un selector estable
+   por atributo `title`, no por la clase con hash. */
+.headerRight :global(button[title="Notificaciones"]) {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--off-white);
+  background: transparent;
+  border: 1px solid rgba(196, 168, 130, 0.22);
+  border-radius: 1px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  background: var(--red-warn);
-  color: var(--off-white);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0;
-  border-radius: 10px;
-  animation: pulseBadge 2s ease-in-out infinite;
+  gap: 8px;
+  transition: background 180ms ease-out, border-color 180ms ease-out;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
 }
 
-@keyframes pulseBadge {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 75, 58, 0.5); }
-  50%      { box-shadow: 0 0 0 6px rgba(176, 75, 58, 0); }
+.headerRight :global(button[title="Notificaciones"]:hover) {
+  background: rgba(196, 168, 130, 0.10);
+  border-color: var(--sand);
 }
 
-/* ===== User button (avatar + nombre) ===== */
+/* ===== User button (avatar + nombre) =====
+   Hereda height/padding del .headerBtn pero con padding-left más reducido
+   para acomodar el avatar circular. */
 
 .userBtn {
-  display: flex;
-  align-items: center;
+  padding: 0 14px 0 6px;
   gap: 10px;
-  background: transparent;
-  border: 1px solid rgba(196, 168, 130, 0.2);
-  padding: 6px 12px 6px 6px;
-  cursor: pointer;
-  color: inherit;
-  font-family: inherit;
-  transition: border-color 180ms ease-out, background 180ms ease-out;
-  border-radius: 1px;
-}
-
-.userBtn:hover {
-  border-color: var(--sand);
-  background: rgba(196, 168, 130, 0.08);
-}
-
-.userBtn:focus-visible {
-  outline: 2px solid var(--sand);
-  outline-offset: 2px;
 }
 
 .avatar {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   background: var(--sand);
   color: var(--deep-green);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   border-radius: 1px;
-}
-
-.userMeta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
+  flex-shrink: 0;
 }
 
 .userName {
   font-size: 12px;
   font-weight: 500;
   color: var(--off-white);
-}
-
-.userRole {
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--sand);
-  font-weight: 600;
-  margin-top: 2px;
+  letter-spacing: 0.02em;
 }
 
 /* ===== Responsive ===== */
 
 @media (max-width: 900px) {
   .header {
-    padding: 16px 28px;
+    padding: 14px 28px;
     grid-template-columns: 1fr auto;
   }
   .headerCenter {
@@ -200,19 +168,22 @@
 
 @media (max-width: 560px) {
   .header {
-    padding: 14px 18px;
+    padding: 12px 16px;
     gap: 8px;
   }
   .headerRight {
     gap: 6px;
   }
-  .btnGhost {
-    padding: 8px 10px;
-    font-size: 10px;
-    letter-spacing: 0.1em;
+  .headerBtn {
+    height: 34px;
+    padding: 0 11px;
+    font-size: 11px;
   }
-  .userMeta {
+  .userName {
     display: none;
+  }
+  .userBtn {
+    padding: 0 6px;
   }
   .clientLogo {
     height: 28px;
