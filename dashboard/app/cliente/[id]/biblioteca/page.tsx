@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { getClient, getProdCampaigns } from "@/lib/storage";
 import { listPhaseReports } from "@/lib/phases";
 import { getDownloadUrl, formatBytes } from "@/lib/upload";
+import { getCurrentProfile } from "@/lib/supabase/auth";
+import LibraryUploadButton from "@/components/LibraryUploadButton";
 import type {
   Client,
   ContentPieceRow,
@@ -72,18 +74,27 @@ export default function BibliotecaPage({
   const [pieces, setPieces] = useState<ContentPieceRow[]>([]);
   const [reports, setReports] = useState<PhaseReport[]>([]);
   const [folder, setFolder] = useState<FolderKey>("onboarding");
+  const [isDirector, setIsDirector] = useState(false);
+
+  const refreshClient = useCallback(async () => {
+    const c = await getClient(id);
+    setClient(c ?? null);
+  }, [id]);
 
   useEffect(() => {
-    getClient(id).then((c) => setClient(c ?? null));
+    refreshClient();
     getProdCampaigns(id).then(setCampaigns);
     listPhaseReports(id).then(setReports);
+    getCurrentProfile().then((p) =>
+      setIsDirector(p?.role === "director" || p?.role === "team"),
+    );
     fetch(`/api/clients/${id}/pieces?limit=100`)
       .then((r) => (r.ok ? r.json() : { pieces: [] }))
       .then((data: { pieces?: ContentPieceRow[] }) =>
         setPieces(data.pieces ?? []),
       )
       .catch(() => setPieces([]));
-  }, [id]);
+  }, [id, refreshClient]);
 
   // Counts por folder
   const counts = useMemo(() => {
@@ -178,9 +189,19 @@ export default function BibliotecaPage({
 
       {/* Contenido del folder activo */}
       {folder === "onboarding" && (
-        <OnboardingFolder client={client} />
+        <OnboardingFolder
+          client={client}
+          canUpload={isDirector}
+          onChange={refreshClient}
+        />
       )}
-      {folder === "branding" && <BrandingFolder client={client} />}
+      {folder === "branding" && (
+        <BrandingFolder
+          client={client}
+          canUpload={isDirector}
+          onChange={refreshClient}
+        />
+      )}
       {folder === "reportes" && (
         <ReportesFolder clientId={id} reports={reports} />
       )}
@@ -195,7 +216,15 @@ export default function BibliotecaPage({
 }
 
 // ============ FOLDER: Onboarding ============
-function OnboardingFolder({ client }: { client: Client }) {
+function OnboardingFolder({
+  client,
+  canUpload,
+  onChange,
+}: {
+  client: Client;
+  canUpload: boolean;
+  onChange: () => void;
+}) {
   const ob = client.onboarding;
   const items: { name: string; file: OnboardingFile | string; tag: string }[] =
     [];
@@ -203,18 +232,63 @@ function OnboardingFolder({ client }: { client: Client }) {
   if (ob?.contractFile) items.push({ name: "Contrato", file: ob.contractFile, tag: "Contrato" });
 
   return (
-    <FolderShell title="Onboarding" emptyMsg="Todavía no se cargó kickoff ni contrato.">
+    <FolderShell
+      title="Onboarding"
+      emptyMsg={canUpload ? "" : "Todavía no se cargó kickoff ni contrato."}
+      uploadButtons={
+        canUpload ? (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <LibraryUploadButton
+              client={client}
+              target="kickoff"
+              label={ob?.kickoffFile ? "↻ Reemplazar kickoff" : "+ Subir kickoff"}
+              accept=".pdf"
+              onUploaded={onChange}
+            />
+            <LibraryUploadButton
+              client={client}
+              target="contract"
+              label={ob?.contractFile ? "↻ Reemplazar contrato" : "+ Subir contrato"}
+              accept=".pdf"
+              onUploaded={onChange}
+            />
+          </div>
+        ) : null
+      }
+    >
       {items.length > 0 && <FilesList files={items} />}
     </FolderShell>
   );
 }
 
 // ============ FOLDER: Branding ============
-function BrandingFolder({ client }: { client: Client }) {
+function BrandingFolder({
+  client,
+  canUpload,
+  onChange,
+}: {
+  client: Client;
+  canUpload: boolean;
+  onChange: () => void;
+}) {
   const files = client.onboarding?.brandingFiles ?? [];
   const items = files.map((f, i) => ({ name: `Branding ${i + 1}`, file: f, tag: "Branding" }));
   return (
-    <FolderShell title="Branding" emptyMsg="No hay archivos de branding cargados.">
+    <FolderShell
+      title="Branding"
+      emptyMsg={canUpload ? "" : "No hay archivos de branding cargados."}
+      uploadButtons={
+        canUpload ? (
+          <LibraryUploadButton
+            client={client}
+            target="branding"
+            label={files.length > 0 ? "+ Agregar archivo" : "+ Subir branding"}
+            accept=".pdf,.png,.jpg,.jpeg,.webp"
+            onUploaded={onChange}
+          />
+        ) : null
+      }
+    >
       {items.length > 0 && <FilesList files={items} />}
     </FolderShell>
   );
@@ -461,19 +535,30 @@ function CampanasFolder({ campaigns }: { campaigns: ProductionCampaign[] }) {
 function FolderShell({
   title,
   emptyMsg,
+  uploadButtons,
   children,
 }: {
   title: string;
   emptyMsg: string;
+  uploadButtons?: React.ReactNode;
   children?: React.ReactNode;
 }) {
+  const hasUploads = uploadButtons != null;
   return (
     <div className={ui.panel} style={{ marginBottom: 24 }}>
-      <div className={ui.panelHead}>
+      <div
+        className={ui.panelHead}
+        style={{
+          flexWrap: "wrap",
+          gap: 16,
+          alignItems: "flex-start",
+        }}
+      >
         <div className={ui.panelTitle}>{title}</div>
+        {uploadButtons}
       </div>
       {children}
-      {!children && emptyMsg && (
+      {!children && (
         <div
           style={{
             padding: 32,
@@ -485,7 +570,10 @@ function FolderShell({
             fontStyle: "italic",
           }}
         >
-          {emptyMsg}
+          {emptyMsg ||
+            (hasUploads
+              ? "Sin archivos. Subí el primero usando los botones arriba."
+              : "No hay archivos cargados.")}
         </div>
       )}
     </div>
