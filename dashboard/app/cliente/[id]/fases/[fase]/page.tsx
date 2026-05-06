@@ -362,43 +362,6 @@ export default function FaseDetailPage({
       />
 
       {/* Acciones (director) */}
-      {/* Descargar PDF — visible siempre que haya contenido renderizable.
-          Director y team pueden descargar; el cliente final no llega
-          a esta ruta (ve el portal con resumen ejecutivo). */}
-      {hasContent && !isGenerating && (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            marginBottom: 16,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <button
-            className={ui.btnGhost}
-            onClick={downloadPdf}
-            disabled={downloadingPdf}
-            style={{
-              borderColor: "var(--sand)",
-              color: "var(--deep-green)",
-              fontWeight: 600,
-            }}
-          >
-            {downloadingPdf ? "Generando PDF…" : "↓ Descargar como PDF"}
-          </button>
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              fontStyle: "italic",
-            }}
-          >
-            PDF brand-aligned con logo de DC y de {client?.name ?? "tu empresa"}
-          </span>
-        </div>
-      )}
-
       {isDirector && !isGenerating && (
         <div
           style={{
@@ -468,6 +431,22 @@ export default function FaseDetailPage({
               style={{ fontSize: 11 }}
             >
               Regenerar desde cero
+            </button>
+          )}
+
+          {/* Descargar PDF — al lado de los demás botones de acción */}
+          {hasContent && (
+            <button
+              className={ui.btnGhost}
+              onClick={downloadPdf}
+              disabled={downloadingPdf}
+              style={{
+                borderColor: "var(--sand)",
+                color: "var(--deep-green)",
+                fontWeight: 600,
+              }}
+            >
+              {downloadingPdf ? "Generando PDF…" : "↓ Descargar PDF"}
             </button>
           )}
         </div>
