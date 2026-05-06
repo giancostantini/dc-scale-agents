@@ -26,6 +26,7 @@ import ConsultorChatPanel from "@/components/ConsultorChatPanel";
 import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
 import MonthSummaryBlock from "@/components/MonthSummaryBlock";
+import KpiTrendChart from "@/components/KpiTrendChart";
 import type {
   CalEvent,
   Client,
@@ -235,6 +236,9 @@ export default function PortalPage() {
                 </div>
               </div>
             )}
+
+            {/* Evolución histórica de KPIs (últimos 12 meses) */}
+            {client.type === "gp" && <KpiTrendChart />}
 
             {/* Objetivos compactos */}
             {objectives && objectives.items.length > 0 && (

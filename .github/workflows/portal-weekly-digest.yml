@@ -1,0 +1,58 @@
+name: Portal · Weekly digest email
+
+# Manda el digest semanal a todos los clientes activos cada lunes 12:00 UTC
+# (= 9:00 Uruguay). Llama al endpoint /api/portal/digest/send-all del
+# dashboard, que es el que sabe iterar clientes + mandar emails via Resend.
+#
+# Setup en Vercel:
+#   - DIGEST_CRON_SECRET: random string, debe matchear con el secret de GitHub
+#
+# Setup en GitHub Actions secrets:
+#   - DASHBOARD_URL: ej. https://sistemadearmascostantini.com
+#   - DIGEST_CRON_SECRET: mismo valor que en Vercel
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'   # lunes 12:00 UTC = 9:00 Uruguay
+  workflow_dispatch:        # permitir dispatch manual desde la UI
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger digest endpoint
+        run: |
+          if [ -z "${DASHBOARD_URL}" ]; then
+            echo "::error::DASHBOARD_URL no está seteado en GitHub secrets."
+            exit 1
+          fi
+          if [ -z "${DIGEST_CRON_SECRET}" ]; then
+            echo "::error::DIGEST_CRON_SECRET no está seteado en GitHub secrets."
+            exit 1
+          fi
+
+          response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST "${DASHBOARD_URL}/api/portal/digest/send-all" \
+            -H "Authorization: Bearer ${DIGEST_CRON_SECRET}" \
+            -H "Content-Type: application/json")
+
+          body=$(echo "$response" | sed '$d')
+          status=$(echo "$response" | tail -n1 | sed 's/HTTP_STATUS://')
+
+          echo "HTTP status: $status"
+          echo "Body: $body"
+
+          if [ "$status" != "200" ]; then
+            echo "::error::El endpoint devolvió status $status"
+            exit 1
+          fi
+
+          # Si hubo errores parciales, los reportamos pero no fallamos el job
+          # (algunos clientes pueden fallar y otros enviar OK).
+          errors_count=$(echo "$body" | jq '.errors | length' 2>/dev/null || echo "0")
+          if [ "$errors_count" -gt "0" ]; then
+            echo "::warning::Hubo $errors_count clientes con error en el envío. Revisá la respuesta."
+          fi
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DIGEST_CRON_SECRET: ${{ secrets.DIGEST_CRON_SECRET }}
