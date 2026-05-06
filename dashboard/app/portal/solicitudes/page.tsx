@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   getCurrentProfile,
   hasSession,
@@ -13,15 +12,17 @@ import {
   requestStatusLabel,
   requestStatusColor,
 } from "@/lib/requests";
-import Lockup from "@/components/Lockup";
+import { getClient } from "@/lib/storage";
+import PortalHeader from "@/components/PortalHeader";
 import NewRequestModal from "@/components/NewRequestModal";
-import type { ClientRequest, ClientRequestType } from "@/lib/types";
+import type { Client, ClientRequest, ClientRequestType } from "@/lib/types";
 import portalStyles from "../portal.module.css";
 import styles from "./solicitudes.module.css";
 
 export default function PortalSolicitudesPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
   const [requests, setRequests] = useState<ClientRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{
@@ -36,20 +37,31 @@ export default function PortalSolicitudesPage() {
   }
 
   useEffect(() => {
+    let active = true;
     hasSession().then(async (has) => {
       if (!has) {
         router.replace("/");
         return;
       }
       const p = await getCurrentProfile();
+      if (!active) return;
       if (!p || p.role !== "client") {
         router.replace(p?.role === "client" ? "/portal" : "/hub");
         return;
       }
       setProfile(p);
-      if (p.client_id) await refresh(p);
-      setLoading(false);
+      if (p.client_id) {
+        const [c] = await Promise.all([
+          getClient(p.client_id),
+          refresh(p),
+        ]);
+        if (active) setClient(c ?? null);
+      }
+      if (active) setLoading(false);
     });
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   if (loading || !profile) return null;
@@ -63,19 +75,12 @@ export default function PortalSolicitudesPage() {
 
   return (
     <>
-      <header className={portalStyles.header}>
-        <div className={portalStyles.headerLeft}>
-          <Lockup size="sm" />
-        </div>
-        <div className={portalStyles.headerCenter}>
-          <div className={portalStyles.eyebrow}>Solicitudes</div>
-        </div>
-        <div className={portalStyles.headerRight}>
-          <Link href="/portal" className={portalStyles.btnGhost}>
-            ← Portal
-          </Link>
-        </div>
-      </header>
+      <PortalHeader
+        client={client}
+        profile={profile}
+        eyebrow="Solicitudes"
+        showBack
+      />
 
       <main className={portalStyles.wrap}>
         <div className={styles.head}>

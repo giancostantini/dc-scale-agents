@@ -374,6 +374,11 @@ export interface Integration {
   group: string;
   status: "connected" | "pending" | "disconnected";
   account?: string;
+  // Migration 014: credenciales/IDs cargadas por el cliente desde el portal.
+  // Shape libre por integración — ver lib/integration-tutorials.ts.
+  credentials?: Record<string, string>;
+  submittedBy?: string | null;    // user id del que cargó las credenciales
+  submittedAt?: string | null;    // ISO timestamp
 }
 
 // ==================== AGENTES ====================

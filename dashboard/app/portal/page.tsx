@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   getCurrentProfile,
   hasSession,
@@ -21,7 +20,8 @@ import { getDownloadUrl } from "@/lib/upload";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import Lockup from "@/components/Lockup";
 import PortalOnboardingTour from "@/components/PortalOnboardingTour";
-import NotificationBell from "@/components/NotificationBell";
+import PortalHeader from "@/components/PortalHeader";
+import ConsultorChatPanel from "@/components/ConsultorChatPanel";
 import type {
   CalEvent,
   Client,
@@ -89,12 +89,10 @@ export default function PortalPage() {
         router.replace("/");
         return;
       }
-      // Solo clientes acceden al portal. Director/team van al hub.
       if (p.role !== "client") {
         router.replace("/hub");
         return;
       }
-      // El cliente DEBE tener client_id seteado
       if (!p.client_id) {
         setProfile(p);
         setLoading(false);
@@ -103,12 +101,10 @@ export default function PortalPage() {
 
       setProfile(p);
 
-      // Mostrar tour solo la primera vez (permissions.tour_seen no seteado)
       if (p.permissions?.tour_seen !== true) {
         setShowTour(true);
       }
 
-      // Cargamos todo en paralelo. RLS filtra automáticamente.
       const supabase = getSupabase();
       const [c, o, ev, pay, rs, ct] = await Promise.all([
         getClient(p.client_id),
@@ -140,7 +136,7 @@ export default function PortalPage() {
 
   if (loading) return null;
 
-  // Estado degradado: cliente sin client_id (config error del director)
+  // Estado degradado: cliente sin client_id
   if (profile && !profile.client_id) {
     return (
       <main className={styles.errorWrap}>
@@ -153,7 +149,7 @@ export default function PortalPage() {
             a tu empresa.
           </p>
           <button
-            className={styles.btnGhost}
+            className={styles.errorBtn}
             onClick={() => signOut().then(() => router.replace("/"))}
           >
             Cerrar sesión
@@ -163,154 +159,155 @@ export default function PortalPage() {
     );
   }
 
-  if (!client) return null;
+  if (!client || !profile) return null;
 
   const k = client.kpis;
   const monthIso = new Date().toISOString().slice(0, 7);
   const thisMonthPayment = payments.find((p) => p.month === monthIso);
   const upcomingEvents = events
     .filter((e) => new Date(e.date + "T" + (e.time || "00:00")) >= new Date())
-    .slice(0, 5);
+    .slice(0, 3);
 
   return (
     <>
-      {showTour && profile && (
+      {showTour && (
         <PortalOnboardingTour
           profile={profile}
           onClose={() => setShowTour(false)}
         />
       )}
 
-      {/* Header propio del portal */}
-      <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          {logoUrl && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={logoUrl}
-              alt={`Logo de ${client.name}`}
-              style={{
-                height: 32,
-                width: "auto",
-                objectFit: "contain",
-                background: "rgba(232,228,220,0.06)",
-                padding: "4px 8px",
-                borderRadius: 2,
-              }}
-            />
-          )}
-          <Lockup size="sm" />
-        </div>
-        <div className={styles.headerCenter}>
-          <div className={styles.eyebrow}>Portal · {client.name}</div>
-        </div>
-        <div className={styles.headerRight}>
-          {/* Bell de notificaciones del cliente. La RLS filtra solo las
-              suyas (to_role='client' AND auth_client_id() = client). */}
-          <NotificationBell />
-          {profile && (
-            <button
-              className={styles.userBtn}
-              onClick={() => router.push("/perfil")}
-              title="Mi perfil"
-            >
-              <div className={styles.avatar}>{profile.initials}</div>
-              <div>
-                <div className={styles.userName}>{profile.name}</div>
-                <div className={styles.userRole}>Cliente</div>
-              </div>
-            </button>
-          )}
-          <button
-            className={styles.btnGhost}
-            onClick={() => signOut().then(() => router.replace("/"))}
-          >
-            Salir
-          </button>
-        </div>
-      </header>
+      <PortalHeader
+        client={client}
+        profile={profile}
+        logoUrl={logoUrl}
+        eyebrow={`Portal · ${client.name}`}
+      />
 
-      <main className={styles.wrap}>
-        {/* Saludo + nombre cliente */}
+      <main className={styles.main}>
+        {/* HERO: condensado para dejar espacio al chat */}
         <section className={styles.heroBlock}>
           <div className={styles.heroEyebrow}>Tu cuenta · {monthIso}</div>
-          <h1 className={styles.heroTitle}>{client.name}</h1>
+          <h1 className={styles.heroTitle}>Hola, {profile.name.split(" ")[0]}</h1>
           <div className={styles.heroSub}>
-            {client.sector} · {client.method}
+            {client.name} · {client.sector}
           </div>
         </section>
 
-        {/* KPIs */}
-        {client.type === "gp" && k && (
-          <section className={styles.section}>
-            <div className={styles.sectionLabel}>KPIs del mes</div>
-            <div className={styles.kpiGrid}>
-              <KPI label="ROAS" value={k.roas || "—"} />
-              <KPI label="Leads" value={String(k.leads ?? "—")} />
-              <KPI label="CAC" value={k.cac || "—"} />
-              <KPI label="Inversión" value={k.invested || "—"} />
-              <KPI label="Revenue" value={k.revenue || "—"} />
-              <KPI label="Conversión" value={k.conv || "—"} />
-            </div>
-          </section>
-        )}
+        {/* CHAT-FIRST LAYOUT */}
+        <section className={styles.chatLayout}>
+          <div className={styles.chatColumn}>
+            <ConsultorChatPanel
+              clientName={client.name}
+              showExpandButton
+              variant="embedded"
+            />
+          </div>
 
-        {/* Objetivos */}
-        {objectives && objectives.items.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionLabel}>
-              Objetivos · {objectives.period}
-            </div>
-            <div className={styles.panel}>
-              {objectives.items.map((o) => (
-                <div key={o.id} className={styles.objRow}>
-                  <div className={styles.objHead}>
-                    <div className={styles.objName}>{o.name}</div>
-                    <div className={styles.objNum}>
-                      <strong>
-                        {o.now}
-                        {o.unit}
-                      </strong>{" "}
-                      / {o.target}
-                      {o.unit}
-                    </div>
-                  </div>
-                  <div className={styles.progressBar}>
-                    <div
-                      className={styles.progressFill}
-                      style={{
-                        width: `${Math.max(0, Math.min(o.pct, 100))}%`,
-                        background:
-                          o.pct >= 85
-                            ? "var(--green-ok)"
-                            : o.pct >= 60
-                            ? "var(--sand)"
-                            : "var(--yellow-warn)",
-                      }}
-                    />
-                  </div>
-                  <div className={styles.objLabels}>
-                    <span>
-                      {o.pct >= 85
-                        ? "On track"
-                        : o.pct >= 60
-                        ? "En progreso"
-                        : "Atención"}
-                    </span>
-                    <span className={styles.objPct}>{o.pct}%</span>
-                  </div>
+          <aside className={styles.sidebar}>
+            {/* KPIs compactos */}
+            {client.type === "gp" && k && (
+              <div className={styles.sidebarBlock}>
+                <div className={styles.sidebarLabel}>KPIs del mes</div>
+                <div className={styles.compactKpiGrid}>
+                  <CompactKPI label="ROAS" value={k.roas || "—"} />
+                  <CompactKPI label="Leads" value={String(k.leads ?? "—")} />
+                  <CompactKPI label="CAC" value={k.cac || "—"} />
+                  <CompactKPI label="Conv" value={k.conv || "—"} />
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+              </div>
+            )}
 
-        {/* Reportes aprobados (solo Resumen ejecutivo) */}
-        {reports.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionLabel}>
-              Reportes aprobados · resumen
+            {/* Objetivos compactos */}
+            {objectives && objectives.items.length > 0 && (
+              <div className={styles.sidebarBlock}>
+                <div className={styles.sidebarLabel}>
+                  Objetivos · {objectives.period}
+                </div>
+                <div className={styles.objectives}>
+                  {objectives.items.slice(0, 4).map((o) => (
+                    <div key={o.id} className={styles.objCompact}>
+                      <div className={styles.objCompactHead}>
+                        <span className={styles.objCompactName}>{o.name}</span>
+                        <span className={styles.objCompactPct}>{o.pct}%</span>
+                      </div>
+                      <div className={styles.objCompactBar}>
+                        <div
+                          className={styles.objCompactFill}
+                          style={{
+                            width: `${Math.max(0, Math.min(o.pct, 100))}%`,
+                            background:
+                              o.pct >= 85
+                                ? "var(--green-ok)"
+                                : o.pct >= 60
+                                  ? "var(--sand)"
+                                  : "var(--yellow-warn)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Próximas reuniones */}
+            {upcomingEvents.length > 0 && (
+              <div className={styles.sidebarBlock}>
+                <div className={styles.sidebarLabel}>Próximas reuniones</div>
+                <div className={styles.eventList}>
+                  {upcomingEvents.map((e) => (
+                    <div key={e.id} className={styles.eventCompact}>
+                      <div className={styles.eventDate}>
+                        {new Date(e.date).toLocaleDateString("es-AR", {
+                          day: "2-digit",
+                          month: "short",
+                        })}
+                        {e.time && (
+                          <span className={styles.eventTime}> · {e.time}</span>
+                        )}
+                      </div>
+                      <div className={styles.eventTitle}>{e.title}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Estado de pagos compacto */}
+            <div className={styles.sidebarBlock}>
+              <div className={styles.sidebarLabel}>Tu pago de {monthIso}</div>
+              <div className={styles.paymentCompact}>
+                <div className={styles.paymentFee}>
+                  US$ {client.fee.toLocaleString()}
+                </div>
+                <div
+                  className={styles.paymentStatus}
+                  style={{
+                    color:
+                      thisMonthPayment?.status === "paid"
+                        ? "var(--green-ok)"
+                        : thisMonthPayment?.status === "late"
+                          ? "var(--red-warn)"
+                          : "var(--sand-dark)",
+                  }}
+                >
+                  {thisMonthPayment?.status === "paid"
+                    ? "✓ Pagado"
+                    : thisMonthPayment?.status === "late"
+                      ? "⚠ Atrasado"
+                      : "○ Pendiente"}
+                </div>
+              </div>
             </div>
+          </aside>
+        </section>
+
+        {/* DETALLE SCROLLEABLE */}
+
+        {reports.length > 0 && (
+          <section className={styles.detailSection}>
+            <div className={styles.sectionLabel}>Reportes aprobados</div>
             <div className={styles.panel}>
               {reports.map((r) => {
                 const summary = extractExecutiveSummary(r.content_md);
@@ -341,51 +338,8 @@ export default function PortalPage() {
           </section>
         )}
 
-        {/* Próximas reuniones */}
-        {upcomingEvents.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionLabel}>Próximas reuniones</div>
-            <div className={styles.panel}>
-              {upcomingEvents.map((e) => (
-                <div key={e.id} className={styles.eventRow}>
-                  <div className={styles.eventDate}>
-                    {new Date(e.date).toLocaleDateString("es-AR", {
-                      day: "2-digit",
-                      month: "short",
-                    })}
-                    <div className={styles.eventTime}>{e.time}</div>
-                  </div>
-                  <div className={styles.eventInfo}>
-                    <div className={styles.eventTitle}>{e.title}</div>
-                    {e.participants && (
-                      <div className={styles.eventParticipants}>
-                        {e.participants}
-                      </div>
-                    )}
-                  </div>
-                  {e.meetLink && (
-                    <a
-                      href={
-                        e.meetLink.startsWith("http")
-                          ? e.meetLink
-                          : `https://${e.meetLink}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.btnGhost}
-                    >
-                      Meet ↗
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Contenido publicado este mes */}
         {content.length > 0 && (
-          <section className={styles.section}>
+          <section className={styles.detailSection}>
             <div className={styles.sectionLabel}>Contenido publicado</div>
             <div className={styles.contentGrid}>
               {content.map((c) => (
@@ -409,64 +363,6 @@ export default function PortalPage() {
           </section>
         )}
 
-        {/* Pagos */}
-        <section className={styles.section}>
-          <div className={styles.sectionLabel}>Estado de pagos</div>
-          <div className={styles.panel}>
-            <div className={styles.paymentRow}>
-              <div>
-                <div className={styles.paymentMonth}>
-                  {monthIso} · este mes
-                </div>
-                <div className={styles.paymentMeta}>
-                  Fee mensual: US$ {client.fee.toLocaleString()}
-                </div>
-              </div>
-              <div
-                className={styles.paymentStatus}
-                style={{
-                  color:
-                    thisMonthPayment?.status === "paid"
-                      ? "var(--green-ok)"
-                      : thisMonthPayment?.status === "late"
-                      ? "var(--red-warn)"
-                      : "var(--sand-dark)",
-                }}
-              >
-                {thisMonthPayment?.status === "paid"
-                  ? "✓ Pagado"
-                  : thisMonthPayment?.status === "late"
-                  ? "⚠ Atrasado"
-                  : "○ Pendiente"}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTAs · Consultor + Solicitudes (placeholders por ahora) */}
-        <section className={styles.section}>
-          <div className={styles.ctaGrid}>
-            <Link href="/portal/consultor" className={styles.ctaCard}>
-              <div className={styles.ctaIcon}>✨</div>
-              <div className={styles.ctaTitle}>Consultor IA</div>
-              <div className={styles.ctaDesc}>
-                Preguntale al consultor cómo va la cuenta, qué resultados
-                estamos viendo o pedile un reporte específico.
-              </div>
-              <div className={styles.ctaArrow}>Abrir →</div>
-            </Link>
-            <Link href="/portal/solicitudes" className={styles.ctaCard}>
-              <div className={styles.ctaIcon}>◎</div>
-              <div className={styles.ctaTitle}>Solicitudes</div>
-              <div className={styles.ctaDesc}>
-                Cargá ofertas comerciales (promos, descuentos) o acciones
-                que querés que ejecutemos.
-              </div>
-              <div className={styles.ctaArrow}>Abrir →</div>
-            </Link>
-          </div>
-        </section>
-
         <footer className={styles.footer}>
           <div className={styles.footerLeft}>
             <Lockup size="sm" />
@@ -475,7 +371,7 @@ export default function PortalPage() {
             </div>
           </div>
           <div className={styles.footerRight}>
-            ¿Necesitás algo? Hablá con tu account lead o usá el consultor IA.
+            ¿Necesitás algo? Hablá con tu account lead o pediselo al consultor IA.
           </div>
         </footer>
       </main>
@@ -483,11 +379,11 @@ export default function PortalPage() {
   );
 }
 
-function KPI({ label, value }: { label: string; value: string }) {
+function CompactKPI({ label, value }: { label: string; value: string }) {
   return (
-    <div className={styles.kpiCell}>
-      <div className={styles.kpiLabel}>{label}</div>
-      <div className={styles.kpiValue}>{value}</div>
+    <div className={styles.compactKpiCell}>
+      <div className={styles.compactKpiLabel}>{label}</div>
+      <div className={styles.compactKpiValue}>{value}</div>
     </div>
   );
 }
