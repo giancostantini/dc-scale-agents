@@ -714,6 +714,53 @@ export default function PhaseReportPdf({
         </View>
       </Page>
 
+      {/* ============ TOC (página 2) ============ */}
+      {tocEntries.length > 0 && (
+        <Page size="A4" style={styles.tocPage}>
+          {/* Header fixed (mismo de las páginas de contenido) */}
+          <View style={styles.pageHeader} fixed>
+            <View style={styles.pageHeaderLockup}>
+              <Text style={styles.pageHeaderDearmas}>Dearmas</Text>
+              <Text style={styles.pageHeaderCostantini}>Costantini</Text>
+            </View>
+            <Text style={styles.pageHeaderRight}>
+              {phaseLabel} · {clientName}
+            </Text>
+          </View>
+
+          {/* Footer fixed */}
+          <View style={styles.pageFooter} fixed>
+            <Text style={styles.pageFooterText}>
+              Confidencial · Dearmas Costantini · {today}
+            </Text>
+            <Text
+              style={styles.pageFooterText}
+              render={({ pageNumber, totalPages }) =>
+                `${pageNumber} / ${totalPages}`
+              }
+            />
+          </View>
+
+          <View style={styles.tocInner}>
+            <Text style={styles.tocEyebrow}>Tabla de contenidos</Text>
+            <Text style={styles.tocTitle}>Índice</Text>
+            <Text style={styles.tocSubtitle}>
+              Recorrido de las {tocEntries.length} secciones del reporte
+            </Text>
+            <View style={styles.tocDivider} />
+
+            <View style={styles.tocList}>
+              {tocEntries.map((entry, idx) => (
+                <View key={idx} style={styles.tocItem}>
+                  <Text style={styles.tocNumber}>{entry.number}</Text>
+                  <Text style={styles.tocLabel}>{entry.title}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </Page>
+      )}
+
       {/* ============ CONTENT ============ */}
       <Page size="A4" style={styles.contentPage}>
         {/* Header repetido en cada página */}
