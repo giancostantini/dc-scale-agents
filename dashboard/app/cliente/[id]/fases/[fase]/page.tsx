@@ -244,6 +244,7 @@ export default function FaseDetailPage({
         approvedAt: report.approved_at,
         version: report.version,
         contentMd: report.content_md,
+        isBrandLaunch: client.onboarding?.isBrandLaunch === true,
       });
 
       const url = URL.createObjectURL(blob);

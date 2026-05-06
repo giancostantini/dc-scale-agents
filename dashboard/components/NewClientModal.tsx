@@ -114,6 +114,7 @@ export default function NewClientModal({
   // Step 3 — contrato + fees
   const [fee, setFee] = useState("");
   const [method, setMethod] = useState("Método completo");
+  const [isBrandLaunch, setIsBrandLaunch] = useState(false);
   const [contractDuration, setContractDuration] = useState<string>("12");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -166,6 +167,7 @@ export default function NewClientModal({
     setContactPhone("");
     setFee("");
     setMethod("Método completo");
+    setIsBrandLaunch(false);
     setContractDuration("12");
     setStartDate("");
     setEndDate("");
@@ -252,6 +254,7 @@ export default function NewClientModal({
         budgetProduccion: makeBudgetTier(budgetProduccionFixed, budgetProduccionPct),
         devProjectType:
           type === "dev" && devProjectType ? devProjectType : undefined,
+        isBrandLaunch: isBrandLaunch || undefined,
       };
 
       const feeVariableSummary = hasVariable
@@ -559,6 +562,47 @@ export default function NewClientModal({
                 <option>Generación de leads</option>
                 <option>Personalizado</option>
               </select>
+            </div>
+
+            {/* Tipo de cliente: lanzamiento de marca vs negocio operando.
+                Cuando es lanzamiento, el reporte de Diagnóstico se adapta
+                (sin Estado de canales, sin Oportunidades de crecimiento,
+                sin Roadmap a 90 días — esos no aplican). */}
+            <div
+              style={{
+                marginBottom: 24,
+                padding: 18,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand-dark)",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isBrandLaunch}
+                  onChange={(e) => setIsBrandLaunch(e.target.checked)}
+                  style={{ width: "auto", marginTop: 3 }}
+                />
+                <span>
+                  <strong>Es un lanzamiento de marca</strong>
+                  <br />
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    Negocio nuevo que recién arranca. Aún no tiene canales
+                    digitales activos, ventas históricas ni performance que
+                    medir. El reporte de Diagnóstico se adapta: omite
+                    Estado de canales, Oportunidades de crecimiento y
+                    Roadmap a 90 días (no aplican antes de lanzar).
+                  </span>
+                </span>
+              </label>
             </div>
 
             {/* Fee variable por tramos escalonados */}

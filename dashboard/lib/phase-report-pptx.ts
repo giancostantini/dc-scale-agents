@@ -51,6 +51,9 @@ export interface BuildPptxOptions {
   approvedAt: string | null;
   version: number;
   contentMd: string;
+  /** Si true, layout adaptado a lanzamiento de marca: 9 slides de
+   *  contenido (sin Estado de canales / Oportunidades / Roadmap). */
+  isBrandLaunch?: boolean;
 }
 
 export async function buildPhaseReportPptx(
@@ -74,25 +77,55 @@ export async function buildPhaseReportPptx(
   const blocks = parseMarkdownBlocks(opts.contentMd);
   const sections = groupBySection(blocks);
 
-  // 11 slides en español, ordenados según las secciones del reporte.
-  // Sin slide de "Setup" — esa fase tiene su propio reporte aparte.
-  addCoverSlide(pptx, opts);                                         // 1
-  addAgendaSlide(pptx, opts);                                        // 2
-  addExecutiveSummarySlide(pptx, opts, sections.get(1) ?? []);       // 3
-  addBusinessContextSlide(pptx, opts, sections.get(2) ?? []);        // 4
-  addMarketCompetitorsSlide(pptx, opts, sections.get(3) ?? []);      // 5
-  addCustomerSlide(pptx, opts, sections.get(4) ?? []);               // 6
-  addMetricsSlide(pptx, opts, sections.get(6) ?? []);                // 7
-  addKeyFindingsSlide(pptx, opts, sections.get(7) ?? []);            // 8
-  addOpportunitiesSlide(pptx, opts, sections.get(8) ?? []);          // 9
-  addRoadmapSlide(                                                   // 10
-    pptx,
-    opts,
-    sections.get(9) ?? [],
-    sections.get(10) ?? [],
-    sections.get(11) ?? [],
-  );
-  addClosingSlide(pptx, opts, sections.get(12) ?? []);               // 11
+  if (opts.isBrandLaunch) {
+    // ===== Layout BRAND LAUNCH — 9 secciones renumeradas 1-9 =====
+    // Tapa + Índice + 9 contenidos = 11 slides totales (mismo total
+    // que el regular, pero el contenido cambia).
+    //
+    // Mapping del prompt brand-launch:
+    //   1. Resumen ejecutivo
+    //   2. Contexto del negocio
+    //   3. Mercado y panorama competitivo
+    //   4. Cliente y propuesta de valor
+    //   5. Métricas y unit economics (proyecciones)
+    //   6. Hallazgos clave
+    //   7. Recomendaciones estratégicas (las prioridades del lanzamiento)
+    //   8. Impacto esperado
+    //   9. Conclusión y próximos pasos
+    addCoverSlide(pptx, opts);                                       // 1
+    addAgendaSlide(pptx, opts);                                      // 2
+    addExecutiveSummarySlide(pptx, opts, sections.get(1) ?? []);     // 3
+    addBusinessContextSlide(pptx, opts, sections.get(2) ?? []);      // 4
+    addMarketCompetitorsSlide(pptx, opts, sections.get(3) ?? []);    // 5
+    addCustomerSlide(pptx, opts, sections.get(4) ?? []);             // 6
+    addMetricsSlide(pptx, opts, sections.get(5) ?? []);              // 7
+    addKeyFindingsSlide(pptx, opts, sections.get(6) ?? []);          // 8
+    // Recomendaciones (sec 7 brand) en lugar de Oportunidades.
+    // Reusa addOpportunitiesSlide pero le cambio el título via wrapper.
+    addBrandLaunchPrioritiesSlide(pptx, opts, sections.get(7) ?? []); // 9
+    addBrandLaunchImpactSlide(pptx, opts, sections.get(8) ?? []);    // 10
+    addClosingSlide(pptx, opts, sections.get(9) ?? []);              // 11
+  } else {
+    // ===== Layout REGULAR — 12 secciones del Diagnóstico =====
+    // 11 slides en español, sin slide de "Setup" — esa fase es aparte.
+    addCoverSlide(pptx, opts);                                       // 1
+    addAgendaSlide(pptx, opts);                                      // 2
+    addExecutiveSummarySlide(pptx, opts, sections.get(1) ?? []);     // 3
+    addBusinessContextSlide(pptx, opts, sections.get(2) ?? []);      // 4
+    addMarketCompetitorsSlide(pptx, opts, sections.get(3) ?? []);    // 5
+    addCustomerSlide(pptx, opts, sections.get(4) ?? []);             // 6
+    addMetricsSlide(pptx, opts, sections.get(6) ?? []);              // 7
+    addKeyFindingsSlide(pptx, opts, sections.get(7) ?? []);          // 8
+    addOpportunitiesSlide(pptx, opts, sections.get(8) ?? []);        // 9
+    addRoadmapSlide(                                                 // 10
+      pptx,
+      opts,
+      sections.get(9) ?? [],
+      sections.get(10) ?? [],
+      sections.get(11) ?? [],
+    );
+    addClosingSlide(pptx, opts, sections.get(12) ?? []);             // 11
+  }
 
   // pptxgenjs.write returns string|Blob|ArrayBuffer depending on outputType.
   // Forzamos blob para descargar como archivo.
@@ -1052,6 +1085,124 @@ function addRoadmapSlide(
   });
 
   addContentFooter(slide, opts, 10); // Roadmap + impacto → slide 10
+}
+
+// ============================================================
+// Slides BRAND LAUNCH — específicos para lanzamiento de marca
+// ============================================================
+
+function addBrandLaunchPrioritiesSlide(
+  pptx: PptxInstance,
+  opts: BuildPptxOptions,
+  blocks: Block[],
+) {
+  const slide = pptx.addSlide();
+  slide.background = { color: C.white };
+  addContentHeader(slide, opts);
+  addContentTitle(
+    slide,
+    "07",
+    "Recomendaciones estratégicas",
+    "Prioridades del lanzamiento — qué hacer y en qué orden",
+  );
+
+  const items = [
+    ...getBulletTexts(blocks, 9),
+    ...getParagraphs(blocks, 3),
+  ].filter((t) => t.length > 0).slice(0, 10);
+
+  if (items.length === 0) {
+    slide.addText("Recomendaciones no disponibles. Generá el Diagnóstico.", {
+      x: 0.6,
+      y: 3,
+      w: 12.1,
+      h: 1,
+      fontFace: FONT,
+      fontSize: 14,
+      color: C.textMuted,
+      italic: true,
+    });
+  } else {
+    slide.addText(
+      items.map((t) => ({
+        text: t,
+        options: {
+          bullet: { type: "bullet", indent: 12 },
+          fontFace: FONT,
+          fontSize: 12,
+          color: C.deepGreen,
+          paraSpaceAfter: 7,
+        },
+      })),
+      { x: 0.6, y: 2.5, w: 12.1, h: 4.4, valign: "top" },
+    );
+  }
+
+  addContentFooter(slide, opts, 9);
+}
+
+function addBrandLaunchImpactSlide(
+  pptx: PptxInstance,
+  opts: BuildPptxOptions,
+  blocks: Block[],
+) {
+  const slide = pptx.addSlide();
+  slide.background = { color: C.white };
+  addContentHeader(slide, opts);
+  addContentTitle(
+    slide,
+    "08",
+    "Impacto esperado",
+    "Proyecciones a 30 / 90 / 180 días post-lanzamiento",
+  );
+
+  const items = [
+    ...getBulletTexts(blocks, 9),
+    ...getParagraphs(blocks, 3),
+  ].filter((t) => t.length > 0).slice(0, 10);
+
+  // Si la sección tiene tabla, la mostramos como bullets
+  const tableBlock = blocks.find((b) => b.type === "table");
+  if (tableBlock && tableBlock.type === "table" && items.length < 4) {
+    const rows = tableBlock.hasHeader
+      ? tableBlock.rows.slice(1)
+      : tableBlock.rows;
+    for (const row of rows.slice(0, 8)) {
+      const cells = row
+        .map((c) => c.map((s) => ("text" in s ? s.text : "")).join("").trim())
+        .filter(Boolean);
+      items.push(cells.join(" · "));
+    }
+  }
+
+  if (items.length === 0) {
+    slide.addText("Impacto esperado no disponible. Generá el Diagnóstico.", {
+      x: 0.6,
+      y: 3,
+      w: 12.1,
+      h: 1,
+      fontFace: FONT,
+      fontSize: 14,
+      color: C.textMuted,
+      italic: true,
+    });
+  } else {
+    slide.addText(
+      items.slice(0, 9).map((t) => ({
+        text: t,
+        options: {
+          bullet: { type: "bullet", indent: 12 },
+          fontFace: FONT,
+          fontSize: 12,
+          color: C.deepGreen,
+          paraSpaceAfter: 7,
+        },
+      })),
+      { x: 0.6, y: 2.5, w: 12.1, h: 4.4, valign: "top" },
+    );
+  }
+
+  addContentFooter(slide, opts, 10);
 }
 
 function addClosingSlide(

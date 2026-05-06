@@ -99,6 +99,12 @@ export interface ClientOnboarding {
 
   // Dev
   devProjectType?: string;
+
+  // Si true, es un lanzamiento de marca (negocio nuevo sin canales
+  // activos). El reporte de Diagnóstico se adapta: 9 secciones en
+  // vez de 12 (omite Estado de canales, Oportunidades de crecimiento
+  // y Roadmap a 90 días — esos no aplican a un lanzamiento).
+  isBrandLaunch?: boolean;
 }
 
 export interface BudgetTier {

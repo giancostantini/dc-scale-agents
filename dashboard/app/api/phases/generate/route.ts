@@ -26,6 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import {
   PHASE_PROMPTS,
+  PHASE_PROMPTS_BRAND_LAUNCH,
   buildPhaseUserPrompt,
   type PhaseGenerationInput,
 } from "./prompts";
@@ -266,7 +267,15 @@ export async function POST(req: NextRequest) {
   // ====== 8. Llamar Claude ======
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
-  const promptCfg = PHASE_PROMPTS[phaseKey];
+  // Elegir variante del prompt según onboarding.isBrandLaunch.
+  // Cuando el cliente es un lanzamiento de marca, usamos un prompt de
+  // diagnóstico con 9 secciones (sin canales, sin oportunidades, sin
+  // roadmap a 90 días — esos no aplican). Las otras fases (Estrategia,
+  // Setup, Lanzamiento) usan los prompts regulares.
+  const isBrandLaunch = (onboarding as { isBrandLaunch?: boolean }).isBrandLaunch === true;
+  const promptCfg = isBrandLaunch
+    ? PHASE_PROMPTS_BRAND_LAUNCH[phaseKey]
+    : PHASE_PROMPTS[phaseKey];
   const input: PhaseGenerationInput = {
     client: {
       name: client.name,
