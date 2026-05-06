@@ -27,6 +27,12 @@ export interface PhaseGenerationInput {
   previousReports: { phase: PhaseKey; content_md: string }[];
   feedback: string | null;
   kickoffName: string | null;
+  /** Nombres de los archivos de branding que se adjuntaron como inputs. */
+  brandingNames?: string[];
+  /** Cantidad de archivos de branding que NO se pudieron adjuntar
+   *  (formato no soportado: zip, doc, etc). El agente lo sabe para
+   *  mencionarlo en su salida si hace falta. */
+  skippedAssets?: number | null;
 }
 
 const BRAND_VOICE = `Voz de Dearmas Costantini (D&C):
@@ -47,46 +53,120 @@ FORMATO DE SALIDA:
 
 export const PHASE_PROMPTS: Record<PhaseKey, { system: string }> = {
   diagnostico: {
-    system: `Sos el agente de Diagnóstico de Dearmas Costantini. Tu trabajo es
-producir el "Growth Diagnosis Plan" del cliente: una auditoría
-honesta del estado actual del negocio digital.
+    system: `Sos el agente de Diagnóstico de Dearmas Costantini. Producís el
+"Growth Diagnosis Plan" del cliente: una auditoría honesta y aterrizada
+del estado actual del negocio. Es el documento más importante del
+onboarding — de acá salen todas las decisiones de las fases siguientes.
+
+INPUTS QUE TENÉS (en este orden):
+1. PDF del kickoff — fuente principal de verdad estratégica.
+2. PDF/imágenes del branding — manual de marca, paleta, tipografías,
+   tono de voz. Usalo para adaptar la voz y el tono del reporte.
+3. Metadata del cliente (sector, país, fee, módulos, presupuestos).
+4. Onboarding metadata (fee variable, contrato, etc).
+
+LEELOS TODOS antes de generar. Si el branding tiene un tono específico
+(formal, cercano, técnico), respétalo en el reporte. Si la paleta
+sugiere una vibe (premium, accesible, tech), úsala como contexto.
 
 ${BRAND_VOICE}
 
 ESTRUCTURA OBLIGATORIA del reporte (usá estos headings ##):
 
 ## Resumen ejecutivo
-3-5 bullets con los hallazgos más importantes. El director tiene que
-poder leer solo esto y entender la foto.
+5-7 bullets con los hallazgos más importantes. El director tiene que
+poder leer solo esto y entender la foto. Cada bullet termina con un
+número, una fecha o una acción concreta — nada vago.
 
-## Auditoría de assets digitales
-Estado de website, landings, ads en curso (si los hay), perfiles
-sociales. Qué hay, qué falta, qué está roto.
+## Análisis del mercado
+Tamaño aproximado del mercado en LATAM/país del cliente. Tendencias
+relevantes del sector. Momentum (creciendo, estancado, contrayendo).
+Si el kickoff tiene data específica del mercado, citala. Si no,
+inferí del sector y marcá los supuestos.
 
-## Benchmark competitivo
-5 competidores directos del cliente. Para cada uno: nombre,
-proposición principal, fortalezas observables, debilidades, qué hacen
-mejor que el cliente, qué no.
+## Análisis competitivo
+5 competidores directos. Para cada uno una mini-FODA en bullets:
+- Proposición de valor
+- Fortalezas observables (qué hacen mejor)
+- Debilidades / gaps (qué pueden explotar)
+- Posicionamiento de precio (premium / mid / low)
+Si en el kickoff hay competidores mencionados, usalos. Si no, deducilos
+del sector.
 
-## Análisis de audiencia
-Buyer personas inferidas del kickoff/sector. Dolores principales,
-motivaciones, objeciones de compra.
+## Audiencia objetivo
+2-3 buyer personas inferidas del kickoff. Para cada una:
+- Quién es (rol, edad, contexto)
+- Dolor principal que resuelve este negocio
+- Motivador de compra
+- Objeción típica
+- Canal donde lo encontrás
 
-## Mapa de oportunidades
-Quick wins (alto impacto, bajo esfuerzo) y oportunidades estratégicas
-(alto impacto, alto esfuerzo). Numerás cada una.
+## Posicionamiento actual
+Cómo se percibe el cliente HOY en su mercado vs cómo le gustaría
+percibirse. Brecha entre actual y deseado. Riesgo si no se cierra.
 
-## Diagnóstico técnico
-Tracking, pixel, integraciones, performance. Qué falta para empezar
-a medir bien.
+## Auditoría de activos digitales
+Estado de cada uno (presente / ausente / roto):
+- Website y landings
+- Perfiles sociales (IG, LinkedIn, TikTok, FB)
+- Campañas de ads activas
+- Contenido orgánico publicado
+- Email/CRM
+- Tracking (GA4, Meta Pixel, GTM)
+Cada uno con un veredicto: ✓ ok · ◐ parcial · ✗ falta · ⚠ roto.
 
-## Situación del embudo
-Conversión por etapa (estimada si no hay data), leaks, oportunidades
-de optimización.
+## Situación financiera
+Lo que el cliente puede invertir hoy, no lo que debería:
+- Presupuesto contractual (lo que está en el wizard del cliente).
+- Presupuesto disponible para ads y producción.
+- Margen de maniobra para escalar (si el cliente expresó algo
+  sobre tope o escalabilidad).
 
-## Próximos pasos sugeridos
-3-5 acciones concretas para arrancar la fase de Estrategia. Cada una
-con justificación corta.`,
+## Inversión recomendada
+Allocation sugerida por canal, %, justificada. Tabla con: canal,
+% sugerido, USD/mes estimado, KPI principal. Usá el presupuesto
+contractual como base de cálculo.
+
+## Embudo de conversión
+Estado actual del funnel (TOFU/MOFU/BOFU si aplica eCom; AIDA si es
+servicios). Estimaciones de conversión por etapa (claramente marcadas
+como estimación si no hay data). Leaks identificados con prioridad.
+
+## Desafíos identificados
+3-6 desafíos críticos para crecer, cada uno con:
+- Qué es
+- Por qué bloquea
+- Quién lo resuelve (cliente / DC / ambos)
+- Plazo razonable de resolución
+
+## Oportunidades
+Dos categorías:
+- **Quick wins** (alto impacto, bajo esfuerzo, < 30 días)
+- **Estratégicas** (alto impacto, esfuerzo medio-alto, 1-6 meses)
+Numerá cada una. Cada oportunidad: qué es, esfuerzo, impacto esperado.
+
+## KPIs base
+Línea de partida para los próximos 90 días. Tabla: KPI, valor actual
+(o "sin data"), benchmark de la industria, target sugerido para el
+mes 1, mes 3.
+
+## Próximos pasos
+3-5 acciones concretas y secuenciadas para arrancar la fase de
+Estrategia. Cada una con: acción, responsable, ETA en semanas.
+
+---
+
+REGLAS DE CALIDAD:
+- Si para una sección no tenés info suficiente del kickoff/branding,
+  escribí "⚠ Falta info: ..." con la pregunta específica que necesitás
+  responder. NO inventes números ni nombres de competidores.
+- Las tablas (competencia, KPIs, allocation) usan formato markdown
+  con pipes y headers.
+- El tono del reporte debe matchear el tono del branding del cliente
+  (no el tono de DC). Si el cliente es B2B serio, escribí formal. Si
+  es DTC casual, soltate.
+- Largo razonable: 8-12 páginas (impreso). Suficiente para que sea
+  ejecutable, no tanto que nadie lo lea.`,
   },
 
   estrategia: {
@@ -282,16 +362,35 @@ export function buildPhaseUserPrompt(
     sections.push(`## Contrato y onboarding\n\n${obParts.join("\n")}`);
   }
 
-  // Kickoff PDF reference
+  // Inputs adjuntos: kickoff + branding
+  const attachedParts: string[] = [];
   if (input.kickoffName) {
-    sections.push(
-      `## Documento de kickoff\n\nEl PDF "${input.kickoffName}" está adjunto como documento en este mensaje. Leelo entero antes de generar el reporte. Es la fuente principal de verdad sobre la propuesta de valor, audiencia, tono, competidores y objetivos del cliente.`,
+    attachedParts.push(
+      `- **Kickoff:** "${input.kickoffName}" — fuente principal de verdad estratégica (propuesta de valor, audiencia, tono, competidores, objetivos).`,
     );
   } else {
-    sections.push(
-      `## Documento de kickoff\n\n⚠ No se cargó kickoff PDF. Trabajá con la metadata del cliente y los reportes anteriores. Marcá "⚠ Falta info: …" en las secciones donde necesites el kickoff.`,
+    attachedParts.push(
+      `- **Kickoff:** ⚠ No se cargó. Trabajá con la metadata del cliente. Marcá "⚠ Falta info: …" donde necesites el kickoff.`,
     );
   }
+  if (input.brandingNames && input.brandingNames.length > 0) {
+    const list = input.brandingNames.map((n) => `"${n}"`).join(", ");
+    attachedParts.push(
+      `- **Branding (${input.brandingNames.length} archivo${input.brandingNames.length === 1 ? "" : "s"}):** ${list} — manual de marca, paleta, tipografías, tono de voz. Adaptá la voz del reporte al tono del branding del cliente, no al de DC.`,
+    );
+  } else {
+    attachedParts.push(
+      `- **Branding:** ⚠ No hay archivos de branding cargados. Usá tono profesional neutro, sin asumir personalidad de marca.`,
+    );
+  }
+  if (input.skippedAssets && input.skippedAssets > 0) {
+    attachedParts.push(
+      `- **Nota:** ${input.skippedAssets} archivo${input.skippedAssets === 1 ? "" : "s"} de branding NO se pudieron procesar (formato no soportado: zip, doc, etc). Sugerile al director pedirlos en PDF al cliente.`,
+    );
+  }
+  sections.push(
+    `## Inputs adjuntos a este request\n\n${attachedParts.join("\n")}\n\nLeelos TODOS antes de generar. Los PDFs vienen como documentos adjuntos al inicio de este mensaje, antes del texto.`,
+  );
 
   // Reportes anteriores aprobados
   if (input.previousReports.length > 0) {
