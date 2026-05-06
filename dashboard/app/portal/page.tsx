@@ -25,6 +25,7 @@ import PortalHeader from "@/components/PortalHeader";
 import ConsultorChatPanel from "@/components/ConsultorChatPanel";
 import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
+import MonthSummaryBlock from "@/components/MonthSummaryBlock";
 import type {
   CalEvent,
   Client,
@@ -207,6 +208,9 @@ export default function PortalPage() {
 
         {/* ROADMAP DE FASES — visible siempre, da contexto del progreso */}
         <PhaseRoadmap client={client} reports={reports} />
+
+        {/* "Qué hicimos este mes" — agregación del trabajo del equipo */}
+        <MonthSummaryBlock />
 
         {/* CHAT-FIRST LAYOUT */}
         <section className={styles.chatLayout}>
@@ -430,9 +434,14 @@ export default function PortalPage() {
           </div>
           <div className={styles.footerRight}>
             ¿Necesitás algo? Hablá con tu account lead o pediselo a D&C Advisor.
-            <Link href="/portal/faq" className={styles.footerLink}>
-              ¿Cómo funciona el portal? →
-            </Link>
+            <div className={styles.footerLinks}>
+              <Link href="/portal/calendario" className={styles.footerLink}>
+                Calendario →
+              </Link>
+              <Link href="/portal/faq" className={styles.footerLink}>
+                ¿Cómo funciona el portal? →
+              </Link>
+            </div>
           </div>
         </footer>
       </main>
