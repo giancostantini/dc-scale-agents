@@ -91,6 +91,7 @@ export default function FaseDetailPage({
   const [client, setClient] = useState<Client | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingPptx, setDownloadingPptx] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,6 +193,75 @@ export default function FaseDetailPage({
       );
     } finally {
       setDownloadingPdf(false);
+    }
+  }
+
+  async function downloadPptx() {
+    if (!report || !report.content_md || !client) return;
+    setDownloadingPptx(true);
+    try {
+      const phaseLabel =
+        key === "diagnostico"
+          ? "Diagnóstico"
+          : key === "estrategia"
+          ? "Estrategia"
+          : key === "setup"
+          ? "Setup"
+          : key === "lanzamiento"
+          ? "Lanzamiento"
+          : "Reporte";
+
+      // Convertir el logo del cliente a data URL (mismo flujo que el PDF)
+      let logoDataUrl: string | null = null;
+      if (logoUrl) {
+        try {
+          const imgRes = await fetch(logoUrl);
+          if (imgRes.ok) {
+            const blobImg = await imgRes.blob();
+            logoDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blobImg);
+            });
+          }
+        } catch (e) {
+          console.warn("[downloadPptx] no se pudo cargar el logo, sigue sin él:", e);
+        }
+      }
+
+      // Lazy import — pptxgenjs es ~700 KB, fuera del bundle inicial
+      const { buildPhaseReportPptx } = await import(
+        "@/lib/phase-report-pptx"
+      );
+
+      const blob = await buildPhaseReportPptx({
+        phaseLabel,
+        reportName: meta?.reportName ?? phaseLabel,
+        clientName: client.name,
+        clientLogoDataUrl: logoDataUrl,
+        generatedAt: report.generated_at,
+        approvedAt: report.approved_at,
+        version: report.version,
+        contentMd: report.content_md,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("downloadPptx error:", err);
+      const e = err as Error;
+      alert(
+        `No se pudo generar la presentación.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
+      );
+    } finally {
+      setDownloadingPptx(false);
     }
   }
 
@@ -471,6 +541,24 @@ export default function FaseDetailPage({
               }}
             >
               {downloadingPdf ? "Generando PDF…" : "↓ Descargar PDF"}
+            </button>
+          )}
+
+          {/* Descargar PPT — para presentar al cliente */}
+          {hasContent && (
+            <button
+              className={ui.btnGhost}
+              onClick={downloadPptx}
+              disabled={downloadingPptx}
+              style={{
+                borderColor: "var(--sand)",
+                color: "var(--deep-green)",
+                fontWeight: 600,
+              }}
+            >
+              {downloadingPptx
+                ? "Generando PPT…"
+                : "↓ Descargar PPT (10 slides)"}
             </button>
           )}
         </div>
