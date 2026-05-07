@@ -187,7 +187,7 @@ Sé directo, útil y breve. Máximo 800 caracteres. Basate en el contexto del cl
 
   await pushNotification(client, "info", `Morning briefing listo`, shortSummary, {
     agent: AGENT,
-    link: `/cliente/${client}`,
+    link: `/cliente/${client}/planificador`,
     to_user_id: triggered_by_user_id,
   });
 

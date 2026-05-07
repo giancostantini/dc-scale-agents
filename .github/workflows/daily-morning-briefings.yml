@@ -1,0 +1,78 @@
+name: Daily Morning Briefings
+
+# Corre todos los días a las 11:00 UTC = 8:00 AM Uruguay (UTC-3) y dispara
+# morning-briefing para cada cliente con status='active'. Cada cliente queda
+# loggeado en agent_runs / agent_outputs como cualquier otro run, así aparece
+# en el bell de notificaciones y en /cliente/<id>/planificador.
+#
+# El job se puede ejecutar manualmente vía workflow_dispatch para testing.
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  list-clients:
+    runs-on: ubuntu-latest
+    outputs:
+      clients: ${{ steps.list.outputs.clients }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - name: List active clients from Supabase
+        id: list
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS \
+            "${SUPABASE_URL}/rest/v1/clients?status=eq.active&select=id" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          slugs=$(echo "$response" | jq -c '[.[] | .id]')
+          count=$(echo "$response" | jq 'length')
+          echo "clients=$slugs" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Encontrados $count clientes activos: $slugs"
+
+  briefing:
+    needs: list-clients
+    if: ${{ needs.list-clients.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        client: ${{ fromJson(needs.list-clients.outputs.clients) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install deps
+        run: npm install --omit=dev
+
+      - name: Run Morning Briefing for ${{ matrix.client }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cat > /tmp/brief.json <<EOF
+          {
+            "client": "${{ matrix.client }}",
+            "source": "scheduled",
+            "mode": "daily"
+          }
+          EOF
+          node scripts/morning-briefing/index.js --brief /tmp/brief.json
