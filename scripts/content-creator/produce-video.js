@@ -377,7 +377,7 @@ function buildRemotionPrompt(storyboard, brief, compositionId, assetBlock) {
 
 Generate a complete, production-ready Remotion composition based on this storyboard.
 
-COMPOSITION ID: ${compositionId}  ← EXACT identifier — use it verbatim with underscores. NEVER replace underscores with hyphens. The id in COMPOSITION_CONFIG MUST be the literal string "${compositionId}" (case-sensitive, with underscores).
+JS IDENTIFIER: ${compositionId}  ← Use this verbatim WITH UNDERSCORES for the JS export, import, and component name (\`export const ${compositionId}\`, \`<MyScene component={${compositionId}}>\`, etc.). JS doesn't allow hyphens in identifiers. The string value of COMPOSITION_CONFIG.id can be anything — we ignore it; the real Remotion id is set elsewhere.
 CLIENT: ${brief.client}
 ASPECT RATIO: 9:16 (1080x1920 — vertical video for Instagram Reels / TikTok)
 FPS: 30
@@ -580,23 +580,25 @@ Bigger files = max_tokens truncation = render fails.`;
 // se inyectaba afuera del fragment del componente y Remotion arrancaba con
 // "Available compositions: " vacío. Ese era el bug que rompía wiztrip_006.
 
-function registerComposition(compositionId, compositionPath) {
+function registerComposition(compositionJsId, compositionRemotionId, compositionPath) {
   const rootPath = resolve(REMOTION_DIR, "src/Root.tsx");
   let root = readFileSync(rootPath, "utf-8");
 
-  const importLine = `import { ${compositionId}, COMPOSITION_CONFIG as ${compositionId}_CONFIG } from "${compositionPath}";`;
-  // El id se hardcodea como string literal a propósito: el CLI de Remotion
-  // lo busca por ese exact string. Si lo leemos de CONFIG.id y Claude lo
-  // escribió mal (e.g. con guión "wiztrip-012" en lugar de underscore
-  // "wiztrip_012" copiando del nombre del folder), el render falla con
-  // "Could not find composition with ID X". Forzamos el id correcto acá.
+  // Import: usa compositionJsId (snake_case, válido como JS identifier).
+  const importLine = `import { ${compositionJsId}, COMPOSITION_CONFIG as ${compositionJsId}_CONFIG } from "${compositionPath}";`;
+  // <Composition>:
+  //   - id="..." es string literal en kebab-case (compositionRemotionId).
+  //     Remotion lo valida con regex /^[a-zA-Z0-9-]+$/ — underscore lo
+  //     rompe.
+  //   - component={...} es referencia JS al import (snake_case).
+  //   - width/height/fps/durationInFrames se leen del CONFIG del módulo.
   const compositionEntry = `      <Composition
-        id="${compositionId}"
-        component={${compositionId}}
-        width={${compositionId}_CONFIG.width}
-        height={${compositionId}_CONFIG.height}
-        fps={${compositionId}_CONFIG.fps}
-        durationInFrames={${compositionId}_CONFIG.durationInFrames}
+        id="${compositionRemotionId}"
+        component={${compositionJsId}}
+        width={${compositionJsId}_CONFIG.width}
+        height={${compositionJsId}_CONFIG.height}
+        fps={${compositionJsId}_CONFIG.fps}
+        durationInFrames={${compositionJsId}_CONFIG.durationInFrames}
       />`;
 
   const importsEndMarker = "// --- GENERATED IMPORTS END ---";
@@ -616,7 +618,7 @@ function registerComposition(compositionId, compositionPath) {
     );
   }
 
-  if (!root.includes(`id="${compositionId}"`)) {
+  if (!root.includes(`id="${compositionRemotionId}"`)) {
     root = root.replace(
       compositionsEndMarker,
       `${compositionEntry}\n      ${compositionsEndMarker}`,
@@ -631,10 +633,20 @@ function registerComposition(compositionId, compositionPath) {
 export async function produceVideo(brief, storyboard, pieceId) {
   console.log("Fase 2 — Remotion video production starting...");
 
-  // 1. Create composition ID
-  const compositionId = `${brief.client.replace(/-/g, "_")}_${pieceId}`;
+  // 1. Composition identifiers — DOS strings distintos por design:
+  //    - compositionJsId: para JS (import, export const, variable name).
+  //      JS no acepta guión en identificadores → snake_case.
+  //    - compositionRemotionId: para Remotion (<Composition id="...">,
+  //      CLI render arg). Remotion exige [a-zA-Z0-9-] (regex en
+  //      validateCompositionId del runtime), no acepta underscore →
+  //      kebab-case. Coincide con el folder name.
+  //    Mezclarlos rompe en alguna dirección: si pasamos underscore al CLI
+  //    falla con "Composition id can only contain a-z, A-Z, 0-9 and -".
+  //    Si pasamos guión a un import JS, parse error.
+  const compositionJsId = `${brief.client.replace(/-/g, "_")}_${pieceId}`;
+  const compositionRemotionId = `${brief.client}-${pieceId}`;
 
-  // 2. Create output directory for this composition
+  // 2. Create output directory for this composition (kebab-case path)
   const compositionDir = resolve(
     REMOTION_DIR,
     `src/compositions/${brief.client}-${pieceId}`
@@ -711,13 +723,15 @@ export async function produceVideo(brief, storyboard, pieceId) {
       `[produce-video] attempt ${attempt}/${MAX_ATTEMPTS}${isRetry ? " (retry tras error previo)" : ""}`,
     );
 
-    // 4. Generate Remotion components via Claude
+    // 4. Generate Remotion components via Claude. Le pasamos el JS identifier
+    //    (snake_case) porque eso es lo que va al `export const`/`import` del
+    //    TSX. El Remotion id (kebab-case) lo hardcodeamos en registerComposition.
     let prompt;
     if (isRetry && lastCode && lastError) {
-      prompt = buildRetryPrompt(lastCode, lastError.message, compositionId);
+      prompt = buildRetryPrompt(lastCode, lastError.message, compositionJsId);
     } else {
       console.log("Generating Remotion components...");
-      prompt = buildRemotionPrompt(storyboard, brief, compositionId, assetBlock);
+      prompt = buildRemotionPrompt(storyboard, brief, compositionJsId, assetBlock);
     }
     const rawRemotionCode = await callClaude(prompt, remotionMaxTokens);
 
@@ -725,7 +739,7 @@ export async function produceVideo(brief, storyboard, pieceId) {
     let remotionCode;
     try {
       remotionCode = sanitizeRemotionCode(rawRemotionCode);
-      validateRemotionCode(remotionCode, compositionId);
+      validateRemotionCode(remotionCode, compositionJsId);
       validateJsxBalance(remotionCode);
     } catch (err) {
       err._stage = "validate";
@@ -770,14 +784,14 @@ export async function produceVideo(brief, storyboard, pieceId) {
     // 6. Register in Root.tsx (solo la primera vez que llegamos acá)
     if (!registeredInRoot) {
       const relativeCompositionPath = `./compositions/${brief.client}-${pieceId}/index`;
-      registerComposition(compositionId, relativeCompositionPath);
-      console.log(`Composition registered: ${compositionId}`);
+      registerComposition(compositionJsId, compositionRemotionId, relativeCompositionPath);
+      console.log(`Composition registered: ${compositionRemotionId}`);
       registeredInRoot = true;
     }
 
-    // 7. Render
+    // 7. Render — el CLI de Remotion exige el id en kebab-case (con guión).
     console.log(
-      `Rendering video: ${compositionId}... (attempt ${attempt}/${MAX_ATTEMPTS})`,
+      `Rendering video: ${compositionRemotionId}... (attempt ${attempt}/${MAX_ATTEMPTS})`,
     );
     console.log(
       "Preview available at http://localhost:3000 (run: npm run studio)",
@@ -785,7 +799,7 @@ export async function produceVideo(brief, storyboard, pieceId) {
 
     try {
       const renderResult = execSync(
-        `npx remotion render src/index.ts ${compositionId} --output "${outputPath}" --log=verbose`,
+        `npx remotion render src/index.ts ${compositionRemotionId} --output "${outputPath}" --log=verbose`,
         {
           cwd: REMOTION_DIR,
           stdio: "pipe",
