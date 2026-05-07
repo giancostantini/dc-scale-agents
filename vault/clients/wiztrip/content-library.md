@@ -3853,3 +3853,354 @@ Reach: PENDING
 Status: PENDING
 Decision: PENDING
 Learning: PENDING
+
+
+## Piece #014 — reel
+Date: 2026-05-07 | Source: consultant | Status: DRAFT
+Type: reel
+Client: wiztrip
+Brief: Angle: Roma — 3 piques de Wizzo para comer pasta auténtica sin caer en trampas turísticas. Formato Piques (estilo de los reels recientes #010-#013). Wizzo da el dato preciso de barrios/zonas a evitar (Trastevere central, alrededor del Coliseo) y los lugares reales donde comen los romanos. Tono cercano, sabio, con los piques justos — sin superlativos genéricos. Cierre con CTA suave a WizTrip como copiloto de viaje.
+
+### Generated Content
+## Resumen
+
+- **Objetivo:** Valor / Comunidad — posicionar a Wizzo como insider de Roma y generar guardados/saves. Tráfico orgánico hacia WizTrip.
+- **Formato de script:** B — "Direct Value". El ángulo es educativo con criterio de insider. Tres piques concretos sobre Roma = estructura natural de 3 puntos. Sin artificios, sin drama — el valor está en la información precisa.
+- **Trigger emocional:** Enojo + alivio. El espectador que ya cayó en una trampa turística se identifica. El que todavía no, quiere evitarla.
+- **Plataformas destino:** Instagram Reels + TikTok
+- **Duración estimada:** 42–48 segundos
+
+---
+
+## Triple Hook
+
+- **Visual:** Texto animado sobre fondo oscuro (`#222524`) con Wizzo apareciendo desde el borde izquierdo en pose `Color_hola` — en el primer frame se ve la palabra "ROMA" en Bricolage ExtraBold dorado (`#FAB402`) explotando en pantalla.
+- **Textual:** `Roma te va a cobrar el doble.` (6 palabras)
+- **Verbal:** *"Si vas a Roma y querés comer pasta de verdad — escuchame. Porque hay zonas enteras diseñadas para sacarle plata al turista."*
+
+---
+
+## Script completo
+
+```
+Escena 1 [0s-2s] — HOOK DE APERTURA
+  Visual: Fondo negro (#222524). La palabra "ROMA" aparece
+          en Bricolage ExtraBold, color #FAB402, tamaño
+          gigante (180px), con un pop de escala (0→1.1→1).
+          Wizzo sticker entra desde la izquierda —
+          Asset: Sticker_hola.svg
+          — se queda en esquina inferior izquierda.
+  Texto en pantalla: "Roma te va a cobrar el doble."
+          Bricolage Bold · 52px · color #FFF2CA
+          Centrado · posición vertical 40% de la pantalla
+  Narración: "Si vas a Roma y querés comer pasta de verdad,
+             escuchame."
+  Música/SFX: Beat urbano suave, percusión seca — entra al 0.5s
+  Transición: Hard cut
+
+Escena 2 [2s-5s] — TRAMPA #1 (Zona del Coliseo)
+  Visual: Fondo cambia a violeta oscuro (#4C167C).
+          Aparece ilustración de mapa estilizado — solo
+          contorno de Roma, sin detalle. Un ícono de
+          "X" roja marca la zona del Coliseo.
+          Asset: Trazo_error.svg (Wizzo en esquina,
+          expresión de advertencia)
+  Texto en pantalla: "⛔ TRAMPA 1"
+          Bricolage ExtraBold · 68px · #FAB402
+          + subtexto: "Alrededor del Coliseo"
+          Host Grotesk Regular · 32px · #FFF2CA
+  Narración: "La zona alrededor del Coliseo.
+             Todo restaurante que ves ahí — menú en
+             siete idiomas, foto del plato en la puerta —
+             es una trampa. Pasta hervida y recalentada
+             a 22 euros."
+  Música/SFX: SFX de buzzer suave al aparecer la X
+  Transición: Cut rápido
+
+Escena 3 [5s-9s] — TRAMPA #2 (Trastevere central)
+  Visual: Mismo fondo violeta (#4C167C).
+          Segunda X roja aparece en el mapa — zona
+          Trastevere central.
+          Wizzo mantiene expresión error.
+          Asset: Trazo_error.svg
+  Texto en pantalla: "⛔ TRAMPA 2"
+          Bricolage ExtraBold · 68px · #FAB402
+          + subtexto: "Trastevere central"
+          Host Grotesk Regular · 32px · #FFF2CA
+  Narración: "Trastevere central. Sí, es hermoso.
+             Pero las tres calles principales son
+             ya puro turismo. Los romanos de ahí
+             no comen ahí."
+  Música/SFX: Beat continúa — ligero sube de intensidad
+  Transición: Cut
+
+Escena 4 [9s-12s] — TRANSICIÓN / PAUSA EMOCIONAL
+  Visual: Fondo cambia a crema (#FFF2CA).
+          Wizzo pasa a expresión "pensando" —
+          Asset: Color_pensar.svg
+          Aparece la frase centrada.
+  Texto en pantalla: "¿Entonces dónde?"
+          Bricolage Bold · 64px · #4C167C
+          Centrado · posición vertical 35%
+  Narración: "Entonces, ¿dónde comen los romanos
+             de verdad?"
+  Música/SFX: Beat baja a la mitad — pausa intencional
+  Transición: Fade rápido a negro
+
+Escena 5 [12s-18s] — PIQUE 1: Testaccio
+  Visual: Fondo #222524.
+          Destello dorado (#FAB402) que revela
+          el número "1" en Bricolage ExtraBold 120px.
+          Wizzo en expresión magia —
+          Asset: Color_magia.svg — esquina derecha.
+          Curva decorativa en fondo —
+          Asset: Curva_lila.svg
+  Texto en pantalla: "🏆 PIQUE 1 · TESTACCIO"
+          Bricolage ExtraBold · 56px · #FAB402
+          + bajo: "El barrio donde nació la cocina romana"
+          Host Grotesk Regular · 28px · #FFF2CA
+  Narración: "Testaccio. El barrio donde nació la
+             cocina romana de verdad. Mercado
+             Testaccio, puesto 15 — Mordi e Vai.
+             Cacio e pepe, trippa alla romana,
+             sandwich de quinto quarto.
+             Comés parado, pagás cinco euros,
+             te sentís romano."
+  Música/SFX: Sube el beat — energía
+  Transición: Cut
+
+Escena 6 [18s-25s] — PIQUE 2: Pigneto / Prati
+  Visual: Fondo #4C167C.
+          Aparece "2" en #FAB402 · 120px.
+          Curva decorativa —
+          Asset: Curva_neon.svg
+          Wizzo en expresión estándar —
+          Asset: Color_estandar.svg
+  Texto en pantalla: "🍝 PIQUE 2 · PIGNETO"
+          Bricolage ExtraBold · 56px · #FAB402
+          + bajo: "Donde viven los romanos jóvenes"
+          Host Grotesk Regular · 28px · #FFF2CA
+  Narración: "Pigneto. Zona este, sin turistas.
+             Ahí vas a encontrar trattorias familiares
+             donde el menú no existe en inglés —
+             y eso es exactamente la señal que buscás.
+             Carbonara hecha con guanciale, no con jamón.
+             Buscá Trattoria da Remo en Testaccio
+             o Osteria dell'Ingegno si querés un poco
+             más de ambiente — eso sí, reservá."
+  Música/SFX: Beat estable
+  Transición: Cut rápido
+
+Escena 7 [25s-32s] — PIQUE 3: La señal local (el dato preciso)
+  Visual: Fondo crema (#FFF2CA).
+          Wizzo en expresión "bien" — gesto de pulgar —
+          Asset: Color_bien.svg — centrado, tamaño grande.
+          Curva decorativa detrás —
+          Asset: Curva_celeste.svg
+  Texto en pantalla: "✅ PIQUE 3 · LA SEÑAL"
+          Bricolage ExtraBold · 56px · #4C167C
+          + bajo: "Cómo identificar el lugar correcto"
+          Host Grotesk Regular · 28px · #4C167C
+  Narración: "El dato que más vale: si el menú tiene foto
+             de los platos y está en cuatro idiomas,
+             salí corriendo. Si la pizarra está escrita
+             a mano en italiano y hay una sola mesa libre —
+             ése es el lugar."
+  Música/SFX: Beat baja — momento de intimidad
+  Transición: Cut
+
+Escena 8 [32s-38s] — WIZZO PICK SELLO
+  Visual: Fondo #4C167C.
+          Animación: el sello "WIZZO PICK" aparece
+          con efecto stamp — círculo dorado (#FAB402)
+          con texto Bricolage ExtraBold.
+          Wizzo en festejo —
+          Asset: Color_festejo.svg — esquina.
+          Logo WizTrip en esquina superior derecha —
+          Asset: Logo_Crema.svg
+  Texto en pantalla: "WIZZO PICK ✦ ROMA"
+          Bricolage ExtraBold · 64px · #FAB402
+          + bajo: "Moverse como un local."
+          Host Grotesk Regular · 32px · #FFF2CA
+  Narración: "Eso es moverse como un local.
+             No más trampas turísticas —
+             el pique justo, y listo."
+  Música/SFX: Hit musical + SFX de stamp
+  Transición: Cut
+
+Escena 9 [38s-44s] — CTA FINAL
+  Visual: Fondo crema (#FFF2CA).
+          Logo WizTrip centrado, versión violeta —
+          Asset: Logo_Violeta.svg
+          Curva lila de fondo —
+          Asset: Curva_lila.svg
+          Wizzo estándar pequeño en esquina inferior —
+          Asset: Sticker_estandar.svg
+  Texto en pantalla: Línea 1: "Tu copiloto de viaje."
+          Bricolage Bold · 52px · #4C167C
+          Línea 2: "wiz-trip.com"
+          Host Grotesk Regular · 32px · #4C167C
+          Línea 3: "@wiztrip.travel"
+          Host Grotesk Regular · 28px · #B99FFF
+  Narración: "WizTrip — tu copiloto de viaje.
+             Guardalo para cuando lo necesites.
+             Elegiste bien."
+  Música/SFX: Beat fade out suave — últimos 2 segundos silencio
+  Transición: —
+```
+
+---
+
+## Storyboard de producción
+
+**Especificaciones globales:**
+- Resolución: `1080 × 1920 px` (9:16)
+- Safe zone superior: 150px (reservado para UI de TikTok/IG)
+- Safe zone inferior: 250px (reservado para botones y username)
+- Zona activa de texto: entre `y=150px` y `y=1670px`
+- Motor: Remotion (React)
+
+---
+
+**Frame 1 — Hook (0s–2s)**
+```
+Fondo: color sólido #222524
+Elemento 1:
+  Texto "ROMA"
+  Font: BricolageGrotesque_72pt-ExtraBold.ttf
+  Size: 180px
+  Color: #FAB402
+  Position: center-x, y=680px
+  Animación: spring scale 0→1.1→1.0, duración 400ms
+
+Elemento 2:
+  Texto "Roma te va a cobrar el doble."
+  Font: BricolageGrotesque_48pt-Bold.ttf
+  Size: 52px
+  Color: #FFF2CA
+  Position: center-x, y=820px
+  Animación: fade-in + slide-up 12px, delay 300ms
+
+Elemento 3:
+  Asset: Sticker_hola.svg
+  Size: 220px × 220px
+  Position: x=40px, y=1380px (esquina inferior izquierda)
+  Animación: slide-in desde x=-220px, spring, duración 500ms
+
+Safe zones: respetadas ✓
+Max 3 elementos simultáneos: ✓
+```
+
+---
+
+**Frame 2 — Trampa 1 (2s–5s)**
+```
+Fondo: color sólido #4C167C
+
+Elemento 1:
+  Texto "⛔ TRAMPA 1"
+  Font: BricolageGrotesque_72pt-ExtraBold.ttf
+  Size: 68px
+  Color: #FAB402
+  Position: center-x, y=420px
+  Animación: fade-in + scale pop
+
+Elemento 2:
+  Texto "Alrededor del Coliseo"
+  Font: HostGrotesk-Regular.ttf
+  Size: 32px
+  Color: #FFF2CA
+  Position: center-x, y=510px
+  Animación: fade-in delay 200ms
+
+Elemento 3:
+  Asset: Trazo_error.svg
+  Size: 260px × 260px
+  Position: x=390px (center-x), y=750px
+  Animación: fade-in delay 400ms
+
+SFX trigger: buzzer.mp3 al aparecer ⛔ — frame 2.0s
+```
+
+---
+
+**Frame 3 — Trampa 2 (5s–9s)**
+```
+[Mismo layout que Frame 2 — swap de texto]
+Fondo: #4C167C
+
+Elemento 1:
+  Texto "⛔ TRAMPA 2"
+  Font: BricolageGrotesque_72pt-ExtraBold.ttf · 68px · #FAB402
+
+Elemento 2:
+  Texto "Trastevere central"
+  Font: HostGrotesk-Regular.ttf · 32px · #FFF2CA
+
+Elemento 3:
+  Asset: Trazo_error.svg (mismo asset, mismo position)
+
+Animación entrada: slide desde derecha (cut rápido — duración transición 80ms)
+```
+
+---
+
+**Frame 4 — Pausa emocional (9s–12s)**
+```
+Fondo: #FFF2CA
+
+Elemento 1:
+  Texto "¿Entonces dónde?"
+  Font: BricolageGrotesque_48pt-Bold.ttf
+  Size: 64px
+  Color: #4C167C
+  Position: center-x, y=720px
+  Animación: fade-in 300ms
+
+Elemento 2:
+  Asset: Color_pensar.svg
+  Size: 300px × 300px
+  Position: center-x, y=950px
+  Animación: fade-in delay 200ms — ligero sway loop (rotate ±2deg cada 1.5s)
+
+Música: volumen baja a 40% — pausa intencional
+```
+
+---
+
+**Frame 5 — Pique 1: Testaccio (12s–18s)**
+```
+Fondo: #222524
+
+Elemento 1:
+  Texto "🏆 PIQUE 1 · TESTACCIO"
+  Font: BricolageGrotesque_72pt-ExtraBold.ttf
+  Size: 56px · Color: #FAB402
+  Position: center-x, y=380px
+  Animación: scale pop + fade
+
+Elemento 2:
+  Texto "El barrio donde nació la cocina romana"
+  Font: HostGrotesk-Regular.ttf · 28px · #FFF
+
+### Production Status
+- [ ] Script approved
+- [ ] Assets gathered
+- [ ] Video produced (Remotion)
+- [ ] Voice generated (ElevenLabs)
+- [ ] Published
+- [ ] Metrics collected
+
+### Real Metrics (fill when arriving)
+3s retention: PENDING
+Watch time %: PENDING
+Saves: PENDING
+Shares: PENDING
+Comments: PENDING
+Likes: PENDING
+Reach: PENDING
+
+### Auto-evaluation
+Status: PENDING
+Decision: PENDING
+Learning: PENDING
