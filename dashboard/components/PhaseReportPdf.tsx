@@ -17,43 +17,47 @@ import {
 } from "@/lib/markdown-blocks";
 
 // ====== FONTS ======
-// Usamos Helvetica (built-in en react-pdf, no requiere fetch). Es
-// visualmente casi idéntica a Inter para nuestros tamaños de body
-// y es la fuente histórica del brand book de DC. Cero red, cero
-// puntos de falla.
+// Helvetica built-in en react-pdf — cero red, cero fetch.
+// IMPORTANTE: usamos los nombres EXACTOS de los fonts cuando queremos
+// negrita o itálica (en vez de combinar fontFamily=Helvetica + fontWeight=bold).
+// react-pdf no registra automáticamente las variantes y el font-resolver
+// puede fallar feo cuando además se hereda fontStyle del padre. Pegándole
+// directo al nombre del font built-in nunca falla.
 const FONT_REGULAR = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
 const FONT_OBLIQUE = "Helvetica-Oblique";
 
-// Hyphenation callback custom para que no parta palabras raras en
-// rioplatense (ej: "marketing" en "mar-ke-ting").
+// Hyphenation custom: no partir palabras (en rioplatense queda raro).
 Font.registerHyphenationCallback((w) => [w]);
 
 // ====== BRAND COLORS ======
+// Brand Board 2026. Deep green editorial + acentos sand.
 const C = {
   deepGreen: "#0A1A0C",
   forest: "#1E3A28",
   sand: "#C4A882",
   sandDark: "#9B8259",
+  sandLight: "#E8DFD0",
   offWhite: "#E8E4DC",
   ivory: "#F5F2EC",
+  bone: "#FAF8F3",
   textMuted: "#7A8A7E",
-  redWarn: "#B04B3A",
-  greenOk: "#3A8B5C",
+  textSoft: "#5A6A5E",
+  hairline: "rgba(10,26,12,0.10)",
+  hairlineSoft: "rgba(10,26,12,0.06)",
 };
-
-const A4 = { width: 595, height: 842 };
 
 // ====== STYLES ======
 const styles = StyleSheet.create({
-  // ===== Cover =====
+  // ============ COVER ============
   cover: {
     backgroundColor: C.deepGreen,
-    color: C.offWhite,
     padding: 56,
     flexDirection: "column",
     justifyContent: "space-between",
   },
+
+  // Top row: DC lockup left, client logo+name right
   coverTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -63,86 +67,88 @@ const styles = StyleSheet.create({
     flexDirection: "column",
   },
   coverDearmas: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 24,
-    letterSpacing: -0.5,
-    color: C.offWhite,
+    fontFamily: FONT_BOLD,
+    fontSize: 22,
+    letterSpacing: -0.4,
+    color: C.bone,
+    lineHeight: 1.0,
   },
   coverCostantini: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
-    fontSize: 24,
-    letterSpacing: -0.5,
-    color: C.offWhite,
-    opacity: 0.55,
-    marginTop: -2,
+    fontSize: 22,
+    letterSpacing: -0.4,
+    color: C.sand,
+    lineHeight: 1.0,
+    marginTop: 1,
   },
   coverTagline: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 8,
-    letterSpacing: 2,
+    fontFamily: FONT_BOLD,
+    fontSize: 7.5,
+    letterSpacing: 2.4,
     color: C.sand,
-    marginTop: 14,
+    marginTop: 16,
     textTransform: "uppercase",
   },
+
   clientLogoBox: {
     alignItems: "flex-end",
     maxWidth: 140,
   },
   clientLogo: {
     maxWidth: 140,
-    maxHeight: 70,
+    maxHeight: 60,
     objectFit: "contain",
   },
   clientName: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 11,
-    letterSpacing: 1.5,
+    fontFamily: FONT_BOLD,
+    fontSize: 9,
+    letterSpacing: 1.8,
     color: C.sand,
-    marginTop: 8,
+    marginTop: 10,
     textTransform: "uppercase",
     textAlign: "right",
   },
+
+  // Mid: title block
+  coverTitleBlock: {
+    flexDirection: "column",
+  },
   coverDivider: {
-    width: 80,
-    height: 2,
+    width: 64,
+    height: 1.5,
     backgroundColor: C.sand,
-    marginVertical: 32,
+    marginBottom: 28,
   },
   coverEyebrow: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 10,
+    fontFamily: FONT_BOLD,
+    fontSize: 9,
     letterSpacing: 3,
     color: C.sand,
     textTransform: "uppercase",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   coverTitle: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 56,
-    letterSpacing: -2,
-    color: C.offWhite,
-    lineHeight: 1.05,
+    fontFamily: FONT_BOLD,
+    fontSize: 64,
+    letterSpacing: -2.4,
+    color: C.bone,
+    lineHeight: 1.0,
   },
   coverSubtitle: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
-    fontSize: 16,
+    fontSize: 15,
     color: C.sand,
-    marginTop: 16,
-    letterSpacing: -0.3,
+    marginTop: 18,
+    letterSpacing: -0.2,
   },
+
+  // Bottom: meta grid
   coverMetaGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(196,168,130,0.25)",
+    paddingTop: 22,
+    borderTopWidth: 0.6,
+    borderTopColor: "rgba(196,168,130,0.35)",
     borderTopStyle: "solid",
   },
   coverMetaCell: {
@@ -150,43 +156,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   coverMetaLabel: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 8,
+    fontFamily: FONT_BOLD,
+    fontSize: 7.5,
     letterSpacing: 2,
     color: C.sand,
     textTransform: "uppercase",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   coverMetaValue: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
     fontSize: 11,
-    color: C.offWhite,
+    color: C.bone,
+    letterSpacing: -0.1,
   },
 
-  // ===== Content pages =====
+  // ============ CONTENT PAGES ============
   contentPage: {
     backgroundColor: "#FFFFFF",
-    padding: 0,
-    paddingTop: 56,
+    paddingTop: 64,
     paddingBottom: 56,
   },
   contentInner: {
-    paddingHorizontal: 56,
+    paddingHorizontal: 60,
   },
-  // Header de cada página
+
+  // Header (fixed) — minimal lockup + section
   pageHeader: {
     position: "absolute",
-    top: 24,
-    left: 56,
-    right: 56,
+    top: 28,
+    left: 60,
+    right: 60,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingBottom: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: C.sand,
+    paddingBottom: 10,
+    borderBottomWidth: 0.4,
+    borderBottomColor: C.hairline,
     borderBottomStyle: "solid",
   },
   pageHeaderLockup: {
@@ -195,180 +200,183 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   pageHeaderDearmas: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 9,
+    fontFamily: FONT_BOLD,
+    fontSize: 8.5,
     color: C.deepGreen,
-    letterSpacing: -0.2,
+    letterSpacing: -0.1,
   },
   pageHeaderCostantini: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
-    fontSize: 9,
-    color: C.deepGreen,
-    opacity: 0.55,
-    letterSpacing: -0.2,
+    fontSize: 8.5,
+    color: C.sandDark,
+    letterSpacing: -0.1,
   },
   pageHeaderRight: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 8,
+    fontFamily: FONT_BOLD,
+    fontSize: 7.5,
     color: C.sandDark,
-    letterSpacing: 1.5,
+    letterSpacing: 1.6,
     textTransform: "uppercase",
   },
-  // Footer de cada página
+
+  // Footer (fixed)
   pageFooter: {
     position: "absolute",
-    bottom: 24,
-    left: 56,
-    right: 56,
+    bottom: 28,
+    left: 60,
+    right: 60,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingTop: 10,
     borderTopWidth: 0.3,
-    borderTopColor: C.deepGreen,
+    borderTopColor: C.hairlineSoft,
     borderTopStyle: "solid",
   },
   pageFooterText: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
-    fontSize: 8,
+    fontSize: 7.5,
     color: C.textMuted,
+    letterSpacing: 0.3,
+  },
+  pageFooterPageNum: {
+    fontFamily: FONT_BOLD,
+    fontSize: 7.5,
+    color: C.sandDark,
+    letterSpacing: 1.2,
   },
 
   // ===== Typography =====
   h1: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 24,
-    letterSpacing: -0.6,
-    color: C.deepGreen,
-    marginTop: 28,
-    marginBottom: 12,
-  },
-  h2: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 16,
-    letterSpacing: -0.4,
+    fontFamily: FONT_BOLD,
+    fontSize: 22,
+    letterSpacing: -0.5,
     color: C.deepGreen,
     marginTop: 24,
-    marginBottom: 8,
-    paddingBottom: 4,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(10,26,12,0.12)",
+    marginBottom: 12,
+    lineHeight: 1.15,
+  },
+  h2: {
+    fontFamily: FONT_BOLD,
+    fontSize: 18,
+    letterSpacing: -0.4,
+    color: C.deepGreen,
+    marginTop: 0,
+    marginBottom: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.sand,
     borderBottomStyle: "solid",
+    lineHeight: 1.2,
+  },
+  h2Eyebrow: {
+    fontFamily: FONT_BOLD,
+    fontSize: 8,
+    letterSpacing: 2.5,
+    color: C.sandDark,
+    textTransform: "uppercase",
+    marginBottom: 6,
   },
   h3: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 12,
-    letterSpacing: 1.5,
+    fontFamily: FONT_BOLD,
+    fontSize: 11,
+    letterSpacing: 1.4,
     color: C.sandDark,
-    marginTop: 18,
+    marginTop: 16,
     marginBottom: 6,
     textTransform: "uppercase",
   },
   h4: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
+    fontFamily: FONT_BOLD,
     fontSize: 11,
     color: C.deepGreen,
-    marginTop: 14,
+    marginTop: 12,
     marginBottom: 4,
   },
   paragraph: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
     fontSize: 10,
     color: C.deepGreen,
-    lineHeight: 1.55,
-    marginBottom: 6,
+    lineHeight: 1.6,
+    marginBottom: 8,
   },
   bullet: {
     flexDirection: "row",
-    marginBottom: 3,
+    marginBottom: 4,
     marginLeft: 0,
   },
   bulletMarker: {
-    width: 16,
-    fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
+    width: 14,
+    fontFamily: FONT_BOLD,
     fontSize: 10,
     color: C.sandDark,
-    lineHeight: 1.55,
+    lineHeight: 1.6,
   },
   bulletText: {
     flex: 1,
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
     fontSize: 10,
     color: C.deepGreen,
-    lineHeight: 1.55,
+    lineHeight: 1.6,
   },
   hr: {
-    height: 0.5,
-    backgroundColor: "rgba(10,26,12,0.12)",
-    marginVertical: 16,
+    height: 0.4,
+    backgroundColor: C.hairline,
+    marginVertical: 18,
   },
   blockquote: {
-    paddingLeft: 12,
+    paddingLeft: 14,
+    paddingVertical: 4,
     borderLeftWidth: 2,
     borderLeftColor: C.sand,
     borderLeftStyle: "solid",
-    marginVertical: 10,
+    marginVertical: 12,
   },
   blockquoteText: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
+    fontFamily: FONT_OBLIQUE,
     fontSize: 10,
-    fontStyle: "italic",
-    color: C.textMuted,
-    lineHeight: 1.55,
+    color: C.textSoft,
+    lineHeight: 1.6,
   },
 
-  // ===== TOC (Index) =====
+  // ============ TOC (page 2) ============
   tocPage: {
     backgroundColor: "#FFFFFF",
-    padding: 0,
-    paddingTop: 56,
+    paddingTop: 64,
     paddingBottom: 56,
   },
   tocInner: {
-    paddingHorizontal: 56,
+    paddingHorizontal: 60,
   },
   tocEyebrow: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
+    fontFamily: FONT_BOLD,
     fontSize: 9,
-    letterSpacing: 2,
+    letterSpacing: 3,
     color: C.sandDark,
     textTransform: "uppercase",
-    marginBottom: 14,
+    marginBottom: 16,
   },
   tocTitle: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 36,
-    letterSpacing: -1,
+    fontFamily: FONT_BOLD,
+    fontSize: 44,
+    letterSpacing: -1.4,
     color: C.deepGreen,
-    marginBottom: 8,
-    lineHeight: 1.05,
+    marginBottom: 12,
+    lineHeight: 1.0,
   },
   tocSubtitle: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
-    fontSize: 12,
-    color: C.textMuted,
-    marginBottom: 36,
+    fontSize: 11.5,
+    color: C.textSoft,
+    marginBottom: 32,
+    letterSpacing: -0.1,
+    lineHeight: 1.4,
   },
   tocDivider: {
-    width: 60,
-    height: 2,
+    width: 64,
+    height: 1.5,
     backgroundColor: C.sand,
-    marginBottom: 28,
+    marginBottom: 32,
   },
   tocList: {
     flexDirection: "column",
@@ -376,48 +384,39 @@ const styles = StyleSheet.create({
   tocItem: {
     flexDirection: "row",
     alignItems: "baseline",
-    paddingVertical: 9,
-    borderBottomWidth: 0.3,
-    borderBottomColor: "rgba(10,26,12,0.10)",
+    paddingVertical: 11,
+    borderBottomWidth: 0.4,
+    borderBottomColor: C.hairlineSoft,
     borderBottomStyle: "solid",
   },
   tocNumber: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
+    fontFamily: FONT_BOLD,
     fontSize: 11,
     color: C.sandDark,
-    width: 32,
-    letterSpacing: 0.5,
+    width: 36,
+    letterSpacing: 1,
   },
   tocLabel: {
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
     fontSize: 12,
     color: C.deepGreen,
     flex: 1,
-    paddingRight: 16,
-  },
-  tocPageNumberPlaceholder: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
-    fontSize: 9,
-    color: C.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    paddingRight: 12,
+    letterSpacing: -0.1,
   },
 
-  // ===== Tables =====
+  // ============ TABLES ============
   table: {
-    marginTop: 8,
-    marginBottom: 12,
-    borderWidth: 0.5,
-    borderColor: "rgba(10,26,12,0.18)",
+    marginTop: 10,
+    marginBottom: 14,
+    borderWidth: 0.4,
+    borderColor: C.hairline,
     borderStyle: "solid",
   },
   tableRow: {
     flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(10,26,12,0.10)",
+    borderBottomWidth: 0.4,
+    borderBottomColor: C.hairlineSoft,
     borderBottomStyle: "solid",
   },
   tableRowHeader: {
@@ -425,21 +424,21 @@ const styles = StyleSheet.create({
     backgroundColor: C.deepGreen,
   },
   tableCell: {
-    padding: 6,
+    padding: 7,
     fontFamily: FONT_REGULAR,
-    fontWeight: "normal",
     fontSize: 9,
     color: C.deepGreen,
     flex: 1,
+    lineHeight: 1.45,
   },
   tableCellHeader: {
-    padding: 6,
-    fontFamily: FONT_REGULAR,
-    fontWeight: "bold",
-    fontSize: 9,
-    color: C.offWhite,
+    padding: 7,
+    fontFamily: FONT_BOLD,
+    fontSize: 8,
+    color: C.bone,
     flex: 1,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 });
 
@@ -448,25 +447,22 @@ function renderSpans(spans: InlineSpan[]) {
   return spans.map((s, idx) => {
     if (s.type === "text") return <Text key={idx}>{s.text}</Text>;
     if (s.type === "bold")
-      // fontStyle: "normal" override evita heredar italic del padre
-      // (ej: blockquote o sección con fontStyle:italic). Helvetica-Bold
-      // built-in no tiene variante italic — sin este override react-pdf
-      // tira "Could not resolve font for Helvetica-Bold ... italic".
+      // Apuntamos directo al font built-in Helvetica-Bold y reseteamos
+      // fontStyle a normal para no heredar italic del padre (el built-in
+      // no tiene variante italic).
       return (
         <Text
           key={idx}
-          style={{ fontFamily: FONT_BOLD, fontWeight: "bold", fontStyle: "normal" }}
+          style={{ fontFamily: FONT_BOLD, fontStyle: "normal" }}
         >
           {s.text}
         </Text>
       );
     if (s.type === "italic")
-      // Mismo razonamiento al revés: Helvetica-Oblique no tiene bold,
-      // así que reseteamos fontWeight a normal por las dudas.
       return (
         <Text
           key={idx}
-          style={{ fontFamily: FONT_OBLIQUE, fontWeight: "normal", fontStyle: "italic" }}
+          style={{ fontFamily: FONT_OBLIQUE, fontStyle: "italic" }}
         >
           {s.text}
         </Text>
@@ -491,7 +487,7 @@ function renderSpans(spans: InlineSpan[]) {
           style={{
             fontFamily: "Courier",
             fontSize: 9,
-            backgroundColor: C.offWhite,
+            backgroundColor: C.ivory,
             paddingHorizontal: 3,
           }}
         >
@@ -500,6 +496,25 @@ function renderSpans(spans: InlineSpan[]) {
       );
     return null;
   });
+}
+
+// Para renderizar el H2 con eyebrow numérico, sacamos el número
+// de la sección del texto (ej: "1. Resumen ejecutivo" → number=1, title=Resumen ejecutivo)
+function splitH2(spans: InlineSpan[]): { number: string | null; titleSpans: InlineSpan[] } {
+  const raw = spans.map((s) => ("text" in s ? s.text : "")).join("");
+  const m = raw.match(/^\s*(\d+)\.\s*(.+?)\s*$/);
+  if (!m) return { number: null, titleSpans: spans };
+  // Reemplazamos el primer span (que tiene el número) con uno que solo
+  // tiene el título limpio. Si era todo un solo "text" span, listo.
+  // Si los spans estaban mezclados conservamos los siguientes spans.
+  const titleText = m[2];
+  const newFirst: InlineSpan = { type: "text", text: titleText };
+  // Si solo había un span de texto, devolvemos eso
+  if (spans.length === 1 && spans[0].type === "text") {
+    return { number: m[1].padStart(2, "0"), titleSpans: [newFirst] };
+  }
+  // Caso mezclado: simplificamos al texto plano para no romper formato
+  return { number: m[1].padStart(2, "0"), titleSpans: [newFirst] };
 }
 
 function renderBlock(
@@ -514,14 +529,16 @@ function renderBlock(
           {renderSpans(block.spans)}
         </Text>
       );
-    case "h2":
-      // Cada H2 después del primero arranca en una página nueva.
-      // El primer H2 NO necesita break (ya está al inicio del contenido).
+    case "h2": {
+      // Cada H2 después del primero arranca en página nueva.
+      const { number, titleSpans } = splitH2(block.spans);
       return (
         <View key={idx} break={!isFirstH2} wrap={false}>
-          <Text style={styles.h2}>{renderSpans(block.spans)}</Text>
+          {number && <Text style={styles.h2Eyebrow}>Sección {number}</Text>}
+          <Text style={styles.h2}>{renderSpans(titleSpans)}</Text>
         </View>
       );
+    }
     case "h3":
       return (
         <Text key={idx} style={styles.h3}>
@@ -609,7 +626,7 @@ export interface PhaseReportPdfProps {
   phaseLabel: string;        // "Diagnóstico", "Estrategia", etc
   reportName: string;        // "Growth Diagnosis Plan"
   clientName: string;
-  clientLogoUrl?: string | null;  // signed URL
+  clientLogoUrl?: string | null;  // signed URL (data URL preferido)
   generatedAt: string | null;
   approvedAt: string | null;
   version: number;
@@ -617,15 +634,11 @@ export interface PhaseReportPdfProps {
 }
 
 // Extrae los headings H2 del contenido para listar el TOC.
-// Solo agarra blocks con type='h2' que es el nivel de las secciones
-// principales del reporte (## 1. Executive Summary, etc).
 function extractTocEntries(blocks: Block[]): { number: string; title: string }[] {
   const entries: { number: string; title: string }[] = [];
   for (const block of blocks) {
     if (block.type !== "h2") continue;
-    // El texto crudo del heading lo armamos concatenando los spans
     const raw = block.spans.map((s) => ("text" in s ? s.text : "")).join("");
-    // Headings vienen como "1. Executive Summary" — parseamos el número
     const m = raw.match(/^\s*(\d+)\.\s*(.+?)\s*$/);
     if (m) {
       entries.push({
@@ -686,23 +699,22 @@ export default function PhaseReportPdf({
               Business Growth Partners · LATAM
             </Text>
           </View>
-          {clientLogoUrl && (
+          {clientLogoUrl ? (
             <View style={styles.clientLogoBox}>
               <Image src={clientLogoUrl} style={styles.clientLogo} />
               <Text style={styles.clientName}>{clientName}</Text>
             </View>
-          )}
-          {!clientLogoUrl && (
+          ) : (
             <View style={styles.clientLogoBox}>
               <Text style={styles.clientName}>{clientName}</Text>
             </View>
           )}
         </View>
 
-        {/* Mid: título grande */}
-        <View>
+        {/* Mid: título */}
+        <View style={styles.coverTitleBlock}>
           <View style={styles.coverDivider} />
-          <Text style={styles.coverEyebrow}>Reporte de fase del onboarding</Text>
+          <Text style={styles.coverEyebrow}>Reporte de fase · onboarding</Text>
           <Text style={styles.coverTitle}>{phaseLabel}</Text>
           <Text style={styles.coverSubtitle}>{reportName}</Text>
         </View>
@@ -732,10 +744,9 @@ export default function PhaseReportPdf({
         </View>
       </Page>
 
-      {/* ============ TOC (página 2) ============ */}
+      {/* ============ TOC ============ */}
       {tocEntries.length > 0 && (
         <Page size="A4" style={styles.tocPage}>
-          {/* Header fixed (mismo de las páginas de contenido) */}
           <View style={styles.pageHeader} fixed>
             <View style={styles.pageHeaderLockup}>
               <Text style={styles.pageHeaderDearmas}>Dearmas</Text>
@@ -746,13 +757,12 @@ export default function PhaseReportPdf({
             </Text>
           </View>
 
-          {/* Footer fixed */}
           <View style={styles.pageFooter} fixed>
             <Text style={styles.pageFooterText}>
               Confidencial · Dearmas Costantini · {today}
             </Text>
             <Text
-              style={styles.pageFooterText}
+              style={styles.pageFooterPageNum}
               render={({ pageNumber, totalPages }) =>
                 `${pageNumber} / ${totalPages}`
               }
@@ -763,7 +773,7 @@ export default function PhaseReportPdf({
             <Text style={styles.tocEyebrow}>Tabla de contenidos</Text>
             <Text style={styles.tocTitle}>Índice</Text>
             <Text style={styles.tocSubtitle}>
-              Recorrido de las {tocEntries.length} secciones del reporte
+              {tocEntries.length} secciones · recorrido del reporte
             </Text>
             <View style={styles.tocDivider} />
 
@@ -781,7 +791,6 @@ export default function PhaseReportPdf({
 
       {/* ============ CONTENT ============ */}
       <Page size="A4" style={styles.contentPage}>
-        {/* Header repetido en cada página */}
         <View style={styles.pageHeader} fixed>
           <View style={styles.pageHeaderLockup}>
             <Text style={styles.pageHeaderDearmas}>Dearmas</Text>
@@ -792,24 +801,20 @@ export default function PhaseReportPdf({
           </Text>
         </View>
 
-        {/* Footer fixed */}
         <View style={styles.pageFooter} fixed>
           <Text style={styles.pageFooterText}>
             Confidencial · Dearmas Costantini · {today}
           </Text>
           <Text
-            style={styles.pageFooterText}
+            style={styles.pageFooterPageNum}
             render={({ pageNumber, totalPages }) =>
               `${pageNumber} / ${totalPages}`
             }
           />
         </View>
 
-        {/* Contenido */}
         <View style={styles.contentInner}>
           {(() => {
-            // Track si ya pasamos el primer H2 — solo el primero NO
-            // arranca en página nueva (ya está al inicio del contenido).
             let seenFirstH2 = false;
             return blocks.map((block, idx) => {
               if (block.type === "h2") {
