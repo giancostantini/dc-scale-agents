@@ -157,11 +157,6 @@ export default function MonthSummaryBlock() {
               label="Solicitudes resueltas"
               icon="◐"
             />
-            <Stat
-              n={counts.agentRuns}
-              label="Tareas IA completadas"
-              icon="◆"
-            />
           </div>
 
           {(highlights.lastPosts.length > 0 ||

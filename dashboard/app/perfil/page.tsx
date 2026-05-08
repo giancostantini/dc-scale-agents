@@ -87,6 +87,7 @@ export default function PerfilPage() {
   }
 
   const isDirector = profile.role === "director";
+  const isClient = profile.role === "client";
   // Pago: sólo se muestra si hay valor (datos sensibles).
   const hasPayment = profile.payment_amount != null;
 
@@ -182,84 +183,88 @@ export default function PerfilPage() {
           )}
         </div>
 
-        {/* ===== Pago ===== */}
-        <div className={styles.panel}>
-          <div className={styles.panelHead}>
-            <div className={styles.panelTitle}>Pago</div>
-            {!isDirector && (
-              <span className={styles.dim}>
-                Solo el director puede modificar
-              </span>
+        {/* ===== Pago — solo equipo/director (no aplica a clientes) ===== */}
+        {!isClient && (
+          <div className={styles.panel}>
+            <div className={styles.panelHead}>
+              <div className={styles.panelTitle}>Pago</div>
+              {!isDirector && (
+                <span className={styles.dim}>
+                  Solo el director puede modificar
+                </span>
+              )}
+            </div>
+            {hasPayment ? (
+              <div className={styles.paymentBox}>
+                <div className={styles.paymentAmount}>
+                  {profile.payment_currency ?? "USD"}{" "}
+                  {Number(profile.payment_amount).toLocaleString()}
+                </div>
+                <div className={styles.paymentMeta}>
+                  {profile.payment_type === "fijo"
+                    ? "Pago fijo mensual"
+                    : profile.payment_type === "por_proyecto"
+                    ? "Pago por proyecto"
+                    : profile.payment_type === "por_hora"
+                    ? "Pago por hora"
+                    : profile.payment_type === "mixto"
+                    ? "Pago mixto"
+                    : "—"}
+                </div>
+              </div>
+            ) : (
+              <div className={styles.empty}>
+                Todavía no se cargó información de pago.
+                {isDirector
+                  ? " Andá a Gestionar equipo para definirla."
+                  : " Hablá con el director para que la cargue."}
+              </div>
             )}
           </div>
-          {hasPayment ? (
-            <div className={styles.paymentBox}>
-              <div className={styles.paymentAmount}>
-                {profile.payment_currency ?? "USD"}{" "}
-                {Number(profile.payment_amount).toLocaleString()}
-              </div>
-              <div className={styles.paymentMeta}>
-                {profile.payment_type === "fijo"
-                  ? "Pago fijo mensual"
-                  : profile.payment_type === "por_proyecto"
-                  ? "Pago por proyecto"
-                  : profile.payment_type === "por_hora"
-                  ? "Pago por hora"
-                  : profile.payment_type === "mixto"
-                  ? "Pago mixto"
-                  : "—"}
-              </div>
-            </div>
-          ) : (
-            <div className={styles.empty}>
-              Todavía no se cargó información de pago.
-              {isDirector
-                ? " Andá a Gestionar equipo para definirla."
-                : " Hablá con el director para que la cargue."}
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* ===== Clientes asignados ===== */}
-        <div className={styles.panel}>
-          <div className={styles.panelHead}>
-            <div className={styles.panelTitle}>
-              Clientes asignados ({assignments.length})
+        {/* ===== Clientes asignados — solo equipo/director (no aplica a clientes) ===== */}
+        {!isClient && (
+          <div className={styles.panel}>
+            <div className={styles.panelHead}>
+              <div className={styles.panelTitle}>
+                Clientes asignados ({assignments.length})
+              </div>
             </div>
+            {assignments.length === 0 ? (
+              <div className={styles.empty}>
+                Todavía no tenés clientes asignados.
+              </div>
+            ) : (
+              <div className={styles.assignList}>
+                {assignments.map((a) => {
+                  const client = clientsById[a.client_id];
+                  return (
+                    <Link
+                      key={`${a.client_id}-${a.role_in_client}`}
+                      href={`/cliente/${a.client_id}`}
+                      className={styles.assignCard}
+                    >
+                      <div className={styles.assignInitials}>
+                        {client?.initials ?? "??"}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div className={styles.assignName}>
+                          {client?.name ?? a.client_id}
+                        </div>
+                        <div className={styles.assignSector}>
+                          {client?.sector ?? "—"}
+                        </div>
+                      </div>
+                      <div className={styles.assignRole}>{a.role_in_client}</div>
+                      <div className={styles.assignArrow}>→</div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          {assignments.length === 0 ? (
-            <div className={styles.empty}>
-              Todavía no tenés clientes asignados.
-            </div>
-          ) : (
-            <div className={styles.assignList}>
-              {assignments.map((a) => {
-                const client = clientsById[a.client_id];
-                return (
-                  <Link
-                    key={`${a.client_id}-${a.role_in_client}`}
-                    href={`/cliente/${a.client_id}`}
-                    className={styles.assignCard}
-                  >
-                    <div className={styles.assignInitials}>
-                      {client?.initials ?? "??"}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div className={styles.assignName}>
-                        {client?.name ?? a.client_id}
-                      </div>
-                      <div className={styles.assignSector}>
-                        {client?.sector ?? "—"}
-                      </div>
-                    </div>
-                    <div className={styles.assignRole}>{a.role_in_client}</div>
-                    <div className={styles.assignArrow}>→</div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
 
         {profile.notes && isDirector && (
           <div className={styles.panel}>
