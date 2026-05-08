@@ -448,14 +448,26 @@ function renderSpans(spans: InlineSpan[]) {
   return spans.map((s, idx) => {
     if (s.type === "text") return <Text key={idx}>{s.text}</Text>;
     if (s.type === "bold")
+      // fontStyle: "normal" override evita heredar italic del padre
+      // (ej: blockquote o sección con fontStyle:italic). Helvetica-Bold
+      // built-in no tiene variante italic — sin este override react-pdf
+      // tira "Could not resolve font for Helvetica-Bold ... italic".
       return (
-        <Text key={idx} style={{ fontFamily: FONT_BOLD }}>
+        <Text
+          key={idx}
+          style={{ fontFamily: FONT_BOLD, fontWeight: "bold", fontStyle: "normal" }}
+        >
           {s.text}
         </Text>
       );
     if (s.type === "italic")
+      // Mismo razonamiento al revés: Helvetica-Oblique no tiene bold,
+      // así que reseteamos fontWeight a normal por las dudas.
       return (
-        <Text key={idx} style={{ fontFamily: FONT_OBLIQUE }}>
+        <Text
+          key={idx}
+          style={{ fontFamily: FONT_OBLIQUE, fontWeight: "normal", fontStyle: "italic" }}
+        >
           {s.text}
         </Text>
       );
