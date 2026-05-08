@@ -19,29 +19,72 @@ const SUGGESTED_QUESTIONS = [
   "¿Cuáles son mis próximas reuniones?",
 ];
 
+/**
+ * Carga el welcome cacheado (compartido entre modo legacy y modo persistencia
+ * cuando la conversación todavía está vacía).
+ */
+async function loadWelcomeInto(
+  setMessages: (msgs: ChatMessage[]) => void,
+  accessToken: string,
+  active: boolean,
+): Promise<void> {
+  const res = await fetch("/api/portal/consultant/welcome", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!active) return;
+  const data = (await res.json().catch(() => ({}))) as {
+    welcome?: string;
+    error?: string;
+  };
+  if (!res.ok || !data.welcome) {
+    throw new Error(data.error ?? "No pude cargar el resumen del día.");
+  }
+  setMessages([{ role: "assistant", content: data.welcome, isWelcome: true }]);
+}
+
 export interface ConsultorChatPanelProps {
   clientName: string;
   /** Si true, muestra el botón "Ampliar" que linkea a /portal/consultor. */
   showExpandButton?: boolean;
   /** Variante visual: "embedded" (en el home, con header propio) o "fullscreen". */
   variant?: "embedded" | "fullscreen";
+  /**
+   * ID de la conversación a cargar/persistir.
+   *  - `undefined` → modo legacy: sin persistencia, welcome cacheado, sin conversation_id.
+   *  - `null` → persistencia activada pero todavía no hay conversación (se crea lazy en el primer envío).
+   *  - `string` → cargar mensajes de esa conversación.
+   */
+  conversationId?: string | null;
+  /** Llamado cuando se crea una nueva conversación lazy (al primer envío con conversationId=null). */
+  onConversationCreated?: (id: string) => void;
+  /** Llamado después de cada turno exitoso para que el padre refresque el historial. */
+  onActivity?: () => void;
 }
 
 /**
  * Panel de chat con D&C Advisor (el consultor IA del cliente).
  *
- * Al montar:
- *   1. GET /api/portal/consultant/welcome → mensaje de bienvenida cacheado
- *      (o regenerado si stale). Se inserta como primer assistant message.
- *   2. Renderiza mensajes con avatar + markdown.
- *   3. POST /api/portal/consultant en cada turno del chat.
+ * Modo legacy (sin `conversationId`):
+ *   - GET /api/portal/consultant/welcome (cacheado) como primer assistant message.
+ *   - POST /api/portal/consultant en cada turno, sin persistencia.
  *
- * Reusable en /portal (embedded) y /portal/consultor (fullscreen).
+ * Modo persistencia (con `conversationId`):
+ *   - Si conversationId === null: muestra welcome y al primer envío del user
+ *     crea una conversación nueva (POST /api/portal/consultant/conversations).
+ *   - Si conversationId === string: GET /api/portal/consultant/conversations/[id]
+ *     para cargar mensajes persistidos (si vacío, vuelve a mostrar welcome).
+ *   - Cada POST a /api/portal/consultant incluye conversation_id; backend persiste.
+ *
+ * Reusable en /portal (embedded, persistido) y /portal/consultor (fullscreen, legacy hoy).
  */
 export default function ConsultorChatPanel({
   clientName,
   showExpandButton = false,
   variant = "embedded",
+  conversationId,
+  onConversationCreated,
+  onActivity,
 }: ConsultorChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -50,8 +93,14 @@ export default function ConsultorChatPanel({
   const [welcomeError, setWelcomeError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Cache local del id usado en send() — necesario en el lazy-create cuando el
+  // padre todavía no propagó el nuevo id como prop. Después converge.
+  const lazyCreatedIdRef = useRef<string | null>(null);
+  // Modo persistencia: el padre nos pasó conversationId (string o null), no undefined.
+  const persistMode = conversationId !== undefined;
+  const effectiveConversationId = conversationId ?? lazyCreatedIdRef.current;
 
-  // Cargar welcome al montar
+  // Cargar mensajes (modo persistencia con conversationId real) o welcome (modo legacy / nueva conversación)
   useEffect(() => {
     let active = true;
     (async () => {
@@ -60,37 +109,76 @@ export default function ConsultorChatPanel({
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        if (!active) return;
         if (!session) {
           setWelcomeError("Tu sesión expiró.");
           setWelcomeLoading(false);
           return;
         }
+        setWelcomeLoading(true);
+        setWelcomeError(null);
+        setChatError(null);
 
-        const res = await fetch("/api/portal/consultant/welcome", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (!active) return;
+        // Caso 1: persistencia con conversación existente → cargar mensajes
+        if (persistMode && conversationId) {
+          // Si el id que está cargando coincide con el que acabamos de lazy-crear,
+          // skipeamos el fetch (los mensajes ya están en local desde send()).
+          if (lazyCreatedIdRef.current === conversationId) {
+            lazyCreatedIdRef.current = null;
+            setWelcomeLoading(false);
+            return;
+          }
 
-        const data = (await res.json().catch(() => ({}))) as {
-          welcome?: string;
-          error?: string;
-        };
+          const res = await fetch(
+            `/api/portal/consultant/conversations/${conversationId}`,
+            {
+              method: "GET",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            },
+          );
+          if (!active) return;
 
-        if (!res.ok || !data.welcome) {
-          setWelcomeError(data.error ?? "No pude cargar el resumen del día.");
+          const data = (await res.json().catch(() => ({}))) as {
+            messages?: Array<{
+              role: "user" | "assistant";
+              content: string;
+              is_welcome: boolean;
+            }>;
+            error?: string;
+          };
+          if (!active) return;
+
+          if (!res.ok) {
+            setWelcomeError(data.error ?? "No pude cargar la conversación.");
+            setWelcomeLoading(false);
+            return;
+          }
+
+          const persisted = (data.messages ?? []).map((m) => ({
+            role: m.role,
+            content: m.content,
+            isWelcome: m.is_welcome,
+          }));
+
+          // Si la conversación está vacía, fallback al welcome cacheado
+          if (persisted.length === 0) {
+            await loadWelcomeInto(setMessages, session.access_token, active);
+            if (active) setWelcomeLoading(false);
+            return;
+          }
+
+          setMessages(persisted);
           setWelcomeLoading(false);
           return;
         }
 
-        setMessages([
-          { role: "assistant", content: data.welcome, isWelcome: true },
-        ]);
-        setWelcomeLoading(false);
+        // Caso 2: modo legacy o persistencia sin conversación todavía → welcome
+        await loadWelcomeInto(setMessages, session.access_token, active);
+        if (active) setWelcomeLoading(false);
       } catch (err) {
-        console.error("welcome fetch error:", err);
+        console.error("chat init error:", err);
         if (active) {
-          setWelcomeError("Error de red cargando el resumen.");
+          setWelcomeError("Error de red cargando el chat.");
           setWelcomeLoading(false);
         }
       }
@@ -98,7 +186,7 @@ export default function ConsultorChatPanel({
     return () => {
       active = false;
     };
-  }, []);
+  }, [conversationId, persistMode]);
 
   // Auto-scroll a fondo cuando hay mensaje nuevo
   useEffect(() => {
@@ -133,6 +221,34 @@ export default function ConsultorChatPanel({
         return;
       }
 
+      // En modo persistencia sin conversación todavía: crear una lazy.
+      let convId = effectiveConversationId;
+      if (persistMode && !convId) {
+        const createRes = await fetch("/api/portal/consultant/conversations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({}),
+        });
+        const createData = (await createRes.json().catch(() => ({}))) as {
+          id?: string;
+          error?: string;
+        };
+        if (!createRes.ok || !createData.id) {
+          setChatError(createData.error ?? "No pude iniciar la conversación.");
+          setMessages(messages);
+          setSending(false);
+          return;
+        }
+        convId = createData.id;
+        // Marcamos para que el useEffect skipee el re-fetch cuando el padre
+        // empuje el id de vuelta como prop (los mensajes ya están en local).
+        lazyCreatedIdRef.current = convId;
+        onConversationCreated?.(convId);
+      }
+
       // El backend solo recibe los turnos reales de chat, no el welcome.
       const chatTurns = newMessages
         .filter((m) => !m.isWelcome)
@@ -144,7 +260,10 @@ export default function ConsultorChatPanel({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ messages: chatTurns }),
+        body: JSON.stringify({
+          messages: chatTurns,
+          ...(persistMode && convId ? { conversation_id: convId } : {}),
+        }),
       });
 
       const data = (await res.json().catch(() => ({}))) as {
@@ -163,6 +282,7 @@ export default function ConsultorChatPanel({
         ...newMessages,
         { role: "assistant", content: data.reply ?? "" },
       ]);
+      onActivity?.();
     } catch (err) {
       console.error("chat send error:", err);
       setChatError("Error de red. Probá de nuevo.");
