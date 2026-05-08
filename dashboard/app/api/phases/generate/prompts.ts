@@ -26,6 +26,14 @@ export interface PhaseGenerationInput {
   onboarding: Record<string, unknown>;
   previousReports: { phase: PhaseKey; content_md: string }[];
   feedback: string | null;
+  /** Contenido markdown de la versión anterior DEL MISMO REPORTE
+   *  (la que el director quiere editar). Si está presente junto con
+   *  feedback, se activa el "modo edición": el agente edita
+   *  puntualmente en vez de regenerar desde cero. */
+  existingContent?: string | null;
+  /** Versión del reporte que estamos editando (para referencia en
+   *  el prompt). */
+  existingVersion?: number | null;
   kickoffName: string | null;
   /** Nombres de los archivos de branding que se adjuntaron como inputs. */
   brandingNames?: string[];
@@ -632,6 +640,17 @@ export function buildPhaseUserPrompt(
   phase: PhaseKey,
   input: PhaseGenerationInput,
 ): string {
+  // ===== MODO EDICIÓN =====
+  // Si tenemos feedback + reporte anterior textual, NO regeneramos
+  // desde cero. Le pasamos el reporte tal cual y le pedimos al modelo
+  // que aplique SOLO los cambios listados, preservando lo demás
+  // verbatim. Esto evita que el agente reescriba párrafos correctos
+  // y vuelva a meter errores que el director ya había corregido en
+  // iteraciones anteriores.
+  if (input.feedback && input.existingContent) {
+    return buildEditModePrompt(phase, input);
+  }
+
   const sections: string[] = [];
 
   sections.push(
@@ -748,4 +767,62 @@ export function buildPhaseUserPrompt(
   );
 
   return sections.join("\n\n");
+}
+
+// ============================================================================
+// MODO EDICIÓN — solo se usa cuando hay feedback + reporte anterior.
+// ============================================================================
+// El agente NO debe regenerar el reporte desde cero. Recibe el reporte
+// anterior textualmente y solo modifica lo que el director marca,
+// preservando todo lo demás verbatim.
+//
+// Filosofía:
+// - El director ya iteró este reporte. Versiones previas tienen
+//   correcciones que NO debemos perder.
+// - Cada cambio que el modelo hace fuera del feedback es un riesgo de
+//   regresión.
+// - Mejor "no hacer nada" donde no hay instrucción, que "mejorar" sin pedirlo.
+function buildEditModePrompt(
+  phase: PhaseKey,
+  input: PhaseGenerationInput,
+): string {
+  const versionLabel = input.existingVersion
+    ? `v${input.existingVersion}`
+    : "actual";
+
+  return `# Tarea: EDICIÓN PUNTUAL del reporte existente
+
+⚠ IMPORTANTE: Este NO es un pedido de regeneración. El director ya iteró este reporte de **${PHASE_TITLES[phase]}** para **${input.client.name}** y aprobó (o casi aprobó) la mayor parte del contenido. Tu trabajo es aplicar SOLO los cambios listados al final, preservando todo lo demás VERBATIM.
+
+## Reglas críticas
+
+1. **Output = reporte completo editado**, no un diff ni un resumen de cambios. Devolvé el markdown entero del reporte con los cambios aplicados.
+2. **Preservación verbatim**: TODO párrafo, frase, número, URL, nombre propio, cita, tabla, bullet, encabezado que el feedback NO mencione debe quedar EXACTAMENTE igual — palabra por palabra. No "mejores" redacción. No reordenes. No cambies sinónimos. No reformatees.
+3. **Alcance del cambio**: aplicá lo MÍNIMO necesario para satisfacer el feedback. Si el director dice "mejorá el resumen ejecutivo", tocá solo el resumen, no el resto. Si dice "sacá la tabla X", sacá esa tabla y nada más.
+4. **No agregues secciones nuevas** salvo que el feedback lo pida explícitamente.
+5. **No quites secciones existentes** salvo que el feedback lo pida explícitamente.
+6. **Estructura idéntica**: headings (##, ###), niveles de jerarquía, numeración, formato markdown — todo se mantiene.
+7. **Ambiguo > conservador**: si el feedback es vago ("mejorá el tono"), tocá lo mínimo que parezca razonable. Mejor sub-corregir que sobre-corregir.
+8. **Datos del kickoff/branding adjuntos**: están como referencia secundaria. Solo consultalos si el feedback pide info nueva que no está en el reporte actual. NO reescribas secciones para "incorporar mejor" el kickoff si el director no te lo pidió.
+
+## Cliente (referencia)
+
+- **Nombre:** ${input.client.name}
+- **Sector:** ${input.client.sector}
+
+## Reporte actual (versión ${versionLabel}) — EDITAR ESTE
+
+A continuación el reporte tal como está hoy. Es la base sobre la que tenés que trabajar:
+
+\`\`\`markdown
+${input.existingContent}
+\`\`\`
+
+## Cambios que pidió el director
+
+> ${input.feedback}
+
+---
+
+Ahora devolvé el reporte completo en markdown, con esos cambios aplicados, y SOLO esos cambios. Sin preámbulo, sin "Aquí está el reporte editado", sin nota explicativa al final. Solo el markdown del reporte.`;
 }

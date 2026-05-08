@@ -168,7 +168,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ====== 6. Marcar status='generating' ======
+  // ====== 6. Cargar reporte actual (para modo edición) ======
+  // Si hay feedback Y existe contenido previo del MISMO reporte, vamos
+  // a "modo edición" — el agente edita puntualmente en vez de regenerar
+  // desde cero. Esto evita que cada iteración con feedback vuelva a
+  // meter errores que el director ya había corregido en versiones
+  // anteriores.
+  const { data: currentReport } = await admin
+    .from("phase_reports")
+    .select("content_md, version, status")
+    .eq("client_id", clientId)
+    .eq("phase", phaseKey)
+    .maybeSingle();
+
+  const existingContent = feedback ? (currentReport?.content_md ?? null) : null;
+  const existingVersion = feedback ? (currentReport?.version ?? null) : null;
+  const isEditMode = Boolean(feedback && existingContent);
+
+  // ====== 7. Marcar status='generating' ======
   await admin
     .from("phase_reports")
     .upsert(
@@ -276,6 +293,20 @@ export async function POST(req: NextRequest) {
   const promptCfg = isBrandLaunch
     ? PHASE_PROMPTS_BRAND_LAUNCH[phaseKey]
     : PHASE_PROMPTS[phaseKey];
+
+  // En modo edición usamos un system prompt mínimo para que las
+  // reglas estructurales del system (ej "debe tener X secciones")
+  // no entren en tensión con la regla "preservá verbatim" del user
+  // prompt. El agente debe ser un editor preciso, no un escritor.
+  const editModeSystem = `Sos un editor de reportes de consultoría preciso y conservador. Tu única tarea es aplicar cambios puntuales a un documento existente sin reescribir lo que no se te pide.
+
+Reglas absolutas:
+- Preservás verbatim todo lo que el feedback NO pida cambiar.
+- Solo escribís markdown del reporte editado, sin preámbulos ni notas.
+- Tu output debe ser idéntico al input excepto por las modificaciones puntuales.
+- Si dudás, NO cambies — la decisión segura es preservar.`;
+
+  const systemPromptText = isEditMode ? editModeSystem : promptCfg.system;
   const input: PhaseGenerationInput = {
     client: {
       name: client.name,
@@ -290,6 +321,8 @@ export async function POST(req: NextRequest) {
     onboarding,
     previousReports,
     feedback: feedback ?? null,
+    existingContent,
+    existingVersion,
     kickoffName,
     brandingNames,
     skippedAssets: skippedAssets > 0 ? skippedAssets : null,
@@ -347,7 +380,7 @@ export async function POST(req: NextRequest) {
       system: [
         {
           type: "text",
-          text: promptCfg.system,
+          text: systemPromptText,
           cache_control: { type: "ephemeral" },
         },
       ],
