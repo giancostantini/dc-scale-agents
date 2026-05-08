@@ -54,6 +54,16 @@
   margin-bottom: 36px;
   padding-bottom: 24px;
   border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.heroLeft {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .heroEyebrow {
@@ -82,6 +92,42 @@
   font-weight: 400;
 }
 
+.heroLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.heroLink {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 180ms ease-out;
+}
+
+.heroLink:hover {
+  color: var(--deep-green);
+}
+
+@media (max-width: 700px) {
+  .heroBlock {
+    align-items: flex-start;
+  }
+  .heroLinks {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+
 /* ============ Chat-first layout (home) ============ */
 
 .chatLayout {
@@ -94,6 +140,9 @@
 
 .chatColumn {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .sidebar {

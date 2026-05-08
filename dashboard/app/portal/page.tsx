@@ -23,6 +23,7 @@ import Lockup from "@/components/Lockup";
 import PortalOnboardingTour from "@/components/PortalOnboardingTour";
 import PortalHeader from "@/components/PortalHeader";
 import ConsultorChatPanel from "@/components/ConsultorChatPanel";
+import ConsultorHistoryPanel from "@/components/ConsultorHistoryPanel";
 import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
 import MonthSummaryBlock from "@/components/MonthSummaryBlock";
@@ -78,6 +79,10 @@ export default function PortalPage() {
     reportId: string | null;
     reportLabel: string;
   }>({ open: false, reportId: null, reportLabel: "" });
+  // null = todavía no hay conversación (se crea lazy al primer mensaje del user).
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  // Tick que se incrementa después de cada actividad → fuerza al HistoryPanel a refetch.
+  const [historyTick, setHistoryTick] = useState(0);
 
   useEffect(() => {
     if (!client) return;
@@ -87,6 +92,62 @@ export default function PortalPage() {
       if (u) setLogoUrl(u);
     });
   }, [client]);
+
+  // Cargar la conversación más reciente del cliente al entrar al portal.
+  // Si no tiene ninguna, queda null → la conversación se crea lazy al primer mensaje.
+  useEffect(() => {
+    if (!profile?.client_id) return;
+    let active = true;
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch("/api/portal/consultant/conversations", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          conversations?: Array<{ id: string }>;
+        };
+        if (!active) return;
+        const latest = data.conversations?.[0];
+        if (latest?.id) setCurrentConversationId(latest.id);
+      } catch (err) {
+        console.warn("portal: latest conversation load falló:", err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [profile?.client_id]);
+
+  async function handleNewConversation() {
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/portal/consultant/conversations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = (await res.json().catch(() => ({}))) as { id?: string };
+      if (data.id) {
+        setCurrentConversationId(data.id);
+        setHistoryTick((t) => t + 1);
+      }
+    } catch (err) {
+      console.error("nueva conversación falló:", err);
+    }
+  }
 
   useEffect(() => {
     hasSession().then(async (has) => {
@@ -200,11 +261,21 @@ export default function PortalPage() {
       <main className={styles.main}>
         {/* HERO: condensado para dejar espacio al chat */}
         <section className={styles.heroBlock}>
-          <div className={styles.heroEyebrow}>Tu cuenta · {monthIso}</div>
-          <h1 className={styles.heroTitle}>Hola, {profile.name.split(" ")[0]}</h1>
-          <div className={styles.heroSub}>
-            {client.name} · {client.sector}
+          <div className={styles.heroLeft}>
+            <div className={styles.heroEyebrow}>Tu cuenta · {monthIso}</div>
+            <h1 className={styles.heroTitle}>Hola, {profile.name.split(" ")[0]}</h1>
+            <div className={styles.heroSub}>
+              {client.name} · {client.sector}
+            </div>
           </div>
+          <nav className={styles.heroLinks} aria-label="Navegación principal del portal">
+            <Link href="/portal/calendario" className={styles.heroLink}>
+              Calendario →
+            </Link>
+            <Link href="/portal/faq" className={styles.heroLink}>
+              ¿Cómo funciona el portal? →
+            </Link>
+          </nav>
         </section>
 
         {/* ROADMAP DE FASES — visible siempre, da contexto del progreso */}
@@ -220,12 +291,24 @@ export default function PortalPage() {
               clientName={client.name}
               showExpandButton
               variant="embedded"
+              conversationId={currentConversationId}
+              onConversationCreated={(id) => {
+                setCurrentConversationId(id);
+                setHistoryTick((t) => t + 1);
+              }}
+              onActivity={() => setHistoryTick((t) => t + 1)}
+            />
+            <ConsultorHistoryPanel
+              currentConversationId={currentConversationId}
+              refreshTick={historyTick}
+              onSelect={(id) => setCurrentConversationId(id)}
+              onNewConversation={handleNewConversation}
             />
           </div>
 
           <aside className={styles.sidebar}>
-            {/* KPIs compactos */}
-            {client.type === "gp" && k && (
+            {/* KPIs compactos — visibles para cualquier cliente. RLS aísla por client_id. */}
+            {k && (
               <div className={styles.sidebarBlock}>
                 <div className={styles.sidebarLabel}>KPIs del mes</div>
                 <div className={styles.compactKpiGrid}>
@@ -238,7 +321,7 @@ export default function PortalPage() {
             )}
 
             {/* Evolución histórica de KPIs (últimos 12 meses) */}
-            {client.type === "gp" && <KpiTrendChart />}
+            <KpiTrendChart />
 
             {/* Objetivos compactos */}
             {objectives && objectives.items.length > 0 && (
@@ -438,14 +521,6 @@ export default function PortalPage() {
           </div>
           <div className={styles.footerRight}>
             ¿Necesitás algo? Hablá con tu account lead o pediselo a D&C Advisor.
-            <div className={styles.footerLinks}>
-              <Link href="/portal/calendario" className={styles.footerLink}>
-                Calendario →
-              </Link>
-              <Link href="/portal/faq" className={styles.footerLink}>
-                ¿Cómo funciona el portal? →
-              </Link>
-            </div>
           </div>
         </footer>
       </main>
