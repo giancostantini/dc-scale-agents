@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import PhaseVersionsDrawer from "@/components/PhaseVersionsDrawer";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import { getClient } from "@/lib/storage";
@@ -92,6 +93,7 @@ export default function FaseDetailPage({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -631,7 +633,34 @@ export default function FaseDetailPage({
                 : "↓ Descargar PPT (10 slides)"}
             </button>
           )}
+
+          {/* Comparar versiones — solo si hay al menos v2 (algo con que comparar) */}
+          {hasContent && report && report.version >= 2 && (
+            <button
+              className={ui.btnGhost}
+              onClick={() => setVersionsOpen(true)}
+              style={{
+                borderColor: "rgba(10,26,12,0.18)",
+                color: "var(--deep-green)",
+                fontSize: 12,
+              }}
+            >
+              ⇋ Comparar versiones (v{report.version})
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Drawer de versiones (kickoff ya retornó arriba, key acá es PhaseKey) */}
+      {client && report && (
+        <PhaseVersionsDrawer
+          open={versionsOpen}
+          onClose={() => setVersionsOpen(false)}
+          clientId={id}
+          phaseKey={key}
+          phaseLabel={meta.title.split(" · ")[0]}
+          currentVersion={report.version}
+        />
       )}
 
       {/* Modal de feedback */}

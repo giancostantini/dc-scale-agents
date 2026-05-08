@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
   // anteriores.
   const { data: currentReport } = await admin
     .from("phase_reports")
-    .select("content_md, version, status")
+    .select("content_md, version, status, generated_at, feedback")
     .eq("client_id", clientId)
     .eq("phase", phaseKey)
     .maybeSingle();
@@ -456,7 +456,40 @@ Reglas absolutas:
     );
   }
 
-  // ====== 9. Persistir el reporte como draft ======
+  // ====== 9. Archivar versión anterior en el historial ======
+  // Antes de sobreescribir, guardamos el content_md viejo en
+  // phase_report_history para poder mostrar diffs entre versiones.
+  // Solo archivamos si:
+  // - había contenido previo (currentReport?.content_md no es null)
+  // - este request es una regeneración (feedback presente o
+  //   "Regenerar desde cero" sobre un draft existente). Para la
+  //   primera generación de la fase no hay nada para archivar.
+  if (currentReport?.content_md && currentReport?.version) {
+    const { error: archiveErr } = await admin
+      .from("phase_report_history")
+      .upsert(
+        {
+          client_id: clientId,
+          phase: phaseKey,
+          version: currentReport.version,
+          content_md: currentReport.content_md,
+          feedback: currentReport.feedback ?? null,
+          generated_at: currentReport.generated_at ?? new Date().toISOString(),
+          archived_by: caller.id,
+        },
+        { onConflict: "client_id,phase,version" },
+      );
+    if (archiveErr) {
+      // No bloqueamos la regeneración por un error de archivo —
+      // pero lo logueamos para que se note.
+      console.warn(
+        "[phases.generate] no se pudo archivar la versión anterior:",
+        archiveErr.message,
+      );
+    }
+  }
+
+  // ====== 10. Persistir el reporte como draft ======
   // bumpear version si ya existía
   const { data: existing } = await admin
     .from("phase_reports")
