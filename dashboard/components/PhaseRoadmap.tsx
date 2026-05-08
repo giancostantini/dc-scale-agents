@@ -27,6 +27,9 @@ type PhaseStatus =
 export interface PhaseRoadmapProps {
   client: Client;
   reports: PhaseReport[];
+  /** Si se pasa, en el drawer aparece un botón "Comentar este reporte" cuando
+   *  la fase tiene un reporte aprobado. El padre suele abrir un ReportCommentsDrawer. */
+  onCommentReport?: (reportId: string, phaseLabel: string) => void;
 }
 
 /**
@@ -41,7 +44,11 @@ export interface PhaseRoadmapProps {
  * - pending: la fase anterior está aprobada pero esta no se generó aún
  * - locked: fases que vienen después y aún no son accesibles
  */
-export default function PhaseRoadmap({ client, reports }: PhaseRoadmapProps) {
+export default function PhaseRoadmap({
+  client,
+  reports,
+  onCommentReport,
+}: PhaseRoadmapProps) {
   const [openPhase, setOpenPhase] = useState<PhaseKey | null>(null);
 
   // Index de phase → report para lookup O(1)
@@ -139,82 +146,107 @@ export default function PhaseRoadmap({ client, reports }: PhaseRoadmapProps) {
         })}
       </ol>
 
-      {opened && (
-        <div
-          className={styles.drawerBackdrop}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpenPhase(null);
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="phase-drawer-title"
-        >
-          <div className={styles.drawer}>
-            <header className={styles.drawerHeader}>
-              <div>
-                <div className={styles.drawerEyebrow}>
-                  Fase {PHASES.findIndex((p) => p.key === opened.key) + 1} ·{" "}
-                  {statusLabel(opened.status)}
+      {opened && (() => {
+        const phaseIndex = PHASES.findIndex((p) => p.key === opened.key);
+        const isFirstPhase = phaseIndex === 0;
+        const showCommentBtn =
+          opened.report?.status === "approved" && Boolean(onCommentReport);
+        return (
+          <div
+            className={styles.drawerBackdrop}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setOpenPhase(null);
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="phase-drawer-title"
+          >
+            <div className={styles.drawer}>
+              <header className={styles.drawerHeader}>
+                <div>
+                  <div className={styles.drawerEyebrow}>
+                    Fase {phaseIndex + 1} · {statusLabel(opened.status)}
+                  </div>
+                  <h2 id="phase-drawer-title" className={styles.drawerTitle}>
+                    {opened.label}
+                  </h2>
                 </div>
-                <h2 id="phase-drawer-title" className={styles.drawerTitle}>
-                  {opened.label}
-                </h2>
-              </div>
-              <button
-                type="button"
-                className={styles.drawerClose}
-                onClick={() => setOpenPhase(null)}
-                aria-label="Cerrar"
-              >
-                ×
-              </button>
-            </header>
+                <button
+                  type="button"
+                  className={styles.drawerClose}
+                  onClick={() => setOpenPhase(null)}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </header>
 
-            <div className={styles.drawerBody}>
-              {opened.report?.status === "approved" && opened.report.content_md ? (
-                <>
-                  {opened.report.approved_at && (
-                    <div className={styles.drawerMeta}>
-                      Aprobado el{" "}
-                      {new Date(opened.report.approved_at).toLocaleDateString(
-                        "es-AR",
-                        { day: "2-digit", month: "long", year: "numeric" },
-                      )}
-                    </div>
-                  )}
-                  <MarkdownRenderer
-                    content={
-                      extractExecutiveSummary(opened.report.content_md) ||
-                      opened.report.content_md.slice(0, 1200)
-                    }
-                    shiftHeadings
-                  />
-                </>
-              ) : opened.report?.status === "draft" ||
-                opened.report?.status === "changes_requested" ? (
-                <p className={styles.drawerMuted}>
-                  El equipo está trabajando en este reporte. Vas a verlo acá
-                  cuando esté aprobado.
-                </p>
-              ) : opened.report?.status === "generating" ? (
-                <p className={styles.drawerMuted}>
-                  El reporte se está generando. Vuelve en unos minutos.
-                </p>
-              ) : opened.status === "active" ? (
-                <p className={styles.drawerMuted}>
-                  Esta es tu fase actual. Trabajando con el equipo en lo que
-                  necesitamos para cerrarla.
-                </p>
-              ) : (
-                <p className={styles.drawerMuted}>
-                  Esta fase aún no se inició. Vamos en orden — primero
-                  cerramos la anterior.
-                </p>
+              <div className={styles.drawerBody}>
+                {opened.report?.status === "approved" && opened.report.content_md ? (
+                  <>
+                    {opened.report.approved_at && (
+                      <div className={styles.drawerMeta}>
+                        Aprobado el{" "}
+                        {new Date(opened.report.approved_at).toLocaleDateString(
+                          "es-AR",
+                          { day: "2-digit", month: "long", year: "numeric" },
+                        )}
+                      </div>
+                    )}
+                    <MarkdownRenderer
+                      content={
+                        extractExecutiveSummary(opened.report.content_md) ||
+                        opened.report.content_md.slice(0, 1200)
+                      }
+                      shiftHeadings
+                    />
+                  </>
+                ) : opened.report?.status === "draft" ||
+                  opened.report?.status === "changes_requested" ? (
+                  <p className={styles.drawerMuted}>
+                    El equipo está trabajando en este reporte. Vas a verlo acá
+                    cuando esté aprobado.
+                  </p>
+                ) : opened.report?.status === "generating" ? (
+                  <p className={styles.drawerMuted}>
+                    El reporte se está generando. Vuelve en unos minutos.
+                  </p>
+                ) : opened.status === "active" ? (
+                  <p className={styles.drawerMuted}>
+                    Esta es tu fase actual. Trabajando con el equipo en lo que
+                    necesitamos para cerrarla.
+                  </p>
+                ) : isFirstPhase ? (
+                  <p className={styles.drawerMuted}>
+                    Es la primera fase de tu cuenta. El equipo va a armar tu
+                    diagnóstico y vas a verlo acá cuando esté listo.
+                  </p>
+                ) : (
+                  <p className={styles.drawerMuted}>
+                    Esta fase aún no se inició. Vamos en orden — primero
+                    cerramos la fase anterior.
+                  </p>
+                )}
+              </div>
+
+              {showCommentBtn && opened.report && (
+                <footer className={styles.drawerFooter}>
+                  <button
+                    type="button"
+                    className={styles.drawerCommentBtn}
+                    onClick={() => {
+                      onCommentReport!(opened.report!.id, opened.label);
+                      setOpenPhase(null);
+                    }}
+                  >
+                    Comentar este reporte
+                  </button>
+                </footer>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </section>
   );
 }

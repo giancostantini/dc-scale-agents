@@ -279,7 +279,13 @@ export default function PortalPage() {
         </section>
 
         {/* ROADMAP DE FASES — visible siempre, da contexto del progreso */}
-        <PhaseRoadmap client={client} reports={reports} />
+        <PhaseRoadmap
+          client={client}
+          reports={reports}
+          onCommentReport={(reportId, reportLabel) =>
+            setCommentsDrawer({ open: true, reportId, reportLabel })
+          }
+        />
 
         {/* "Qué hicimos este mes" — agregación del trabajo del equipo */}
         <MonthSummaryBlock />
