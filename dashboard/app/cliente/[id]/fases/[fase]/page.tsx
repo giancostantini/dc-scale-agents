@@ -94,6 +94,9 @@ export default function FaseDetailPage({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -510,6 +513,46 @@ export default function FaseDetailPage({
     }
   }
 
+  async function submitUpload() {
+    if (uploading) return;
+    if (!uploadFile) {
+      alert("Elegí un archivo primero.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sin sesión");
+
+      const fd = new FormData();
+      fd.append("clientId", id);
+      fd.append("phase", key);
+      fd.append("file", uploadFile);
+
+      const res = await fetch("/api/phases/upload-report", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error ?? `HTTP ${res.status}`);
+      }
+      // Éxito: cerrar modal, limpiar y refrescar
+      setUploadFile(null);
+      setUploadOpen(false);
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo subir el reporte:\n\n${e.message}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <>
       <Header
@@ -648,6 +691,21 @@ export default function FaseDetailPage({
               ⇋ Comparar versiones (v{report.version})
             </button>
           )}
+
+          {/* Subir reporte editado afuera (Word/Docs/MD) */}
+          {status !== "approved" && (
+            <button
+              className={ui.btnGhost}
+              onClick={() => setUploadOpen(true)}
+              style={{
+                borderColor: "rgba(10,26,12,0.18)",
+                color: "var(--deep-green)",
+                fontSize: 12,
+              }}
+            >
+              ↑ Subir reporte editado
+            </button>
+          )}
         </div>
       )}
 
@@ -661,6 +719,187 @@ export default function FaseDetailPage({
           phaseLabel={meta.title.split(" · ")[0]}
           currentVersion={report.version}
         />
+      )}
+
+      {/* Modal de subir reporte editado */}
+      {uploadOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !uploading) {
+              setUploadOpen(false);
+              setUploadFile(null);
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.6)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 40,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              maxWidth: 560,
+              width: "100%",
+              padding: 36,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 600,
+                marginBottom: 12,
+              }}
+            >
+              Subir reporte editado
+            </div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                marginBottom: 8,
+              }}
+            >
+              Reemplazar este reporte con tu versión
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginBottom: 24,
+                lineHeight: 1.5,
+              }}
+            >
+              Subí el reporte que editaste afuera. Si ya hay una versión
+              guardada, queda archivada en el historial — vas a poder comparar
+              tu versión con la anterior. El reporte queda como{" "}
+              <strong>draft</strong> esperando confirmación.
+            </p>
+
+            {/* Formatos soportados */}
+            <div
+              style={{
+                background: "var(--ivory)",
+                border: "1px solid rgba(10,26,12,0.08)",
+                padding: 12,
+                marginBottom: 20,
+                fontSize: 12,
+                color: "var(--text-soft)",
+                lineHeight: 1.6,
+              }}
+            >
+              <strong style={{ color: "var(--deep-green)" }}>
+                Formatos aceptados:
+              </strong>
+              <br />
+              <code style={{ fontSize: 11 }}>.md</code> /{" "}
+              <code style={{ fontSize: 11 }}>.txt</code> — markdown / texto
+              plano (ideal).
+              <br />
+              <code style={{ fontSize: 11 }}>.docx</code> — Word / Google Docs
+              (exportá como .docx).
+              <br />
+              <span
+                style={{ color: "var(--text-muted)", fontStyle: "italic" }}
+              >
+                PDF no se acepta: la extracción de texto rompe la estructura.
+                Re-exportá desde el PDF a Word/Docs y subí ese.
+              </span>
+            </div>
+
+            {/* File input */}
+            <label
+              style={{
+                display: "block",
+                border: "2px dashed rgba(10,26,12,0.18)",
+                padding: 24,
+                textAlign: "center",
+                cursor: "pointer",
+                marginBottom: 24,
+                background: uploadFile ? "rgba(196,168,130,0.08)" : "transparent",
+                transition: "background 0.15s",
+              }}
+            >
+              <input
+                type="file"
+                accept=".md,.markdown,.txt,.docx,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                disabled={uploading}
+                style={{ display: "none" }}
+              />
+              {uploadFile ? (
+                <>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {uploadFile.name}
+                  </div>
+                  <div
+                    style={{ fontSize: 11, color: "var(--text-muted)" }}
+                  >
+                    {(uploadFile.size / 1024).toFixed(1)} KB · Click para cambiar
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Elegir archivo
+                  </div>
+                  <div
+                    style={{ fontSize: 11, color: "var(--text-muted)" }}
+                  >
+                    .md, .txt o .docx (máx 10 MB)
+                  </div>
+                </>
+              )}
+            </label>
+
+            {/* Acciones */}
+            <div
+              style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
+            >
+              <button
+                className={ui.btnGhost}
+                onClick={() => {
+                  setUploadOpen(false);
+                  setUploadFile(null);
+                }}
+                disabled={uploading}
+              >
+                Cancelar
+              </button>
+              <button
+                className={ui.btnSolid}
+                onClick={submitUpload}
+                disabled={uploading || !uploadFile}
+              >
+                {uploading ? "Subiendo…" : "Subir y reemplazar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de feedback */}
