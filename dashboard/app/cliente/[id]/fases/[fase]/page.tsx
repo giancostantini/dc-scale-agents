@@ -504,6 +504,40 @@ export default function FaseDetailPage({
     }
   }
 
+  async function unapprove() {
+    if (busy) return;
+    // Warning explícito si hay fases posteriores que cascadearán
+    const warning =
+      `¿Deshacer la aprobación de ${meta.reportName}?\n\n` +
+      `El reporte vuelve a estado "draft" y se conserva el contenido. ` +
+      `Si hay fases POSTERIORES aprobadas (basadas en esta), también ` +
+      `volverán a draft automáticamente — no podés tener Estrategia ` +
+      `aprobada sobre un Diagnóstico no aprobado.\n\n` +
+      `¿Continuar?`;
+    if (!confirm(warning)) return;
+    setBusy(true);
+    try {
+      const result = (await callPhaseEndpoint("/api/phases/unapprove", {
+        clientId: id,
+        phase: phaseKey,
+      })) as { cascaded?: number };
+      const cascaded = result?.cascaded ?? 0;
+      if (cascaded > 0) {
+        alert(
+          `Listo. También se revirtieron ${cascaded} fase${
+            cascaded === 1 ? "" : "s"
+          } posterior${cascaded === 1 ? "" : "es"} a draft.`,
+        );
+      }
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo deshacer:\n${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitChangesRequest() {
     if (busy) return;
     if (!feedbackText.trim()) {
@@ -669,6 +703,23 @@ export default function FaseDetailPage({
               disabled={busy}
             >
               {busy ? "Regenerando…" : "↻ Regenerar con feedback"}
+            </button>
+          )}
+
+          {/* Deshacer aprobación — solo cuando la fase está aprobada */}
+          {isApproved && (
+            <button
+              className={ui.btnGhost}
+              onClick={unapprove}
+              disabled={busy}
+              style={{
+                borderColor: "rgba(176, 75, 58, 0.35)",
+                color: "var(--red-warn)",
+                fontWeight: 600,
+              }}
+              title="Devolver esta fase (y las posteriores aprobadas) a draft para reconstruirla"
+            >
+              {busy ? "Deshaciendo…" : "↶ Deshacer aprobación"}
             </button>
           )}
 

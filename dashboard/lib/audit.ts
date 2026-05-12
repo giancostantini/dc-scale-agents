@@ -20,6 +20,7 @@ export type AuditAction =
   | "client.update"
   | "phase.generate"
   | "phase.approve"
+  | "phase.unapprove"
   | "phase.request_changes"
   | "request.update"
   | "agent.dispatch"
