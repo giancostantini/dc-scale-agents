@@ -111,22 +111,10 @@ export async function stampApproved(pdfBlob: Blob): Promise<Blob> {
   for (const m of matches) {
     const page = pdfDoc.getPage(m.pageIdx);
 
-    // Padding alrededor del rect para tapar bien el texto
-    const padX = 1;
-    const padY = 2;
-
-    // Rectángulo blanco (más alto que el char height para cubrir ascenders/descenders)
-    page.drawRectangle({
-      x: m.x - padX,
-      y: m.y - padY,
-      width: m.width + padX * 2,
-      height: m.height + padY * 2,
-      color: rgb(1, 1, 1),
-    });
-
-    // Texto "Aprobado" en sand-dark (marca DC) con el mismo size
-    // aproximado del original. width("Aprobado") suele ser similar
-    // a width("Borrador") en sans-serif → encaja bien.
+    // Solo el texto "Aprobado", sin rectángulo de fondo. Va encima
+    // de "Borrador" — como "Aprobado" y "Borrador" tienen ancho
+    // similar en sans-serif y mismo tamaño, queda razonable. El
+    // texto original se ve algo por debajo pero sin parche blanco.
     page.drawText("Aprobado", {
       x: m.x,
       y: m.y,

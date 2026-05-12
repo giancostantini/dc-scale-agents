@@ -7,7 +7,7 @@ import { getSupabase } from "./supabase/client";
 import type { PhaseKey, PhaseReport, PhaseStatus } from "./types";
 
 const PHASE_REPORT_COLS =
-  "id, client_id, phase, status, content_md, feedback, version, model, usage, generated_at, approved_at, approved_by, pdf_path, created_at, updated_at";
+  "id, client_id, phase, status, content_md, feedback, version, model, usage, generated_at, approved_at, approved_by, pdf_path, review_md, created_at, updated_at";
 
 export async function listPhaseReports(
   clientId: string,

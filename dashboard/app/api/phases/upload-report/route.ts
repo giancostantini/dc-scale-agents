@@ -246,6 +246,8 @@ export async function POST(req: NextRequest) {
         approved_at: null,
         approved_by: null,
         pdf_path: pdfPath,
+        // Invalidamos el análisis cacheado — contenido nuevo
+        review_md: null,
       },
       { onConflict: "client_id,phase" },
     );

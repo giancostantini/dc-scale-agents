@@ -522,6 +522,8 @@ Reglas absolutas:
         generated_at: new Date().toISOString(),
         approved_at: null,
         approved_by: null,
+        // Invalidamos el análisis cacheado porque el contenido cambió
+        review_md: null,
       },
       { onConflict: "client_id,phase" },
     );

@@ -473,6 +473,10 @@ export interface PhaseReport {
    *  descargar o mostrar al cliente, en vez de re-renderizar desde
    *  content_md. */
   pdf_path: string | null;
+  /** Análisis crítico cacheado del reporte (markdown). Lo genera un
+   *  agente cuando el director lo pide. Se invalida (NULL) cuando
+   *  content_md cambia. */
+  review_md: string | null;
   created_at: string;
   updated_at: string;
 }
