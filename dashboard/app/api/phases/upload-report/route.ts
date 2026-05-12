@@ -185,6 +185,15 @@ export async function POST(req: NextRequest) {
             .join("; "),
         );
       }
+    } else if (ext === "html" || ext === "htm") {
+      // HTML directo (raro pero a veces lo exportan así desde Docs)
+      const html = await file.text();
+      const turndown = new TurndownService({
+        headingStyle: "atx",
+        bulletListMarker: "-",
+        emDelimiter: "*",
+      });
+      contentMd = turndown.turndown(html).trim();
     } else {
       return Response.json(
         {
@@ -204,6 +213,18 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  // ====== 3.5. Normalización: strippear artefactos visuales =========
+  // Cuando un docx viene de un PDF re-exportado a Word (o lo edita
+  // alguien y deja headers/footers visuales), el cover page, el TOC y
+  // los headers/footers de página viajan como CONTENIDO en el markdown.
+  // Si los persistimos, el PDF renderer los pone DENTRO del cuerpo del
+  // reporte (con su propio cover encima) y el diseño queda destruido.
+  //
+  // Estas reglas detectan los artefactos típicos y los descartan.
+  // Son agresivas adrede: en caso de duda, descartar — es contenido
+  // de presentación, no de negocio.
+  contentMd = normalizeUploadedMarkdown(contentMd);
 
   if (!contentMd || contentMd.length < 50) {
     return Response.json(
@@ -312,4 +333,177 @@ export async function POST(req: NextRequest) {
     version: nextVersion,
     chars: contentMd.length,
   });
+}
+
+// ============================================================
+// normalizeUploadedMarkdown
+// ============================================================
+// Saca artefactos visuales que NO deberían viajar como contenido
+// del reporte: cover page, TOC, headers/footers de cada página,
+// letterspacing decorativo, paginación, etc.
+//
+// Esta función es la primera línea de defensa contra docx "sucios"
+// (típicamente: PDF → Word con conversión externa → upload). Si el
+// docx viene de nuestro export-to-docx propio, ya está limpio y esta
+// función solo trim ligero.
+function normalizeUploadedMarkdown(md: string): string {
+  // Reemplazos a nivel de texto inline ANTES de splittear por línea
+  let s = md;
+
+  // "H " usado por algunos extractores de PDF en vez de ≈
+  s = s.replace(/\bH (US\$|\d)/g, "≈ $1");
+  // Texto con caracteres acentuados separados ("M **ú** ltiples")
+  s = s.replace(/\*\*([áéíóúñÁÉÍÓÚÑ])\*\* /g, "$1");
+  // Turndown escapa "1." como "1\." dentro de headings — eso rompe la
+  // detección de secciones del PDF renderer. Lo desescapamos globalmente
+  // (no es ambiguo: en markdown nadie escribe legítimamente "\.").
+  s = s.replace(/(\d+)\\\./g, "$1.");
+
+  // Patrones de líneas a descartar (case-insensitive). Todas estas
+  // son artefactos visuales del cover/TOC/header/footer que NO deben
+  // viajar como contenido del reporte.
+  const DROP_PATTERNS: RegExp[] = [
+    // === Footer de paginación ===
+    // "Confidencial · Dearmas Costantini · 08 de mayo de 2026 3 / 17"
+    /^\s*Confidencial\s*[·•\-]\s*Dearmas\s+Costantini\s*[·•\-].*\d+\s*\/\s*\d+\s*$/i,
+    /^\s*Confidencial\s*[·•\-]\s*Dearmas\s+Costantini\s*$/i,
+
+    // === Header de cada página ===
+    // "Dearmas Costantini D I A G N Ó S T I C O · WIZTRIP"
+    /^\s*(\*\*)?Dearmas(\*\*)?\s+(\*\*)?Costantini(\*\*)?.*(D\s*I\s*A\s*G\s*N|E\s*S\s*T\s*R\s*A\s*T|S\s*E\s*T\s*U\s*P|L\s*A\s*N\s*Z\s*A\s*M)/i,
+
+    // === Banner principal de marca (cover) ===
+    // "**Dearmas Costantini**" o "Dearmas Costantini" solo en línea
+    /^\s*(#{1,6}\s+)?(\*\*)?Dearmas(\*\*)?\s+(\*\*)?Costantini(\*\*)?\s*$/i,
+
+    // === Subbanners del cover (con o sin letterspacing) ===
+    // "BUSINESS GROWTH PARTNERS · LATAM" / "B U S I N E S S G R O W T H..."
+    /^\s*(\*\*)?B(\s+|)U(\s+|)S(\s+|)I(\s+|)N(\s+|)E(\s+|)S(\s+|)S\s+G(\s+|)R(\s+|)O(\s+|)W(\s+|)T(\s+|)H\s+P(A)?(\s+|)?R(\s+|)T(\s+|)N(\s+|)E(\s+|)R(\s+|)S.*$/i,
+    // "REPORTE DE FASE DEL ONBOARDING"
+    /^\s*(\*\*)?R(\s+|)E(\s+|)P(\s+|)O(\s+|)R(\s+|)T(\s+|)E\s+D(\s+|)E\s+F(\s+|)A(\s+|)S(\s+|)E(\s+D(\s+|)E(\s+|)L\s+O(\s+|)N(\s+|)B(\s+|)O(\s+|)A(\s+|)R(\s+|)D(\s+|)I(\s+|)N(\s+|)G)?(\*\*)?\s*$/i,
+    // "TABLA DE CONTENIDOS" o "Tabla de contenidos"
+    /^\s*(\*\*)?(TA?\s*B\s*L\s*A\s+D\s*E\s+C\s*O\s*N\s*T\s*E\s*N\s*I\s*D\s*O\s*S|Tabla\s+de\s+contenidos)(\*\*)?\s*$/i,
+
+    // === Heading "Diagnóstico" / "Estrategia" / etc del cover ===
+    // Es el título grande del cover. La fase la rearma el PDF renderer.
+    /^\s*#{1,3}\s+(\*\*)?(Diagnóstico|Estrategia|Setup|Lanzamiento)(\*\*)?\s*$/i,
+    // Heading "Índice" del TOC
+    /^\s*#{1,6}\s+(\*\*)?(Índice|Indice|Index)(\*\*)?\s*$/i,
+
+    // === Subtítulo del reporte (cover) ===
+    // "Growth Diagnosis Plan" / "Growth Strategy Plan" / etc. solo
+    /^\s*Growth\s+(Diagnosis|Strategy|Setup|Launch)\s+Plan\s*$/i,
+
+    // === Metadata del cover (CLIENTE / GENERADO / ESTADO / VERSIÓN) ===
+    // Con o sin letterspacing, con o sin valor en la misma línea.
+    /^\s*(\*\*)?C(\s+|)L(\s+|)I(\s+|)E(\s+|)N(\s+|)T(\s+|)E(\*\*)?(\s+\S.*)?$/i,
+    /^\s*(\*\*)?G(\s+|)E(\s+|)N(\s+|)E(\s+|)R(\s+|)A(\s+|)D(\s+|)O(\*\*)?(\s+\S.*)?$/i,
+    /^\s*(\*\*)?E(\s+|)S(\s+|)T(\s+|)A(\s+|)D(\s+|)O(\*\*)?(\s+\S.*)?$/i,
+    /^\s*(\*\*)?V(\s+|)E(\s+|)R(\s+|)S(\s+|)I(\s+|)Ó(\s+|)N(\*\*)?(\s+\S.*)?$/i,
+    /^\s*(\*\*)?A(\s+|)P(\s+|)R(\s+|)O(\s+|)B(\s+|)A(\s+|)D(\s+|)O(\*\*)?(\s+\S.*)?$/i,
+
+    // === Estados sueltos ===
+    /^\s*(\*\*)?(Borrador|Aprobado|Draft|Pending)(\*\*)?\s*$/i,
+    /^\s*(\*\*)?v\d+(\*\*)?\s*$/i,
+
+    // === Texto de descripción del TOC ===
+    /^\s*Recorrido\s+de\s+las\s+\d+\s+secciones.*$/i,
+    /^\s*\d+\s+secciones\s*[·•\-]\s*recorrido.*$/i,
+
+    // === Header del docx que generamos nosotros ===
+    /^\s*(\*\*)?DEARMAS\s+COSTANTINI\s*[·•\-]\s*BUSINESS\s+GROWTH\s+PARTNERS(\*\*)?\s*$/i,
+    /^\s*(\*\*)?(DIAGNÓSTICO|ESTRATEGIA|SETUP|LANZAMIENTO)\s*[·•\-]\s*.+?\s*[·•\-]\s*v\d+\s*(\*\*)?$/i,
+
+    // === Nudge del docx editable ===
+    /^\s*\*?Editá\s+libremente\s+este\s+documento.*$/i,
+
+    // === Líneas decorativas / hr ===
+    /^\s*[-*_]{3,}\s*$/,
+  ];
+
+  // Bloques completos a descartar: detección de TOC.
+  // Un TOC típico se ve como:
+  //   ## Índice  (o "Tabla de contenidos")
+  //   01 Resumen ejecutivo
+  //   02 Contexto del negocio
+  //   ... (lineas tipo "NN Section Name")
+  // Removemos desde un heading "Índice"/"Tabla de contenidos" hasta el
+  // primer heading "## N. Section" o "# 1. Section".
+  //
+  // Strategy: line-by-line con un flag "inside TOC".
+
+  const lines = s.split("\n");
+  const cleaned: string[] = [];
+  let insideToc = false;
+
+  // Patrón de heading TOC. Tolera bold "**Índice**" porque turndown
+  // a veces lo emite así.
+  const TOC_HEADING =
+    /^(#{1,6})\s+(\*\*)?\s*(Índice|Indice|Tabla\s+de\s+contenidos|Table\s+of\s+contents)\s*(\*\*)?\s*$/i;
+  // Patrón de entrada de TOC: "01 Resumen ejecutivo" o "1 Section name" o "**01** Section name"
+  const TOC_ENTRY =
+    /^\s*(\*\*)?(\d{1,2})(\*\*)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ][\w\s,áéíóúñÁÉÍÓÚÑüÜ\-\.\&\/\(\)]{2,80}\s*$/;
+  // Patrón de heading real de sección (el que rompe el TOC)
+  const SECTION_HEADING = /^#{1,6}\s+(\d+)\.\s+/;
+  // Patrón de heading "Recorrido de las N secciones"
+  const TOC_SUBTITLE = /^\s*Recorrido\s+de\s+las\s+\d+\s+secciones/i;
+
+  // Heading "Índice" como un solo bold sin #, sin /: variante
+  // que turndown puede producir si el style en docx era "Title"
+  // en vez de "Heading"
+  const TOC_HEADING_BOLD =
+    /^\s*(\*\*)?(Índice|Indice|Tabla\s+de\s+contenidos)(\*\*)?\s*$/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // 1. Detectar inicio de TOC ANTES de los DROP_PATTERNS, porque
+    //    si los DROP_PATTERNS comen el "## Índice" sin avisar, las
+    //    entradas del TOC abajo quedarían huérfanas y se persisten.
+    if (TOC_HEADING.test(trimmed) || TOC_HEADING_BOLD.test(trimmed)) {
+      insideToc = true;
+      continue;
+    }
+
+    // 2. Si estamos dentro del TOC: descartar entradas hasta que
+    //    aparezca una sección numerada real (## 1. ...) o un
+    //    heading no-TOC.
+    if (insideToc) {
+      if (SECTION_HEADING.test(line)) {
+        insideToc = false;
+        cleaned.push(line);
+        continue;
+      }
+      if (/^#{1,6}\s+/.test(line) && !TOC_HEADING.test(line)) {
+        insideToc = false;
+        cleaned.push(line);
+        continue;
+      }
+      // Drop entradas TOC, subtítulos y líneas vacías
+      if (TOC_ENTRY.test(trimmed) || TOC_SUBTITLE.test(trimmed) || !trimmed) {
+        continue;
+      }
+      // Línea inesperada: salir conservadoramente
+      insideToc = false;
+      cleaned.push(line);
+      continue;
+    }
+
+    // 3. Drop patterns puntuales (cover/footer/header artifacts)
+    if (DROP_PATTERNS.some((p) => p.test(trimmed))) {
+      continue;
+    }
+
+    cleaned.push(line);
+  }
+
+  let out = cleaned.join("\n");
+
+  // Colapsar 3+ líneas en blanco a 2 (markdown standard)
+  out = out.replace(/\n{3,}/g, "\n\n");
+  // Trim general
+  out = out.trim();
+
+  return out;
 }

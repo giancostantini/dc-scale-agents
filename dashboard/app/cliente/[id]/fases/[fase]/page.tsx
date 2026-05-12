@@ -93,6 +93,7 @@ export default function FaseDetailPage({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -268,6 +269,54 @@ export default function FaseDetailPage({
       );
     } finally {
       setDownloadingPptx(false);
+    }
+  }
+
+  async function downloadDocx() {
+    if (!report || !report.content_md || !client) return;
+    setDownloadingDocx(true);
+    try {
+      const phaseLabel =
+        key === "diagnostico"
+          ? "Diagnóstico"
+          : key === "estrategia"
+          ? "Estrategia"
+          : key === "setup"
+          ? "Setup"
+          : key === "lanzamiento"
+          ? "Lanzamiento"
+          : "Reporte";
+
+      // Lazy import — la lib docx pesa, fuera del bundle inicial
+      const { buildPhaseReportDocx } = await import(
+        "@/lib/phase-report-docx"
+      );
+
+      const blob = await buildPhaseReportDocx({
+        phaseLabel,
+        reportName: meta?.reportName ?? phaseLabel,
+        clientName: client.name,
+        version: report.version,
+        generatedAt: report.generated_at,
+        contentMd: report.content_md,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("downloadDocx error:", err);
+      const e = err as Error;
+      alert(
+        `No se pudo generar el DOCX.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
+      );
+    } finally {
+      setDownloadingDocx(false);
     }
   }
 
@@ -674,6 +723,22 @@ export default function FaseDetailPage({
               {downloadingPptx
                 ? "Generando PPT…"
                 : "↓ Descargar PPT (10 slides)"}
+            </button>
+          )}
+
+          {/* Descargar DOCX — para editar afuera y volver a subir limpio */}
+          {hasContent && status !== "approved" && (
+            <button
+              className={ui.btnGhost}
+              onClick={downloadDocx}
+              disabled={downloadingDocx}
+              style={{
+                borderColor: "var(--sand)",
+                color: "var(--deep-green)",
+                fontWeight: 600,
+              }}
+            >
+              {downloadingDocx ? "Generando DOCX…" : "↓ Descargar DOCX (editable)"}
             </button>
           )}
 
