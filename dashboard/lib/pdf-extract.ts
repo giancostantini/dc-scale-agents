@@ -39,11 +39,14 @@ async function loadPdfJs(): Promise<PdfJsLib> {
   // hasta que el usuario realmente intente extraer un PDF.
   const lib = (await import("pdfjs-dist")) as unknown as PdfJsLib;
 
-  // Worker setup. pdfjs requires a separate worker file. Apuntamos al CDN
-  // oficial de la misma versión para no tener que copiar el .mjs al public/.
-  // Si la red está caída, el worker falla y la extracción tira error claro.
+  // Worker setup. pdfjs requires a separate worker file. Usamos jsdelivr
+  // (mirror oficial de npm) en vez de cdnjs porque cdnjs no siempre tiene
+  // la versión exacta del package — por ej. pdfjs-dist 5.4.624 no estaba
+  // en cdnjs y tiraba "Setting up fake worker failed: Failed to fetch
+  // dynamically imported module". jsdelivr mirrorea npm 1:1 → siempre
+  // tiene la versión que estamos usando.
   if (typeof window !== "undefined" && lib.GlobalWorkerOptions) {
-    lib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${lib.version}/pdf.worker.min.mjs`;
+    lib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${lib.version}/build/pdf.worker.min.mjs`;
   }
 
   cachedLib = lib;
