@@ -468,6 +468,11 @@ export interface PhaseReport {
   generated_at: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  /** Path en bucket "client-onboarding" del PDF subido por el director.
+   *  Si está seteado, ese PDF es canónico y se sirve tal cual al
+   *  descargar o mostrar al cliente, en vez de re-renderizar desde
+   *  content_md. */
+  pdf_path: string | null;
   created_at: string;
   updated_at: string;
 }

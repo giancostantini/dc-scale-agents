@@ -124,6 +124,37 @@ export default function PortalPage() {
     };
   }, [profile?.client_id]);
 
+  /** Abre el PDF subido del reporte (signed URL, en una pestaña nueva). */
+  async function openUploadedPdf(
+    clientId: string,
+    phase: string,
+    version: number,
+  ) {
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        alert("Sin sesión. Refrescá la página.");
+        return;
+      }
+      const res = await fetch(
+        `/api/phases/uploaded-pdf?clientId=${encodeURIComponent(clientId)}&phase=${phase}&version=${version}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.signedUrl) {
+        alert(data?.error ?? `No se pudo abrir el PDF (HTTP ${res.status})`);
+        return;
+      }
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("openUploadedPdf failed:", err);
+      alert("No se pudo abrir el PDF. Probá de nuevo.");
+    }
+  }
+
   async function handleNewConversation() {
     try {
       const supabase = getSupabase();
@@ -454,6 +485,16 @@ export default function PortalPage() {
                                 },
                               )}
                           </span>
+                          {r.pdf_path && (
+                            <button
+                              type="button"
+                              className={styles.reportCommentBtn}
+                              onClick={() => openUploadedPdf(r.client_id, r.phase, r.version)}
+                              style={{ fontWeight: 600 }}
+                            >
+                              Ver PDF
+                            </button>
+                          )}
                           <button
                             type="button"
                             className={styles.reportCommentBtn}

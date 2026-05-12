@@ -93,11 +93,11 @@ export default function FaseDetailPage({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
-  const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
@@ -132,12 +132,6 @@ export default function FaseDetailPage({
     if (!report || !report.content_md || !client) return;
     setDownloadingPdf(true);
     try {
-      // Lazy-load — react-pdf no entra en SSR
-      const { pdf } = await import("@react-pdf/renderer");
-      const PhaseReportPdf = (
-        await import("@/components/PhaseReportPdf")
-      ).default;
-
       const phaseLabel =
         key === "diagnostico"
           ? "Diagnóstico"
@@ -148,6 +142,52 @@ export default function FaseDetailPage({
           : key === "lanzamiento"
           ? "Lanzamiento"
           : "Reporte";
+
+      // Si el director subió un PDF para esta versión, lo servimos
+      // tal cual (canónico). No re-renderizamos desde markdown.
+      if (report.pdf_path) {
+        const supabase = getSupabase();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) throw new Error("Sin sesión");
+
+        const res = await fetch(
+          `/api/phases/uploaded-pdf?clientId=${encodeURIComponent(id)}&phase=${key}&version=${report.version}`,
+          {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.signedUrl) {
+          throw new Error(
+            data?.error ?? `No se pudo obtener el PDF (HTTP ${res.status})`,
+          );
+        }
+
+        // Descargar el blob desde la signed URL y forzar download local
+        const pdfRes = await fetch(data.signedUrl);
+        if (!pdfRes.ok) {
+          throw new Error(`No se pudo bajar el PDF (HTTP ${pdfRes.status})`);
+        }
+        const blob = await pdfRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // Sin PDF subido: renderizamos desde el markdown (flujo original).
+      // Lazy-load — react-pdf no entra en SSR
+      const { pdf } = await import("@react-pdf/renderer");
+      const PhaseReportPdf = (
+        await import("@/components/PhaseReportPdf")
+      ).default;
 
       // Convertir el logo del cliente a data URL antes de pasarlo al
       // PDF — evita CORS al embeber. Si falla (red, archivo borrado),
@@ -269,54 +309,6 @@ export default function FaseDetailPage({
       );
     } finally {
       setDownloadingPptx(false);
-    }
-  }
-
-  async function downloadDocx() {
-    if (!report || !report.content_md || !client) return;
-    setDownloadingDocx(true);
-    try {
-      const phaseLabel =
-        key === "diagnostico"
-          ? "Diagnóstico"
-          : key === "estrategia"
-          ? "Estrategia"
-          : key === "setup"
-          ? "Setup"
-          : key === "lanzamiento"
-          ? "Lanzamiento"
-          : "Reporte";
-
-      // Lazy import — la lib docx pesa, fuera del bundle inicial
-      const { buildPhaseReportDocx } = await import(
-        "@/lib/phase-report-docx"
-      );
-
-      const blob = await buildPhaseReportDocx({
-        phaseLabel,
-        reportName: meta?.reportName ?? phaseLabel,
-        clientName: client.name,
-        version: report.version,
-        generatedAt: report.generated_at,
-        contentMd: report.content_md,
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("downloadDocx error:", err);
-      const e = err as Error;
-      alert(
-        `No se pudo generar el DOCX.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
-      );
-    } finally {
-      setDownloadingDocx(false);
     }
   }
 
@@ -603,6 +595,7 @@ export default function FaseDetailPage({
       return;
     }
     setUploading(true);
+    setUploadStatus("Preparando…");
     try {
       const supabase = getSupabase();
       const {
@@ -615,6 +608,26 @@ export default function FaseDetailPage({
       fd.append("phase", key);
       fd.append("file", uploadFile);
 
+      // Si es PDF, extraemos texto en el cliente con pdfjs antes de
+      // subir. El servidor guarda el PDF tal cual + el texto como
+      // content_md (para que los agentes puedan leerlo después).
+      const ext = uploadFile.name.toLowerCase().split(".").pop() ?? "";
+      if (ext === "pdf") {
+        setUploadStatus("Extrayendo texto del PDF…");
+        const { extractPdfText } = await import("@/lib/pdf-extract");
+        const text = await extractPdfText(uploadFile, (msg) =>
+          setUploadStatus(msg),
+        );
+        if (!text || text.trim().length < 50) {
+          throw new Error(
+            "El PDF parece no tener capa de texto (¿es un escaneo?). " +
+              "Abrilo en Word/Docs y re-exportá para que tenga texto.",
+          );
+        }
+        fd.append("extractedText", text);
+      }
+
+      setUploadStatus("Subiendo al servidor…");
       const res = await fetch("/api/phases/upload-report", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -627,12 +640,14 @@ export default function FaseDetailPage({
       // Éxito: cerrar modal, limpiar y refrescar
       setUploadFile(null);
       setUploadOpen(false);
+      setUploadStatus("");
       setReloadFlag((f) => f + 1);
     } catch (err) {
       const e = err as Error;
       alert(`No se pudo subir el reporte:\n\n${e.message}`);
     } finally {
       setUploading(false);
+      setUploadStatus("");
     }
   }
 
@@ -777,21 +792,6 @@ export default function FaseDetailPage({
             </button>
           )}
 
-          {/* Descargar DOCX — para editar afuera y volver a subir limpio */}
-          {hasContent && status !== "approved" && (
-            <button
-              className={ui.btnGhost}
-              onClick={downloadDocx}
-              disabled={downloadingDocx}
-              style={{
-                borderColor: "var(--sand)",
-                color: "var(--deep-green)",
-                fontWeight: 600,
-              }}
-            >
-              {downloadingDocx ? "Generando DOCX…" : "↓ Descargar DOCX (editable)"}
-            </button>
-          )}
 
           {/* Comparar versiones — solo si hay al menos v2 (algo con que comparar) */}
           {hasContent && report && report.version >= 2 && (
@@ -896,9 +896,10 @@ export default function FaseDetailPage({
                 lineHeight: 1.5,
               }}
             >
-              Subí el reporte que editaste afuera. Si ya hay una versión
-              guardada, queda archivada en el historial — vas a poder comparar
-              tu versión con la anterior. El reporte queda como{" "}
+              Subí el <strong>PDF</strong> del reporte ya armado y editado.
+              Queda canónico: cuando vos o el cliente descarguen el reporte,
+              se sirve este PDF tal cual — sin re-renderizar. La versión
+              anterior se archiva en el historial. El reporte queda como{" "}
               <strong>draft</strong> esperando confirmación.
             </p>
 
@@ -918,18 +919,19 @@ export default function FaseDetailPage({
                 Formatos aceptados:
               </strong>
               <br />
-              <code style={{ fontSize: 11 }}>.md</code> /{" "}
-              <code style={{ fontSize: 11 }}>.txt</code> — markdown / texto
-              plano (ideal).
+              <code style={{ fontSize: 11 }}>.pdf</code> — recomendado.
+              Queda guardado como el reporte oficial.
               <br />
-              <code style={{ fontSize: 11 }}>.docx</code> — Word / Google Docs
-              (exportá como .docx).
+              <code style={{ fontSize: 11 }}>.md</code> /{" "}
+              <code style={{ fontSize: 11 }}>.txt</code> — texto plano (para
+              casos donde solo querés actualizar contenido y dejar que el
+              sistema re-renderice).
               <br />
               <span
                 style={{ color: "var(--text-muted)", fontStyle: "italic" }}
               >
-                PDF no se acepta: la extracción de texto rompe la estructura.
-                Re-exportá desde el PDF a Word/Docs y subí ese.
+                Si el PDF es un escaneo sin capa de texto, los agentes no
+                lo van a poder leer para regenerar después.
               </span>
             </div>
 
@@ -948,7 +950,7 @@ export default function FaseDetailPage({
             >
               <input
                 type="file"
-                accept=".md,.markdown,.txt,.docx,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"
                 onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                 disabled={uploading}
                 style={{ display: "none" }}
@@ -986,11 +988,26 @@ export default function FaseDetailPage({
                   <div
                     style={{ fontSize: 11, color: "var(--text-muted)" }}
                   >
-                    .md, .txt o .docx (máx 10 MB)
+                    .pdf (recomendado), .md o .txt — máx 50 MB
                   </div>
                 </>
               )}
             </label>
+
+            {/* Status text durante el upload */}
+            {uploading && uploadStatus && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--sand-dark)",
+                  marginBottom: 16,
+                  textAlign: "center",
+                  fontStyle: "italic",
+                }}
+              >
+                {uploadStatus}
+              </div>
+            )}
 
             {/* Acciones */}
             <div
@@ -1001,6 +1018,7 @@ export default function FaseDetailPage({
                 onClick={() => {
                   setUploadOpen(false);
                   setUploadFile(null);
+                  setUploadStatus("");
                 }}
                 disabled={uploading}
               >
@@ -1011,7 +1029,7 @@ export default function FaseDetailPage({
                 onClick={submitUpload}
                 disabled={uploading || !uploadFile}
               >
-                {uploading ? "Subiendo…" : "Subir y reemplazar"}
+                {uploading ? "Procesando…" : "Subir reporte"}
               </button>
             </div>
           </div>
