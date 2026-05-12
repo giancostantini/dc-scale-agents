@@ -295,103 +295,37 @@ export async function POST(req: NextRequest) {
 // ============================================================
 // normalizeUploadedMarkdown
 // ============================================================
-// Strippea artefactos visuales del PDF original (header de cada
-// página, footer de paginación, cover, TOC). Esto es relevante
-// para el texto extraído del PDF — el PDF en sí ya está visualmente
-// armado, no se renderiza desde el markdown.
+// Limpieza GENTIL del texto. El PDF subido es el artefacto canónico
+// (lo que se descarga/muestra), así que content_md no necesita estar
+// perfecto — solo "presente y legible" para que los agentes puedan
+// usarlo como contexto.
 //
-// El markdown limpio sirve a los agentes (regeneración con feedback,
-// diff entre versiones, contexto para fases siguientes).
+// Decisión: no dropear líneas agresivamente. La extracción de PDF
+// con pdfjs concatena cada página en una línea gigante con espacios
+// entre items, así que dropear líneas tipo header/footer rompía
+// páginas enteras (las líneas empiezan con "Dearmas Costantini …"
+// del header pero contienen el body después).
 function normalizeUploadedMarkdown(md: string): string {
   let s = md;
 
-  // Substituciones de glifos comunes que rompen extractores
+  // Substituciones de glifos comunes (algunos extractores meten "H"
+  // donde había ≈ por sustitución de fuentes)
   s = s.replace(/\bH (US\$|\d)/g, "≈ $1");
-  // Escapes "1\." que algunos extractores meten dentro de headings
+
+  // Escapes "1\." → "1." que turndown/mammoth meten en headings y
+  // rompen detectores de sección downstream.
   s = s.replace(/(\d+)\\\./g, "$1.");
 
-  // Patrones de líneas a descartar — artefactos típicos del PDF
-  // que NO deben viajar como contenido del reporte.
-  const DROP_PATTERNS: RegExp[] = [
-    // Footer de paginación
-    /^\s*Confidencial\s*[·•\-]\s*Dearmas\s+Costantini\s*[·•\-].*\d+\s*\/\s*\d+\s*$/i,
-    /^\s*Confidencial\s*[·•\-]\s*Dearmas\s+Costantini\s*$/i,
-    // Header de cada página
-    /^\s*(\*\*)?Dearmas(\*\*)?\s+(\*\*)?Costantini(\*\*)?.*(D\s*I\s*A\s*G\s*N|E\s*S\s*T\s*R\s*A\s*T|S\s*E\s*T\s*U\s*P|L\s*A\s*N\s*Z\s*A\s*M)/i,
-    // Banner solo del cover
-    /^\s*(#{1,6}\s+)?(\*\*)?Dearmas(\*\*)?\s+(\*\*)?Costantini(\*\*)?\s*$/i,
-    // Subbanners letterspaceados típicos del cover
-    /^\s*(\*\*)?B(\s+|)U(\s+|)S(\s+|)I(\s+|)N(\s+|)E(\s+|)S(\s+|)S\s+G(\s+|)R(\s+|)O(\s+|)W(\s+|)T(\s+|)H\s+P(A)?(\s+|)?R(\s+|)T(\s+|)N(\s+|)E(\s+|)R(\s+|)S.*$/i,
-    /^\s*(\*\*)?R(\s+|)E(\s+|)P(\s+|)O(\s+|)R(\s+|)T(\s+|)E\s+D(\s+|)E\s+F(\s+|)A(\s+|)S(\s+|)E(\s+D(\s+|)E(\s+|)L\s+O(\s+|)N(\s+|)B(\s+|)O(\s+|)A(\s+|)R(\s+|)D(\s+|)I(\s+|)N(\s+|)G)?(\*\*)?\s*$/i,
-    /^\s*(\*\*)?(TA?\s*B\s*L\s*A\s+D\s*E\s+C\s*O\s*N\s*T\s*E\s*N\s*I\s*D\s*O\s*S|Tabla\s+de\s+contenidos)(\*\*)?\s*$/i,
-    // Heading "Diagnóstico/Estrategia/Setup/Lanzamiento" del cover
-    /^\s*#{1,3}\s+(\*\*)?(Diagnóstico|Estrategia|Setup|Lanzamiento)(\*\*)?\s*$/i,
-    // Subtítulo "Growth X Plan"
-    /^\s*Growth\s+(Diagnosis|Strategy|Setup|Launch)\s+Plan\s*$/i,
-    // Metadata CLIENTE / GENERADO / ESTADO / VERSIÓN (con o sin letterspacing)
-    /^\s*(\*\*)?C(\s+|)L(\s+|)I(\s+|)E(\s+|)N(\s+|)T(\s+|)E(\*\*)?(\s+\S.*)?$/i,
-    /^\s*(\*\*)?G(\s+|)E(\s+|)N(\s+|)E(\s+|)R(\s+|)A(\s+|)D(\s+|)O(\*\*)?(\s+\S.*)?$/i,
-    /^\s*(\*\*)?E(\s+|)S(\s+|)T(\s+|)A(\s+|)D(\s+|)O(\*\*)?(\s+\S.*)?$/i,
-    /^\s*(\*\*)?V(\s+|)E(\s+|)R(\s+|)S(\s+|)I(\s+|)Ó(\s+|)N(\*\*)?(\s+\S.*)?$/i,
-    /^\s*(\*\*)?A(\s+|)P(\s+|)R(\s+|)O(\s+|)B(\s+|)A(\s+|)D(\s+|)O(\*\*)?(\s+\S.*)?$/i,
-    // Estados sueltos
-    /^\s*(\*\*)?(Borrador|Aprobado|Draft|Pending)(\*\*)?\s*$/i,
-    /^\s*(\*\*)?v\d+(\*\*)?\s*$/i,
-    // Texto descriptivo del TOC
-    /^\s*Recorrido\s+de\s+las\s+\d+\s+secciones.*$/i,
-    /^\s*\d+\s+secciones\s*[·•\-]\s*recorrido.*$/i,
-    // Líneas decorativas
-    /^\s*[-*_]{3,}\s*$/,
-  ];
+  // Footers de paginación tipo "Confidencial · Dearmas Costantini · 08 de mayo de 2026 3 / 17"
+  // Estos sí los strippeamos donde aparezcan (no son contenido).
+  s = s.replace(
+    /Confidencial\s*[·•\-]\s*Dearmas\s+Costantini\s*[·•\-]\s*\d{1,2}\s+de\s+\w+\s+de\s+\d{4}\s+\d+\s*\/\s*\d+/gi,
+    "",
+  );
 
-  const TOC_HEADING =
-    /^(#{1,6})\s+(\*\*)?\s*(Índice|Indice|Tabla\s+de\s+contenidos|Table\s+of\s+contents)\s*(\*\*)?\s*$/i;
-  const TOC_HEADING_BOLD =
-    /^\s*(\*\*)?(Índice|Indice|Tabla\s+de\s+contenidos)(\*\*)?\s*$/i;
-  const TOC_ENTRY =
-    /^\s*(\*\*)?(\d{1,2})(\*\*)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ][\w\s,áéíóúñÁÉÍÓÚÑüÜ\-\.\&\/\(\)]{2,80}\s*$/;
-  const SECTION_HEADING = /^#{1,6}\s+(\d+)\.\s+/;
-  const TOC_SUBTITLE = /^\s*Recorrido\s+de\s+las\s+\d+\s+secciones/i;
+  // Colapsar espacios múltiples y limpiar
+  s = s.replace(/\n{3,}/g, "\n\n");
+  s = s.trim();
 
-  const lines = s.split("\n");
-  const cleaned: string[] = [];
-  let insideToc = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    if (TOC_HEADING.test(trimmed) || TOC_HEADING_BOLD.test(trimmed)) {
-      insideToc = true;
-      continue;
-    }
-
-    if (insideToc) {
-      if (SECTION_HEADING.test(line)) {
-        insideToc = false;
-        cleaned.push(line);
-        continue;
-      }
-      if (/^#{1,6}\s+/.test(line) && !TOC_HEADING.test(line)) {
-        insideToc = false;
-        cleaned.push(line);
-        continue;
-      }
-      if (TOC_ENTRY.test(trimmed) || TOC_SUBTITLE.test(trimmed) || !trimmed) {
-        continue;
-      }
-      insideToc = false;
-      cleaned.push(line);
-      continue;
-    }
-
-    if (DROP_PATTERNS.some((p) => p.test(trimmed))) continue;
-
-    cleaned.push(line);
-  }
-
-  let out = cleaned.join("\n");
-  out = out.replace(/\n{3,}/g, "\n\n");
-  out = out.trim();
-  return out;
+  return s;
 }
