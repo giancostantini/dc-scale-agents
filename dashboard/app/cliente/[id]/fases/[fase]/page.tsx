@@ -483,6 +483,64 @@ export default function FaseDetailPage({
     if (!confirm(`Confirmar el reporte de ${meta.reportName}?\n\nUna vez aprobado se desbloquea la siguiente fase.`)) return;
     setBusy(true);
     try {
+      // Si hay PDF subido, antes de aprobar lo "sellamos" reemplazando
+      // la palabra "Borrador" por "Aprobado" en la carátula. El resto
+      // del diseño queda intacto. Si "Borrador" no aparece en el PDF,
+      // stampApproved devuelve el blob original sin modificar.
+      if (report?.pdf_path) {
+        try {
+          const supabase = getSupabase();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session) throw new Error("Sin sesión");
+
+          // 1) Bajar PDF actual vía signed URL
+          const sigRes = await fetch(
+            `/api/phases/uploaded-pdf?clientId=${encodeURIComponent(id)}&phase=${phaseKey}&version=${report.version}`,
+            { headers: { Authorization: `Bearer ${session.access_token}` } },
+          );
+          const sigData = await sigRes.json();
+          if (!sigRes.ok || !sigData?.signedUrl) {
+            throw new Error(sigData?.error ?? "No se pudo bajar el PDF actual.");
+          }
+          const pdfBlob = await fetch(sigData.signedUrl).then((r) => r.blob());
+
+          // 2) Sellar — reemplazar "Borrador" por "Aprobado"
+          const { stampApproved } = await import("@/lib/pdf-stamp-approved");
+          const stampedBlob = await stampApproved(pdfBlob);
+
+          // 3) Si el blob cambió de tamaño (=hubo modificación), re-subir.
+          //    Si no, skip — "Borrador" no aparecía en el PDF.
+          if (stampedBlob.size !== pdfBlob.size) {
+            const fd = new FormData();
+            fd.append("clientId", id);
+            fd.append("phase", phaseKey);
+            fd.append(
+              "file",
+              new File([stampedBlob], "approved.pdf", { type: "application/pdf" }),
+            );
+            const repRes = await fetch("/api/phases/replace-pdf", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+              body: fd,
+            });
+            if (!repRes.ok) {
+              const e = await repRes.json().catch(() => ({}));
+              console.warn(
+                "[approve] no se pudo sellar el PDF, sigo aprobando:",
+                e?.error,
+              );
+            }
+          }
+        } catch (stampErr) {
+          // No bloqueamos la aprobación por un error de sellado —
+          // logueamos y seguimos.
+          console.warn("[approve] sellado del PDF falló:", stampErr);
+        }
+      }
+
+      // 4) Aprobar normalmente
       await callPhaseEndpoint("/api/phases/approve", {
         clientId: id,
         phase: phaseKey,
