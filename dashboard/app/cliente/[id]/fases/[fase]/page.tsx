@@ -648,6 +648,74 @@ export default function FaseDetailPage({
     }
   }
 
+  // ============================================================
+  // applyAnalysisChanges
+  // ============================================================
+  // Toma el texto del análisis crítico generado por el agente y lo
+  // usa como feedback para regenerar el reporte. Aprovecha el "modo
+  // edición" del generate (preserva verbatim lo no tocado, solo
+  // ajusta lo señalado por el análisis).
+  async function applyAnalysisChanges(reviewText: string) {
+    if (busy) return;
+    if (
+      !confirm(
+        `¿Aplicar los cambios sugeridos por el análisis al reporte?\n\n` +
+          `El agente va a tomar el análisis como feedback y regenerar la ` +
+          `versión preservando lo que está bien y ajustando solo lo señalado. ` +
+          `Si tenés un PDF subido, ese PDF NO se modifica (sigue siendo canónico) ` +
+          `— se actualiza el content_md interno y se bumpea la versión.`,
+      )
+    )
+      return;
+
+    // Wrap del análisis como instrucción de feedback. El generate
+    // endpoint detecta `feedback` + reporte previo y entra en modo
+    // edición, así que solo cambia lo que el análisis pide.
+    const wrappedFeedback =
+      `Aplicar los cambios sugeridos por el siguiente análisis crítico ` +
+      `interno del reporte. Atendé puntualmente los "huecos / debilidades" ` +
+      `y la "sugerencia accionable". Preservá verbatim todo lo que el ` +
+      `análisis NO toque.\n\n` +
+      `=== ANÁLISIS ===\n\n${reviewText}\n\n=== FIN ANÁLISIS ===`;
+
+    setBusy(true);
+    try {
+      // Paso 1: guardar feedback (marca como changes_requested)
+      await callPhaseEndpoint("/api/phases/request-changes", {
+        clientId: id,
+        phase: phaseKey,
+        feedback: wrappedFeedback,
+      });
+    } catch (err) {
+      const e = err as Error;
+      alert(
+        `No se pudo guardar el feedback del análisis:\n\n${e.message}`,
+      );
+      setBusy(false);
+      throw err;
+    }
+
+    try {
+      // Paso 2: regenerar con el feedback
+      await callPhaseEndpoint("/api/phases/generate", {
+        clientId: id,
+        phase: phaseKey,
+        feedback: wrappedFeedback,
+      });
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      setReloadFlag((f) => f + 1);
+      alert(
+        `El feedback del análisis se guardó pero la regeneración falló:\n\n${e.message}\n\n` +
+          `Podés reintentarla con "Regenerar con feedback" cuando quieras.`,
+      );
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitUpload() {
     if (uploading) return;
     if (!uploadFile) {
@@ -1293,11 +1361,13 @@ export default function FaseDetailPage({
             phaseKey={key}
             contentMd={report.content_md}
             reviewMd={report.review_md}
+            canApplyChanges={!isApproved && !isGenerating}
             onReviewUpdated={(newReview) =>
               setReport((prev) =>
                 prev ? { ...prev, review_md: newReview } : prev,
               )
             }
+            onApplyChanges={applyAnalysisChanges}
           />
         )}
       </div>

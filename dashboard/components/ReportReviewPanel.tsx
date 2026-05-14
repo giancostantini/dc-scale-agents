@@ -21,9 +21,17 @@ interface Props {
   phaseKey: PhaseKey;
   contentMd: string | null;
   reviewMd: string | null;
+  /** Si false, el botón "Aplicar cambios" queda deshabilitado.
+   *  Útil cuando la fase está aprobada o generándose. */
+  canApplyChanges: boolean;
   /** Callback cuando el análisis se regenera — para refrescar el
    *  parent con el nuevo review_md sin tener que reload completo. */
   onReviewUpdated: (newReview: string) => void;
+  /** Callback para aplicar los cambios sugeridos del análisis.
+   *  Recibe el texto del análisis. El parent lo manda como feedback
+   *  a /api/phases/request-changes + /api/phases/generate, igual
+   *  que el flujo "Proponer cambios" → regenerar. */
+  onApplyChanges: (reviewText: string) => Promise<void>;
 }
 
 export default function ReportReviewPanel({
@@ -31,9 +39,12 @@ export default function ReportReviewPanel({
   phaseKey,
   contentMd,
   reviewMd,
+  canApplyChanges,
   onReviewUpdated,
+  onApplyChanges,
 }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function generateReview(force: boolean) {
@@ -65,6 +76,20 @@ export default function ReportReviewPanel({
       setError(e.message ?? "Error desconocido");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function applyChanges() {
+    if (applying || !reviewMd) return;
+    setApplying(true);
+    setError(null);
+    try {
+      await onApplyChanges(reviewMd);
+    } catch (err) {
+      const e = err as Error;
+      setError(e.message ?? "Error desconocido");
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -111,18 +136,20 @@ export default function ReportReviewPanel({
           {reviewMd ? (
             <button
               onClick={() => generateReview(true)}
-              disabled={generating}
+              disabled={generating || applying}
               style={{
-                background: "transparent",
-                border: "1px solid rgba(10,26,12,0.15)",
-                color: "var(--deep-green)",
+                background: "var(--deep-green)",
+                color: "var(--bone)",
+                border: "none",
+                padding: "6px 14px",
                 fontSize: 11,
-                padding: "4px 10px",
-                cursor: generating ? "default" : "pointer",
-                fontWeight: 500,
+                fontWeight: 600,
+                cursor: generating || applying ? "default" : "pointer",
+                letterSpacing: "0.3px",
+                opacity: generating || applying ? 0.5 : 1,
               }}
             >
-              {generating ? "Generando…" : "↻ Regenerar análisis"}
+              {generating ? "Analizando…" : "↻ Hacer análisis"}
             </button>
           ) : null}
         </div>
@@ -171,9 +198,10 @@ export default function ReportReviewPanel({
                 fontWeight: 600,
                 cursor: generating ? "default" : "pointer",
                 letterSpacing: "0.5px",
+                opacity: generating ? 0.5 : 1,
               }}
             >
-              {generating ? "Analizando…" : "Generar análisis"}
+              {generating ? "Analizando…" : "Hacer análisis"}
             </button>
           </div>
         )}
@@ -192,6 +220,77 @@ export default function ReportReviewPanel({
           </div>
         )}
       </section>
+
+      {/* ============ APLICAR CAMBIOS ============ */}
+      {reviewMd && (
+        <section>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.25em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 12,
+            }}
+          >
+            Acción
+          </div>
+          <div
+            style={{
+              padding: 18,
+              background: "var(--ivory)",
+              border: "1px solid rgba(10,26,12,0.08)",
+              borderLeft: "3px solid var(--deep-green)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--text-soft, #5a6a5e)",
+                lineHeight: 1.5,
+                maxWidth: 520,
+              }}
+            >
+              Aplicá los cambios sugeridos por el análisis al reporte. El
+              agente regenera tomando este análisis como feedback —
+              preservando lo que está bien, ajustando solo lo señalado.
+            </div>
+            <button
+              onClick={applyChanges}
+              disabled={applying || generating || !canApplyChanges}
+              title={
+                !canApplyChanges
+                  ? "Desbloqueá primero la fase (deshacer aprobación) para aplicar cambios."
+                  : undefined
+              }
+              style={{
+                background: "var(--deep-green)",
+                color: "var(--bone)",
+                border: "none",
+                padding: "10px 18px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor:
+                  applying || generating || !canApplyChanges
+                    ? "default"
+                    : "pointer",
+                letterSpacing: "0.5px",
+                opacity:
+                  applying || generating || !canApplyChanges ? 0.5 : 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {applying ? "Aplicando…" : "Aplicar cambios del análisis"}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
