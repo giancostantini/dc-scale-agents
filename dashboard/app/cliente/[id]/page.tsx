@@ -20,7 +20,6 @@ import type {
 } from "@/lib/types";
 import type { ClientAssignment, Profile } from "@/lib/supabase/auth";
 import ui from "@/components/ClientUI.module.css";
-import MorningBriefingPanel from "@/components/MorningBriefingPanel";
 
 export default function ClienteDashboard({
   params,
@@ -136,8 +135,10 @@ function GPDashboard({
 
       <TeamPanel assignments={assignments} profilesById={profilesById} />
 
-      {/* Morning Briefing — panel del agente que corre cada día 8am UY */}
-      <MorningBriefingPanel clientId={client.id} />
+      {/* El morning briefing dejó de ser un panel por-cliente. Ahora vive
+          en el widget global del consultor (bottom-right): es por user,
+          personalizado por rol (director/team) y se entrega como mensaje
+          is_briefing=true en la conversación pinned. */}
 
       {/* Solicitudes del cliente pendientes — visibles directamente
           en el dashboard para que el equipo no se las pierda. */}
@@ -301,8 +302,6 @@ function DevDashboard({
       </div>
 
       <TeamPanel assignments={assignments} profilesById={profilesById} />
-
-      <MorningBriefingPanel clientId={client.id} />
 
       <PendingRequestsPanel
         clientId={client.id}

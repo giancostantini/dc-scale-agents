@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
+import ConsultantWidgetMount from "@/components/ConsultantWidgetMount";
 
 // Fuentes oficiales de la marca
 const inter = Inter({
@@ -28,7 +29,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${inter.variable} ${dmSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ConsultantWidgetMount />
+      </body>
     </html>
   );
 }

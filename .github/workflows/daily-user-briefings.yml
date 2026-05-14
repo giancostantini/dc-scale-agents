@@ -1,0 +1,93 @@
+name: Daily User Briefings
+
+# Corre todos los días a las 11:00 UTC = 8:00 AM Uruguay (UTC-3) y dispara
+# el morning-briefing en modo per-user para cada miembro del team
+# (director + team). Cada briefing se entrega como mensaje is_briefing=true
+# en la pinned conversation del user (consultant_messages) — el widget
+# global lo muestra al abrirlo.
+#
+# Coexiste con `daily-morning-briefings.yml` (mode legacy per-client)
+# hasta que el dashboard del cliente se limpie. No hay conflicto: distintos
+# agentes runs, distintas tablas, distintos receptores.
+#
+# Manual: workflow_dispatch para testing.
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'User UUID (opcional — si se da, corre solo para ese user)'
+        required: false
+
+jobs:
+  list-users:
+    runs-on: ubuntu-latest
+    outputs:
+      users: ${{ steps.list.outputs.users }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - name: List active team users from Supabase
+        id: list
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          INPUT_USER_ID: ${{ inputs.user_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
+            exit 1
+          fi
+          if [ -n "${INPUT_USER_ID:-}" ]; then
+            # Manual run con un user_id puntual — saltar query y devolver solo ese
+            users="[\"${INPUT_USER_ID}\"]"
+            count=1
+          else
+            response=$(curl -fsS \
+              "${SUPABASE_URL}/rest/v1/profiles?role=in.(director,team)&select=id" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}")
+            users=$(echo "$response" | jq -c '[.[] | .id]')
+            count=$(echo "$response" | jq 'length')
+          fi
+          echo "users=$users" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Encontrados $count users (director/team): $users"
+
+  briefing:
+    needs: list-users
+    if: ${{ needs.list-users.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        user: ${{ fromJson(needs.list-users.outputs.users) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install deps
+        run: npm install --omit=dev
+
+      - name: Run Morning Briefing for user ${{ matrix.user }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          cat > /tmp/brief.json <<EOF
+          {
+            "userId": "${{ matrix.user }}",
+            "source": "scheduled",
+            "mode": "daily-user"
+          }
+          EOF
+          node scripts/morning-briefing/index.js --brief /tmp/brief.json
