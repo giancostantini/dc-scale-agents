@@ -139,7 +139,7 @@ export default function ReportReviewPanel({
               disabled={generating || applying}
               style={{
                 background: "var(--deep-green)",
-                color: "var(--bone)",
+                color: "var(--off-white)",
                 border: "none",
                 padding: "6px 14px",
                 fontSize: 11,
@@ -191,7 +191,7 @@ export default function ReportReviewPanel({
               disabled={generating}
               style={{
                 background: "var(--deep-green)",
-                color: "var(--bone)",
+                color: "var(--off-white)",
                 border: "none",
                 padding: "10px 18px",
                 fontSize: 12,
@@ -271,7 +271,7 @@ export default function ReportReviewPanel({
               }
               style={{
                 background: "var(--deep-green)",
-                color: "var(--bone)",
+                color: "var(--off-white)",
                 border: "none",
                 padding: "10px 18px",
                 fontSize: 12,
