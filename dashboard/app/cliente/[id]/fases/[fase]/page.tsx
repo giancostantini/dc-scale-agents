@@ -3,7 +3,6 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
-import PhaseVersionsDrawer from "@/components/PhaseVersionsDrawer";
 import ReportReviewPanel from "@/components/ReportReviewPanel";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { getSupabase } from "@/lib/supabase/client";
@@ -88,13 +87,9 @@ export default function FaseDetailPage({
   const [isDirector, setIsDirector] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reloadFlag, setReloadFlag] = useState(0);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
   const [client, setClient] = useState<Client | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [downloadingPptx, setDownloadingPptx] = useState(false);
-  const [versionsOpen, setVersionsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -244,75 +239,6 @@ export default function FaseDetailPage({
     }
   }
 
-  async function downloadPptx() {
-    if (!report || !report.content_md || !client) return;
-    setDownloadingPptx(true);
-    try {
-      const phaseLabel =
-        key === "diagnostico"
-          ? "Diagnóstico"
-          : key === "estrategia"
-          ? "Estrategia"
-          : key === "setup"
-          ? "Setup"
-          : key === "lanzamiento"
-          ? "Lanzamiento"
-          : "Reporte";
-
-      // Convertir el logo del cliente a data URL (mismo flujo que el PDF)
-      let logoDataUrl: string | null = null;
-      if (logoUrl) {
-        try {
-          const imgRes = await fetch(logoUrl);
-          if (imgRes.ok) {
-            const blobImg = await imgRes.blob();
-            logoDataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(blobImg);
-            });
-          }
-        } catch (e) {
-          console.warn("[downloadPptx] no se pudo cargar el logo, sigue sin él:", e);
-        }
-      }
-
-      // Lazy import — pptxgenjs es ~700 KB, fuera del bundle inicial
-      const { buildPhaseReportPptx } = await import(
-        "@/lib/phase-report-pptx"
-      );
-
-      const blob = await buildPhaseReportPptx({
-        phaseLabel,
-        reportName: meta?.reportName ?? phaseLabel,
-        clientName: client.name,
-        clientLogoDataUrl: logoDataUrl,
-        generatedAt: report.generated_at,
-        approvedAt: report.approved_at,
-        version: report.version,
-        contentMd: report.content_md,
-        isBrandLaunch: client.onboarding?.isBrandLaunch === true,
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${phaseLabel}_${client.name.replace(/\s+/g, "_")}_v${report.version}.pptx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("downloadPptx error:", err);
-      const e = err as Error;
-      alert(
-        `No se pudo generar la presentación.\n\n${e.message ?? "Error desconocido"}\n\nAbrí la consola (F12) y mandame el error.`,
-      );
-    } finally {
-      setDownloadingPptx(false);
-    }
-  }
 
   // Polling cuando está generando
   useEffect(() => {
@@ -387,7 +313,6 @@ export default function FaseDetailPage({
   const isApproved = status === "approved";
   const isDraft = status === "draft";
   const isGenerating = status === "generating";
-  const isChangesRequested = status === "changes_requested";
   const hasContent = report?.content_md && report.content_md.length > 0;
 
   // ===== Acciones =====
@@ -590,64 +515,6 @@ export default function FaseDetailPage({
     }
   }
 
-  async function submitChangesRequest() {
-    if (busy) return;
-    if (!feedbackText.trim()) {
-      alert("Escribí qué cambios querés.");
-      return;
-    }
-    setBusy(true);
-
-    // Paso 1: guardar el feedback (marca como changes_requested).
-    // Si falla, abortamos antes de regenerar — al menos el feedback
-    // no se pierde porque ni se llegó a guardar en el draft anterior.
-    try {
-      await callPhaseEndpoint("/api/phases/request-changes", {
-        clientId: id,
-        phase: phaseKey,
-        feedback: feedbackText.trim(),
-      });
-    } catch (err) {
-      const e = err as Error;
-      alert(
-        `No se pudo guardar el feedback:\n\n${e.message}\n\n` +
-          `El reporte sigue en su estado anterior. Probá de nuevo en unos segundos.`,
-      );
-      setBusy(false);
-      return;
-    }
-
-    // Paso 2: regenerar con el feedback como contexto.
-    // Si esto falla (rate limit, créditos, etc), el feedback ya quedó
-    // guardado — el director puede reintentar con "Regenerar con feedback"
-    // sin tener que reescribirlo.
-    try {
-      await callPhaseEndpoint("/api/phases/generate", {
-        clientId: id,
-        phase: phaseKey,
-        feedback: feedbackText.trim(),
-      });
-      // Éxito en ambos pasos — limpiamos y cerramos el modal.
-      setFeedbackText("");
-      setFeedbackOpen(false);
-      setReloadFlag((f) => f + 1);
-    } catch (err) {
-      const e = err as Error;
-      // El feedback YA está guardado; falla solo la regeneración.
-      // Cerramos el modal pero refrescamos para mostrar el banner
-      // de "changes_requested" con el feedback persistido.
-      setFeedbackText("");
-      setFeedbackOpen(false);
-      setReloadFlag((f) => f + 1);
-      alert(
-        `Tu feedback se guardó, pero la regeneración falló:\n\n${e.message}\n\n` +
-          `Click en "Regenerar con feedback" cuando quieras reintentar (no hace falta reescribirlo).`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   // ============================================================
   // applyAnalysisChanges
   // ============================================================
@@ -712,7 +579,7 @@ export default function FaseDetailPage({
       setReloadFlag((f) => f + 1);
       alert(
         `El feedback del análisis se guardó pero la regeneración falló:\n\n${e.message}\n\n` +
-          `Podés reintentarla con "Regenerar con feedback" cuando quieras.`,
+          `Volvé a clickear "Aplicar cambios del análisis" para reintentar.`,
       );
       setBusy(false);
       throw err;
@@ -896,35 +763,15 @@ export default function FaseDetailPage({
             </button>
           )}
 
-          {/* Confirmar / Proponer cambios (cuando hay draft) */}
+          {/* Confirmar (cuando hay draft) */}
           {isDraft && (
-            <>
-              <button
-                className={ui.btnSolid}
-                onClick={approve}
-                disabled={busy}
-                style={{ background: "var(--green-ok)" }}
-              >
-                ✓ Confirmar y desbloquear siguiente fase
-              </button>
-              <button
-                className={ui.btnGhost}
-                onClick={() => setFeedbackOpen(true)}
-                disabled={busy}
-              >
-                ↻ Proponer cambios
-              </button>
-            </>
-          )}
-
-          {/* Regenerar tras cambios solicitados */}
-          {isChangesRequested && (
             <button
               className={ui.btnSolid}
-              onClick={() => generate(report?.feedback ?? undefined)}
+              onClick={approve}
               disabled={busy}
+              style={{ background: "var(--green-ok)" }}
             >
-              {busy ? "Regenerando…" : "↻ Regenerar con feedback"}
+              ✓ Confirmar y desbloquear siguiente fase
             </button>
           )}
 
@@ -945,27 +792,7 @@ export default function FaseDetailPage({
             </button>
           )}
 
-          {/* Re-generar desde cero (cualquier estado distinto a generating) */}
-          {hasContent && status !== "approved" && (
-            <button
-              className={ui.btnGhost}
-              onClick={() => {
-                if (
-                  confirm(
-                    "¿Regenerar el reporte desde cero, ignorando cambios actuales?",
-                  )
-                ) {
-                  generate();
-                }
-              }}
-              disabled={busy}
-              style={{ fontSize: 11 }}
-            >
-              Regenerar desde cero
-            </button>
-          )}
-
-          {/* Descargar PDF — al lado de los demás botones de acción */}
+          {/* Descargar PDF */}
           {hasContent && (
             <button
               className={ui.btnGhost}
@@ -978,40 +805,6 @@ export default function FaseDetailPage({
               }}
             >
               {downloadingPdf ? "Generando PDF…" : "↓ Descargar PDF"}
-            </button>
-          )}
-
-          {/* Descargar PPT — para presentar al cliente */}
-          {hasContent && (
-            <button
-              className={ui.btnGhost}
-              onClick={downloadPptx}
-              disabled={downloadingPptx}
-              style={{
-                borderColor: "var(--sand)",
-                color: "var(--deep-green)",
-                fontWeight: 600,
-              }}
-            >
-              {downloadingPptx
-                ? "Generando PPT…"
-                : "↓ Descargar PPT (10 slides)"}
-            </button>
-          )}
-
-
-          {/* Comparar versiones — solo si hay al menos v2 (algo con que comparar) */}
-          {hasContent && report && report.version >= 2 && (
-            <button
-              className={ui.btnGhost}
-              onClick={() => setVersionsOpen(true)}
-              style={{
-                borderColor: "rgba(10,26,12,0.18)",
-                color: "var(--deep-green)",
-                fontSize: 12,
-              }}
-            >
-              ⇋ Comparar versiones (v{report.version})
             </button>
           )}
 
@@ -1032,17 +825,6 @@ export default function FaseDetailPage({
         </div>
       )}
 
-      {/* Drawer de versiones (kickoff ya retornó arriba, key acá es PhaseKey) */}
-      {client && report && (
-        <PhaseVersionsDrawer
-          open={versionsOpen}
-          onClose={() => setVersionsOpen(false)}
-          clientId={id}
-          phaseKey={key}
-          phaseLabel={meta.title.split(" · ")[0]}
-          currentVersion={report.version}
-        />
-      )}
 
       {/* Modal de subir reporte editado */}
       {uploadOpen && (
@@ -1239,143 +1021,6 @@ export default function FaseDetailPage({
                 {uploading ? "Procesando…" : "Subir reporte"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de feedback */}
-      {feedbackOpen && (
-        <div
-          onClick={(e) =>
-            e.target === e.currentTarget && setFeedbackOpen(false)
-          }
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(10,26,12,0.6)",
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 40,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            style={{
-              background: "var(--white)",
-              maxWidth: 620,
-              width: "100%",
-              padding: 36,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.25em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 600,
-                marginBottom: 12,
-              }}
-            >
-              Proponer cambios al reporte
-            </div>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                marginBottom: 8,
-              }}
-            >
-              ¿Qué te gustaría que ajuste?
-            </h2>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text-muted)",
-                marginBottom: 20,
-                lineHeight: 1.5,
-              }}
-            >
-              Sé específico. El agente toma este feedback y regenera el
-              reporte aplicando los cambios.
-            </p>
-            <textarea
-              value={feedbackText}
-              onChange={(e) => setFeedbackText(e.target.value)}
-              rows={6}
-              autoFocus
-              placeholder="Ej: La sección de competidores tiene que enfocarse en empresas LATAM, no globales. El benchmark táctico que armaste para el sector está bien pero falta incluir TikTok como canal a explorar."
-              style={{
-                width: "100%",
-                background: "var(--ivory)",
-                border: "1px solid rgba(10,26,12,0.12)",
-                padding: 14,
-                color: "var(--deep-green)",
-                fontSize: 14,
-                fontWeight: 300,
-                outline: "none",
-                fontFamily: "inherit",
-                resize: "vertical",
-                marginBottom: 20,
-              }}
-            />
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button
-                className={ui.btnGhost}
-                onClick={() => {
-                  setFeedbackOpen(false);
-                  setFeedbackText("");
-                }}
-                disabled={busy}
-              >
-                Cancelar
-              </button>
-              <button
-                className={ui.btnSolid}
-                onClick={submitChangesRequest}
-                disabled={busy}
-              >
-                {busy ? "Regenerando…" : "Enviar y regenerar →"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Feedback histórico (si hay) */}
-      {report?.feedback && status === "changes_requested" && (
-        <div
-          style={{
-            padding: "14px 18px",
-            background: "rgba(176,75,58,0.06)",
-            borderLeft: "3px solid var(--red-warn)",
-            marginBottom: 24,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "var(--red-warn)",
-              fontWeight: 600,
-              marginBottom: 8,
-            }}
-          >
-            Cambios solicitados
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--deep-green)",
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.5,
-            }}
-          >
-            {report.feedback}
           </div>
         </div>
       )}
