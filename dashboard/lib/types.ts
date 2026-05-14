@@ -126,6 +126,13 @@ export interface ClientExternalLinks {
   teams_folder_url?: string;
 }
 
+/**
+ * Frecuencia semanal de publicación por red social.
+ * Ej: { ig: 3, tt: 5, in: 2 } = Instagram 3/sem, TikTok 5/sem, LinkedIn 2/sem.
+ * Solo se incluyen las redes que el cliente usa.
+ */
+export type ContentFrequency = Partial<Record<ContentNetwork, number>>;
+
 export interface Client {
   id: string;
   initials: string;
@@ -144,6 +151,9 @@ export interface Client {
   /** URLs a herramientas externas (Espor.ai, Looker Studio, Teams).
    *  Las configura el director desde Analítica / Biblioteca. */
   external_links?: ClientExternalLinks;
+  /** Frecuencia semanal de publicación por red. El planificador la
+   *  usa para marcar los días "sugeridos" en el calendario. */
+  content_frequency?: ContentFrequency;
 }
 
 // ==================== PIPELINE / CRM ====================

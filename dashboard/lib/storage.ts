@@ -78,6 +78,7 @@ interface ClientRow {
   country: string | null;
   onboarding: ClientOnboarding | null;
   external_links: Client["external_links"] | null;
+  content_frequency: Client["content_frequency"] | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -97,6 +98,7 @@ function clientFromRow(r: ClientRow): Client {
     sprints: r.sprints ?? undefined,
     onboarding: r.onboarding ?? undefined,
     external_links: r.external_links ?? undefined,
+    content_frequency: r.content_frequency ?? undefined,
   };
 }
 
@@ -214,6 +216,23 @@ export async function addClient(data: AddClientInput): Promise<Client> {
 export async function deleteClient(id: string): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase.from("clients").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Actualiza la frecuencia semanal de contenido por red social.
+ * Reemplaza el JSONB entero (no es merge — el director define todas
+ * las redes que usa en una sola pasada).
+ */
+export async function updateClientContentFrequency(
+  clientId: string,
+  freq: Client["content_frequency"],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ content_frequency: freq ?? {} })
+    .eq("id", clientId);
   if (error) throw error;
 }
 
