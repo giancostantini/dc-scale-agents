@@ -10,7 +10,6 @@ import {
 } from "@/lib/storage";
 import { listRequestsForClient } from "@/lib/requests";
 import { getCurrentProfile } from "@/lib/supabase/auth";
-import { listAssignmentsForClient, listProfiles } from "@/lib/team";
 import type {
   Client,
   ClientObjectives,
@@ -18,7 +17,6 @@ import type {
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
-import type { ClientAssignment, Profile } from "@/lib/supabase/auth";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ClienteDashboard({
@@ -31,10 +29,6 @@ export default function ClienteDashboard({
   const [objectives, setObjectives] = useState<ClientObjectives | undefined>();
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [tasks, setTasks] = useState<DevTask[]>([]);
-  const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
-  const [profilesById, setProfilesById] = useState<Map<string, Profile>>(
-    new Map(),
-  );
   const [pendingRequests, setPendingRequests] = useState<ClientRequest[]>([]);
   const [isDirector, setIsDirector] = useState(false);
 
@@ -45,17 +39,13 @@ export default function ClienteDashboard({
       getProdCampaigns(id),
       getTasks(id),
       getCurrentProfile(),
-      listAssignmentsForClient(id),
-      listProfiles(),
       listRequestsForClient(id),
-    ]).then(([c, o, p, t, profile, asigs, profiles, reqs]) => {
+    ]).then(([c, o, p, t, profile, reqs]) => {
       setClient(c ?? null);
       setObjectives(o);
       setCampaigns(p);
       setTasks(t);
       setIsDirector(profile?.role === "director");
-      setAssignments(asigs);
-      setProfilesById(new Map(profiles.map((pr) => [pr.id, pr])));
       // Solo solicitudes pendientes o en revisión — el equipo necesita
       // verlas; las que ya están done/rejected no aportan ruido.
       setPendingRequests(
@@ -75,16 +65,12 @@ export default function ClienteDashboard({
       objectives={objectives}
       campaigns={campaigns}
       isDirector={isDirector}
-      assignments={assignments}
-      profilesById={profilesById}
       pendingRequests={pendingRequests}
     />
   ) : (
     <DevDashboard
       client={client}
       tasks={tasks}
-      assignments={assignments}
-      profilesById={profilesById}
       pendingRequests={pendingRequests}
     />
   );
@@ -97,22 +83,18 @@ function GPDashboard({
   objectives,
   campaigns,
   isDirector,
-  assignments,
-  profilesById,
   pendingRequests,
 }: {
   client: Client;
   objectives?: ClientObjectives;
   campaigns: ProductionCampaign[];
   isDirector: boolean;
-  assignments: ClientAssignment[];
-  profilesById: Map<string, Profile>;
   pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
   // Las métricas de paid media y el presupuesto se sacaron del dashboard:
   // el primero vive ahora en Espor.ai + Looker Studio (Analítica),
-  // el segundo en /campanas. Acá quedan: header, equipo, briefing,
+  // el segundo en /campanas. Acá quedan: header, briefing,
   // solicitudes y objetivos.
   // campaigns sigue llegando como prop por compat (lo usa el resto del page).
   void campaigns;
@@ -132,8 +114,6 @@ function GPDashboard({
           {client.phase}
         </div>
       </div>
-
-      <TeamPanel assignments={assignments} profilesById={profilesById} />
 
       {/* El morning briefing dejó de ser un panel por-cliente. Ahora vive
           en el widget global del consultor (bottom-right): es por user,
@@ -274,14 +254,10 @@ function GPDashboard({
 function DevDashboard({
   client,
   tasks,
-  assignments,
-  profilesById,
   pendingRequests,
 }: {
   client: Client;
   tasks: DevTask[];
-  assignments: ClientAssignment[];
-  profilesById: Map<string, Profile>;
   pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
@@ -300,8 +276,6 @@ function DevDashboard({
         </div>
         <div className={ui.phaseBadge}>{client.phase}</div>
       </div>
-
-      <TeamPanel assignments={assignments} profilesById={profilesById} />
 
       <PendingRequestsPanel
         clientId={client.id}
@@ -472,169 +446,6 @@ function DevDashboard({
   );
 }
 
-// ==================== TEAM PANEL ====================
-
-function TeamPanel({
-  assignments,
-  profilesById,
-}: {
-  assignments: ClientAssignment[];
-  profilesById: Map<string, Profile>;
-}) {
-  const router = useRouter();
-  const sorted = [...assignments].sort((a, b) =>
-    a.role_in_client.localeCompare(b.role_in_client),
-  );
-
-  if (sorted.length === 0) {
-    return (
-      <div
-        style={{
-          padding: "10px 14px",
-          marginBottom: 16,
-          background: "var(--off-white)",
-          borderLeft: "2px solid var(--sand)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 10,
-          fontSize: 12,
-          color: "var(--text-muted)",
-        }}
-      >
-        <span>
-          <strong style={{ color: "var(--deep-green)" }}>Equipo</strong> · Sin
-          equipo asignado.
-        </span>
-        <button
-          onClick={() => router.push("/equipo")}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--sand-dark)",
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Asignar →
-        </button>
-      </div>
-    );
-  }
-
-  // Layout compacto: un strip horizontal con chips chiquitos. Avatar 24px,
-  // nombre + rol en una línea, todos los miembros en flow horizontal.
-  return (
-    <div
-      style={{
-        padding: "10px 14px",
-        marginBottom: 16,
-        background: "var(--off-white)",
-        borderLeft: "2px solid var(--sand)",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        flexWrap: "wrap",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--sand-dark)",
-          fontWeight: 700,
-          marginRight: 6,
-        }}
-      >
-        Equipo
-      </div>
-      {sorted.map((a) => {
-        const profile = profilesById.get(a.user_id);
-        const initials = profile?.initials ?? "??";
-        const name = profile?.name ?? "Usuario";
-        return (
-          <button
-            key={`${a.user_id}-${a.role_in_client}`}
-            type="button"
-            onClick={() => profile && router.push(`/equipo/${profile.id}`)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "3px 10px 3px 3px",
-              background: "var(--white)",
-              border: "1px solid rgba(10,26,12,0.08)",
-              cursor: profile ? "pointer" : "default",
-              fontFamily: "inherit",
-              borderRadius: 0,
-            }}
-            title={`${name} · ${a.role_in_client}`}
-          >
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                background: "var(--sand)",
-                color: "var(--deep-green)",
-                fontWeight: 700,
-                fontSize: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                letterSpacing: "0.05em",
-                flexShrink: 0,
-              }}
-            >
-              {initials}
-            </div>
-            <span
-              style={{
-                fontSize: 12,
-                color: "var(--deep-green)",
-                fontWeight: 500,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {name.split(" ")[0]}
-            </span>
-            <span
-              style={{
-                fontSize: 9,
-                color: "var(--text-muted)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {a.role_in_client}
-            </span>
-          </button>
-        );
-      })}
-      <button
-        onClick={() => router.push("/equipo")}
-        style={{
-          marginLeft: "auto",
-          background: "transparent",
-          border: "none",
-          color: "var(--sand-dark)",
-          fontSize: 11,
-          fontWeight: 600,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Gestionar →
-      </button>
-    </div>
-  );
-}
 
 // ============================================================
 // PendingRequestsPanel
