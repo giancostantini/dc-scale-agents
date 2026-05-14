@@ -8,16 +8,19 @@ import {
   getProdCampaigns,
   getTasks,
 } from "@/lib/storage";
+import { listRequestsForClient } from "@/lib/requests";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { listAssignmentsForClient, listProfiles } from "@/lib/team";
 import type {
   Client,
   ClientObjectives,
+  ClientRequest,
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
 import type { ClientAssignment, Profile } from "@/lib/supabase/auth";
 import ui from "@/components/ClientUI.module.css";
+import MorningBriefingPanel from "@/components/MorningBriefingPanel";
 
 export default function ClienteDashboard({
   params,
@@ -33,6 +36,7 @@ export default function ClienteDashboard({
   const [profilesById, setProfilesById] = useState<Map<string, Profile>>(
     new Map(),
   );
+  const [pendingRequests, setPendingRequests] = useState<ClientRequest[]>([]);
   const [isDirector, setIsDirector] = useState(false);
 
   useEffect(() => {
@@ -44,7 +48,8 @@ export default function ClienteDashboard({
       getCurrentProfile(),
       listAssignmentsForClient(id),
       listProfiles(),
-    ]).then(([c, o, p, t, profile, asigs, profiles]) => {
+      listRequestsForClient(id),
+    ]).then(([c, o, p, t, profile, asigs, profiles, reqs]) => {
       setClient(c ?? null);
       setObjectives(o);
       setCampaigns(p);
@@ -52,6 +57,13 @@ export default function ClienteDashboard({
       setIsDirector(profile?.role === "director");
       setAssignments(asigs);
       setProfilesById(new Map(profiles.map((pr) => [pr.id, pr])));
+      // Solo solicitudes pendientes o en revisión — el equipo necesita
+      // verlas; las que ya están done/rejected no aportan ruido.
+      setPendingRequests(
+        reqs.filter(
+          (r) => r.status === "pending" || r.status === "reviewing",
+        ),
+      );
     });
   }, [id]);
 
@@ -66,6 +78,7 @@ export default function ClienteDashboard({
       isDirector={isDirector}
       assignments={assignments}
       profilesById={profilesById}
+      pendingRequests={pendingRequests}
     />
   ) : (
     <DevDashboard
@@ -73,6 +86,7 @@ export default function ClienteDashboard({
       tasks={tasks}
       assignments={assignments}
       profilesById={profilesById}
+      pendingRequests={pendingRequests}
     />
   );
 }
@@ -86,6 +100,7 @@ function GPDashboard({
   isDirector,
   assignments,
   profilesById,
+  pendingRequests,
 }: {
   client: Client;
   objectives?: ClientObjectives;
@@ -93,6 +108,7 @@ function GPDashboard({
   isDirector: boolean;
   assignments: ClientAssignment[];
   profilesById: Map<string, Profile>;
+  pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
   const k = client.kpis;
@@ -115,6 +131,16 @@ function GPDashboard({
       </div>
 
       <TeamPanel assignments={assignments} profilesById={profilesById} />
+
+      {/* Morning Briefing — panel del agente que corre cada día 8am UY */}
+      <MorningBriefingPanel clientId={client.id} />
+
+      {/* Solicitudes del cliente pendientes — visibles directamente
+          en el dashboard para que el equipo no se las pierda. */}
+      <PendingRequestsPanel
+        clientId={client.id}
+        requests={pendingRequests}
+      />
 
       <div className={ui.kpiGrid}>
         <div className={ui.kpiCell}>
@@ -325,11 +351,13 @@ function DevDashboard({
   tasks,
   assignments,
   profilesById,
+  pendingRequests,
 }: {
   client: Client;
   tasks: DevTask[];
   assignments: ClientAssignment[];
   profilesById: Map<string, Profile>;
+  pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
   const done = tasks.filter((t) => t.status === "done").length;
@@ -349,6 +377,13 @@ function DevDashboard({
       </div>
 
       <TeamPanel assignments={assignments} profilesById={profilesById} />
+
+      <MorningBriefingPanel clientId={client.id} />
+
+      <PendingRequestsPanel
+        clientId={client.id}
+        requests={pendingRequests}
+      />
 
       <div className={ui.panel} style={{ marginBottom: 24 }}>
         <div className={ui.panelHead}>
@@ -629,6 +664,178 @@ function TeamPanel({
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// PendingRequestsPanel
+// ============================================================
+// Lista compacta de las solicitudes que el cliente mandó y que el
+// equipo todavía no resolvió (status = pending | reviewing). Se
+// muestra en el dashboard de cada cliente para que el equipo no
+// se las pierda.
+function PendingRequestsPanel({
+  clientId,
+  requests,
+}: {
+  clientId: string;
+  requests: ClientRequest[];
+}) {
+  const router = useRouter();
+  if (requests.length === 0) return null;
+
+  const urgencyColor: Record<string, string> = {
+    alta: "var(--red-warn)",
+    media: "var(--sand-dark)",
+    baja: "var(--text-muted)",
+  };
+
+  return (
+    <div
+      className={ui.panel}
+      style={{
+        marginBottom: 20,
+        borderLeft: "3px solid var(--red-warn)",
+      }}
+    >
+      <div className={ui.panelHead}>
+        <div>
+          <div className={ui.panelTitle}>
+            Solicitudes del cliente · pendientes
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text-muted)",
+              marginTop: 4,
+            }}
+          >
+            {requests.length}{" "}
+            {requests.length === 1 ? "pendiente" : "pendientes"} de revisar
+          </div>
+        </div>
+        <button
+          className={ui.panelAction}
+          onClick={() => router.push(`/cliente/${clientId}/solicitudes`)}
+        >
+          Ver todas →
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {requests.slice(0, 5).map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => router.push(`/cliente/${clientId}/solicitudes`)}
+            style={{
+              textAlign: "left",
+              padding: "14px 4px",
+              borderBottom: "1px solid rgba(10,26,12,0.05)",
+              background: "transparent",
+              border: "none",
+              borderTop: "none",
+              borderLeft: "none",
+              borderRight: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 12,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--deep-green)",
+                    marginBottom: 4,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {r.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      fontWeight: 600,
+                      color: "var(--sand-dark)",
+                    }}
+                  >
+                    {r.type}
+                  </span>
+                  <span>·</span>
+                  <span
+                    style={{
+                      color: urgencyColor[r.urgency] ?? "var(--text-muted)",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {r.urgency}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {new Date(r.submitted_at).toLocaleDateString("es-UY", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color:
+                    r.status === "pending"
+                      ? "var(--red-warn)"
+                      : "var(--sand-dark)",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  alignSelf: "center",
+                }}
+              >
+                {r.status === "pending" ? "Pendiente" : "En revisión"}
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {requests.length > 5 && (
+        <div
+          style={{
+            padding: "12px 4px 4px",
+            fontSize: 11,
+            color: "var(--text-muted)",
+            fontStyle: "italic",
+          }}
+        >
+          + {requests.length - 5} más. Click "Ver todas" para gestionarlas.
         </div>
       )}
     </div>

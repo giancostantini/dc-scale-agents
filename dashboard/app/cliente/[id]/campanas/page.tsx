@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getProdCampaigns, deleteProdCampaign, getClient } from "@/lib/storage";
 import type { Client, ProductionCampaign } from "@/lib/types";
 import NewProdCampaignModal from "@/components/NewProdCampaignModal";
+import NewEventModal from "@/components/NewEventModal";
 import ui from "@/components/ClientUI.module.css";
 
 export default function CampanasPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +14,7 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
   const [client, setClient] = useState<Client | null>(null);
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [modal, setModal] = useState(false);
+  const [eventModal, setEventModal] = useState(false);
 
   const refresh = useCallback(() => {
     getProdCampaigns(id).then(setCampaigns);
@@ -33,20 +35,32 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
     <>
       <div className={ui.head}>
         <div>
-          <div className={ui.eyebrow}>Producción · Campañas activas</div>
-          <h1>Campañas del cliente</h1>
+          <div className={ui.eyebrow}>Producciones · Activas</div>
+          <h1>Producciones del cliente</h1>
         </div>
-        <button className={ui.btnSolid} onClick={() => setModal(true)}>+ Nueva campaña</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            className={ui.btnGhost}
+            onClick={() => setEventModal(true)}
+            style={{ fontWeight: 600 }}
+          >
+            + Nuevo evento
+          </button>
+          <button className={ui.btnSolid} onClick={() => setModal(true)}>
+            + Nueva producción
+          </button>
+        </div>
       </div>
 
       <p style={{ maxWidth: 720, color: "var(--text-muted)", marginBottom: 28, fontSize: 14, lineHeight: 1.6 }}>
         Producciones de contenido, sesiones UGC, Pooshlo y servicios externos.
-        Todos los gastos impactan el presupuesto del cliente.
+        Todos los gastos impactan el presupuesto del cliente. Desde acá también
+        podés crear eventos en el calendario (sesiones, deadlines, reuniones).
       </p>
 
       <div className={ui.kpiGrid} style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Campañas</div>
+          <div className={ui.kLabel}>Producciones</div>
           <div className={ui.kValue}>{campaigns.length}</div>
           <div className={ui.kDelta}>{activeCount} activas</div>
         </div>
@@ -69,12 +83,12 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
       {campaigns.length === 0 ? (
         <div className={ui.empty}>
           <div className={ui.emptyIcon}>◎</div>
-          <div className={ui.emptyTitle}>Sin campañas activas</div>
+          <div className={ui.emptyTitle}>Sin producciones activas</div>
           <div className={ui.emptyDesc}>
-            Creá campañas de producción (UGC, fotografía, videos, Pooshlo) con sus
+            Creá producciones (UGC, fotografía, videos, Pooshlo) con sus
             gastos asignados. Todas impactan el presupuesto del cliente.
           </div>
-          <button className={ui.btnSolid} onClick={() => setModal(true)}>+ Crear primera campaña</button>
+          <button className={ui.btnSolid} onClick={() => setModal(true)}>+ Crear primera producción</button>
         </div>
       ) : (
         <div className={ui.panel}>
@@ -137,7 +151,7 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
                       className={ui.btnGhost}
                       style={{ color: "var(--red-warn)", borderColor: "rgba(176,75,58,0.3)" }}
                       onClick={async () => {
-                        if (confirm("¿Eliminar esta campaña?")) {
+                        if (confirm("¿Eliminar esta producción?")) {
                           await deleteProdCampaign(c.id);
                           refresh();
                         }
@@ -158,6 +172,16 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
         clientId={id}
         onClose={() => setModal(false)}
         onCreated={refresh}
+      />
+
+      <NewEventModal
+        open={eventModal}
+        initialClientId={id}
+        onClose={() => setEventModal(false)}
+        onCreated={() => {
+          setEventModal(false);
+          // El evento aparece en /calendario; acá no refrescamos campañas.
+        }}
       />
     </>
   );

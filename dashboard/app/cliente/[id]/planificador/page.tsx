@@ -1,17 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { addContent, deleteContent, getContent } from "@/lib/storage";
 import type { ContentFormat, ContentNetwork, ContentPost, ContentStatus } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
-import MarkdownRenderer from "@/components/MarkdownRenderer";
-
-interface LatestBriefing {
-  body_md: string;
-  title: string | null;
-  created_at: string;
-}
 
 const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -33,8 +25,6 @@ const NETWORK_LABEL: Record<ContentNetwork, string> = {
 export default function PlanificadorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [posts, setPosts] = useState<ContentPost[]>([]);
-  const [briefing, setBriefing] = useState<LatestBriefing | null>(null);
-  const [briefingLoading, setBriefingLoading] = useState(true);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -45,17 +35,6 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   useEffect(() => refresh(), [refresh]);
-
-  useEffect(() => {
-    setBriefingLoading(true);
-    fetch(`/api/clients/${id}/briefing/latest`)
-      .then((r) => (r.ok ? r.json() : { briefing: null }))
-      .then((data: { briefing: LatestBriefing | null }) =>
-        setBriefing(data.briefing),
-      )
-      .catch(() => setBriefing(null))
-      .finally(() => setBriefingLoading(false));
-  }, [id]);
 
   const firstOfMonth = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -88,38 +67,6 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
             Meta Business Suite · Pendiente de conectar
           </span>
         </div>
-      </div>
-
-      {/* Morning Briefing — panel con el último briefing del agente */}
-      <div className={ui.panel} style={{ marginBottom: 20 }}>
-        <div className={ui.panelHead}>
-          <div className={ui.panelTitle}>Morning Briefing</div>
-          {briefing && (
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              {formatBriefingDate(briefing.created_at)}
-            </div>
-          )}
-        </div>
-        {briefingLoading ? (
-          <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 0" }}>
-            Cargando…
-          </div>
-        ) : briefing ? (
-          <MarkdownRenderer content={briefing.body_md} shiftHeadings />
-        ) : (
-          <div style={{ padding: "12px 0" }}>
-            <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 10 }}>
-              Aún no hay briefing generado para este cliente. Se ejecuta automáticamente cada día a las 8:00 (Uruguay).
-            </div>
-            <Link
-              href={`/cliente/${id}/agentes`}
-              className={ui.btnGhost}
-              style={{ display: "inline-block", padding: "6px 14px", fontSize: 12 }}
-            >
-              Generar ahora →
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* Calendar */}
@@ -366,20 +313,6 @@ function ContentDayModal({
       </div>
     </div>
   );
-}
-
-function formatBriefingDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfBriefing = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.round(
-    (startOfToday.getTime() - startOfBriefing.getTime()) / (1000 * 60 * 60 * 24),
-  );
-  const time = d.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" });
-  if (diffDays === 0) return `Hoy · ${time}`;
-  if (diffDays === 1) return `Ayer · ${time}`;
-  return d.toLocaleDateString("es-UY", { day: "numeric", month: "short" });
 }
 
 const labelS: React.CSSProperties = {

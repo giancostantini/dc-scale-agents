@@ -9,6 +9,10 @@ import styles from "./NewClientModal.module.css";
 interface NewEventModalProps {
   open: boolean;
   initialDate?: string;
+  /** Si se pasa, el modal abre con ese cliente pre-seleccionado y
+   *  oculta el selector. Útil cuando se abre desde la página de un
+   *  cliente específico. */
+  initialClientId?: string;
   googleConnected?: boolean;
   onClose: () => void;
   onCreated?: () => void;
@@ -23,6 +27,7 @@ function randomMeetSlug() {
 export default function NewEventModal({
   open,
   initialDate,
+  initialClientId,
   googleConnected = true,
   onClose,
   onCreated,
@@ -44,8 +49,9 @@ export default function NewEventModal({
       getClients().then(setClients);
       setDate(initialDate || new Date().toISOString().slice(0, 10));
       setSyncGoogle(googleConnected);
+      if (initialClientId) setClientId(initialClientId);
     }
-  }, [open, initialDate, googleConnected]);
+  }, [open, initialDate, googleConnected, initialClientId]);
 
   if (!open) return null;
 

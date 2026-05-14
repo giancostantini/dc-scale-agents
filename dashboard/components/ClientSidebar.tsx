@@ -72,7 +72,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { href: base,                  icon: "◈", label: "Dashboard" },
     { href: `${base}/fases`,        icon: "⁞", label: "Fases del negocio" },
     { href: `${base}/planificador`, icon: "▦", label: "Planificador" },
-    { href: `${base}/campanas`,     icon: "◎", label: "Campañas" },
+    { href: `${base}/campanas`,     icon: "◎", label: "Producciones" },
     { href: `${base}/analitica`,    icon: "↗", label: "Analítica" },
   ];
 

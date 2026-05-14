@@ -32,12 +32,10 @@ export const AGENT_CATALOG: AgentDef[] = [
     defaultBrief: { mode: "daily" },
     moduleGate: "analytics",
   },
-  {
-    key: "morning-briefing",
-    name: "Morning Briefing",
-    desc: "Briefing matutino con estado del día y tareas prioritarias.",
-    defaultBrief: {},
-  },
+  // Morning Briefing ya no aparece en el catálogo de agentes — se
+  // muestra directamente en el Dashboard del cliente como un panel
+  // del día. El cron sigue corriendo (genera el briefing cada mañana
+  // a las 8:00 UY) y se sirve vía /api/clients/[id]/briefing/latest.
   {
     key: "seo",
     name: "SEO",
