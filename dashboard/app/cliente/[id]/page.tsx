@@ -111,8 +111,12 @@ function GPDashboard({
   pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
-  const k = client.kpis;
-  const prodSpent = campaigns.reduce((s, c) => s + c.spent, 0);
+  // Las métricas de paid media y el presupuesto se sacaron del dashboard:
+  // el primero vive ahora en Espor.ai + Looker Studio (Analítica),
+  // el segundo en /campanas. Acá quedan: header, equipo, briefing,
+  // solicitudes y objetivos.
+  // campaigns sigue llegando como prop por compat (lo usa el resto del page).
+  void campaigns;
 
   return (
     <>
@@ -142,35 +146,7 @@ function GPDashboard({
         requests={pendingRequests}
       />
 
-      <div className={ui.kpiGrid}>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>ROAS</div>
-          <div className={ui.kValue}>{k?.roas || "—"}</div>
-          <div className={ui.kDelta}>Mes actual</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Leads</div>
-          <div className={ui.kValue}>{k?.leads ?? "—"}</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>CAC</div>
-          <div className={ui.kValue}>{k?.cac || "—"}</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Inversión</div>
-          <div className={ui.kValue}>{k?.invested || "—"}</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Revenue</div>
-          <div className={ui.kValue}>{k?.revenue || "—"}</div>
-        </div>
-        <div className={ui.kpiCell}>
-          <div className={ui.kLabel}>Conversión</div>
-          <div className={ui.kValue}>{k?.conv || "—"}</div>
-        </div>
-      </div>
-
-      <div className={ui.panelGrid}>
+      <div>
         <div className={ui.panel}>
           <div className={ui.panelHead}>
             <div>
@@ -281,58 +257,6 @@ function GPDashboard({
           )}
         </div>
 
-        <div className={ui.panel}>
-          <div className={ui.panelHead}>
-            <div className={ui.panelTitle}>Presupuesto</div>
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.15em",
-                color: "var(--sand-dark)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                marginBottom: 6,
-              }}
-            >
-              Fee mensual
-            </div>
-            <div
-              style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}
-            >
-              US$ {client.fee.toLocaleString()}
-            </div>
-          </div>
-          <div
-            style={{
-              marginTop: 20,
-              paddingTop: 20,
-              borderTop: "1px solid rgba(10,26,12,0.08)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.15em",
-                color: "var(--sand-dark)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                marginBottom: 6,
-              }}
-            >
-              Campañas producción
-            </div>
-            <div
-              style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" }}
-            >
-              US$ {prodSpent.toLocaleString()}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-              {campaigns.length} campaña{campaigns.length === 1 ? "" : "s"}
-            </div>
-          </div>
-        </div>
       </div>
 
       <div style={{ marginTop: 40, display: "flex", gap: 10 }}>
@@ -563,109 +487,152 @@ function TeamPanel({
     a.role_in_client.localeCompare(b.role_in_client),
   );
 
-  return (
-    <div className={ui.panel} style={{ marginBottom: 24 }}>
-      <div className={ui.panelHead}>
-        <div className={ui.panelTitle}>Equipo del cliente</div>
+  if (sorted.length === 0) {
+    return (
+      <div
+        style={{
+          padding: "10px 14px",
+          marginBottom: 16,
+          background: "var(--off-white)",
+          borderLeft: "2px solid var(--sand)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
+          fontSize: 12,
+          color: "var(--text-muted)",
+        }}
+      >
+        <span>
+          <strong style={{ color: "var(--deep-green)" }}>Equipo</strong> · Sin
+          equipo asignado.
+        </span>
         <button
-          className={ui.panelAction}
           onClick={() => router.push("/equipo")}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--sand-dark)",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            whiteSpace: "nowrap",
+          }}
         >
-          Gestionar →
+          Asignar →
         </button>
       </div>
-      {sorted.length === 0 ? (
-        <div
-          style={{
-            padding: 20,
-            textAlign: "center",
-            fontSize: 13,
-            color: "var(--text-muted)",
-          }}
-        >
-          Sin equipo asignado · Asignar desde{" "}
-          <strong
-            style={{ color: "var(--sand-dark)", cursor: "pointer" }}
-            onClick={() => router.push("/equipo")}
+    );
+  }
+
+  // Layout compacto: un strip horizontal con chips chiquitos. Avatar 24px,
+  // nombre + rol en una línea, todos los miembros en flow horizontal.
+  return (
+    <div
+      style={{
+        padding: "10px 14px",
+        marginBottom: 16,
+        background: "var(--off-white)",
+        borderLeft: "2px solid var(--sand)",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 700,
+          marginRight: 6,
+        }}
+      >
+        Equipo
+      </div>
+      {sorted.map((a) => {
+        const profile = profilesById.get(a.user_id);
+        const initials = profile?.initials ?? "??";
+        const name = profile?.name ?? "Usuario";
+        return (
+          <button
+            key={`${a.user_id}-${a.role_in_client}`}
+            type="button"
+            onClick={() => profile && router.push(`/equipo/${profile.id}`)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "3px 10px 3px 3px",
+              background: "var(--white)",
+              border: "1px solid rgba(10,26,12,0.08)",
+              cursor: profile ? "pointer" : "default",
+              fontFamily: "inherit",
+              borderRadius: 0,
+            }}
+            title={`${name} · ${a.role_in_client}`}
           >
-            /equipo
-          </strong>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {sorted.map((a) => {
-            const profile = profilesById.get(a.user_id);
-            const initials = profile?.initials ?? "??";
-            const name = profile?.name ?? "Usuario sin nombre";
-            return (
-              <div
-                key={`${a.user_id}-${a.role_in_client}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: 12,
-                  border: "1px solid rgba(10,26,12,0.08)",
-                  cursor: profile ? "pointer" : "default",
-                }}
-                onClick={() =>
-                  profile && router.push(`/equipo/${profile.id}`)
-                }
-              >
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    background: "var(--sand)",
-                    color: "var(--deep-green)",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    letterSpacing: "0.05em",
-                    flexShrink: 0,
-                  }}
-                >
-                  {initials}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--deep-green)",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      color: "var(--sand-dark)",
-                      fontWeight: 500,
-                      marginTop: 2,
-                    }}
-                  >
-                    {a.role_in_client}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                background: "var(--sand)",
+                color: "var(--deep-green)",
+                fontWeight: 700,
+                fontSize: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                letterSpacing: "0.05em",
+                flexShrink: 0,
+              }}
+            >
+              {initials}
+            </div>
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--deep-green)",
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name.split(" ")[0]}
+            </span>
+            <span
+              style={{
+                fontSize: 9,
+                color: "var(--text-muted)",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {a.role_in_client}
+            </span>
+          </button>
+        );
+      })}
+      <button
+        onClick={() => router.push("/equipo")}
+        style={{
+          marginLeft: "auto",
+          background: "transparent",
+          border: "none",
+          color: "var(--sand-dark)",
+          fontSize: 11,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Gestionar →
+      </button>
     </div>
   );
 }
