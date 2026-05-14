@@ -117,6 +117,15 @@ export interface Sprint {
   status: "done" | "active" | "pending";
 }
 
+export interface ClientExternalLinks {
+  /** URL del dashboard del cliente en Espor.ai (paid media análisis). */
+  espor_ai_url?: string;
+  /** URL del Looker Studio con métricas generales del negocio. */
+  looker_studio_url?: string;
+  /** URL de la carpeta de Microsoft Teams con docs del cliente. */
+  teams_folder_url?: string;
+}
+
 export interface Client {
   id: string;
   initials: string;
@@ -132,6 +141,9 @@ export interface Client {
   progress?: number;
   sprints?: Sprint[];
   onboarding?: ClientOnboarding;
+  /** URLs a herramientas externas (Espor.ai, Looker Studio, Teams).
+   *  Las configura el director desde Analítica / Biblioteca. */
+  external_links?: ClientExternalLinks;
 }
 
 // ==================== PIPELINE / CRM ====================

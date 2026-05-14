@@ -77,6 +77,7 @@ interface ClientRow {
   contact_phone: string | null;
   country: string | null;
   onboarding: ClientOnboarding | null;
+  external_links: Client["external_links"] | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -95,6 +96,7 @@ function clientFromRow(r: ClientRow): Client {
     progress: r.progress ?? undefined,
     sprints: r.sprints ?? undefined,
     onboarding: r.onboarding ?? undefined,
+    external_links: r.external_links ?? undefined,
   };
 }
 
@@ -213,6 +215,38 @@ export async function deleteClient(id: string): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase.from("clients").delete().eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Actualiza solo el campo external_links de un cliente (merge sobre
+ * el JSONB actual). Usado desde la UI de Analítica (Espor.ai / Looker
+ * Studio URL) y Biblioteca (Teams folder URL).
+ */
+export async function updateClientExternalLinks(
+  clientId: string,
+  patch: Partial<Client["external_links"] & object>,
+): Promise<void> {
+  const supabase = getSupabase();
+
+  // Leer el objeto actual para hacer merge (no queremos sobreescribir
+  // los otros campos si solo se actualiza uno).
+  const { data: current, error: readErr } = await supabase
+    .from("clients")
+    .select("external_links")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+
+  const merged = {
+    ...((current?.external_links as Record<string, unknown>) ?? {}),
+    ...patch,
+  };
+
+  const { error: updErr } = await supabase
+    .from("clients")
+    .update({ external_links: merged })
+    .eq("id", clientId);
+  if (updErr) throw updErr;
 }
 
 // ==================== LEADS ====================

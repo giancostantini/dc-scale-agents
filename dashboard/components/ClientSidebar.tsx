@@ -70,13 +70,10 @@ export default function ClientSidebar({ client }: { client: Client }) {
 
   const navGP: NavItem[] = [
     { href: base,                  icon: "◈", label: "Dashboard" },
+    { href: `${base}/fases`,        icon: "⁞", label: "Fases del negocio" },
     { href: `${base}/planificador`, icon: "▦", label: "Planificador" },
-    { href: `${base}/paid-media`,   icon: "◉", label: "Paid Media" },
-    { href: `${base}/fabrica`,      icon: "⚑", label: "Fábrica de contenidos" },
     { href: `${base}/campanas`,     icon: "◎", label: "Campañas" },
     { href: `${base}/analitica`,    icon: "↗", label: "Analítica" },
-    { href: `${base}/fases`,        icon: "⁞", label: "Fases del negocio" },
-    { href: `${base}/objetivos`,    icon: "◆", label: "Setear objetivos", directorOnly: true },
   ];
 
   const navDev: NavItem[] = [
@@ -86,18 +83,13 @@ export default function ClientSidebar({ client }: { client: Client }) {
   ];
 
   const gestion: NavItem[] = [
-    { href: `${base}/biblioteca`,         icon: "▢", label: "Biblioteca" },
-    { href: `${base}/solicitudes`,        icon: "◎", label: "Solicitudes del cliente" },
-    { href: `${base}/brandbook`,          icon: "◐", label: "Brandbook" },
-    { href: `${base}/brandbook/assets`,   icon: "◇", label: "Asset library" },
+    { href: `${base}/biblioteca`,    icon: "▢", label: "Biblioteca" },
+    { href: `${base}/solicitudes`,   icon: "◎", label: "Solicitudes del cliente" },
+    { href: `${base}/objetivos`,     icon: "◆", label: "Setear objetivos", directorOnly: true },
     ...(client.type === "gp"
-      ? [
-          { href: `${base}/agentes`,  icon: "⚡", label: "Agentes IA" },
-          { href: `${base}/routing`,  icon: "⇄", label: "Routing" },
-        ]
+      ? [{ href: `${base}/agentes`, icon: "⚡", label: "Agentes IA" }]
       : []),
     { href: `${base}/notas`,         icon: "✎", label: "Notas internas" },
-    { href: `${base}/integraciones`, icon: "◈", label: "Integraciones" },
   ];
 
   const nav = client.type === "gp" ? navGP : navDev;

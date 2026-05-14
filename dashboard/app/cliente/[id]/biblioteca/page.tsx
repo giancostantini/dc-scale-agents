@@ -7,6 +7,7 @@ import { listPhaseReports } from "@/lib/phases";
 import { getDownloadUrl, formatBytes } from "@/lib/upload";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import LibraryUploadButton from "@/components/LibraryUploadButton";
+import { updateClientExternalLinks } from "@/lib/storage";
 import type {
   Client,
   ContentPieceRow,
@@ -121,6 +122,13 @@ export default function BibliotecaPage({
           <h1>Todo lo del cliente</h1>
         </div>
       </div>
+
+      {/* Acceso directo a carpeta de Teams (toda la docu viva del cliente) */}
+      <TeamsFolderBanner
+        client={client}
+        isDirector={isDirector}
+        onUpdated={refreshClient}
+      />
 
       {/* Tabs / cards de folder */}
       <div
@@ -653,6 +661,212 @@ function FilesList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ============================================================
+// TeamsFolderBanner — acceso directo a la carpeta de Microsoft Teams
+// del cliente. Vive en client.external_links.teams_folder_url. El
+// director lo configura inline; el resto del equipo lo abre.
+// ============================================================
+function TeamsFolderBanner({
+  client,
+  isDirector,
+  onUpdated,
+}: {
+  client: Client;
+  isDirector: boolean;
+  onUpdated: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [url, setUrl] = useState(client.external_links?.teams_folder_url ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setUrl(client.external_links?.teams_folder_url ?? "");
+  }, [client.external_links?.teams_folder_url, editing]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await updateClientExternalLinks(client.id, {
+        teams_folder_url: url.trim() === "" ? undefined : url.trim(),
+      });
+      setEditing(false);
+      onUpdated();
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo guardar el link de Teams:\n${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const configured = !!client.external_links?.teams_folder_url;
+
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderLeft: configured
+          ? "3px solid var(--green-ok)"
+          : "3px solid var(--sand)",
+        padding: 18,
+        marginBottom: 24,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 280 }}>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 6,
+          }}
+        >
+          Carpeta del cliente · Microsoft Teams
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--text-soft, #5a6a5e)",
+            lineHeight: 1.5,
+          }}
+        >
+          Toda la documentación viva del cliente (contratos, briefings, archivos
+          compartidos, notas de reuniones) vive en Teams. Click abre la carpeta
+          en una pestaña nueva.
+        </div>
+      </div>
+
+      {editing ? (
+        <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 280 }}>
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://teams.microsoft.com/..."
+            autoFocus
+            disabled={saving}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              border: "1px solid rgba(10,26,12,0.15)",
+              background: "var(--white)",
+              color: "var(--deep-green)",
+              fontSize: 12,
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          />
+          <button
+            onClick={save}
+            disabled={saving}
+            style={{
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              padding: "9px 14px",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: saving ? "default" : "pointer",
+              letterSpacing: "0.5px",
+              opacity: saving ? 0.5 : 1,
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+          <button
+            onClick={() => {
+              setEditing(false);
+              setUrl(client.external_links?.teams_folder_url ?? "");
+            }}
+            disabled={saving}
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(10,26,12,0.15)",
+              color: "var(--deep-green)",
+              padding: "9px 14px",
+              fontSize: 11,
+              fontWeight: 500,
+              cursor: saving ? "default" : "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      ) : configured ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <a
+            href={client.external_links!.teams_folder_url!}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              padding: "10px 18px",
+              fontSize: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+              letterSpacing: "0.5px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Abrir carpeta Teams ↗
+          </a>
+          {isDirector && (
+            <button
+              onClick={() => setEditing(true)}
+              title="Editar URL"
+              style={{
+                background: "transparent",
+                border: "1px solid rgba(10,26,12,0.15)",
+                color: "var(--deep-green)",
+                padding: "10px 14px",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              ✎
+            </button>
+          )}
+        </div>
+      ) : isDirector ? (
+        <button
+          onClick={() => setEditing(true)}
+          style={{
+            background: "transparent",
+            border: "1px dashed rgba(10,26,12,0.25)",
+            color: "var(--deep-green)",
+            padding: "10px 18px",
+            fontSize: 12,
+            fontWeight: 500,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            whiteSpace: "nowrap",
+          }}
+        >
+          + Configurar carpeta Teams
+        </button>
+      ) : (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted)",
+            fontStyle: "italic",
+          }}
+        >
+          Aún no configurada.
+        </div>
+      )}
     </div>
   );
 }
