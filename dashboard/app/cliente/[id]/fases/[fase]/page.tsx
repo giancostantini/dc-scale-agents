@@ -662,8 +662,10 @@ export default function FaseDetailPage({
         `¿Aplicar los cambios sugeridos por el análisis al reporte?\n\n` +
           `El agente va a tomar el análisis como feedback y regenerar la ` +
           `versión preservando lo que está bien y ajustando solo lo señalado. ` +
-          `Si tenés un PDF subido, ese PDF NO se modifica (sigue siendo canónico) ` +
-          `— se actualiza el content_md interno y se bumpea la versión.`,
+          `Cuando termine, se descarga automáticamente el PDF con los cambios ` +
+          `(renderizado desde el contenido nuevo — si tenías un PDF custom subido, ` +
+          `ese sigue intacto como canónico; el auto-download usa el diseño base ` +
+          `del sistema).`,
       )
     )
       return;
@@ -695,13 +697,15 @@ export default function FaseDetailPage({
       throw err;
     }
 
+    let genResult: { contentMd?: string; version?: number } = {};
     try {
-      // Paso 2: regenerar con el feedback
-      await callPhaseEndpoint("/api/phases/generate", {
+      // Paso 2: regenerar con el feedback. El endpoint devuelve
+      // {success, version, contentMd, ...}
+      genResult = (await callPhaseEndpoint("/api/phases/generate", {
         clientId: id,
         phase: phaseKey,
         feedback: wrappedFeedback,
-      });
+      })) as { contentMd?: string; version?: number };
       setReloadFlag((f) => f + 1);
     } catch (err) {
       const e = err as Error;
@@ -710,7 +714,82 @@ export default function FaseDetailPage({
         `El feedback del análisis se guardó pero la regeneración falló:\n\n${e.message}\n\n` +
           `Podés reintentarla con "Regenerar con feedback" cuando quieras.`,
       );
+      setBusy(false);
       throw err;
+    }
+
+    // Paso 3: auto-descarga del PDF actualizado, renderizado desde
+    // el contenido nuevo. NO usamos el pdf_path (que es el PDF custom
+    // subido) porque ese no refleja los cambios; usamos el render
+    // automático desde el content_md fresco que devolvió el generate.
+    try {
+      if (!genResult.contentMd || !client) {
+        throw new Error(
+          "El endpoint generate no devolvió contentMd — no se puede renderizar el PDF.",
+        );
+      }
+
+      const phaseLabel =
+        key === "diagnostico"
+          ? "Diagnóstico"
+          : key === "estrategia"
+          ? "Estrategia"
+          : key === "setup"
+          ? "Setup"
+          : "Lanzamiento";
+
+      // Cargar logo (best-effort, igual que en downloadPdf)
+      let logoDataUrl: string | null = null;
+      if (logoUrl) {
+        try {
+          const imgRes = await fetch(logoUrl);
+          if (imgRes.ok) {
+            const blobImg = await imgRes.blob();
+            logoDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blobImg);
+            });
+          }
+        } catch {
+          // Sigue sin logo
+        }
+      }
+
+      const { pdf } = await import("@react-pdf/renderer");
+      const PhaseReportPdf = (await import("@/components/PhaseReportPdf"))
+        .default;
+      const newVersion = genResult.version ?? (report?.version ?? 1) + 1;
+
+      const blob = await pdf(
+        <PhaseReportPdf
+          phaseLabel={phaseLabel}
+          reportName={meta?.reportName ?? phaseLabel}
+          clientName={client.name}
+          clientLogoUrl={logoDataUrl ?? undefined}
+          generatedAt={new Date().toISOString()}
+          approvedAt={null}
+          version={newVersion}
+          contentMd={genResult.contentMd}
+        />,
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${meta?.reportName ?? phaseLabel} ${client.name}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (downloadErr) {
+      // El feedback ya se aplicó — solo falló la descarga. No es crítico.
+      console.warn("[applyAnalysisChanges] auto-download falló:", downloadErr);
+      alert(
+        `Los cambios se aplicaron correctamente, pero la descarga automática ` +
+          `del PDF falló. Bajalo manualmente desde "↓ Descargar PDF".`,
+      );
     } finally {
       setBusy(false);
     }
