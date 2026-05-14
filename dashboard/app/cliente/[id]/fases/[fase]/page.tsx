@@ -73,47 +73,6 @@ const PHASE_ORDER_INDEX: Record<FaseKey, number> = {
   lanzamiento: 4,
 };
 
-// Secciones esperadas para cada fase — usadas por el panel de
-// análisis para detectar huecos en el reporte (matching por
-// keywords sobre los headings encontrados en content_md).
-const EXPECTED_SECTIONS_BY_PHASE: Record<PhaseKey, string[]> = {
-  diagnostico: [
-    "Resumen ejecutivo",
-    "Contexto del negocio",
-    "Mercado y panorama competitivo",
-    "Cliente y propuesta de valor",
-    "Métricas y unit economics",
-    "Hallazgos clave",
-    "Recomendaciones estratégicas",
-    "Impacto esperado",
-    "Conclusión y próximos pasos",
-  ],
-  estrategia: [
-    "Resumen ejecutivo",
-    "Buyer personas",
-    "Posicionamiento",
-    "Plan de medios",
-    "KPIs objetivo",
-    "Roadmap táctico",
-    "Conclusión",
-  ],
-  setup: [
-    "Resumen ejecutivo",
-    "Setup técnico",
-    "Tracking",
-    "Estructura de cuentas",
-    "Creativos",
-    "Conclusión",
-  ],
-  lanzamiento: [
-    "Resumen ejecutivo",
-    "Plan de lanzamiento",
-    "Activación de canales",
-    "Medición",
-    "Próximos pasos",
-  ],
-};
-
 export default function FaseDetailPage({
   params,
 }: {
@@ -1334,7 +1293,6 @@ export default function FaseDetailPage({
             phaseKey={key}
             contentMd={report.content_md}
             reviewMd={report.review_md}
-            expectedSections={EXPECTED_SECTIONS_BY_PHASE[key] ?? []}
             onReviewUpdated={(newReview) =>
               setReport((prev) =>
                 prev ? { ...prev, review_md: newReview } : prev,
