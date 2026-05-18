@@ -22,7 +22,6 @@ type FinPage =
   | "ingresos"
   | "egresos"
   | "clientes"
-  | "resultados"
   | "facturacion"
   | "log"
   | "kpis";
@@ -99,7 +98,6 @@ export default function FinanzasPage() {
       label: "Análisis",
       items: [
         { key: "clientes", icon: "◉", label: "Clientes activos" },
-        { key: "resultados", icon: "▦", label: "Resultados operativos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
         { key: "log", icon: "▢", label: "Log de actividad" },
       ],
@@ -187,15 +185,6 @@ export default function FinanzasPage() {
             )}
             {page === "clientes" && (
               <ClientesView clients={clients} expenses={expenses} />
-            )}
-            {page === "resultados" && (
-              <ResultadosView
-                clients={clients}
-                mrr={mrr}
-                marginPct={marginPct}
-                pipelineValue={pipelineValue}
-                leads={leads}
-              />
             )}
             {page === "facturacion" && (
               <FacturacionView
@@ -536,43 +525,6 @@ function ClientesView({ clients, expenses }: { clients: Client[]; expenses: Expe
           })}
         </div>
       )}
-    </>
-  );
-}
-
-function ResultadosView({ clients, mrr, marginPct, pipelineValue, leads }: {
-  clients: Client[]; mrr: number; marginPct: number; pipelineValue: number; leads: Lead[];
-}) {
-  const ticket = clients.length > 0 ? Math.round(mrr / clients.length) : 0;
-  const ltv = ticket * 12;
-  const closed = leads.filter((l) => l.stage === "cerrado").length;
-
-  return (
-    <>
-      <Header eyebrow="Análisis" title="Resultados operativos" />
-
-      <div className={styles.kpis}>
-        <div className={styles.kpi}><div className={styles.kLabel}>Ticket promedio</div><div className={styles.kValue}>US$ {ticket.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>LTV (estimado 12m)</div><div className={styles.kValue}>US$ {ltv.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Margen neto</div><div className={styles.kValue}>{marginPct}%</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Leads cerrados</div><div className={styles.kValue}>{closed}</div></div>
-      </div>
-
-      <div className={styles.table}>
-        <h3>Composición</h3>
-        {[
-          ["Growth Partners activos", clients.filter((c) => c.type === "gp").length],
-          ["Clientes de Desarrollo", clients.filter((c) => c.type === "dev").length],
-          ["Clientes en On-boarding", clients.filter((c) => c.status === "onboarding").length],
-          ["Clientes en Execution", clients.filter((c) => c.status === "active").length],
-          ["Pipeline activo (leads)", leads.length],
-          ["Valor pipeline", `US$ ${pipelineValue.toLocaleString()}`],
-        ].map(([label, value]) => (
-          <div key={label as string} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr" }}>
-            <div>{label}</div><div className={styles.num}>{value}</div>
-          </div>
-        ))}
-      </div>
     </>
   );
 }
