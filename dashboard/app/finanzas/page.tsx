@@ -15,12 +15,26 @@ import {
 } from "@/lib/storage";
 import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
 import type { Client, Expense, InvoicePayment, Lead } from "@/lib/types";
+import {
+  DividendosView,
+  EstadosView,
+  ManualRevenuesPanel,
+  TeamCostView,
+} from "./FinanzasViews";
+import {
+  listManualRevenues,
+  revenueMonthlyImpact,
+  type ManualRevenue,
+} from "@/lib/finanzas";
 import styles from "./finanzas.module.css";
 
 type FinPage =
   | "dashboard"
   | "ingresos"
   | "egresos"
+  | "equipo"
+  | "dividendos"
+  | "estados"
   | "clientes"
   | "facturacion"
   | "log"
@@ -38,12 +52,14 @@ export default function FinanzasPage() {
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [expenseModal, setExpenseModal] = useState(false);
+  const [manualRevs, setManualRevs] = useState<ManualRevenue[]>([]);
 
   const refresh = useCallback(() => {
     getClients().then(setClients);
     getExpenses().then(setExpenses);
     getPayments().then(setPayments);
     getLeads().then(setLeads);
+    listManualRevenues().then(setManualRevs);
   }, []);
 
   useEffect(() => {
@@ -73,6 +89,27 @@ export default function FinanzasPage() {
     () => expenses.reduce((s, e) => s + e.amount, 0),
     [expenses],
   );
+  // Net del mes actual incluye fees mensuales + ingresos manuales que
+  // aplican al mes − egresos. Es la base sobre la que se calculan los
+  // dividendos en DividendosView.
+  const monthYYYYMM = MONTH_ISO();
+  const manualRevImpact = useMemo(
+    () =>
+      manualRevs.reduce(
+        (s, r) => s + revenueMonthlyImpact(r, monthYYYYMM),
+        0,
+      ),
+    [manualRevs, monthYYYYMM],
+  );
+  const monthlyExpenses = useMemo(
+    () =>
+      expenses
+        .filter((e) => (e.date ?? "").startsWith(monthYYYYMM))
+        .reduce((s, e) => s + e.amount, 0),
+    [expenses, monthYYYYMM],
+  );
+  const monthlyNet = mrr + manualRevImpact - monthlyExpenses;
+
   const netResult = mrr - totalExpenses;
   const marginPct = mrr > 0 ? Math.round((netResult / mrr) * 100) : 0;
   const pipelineValue = useMemo(
@@ -92,6 +129,14 @@ export default function FinanzasPage() {
         { key: "dashboard", icon: "◈", label: "Dashboard" },
         { key: "ingresos", icon: "↑", label: "Ingresos" },
         { key: "egresos", icon: "↓", label: "Egresos" },
+        { key: "equipo", icon: "◌", label: "Costo del equipo" },
+      ],
+    },
+    {
+      label: "Distribución",
+      items: [
+        { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
+        { key: "estados", icon: "▦", label: "Estados financieros" },
       ],
     },
     {
@@ -152,19 +197,38 @@ export default function FinanzasPage() {
               />
             )}
             {page === "ingresos" && (
-              <IngresosView
+              <>
+                <IngresosView
+                  clients={clients}
+                  payments={payments}
+                  onTogglePaid={async (clientId, month) => {
+                    const existing = payments.find(
+                      (p) => p.clientId === clientId && p.month === month,
+                    );
+                    const next =
+                      existing?.status === "paid" ? "pending" : "paid";
+                    await setPaymentStatus(clientId, month, next);
+                    refresh();
+                  }}
+                  mrr={mrr}
+                />
+                <ManualRevenuesPanel />
+              </>
+            )}
+            {page === "equipo" && <TeamCostView />}
+            {page === "dividendos" && (
+              <DividendosView monthlyNet={monthlyNet} />
+            )}
+            {page === "estados" && (
+              <EstadosView
                 clients={clients}
-                payments={payments}
-                onTogglePaid={async (clientId, month) => {
-                  const existing = payments.find(
-                    (p) => p.clientId === clientId && p.month === month,
-                  );
-                  const next =
-                    existing?.status === "paid" ? "pending" : "paid";
-                  await setPaymentStatus(clientId, month, next);
-                  refresh();
-                }}
-                mrr={mrr}
+                expenses={expenses}
+                payments={payments.map((p) => ({
+                  clientId: p.clientId,
+                  month: p.month,
+                  status: p.status,
+                }))}
+                monthYYYYMM={monthYYYYMM}
               />
             )}
             {page === "egresos" && (
