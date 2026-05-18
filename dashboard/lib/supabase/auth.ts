@@ -29,6 +29,8 @@ export interface Profile {
   // Migration 007:
   client_id?: string | null;     // solo si role='client'
   permissions?: ProfilePermissions | null;
+  // Migration 024: jerarquía organizacional
+  reports_to_id?: string | null;
 }
 
 export type TeamPosition =
@@ -130,7 +132,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions, reports_to_id",
     )
     .eq("id", user.id)
     .single();
