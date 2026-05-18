@@ -23,6 +23,8 @@ import { getClients } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import type { Client } from "@/lib/types";
 import TrayectoriaSection from "@/components/TrayectoriaSection";
+import ManagerChain from "@/components/ManagerChain";
+import RequestBox from "@/components/RequestBox";
 import styles from "../equipo.module.css";
 import detail from "./detail.module.css";
 
@@ -258,6 +260,11 @@ export default function EquipoDetailPage({
           <div className={detail.banner}>
             Solo el director puede editar a otros miembros.
           </div>
+        )}
+
+        {/* Cadena de mando — visible para todos */}
+        {profile.role !== "client" && (
+          <ManagerChain user={profile} allProfiles={allProfiles} />
         )}
 
         {/* ===== Identidad + Rol ===== */}
@@ -554,6 +561,16 @@ export default function EquipoDetailPage({
           )}
         </Section>
           </>
+        )}
+
+        {/* Caja de pedidos — self ve sus propios y puede crear nuevos;
+            director ve los del miembro y puede resolverlos. */}
+        {profile.role !== "client" && (
+          <RequestBox
+            userId={profile.id}
+            isSelf={isSelf}
+            isDirector={isDirector}
+          />
         )}
       </main>
     </>
