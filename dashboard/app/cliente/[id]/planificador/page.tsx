@@ -95,7 +95,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
       <div className={ui.head}>
         <div>
           <div className={ui.eyebrow}>Contenido · Planificador editorial</div>
-          <h1>Calendario de contenido</h1>
+          <h1>Calendario de acciones</h1>
         </div>
         {isDirector && (
           <button
