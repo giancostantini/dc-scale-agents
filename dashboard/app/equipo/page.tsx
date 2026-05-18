@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import InviteUserModal from "@/components/InviteUserModal";
-import OrgTree from "@/components/OrgTree";
 import {
   getCurrentProfile,
   hasSession,
@@ -15,8 +14,6 @@ import {
 import { listProfiles, listAllAssignments } from "@/lib/team";
 import styles from "./equipo.module.css";
 
-type ViewMode = "tree" | "list";
-
 export default function EquipoPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
@@ -24,8 +21,6 @@ export default function EquipoPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
-  // Organigrama es el default — más visual para el director.
-  const [view, setView] = useState<ViewMode>("tree");
 
   async function refresh() {
     const [list, asg] = await Promise.all([
@@ -100,44 +95,6 @@ export default function EquipoPage() {
           </div>
         )}
 
-        {/* Toggle de vista: organigrama (visual) vs lista (denso) */}
-        <div
-          style={{
-            display: "flex",
-            gap: 4,
-            marginBottom: 20,
-            padding: 4,
-            background: "var(--off-white)",
-            width: "fit-content",
-          }}
-        >
-          {(["tree", "list"] as ViewMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setView(mode)}
-              style={{
-                background: view === mode ? "var(--deep-green)" : "transparent",
-                color: view === mode ? "var(--off-white)" : "var(--deep-green)",
-                border: "none",
-                padding: "6px 14px",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              {mode === "tree" ? "⌘ Organigrama" : "☰ Lista"}
-            </button>
-          ))}
-        </div>
-
-        {view === "tree" && (
-          <OrgTree profiles={profiles} assignments={assignments} />
-        )}
-
-        {view === "list" && (
         <div className={styles.list}>
           {profiles.map((p) => {
             const isMe = p.id === me.id;
@@ -180,7 +137,6 @@ export default function EquipoPage() {
             );
           })}
         </div>
-        )}
       </main>
 
       <InviteUserModal

@@ -37,7 +37,6 @@ type FinPage =
   | "estados"
   | "clientes"
   | "facturacion"
-  | "log"
   | "kpis";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
@@ -119,6 +118,8 @@ export default function FinanzasPage() {
 
   if (!authChecked) return null;
 
+  // Sidebar unificado bajo un solo header "Finanzas" — el director
+  // pidió no fragmentar en sub-secciones.
   const SECTIONS: {
     label: string;
     items: { key: FinPage; icon: string; label: string }[];
@@ -126,30 +127,16 @@ export default function FinanzasPage() {
     {
       label: "Finanzas",
       items: [
-        { key: "dashboard", icon: "◈", label: "Dashboard" },
+        { key: "dashboard", icon: "◈", label: "Panel principal" },
         { key: "ingresos", icon: "↑", label: "Ingresos" },
         { key: "egresos", icon: "↓", label: "Egresos" },
-        { key: "equipo", icon: "◌", label: "Costo del equipo" },
-      ],
-    },
-    {
-      label: "Distribución",
-      items: [
+        { key: "equipo", icon: "◌", label: "Funcionales" },
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
         { key: "estados", icon: "▦", label: "Estados financieros" },
-      ],
-    },
-    {
-      label: "Análisis",
-      items: [
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
-        { key: "log", icon: "▢", label: "Log de actividad" },
+        { key: "kpis", icon: "▲", label: "KPIs anuales" },
       ],
-    },
-    {
-      label: "Empresa",
-      items: [{ key: "kpis", icon: "▲", label: "KPIs anuales" }],
     },
   ];
 
@@ -260,7 +247,6 @@ export default function FinanzasPage() {
                 }}
               />
             )}
-            {page === "log" && <LogView expenses={expenses} clients={clients} />}
             {page === "kpis" && (
               <KPIsView
                 mrr={mrr}
@@ -657,38 +643,6 @@ const btnMini: React.CSSProperties = {
   background: "transparent", cursor: "pointer", fontFamily: "inherit",
   textTransform: "uppercase", fontWeight: 500,
 };
-
-function LogView({ expenses, clients }: { expenses: Expense[]; clients: Client[] }) {
-  const log = [
-    ...expenses.map((e) => ({ date: e.date, type: "↓", text: e.concept, meta: `${e.category} · ${e.assignedTo}`, color: "var(--red-warn)" })),
-    ...clients.map((c) => ({ date: c.id, type: "◉", text: `Cliente creado: ${c.name}`, meta: `${c.sector} · US$ ${c.fee}/mes`, color: "var(--green-ok)" })),
-  ].slice(0, 50);
-
-  return (
-    <>
-      <Header eyebrow="Auditoría · Actividad" title="Log de actividad" />
-
-      {log.length === 0 ? (
-        <EmptyState icon="▢" title="Sin actividad registrada" desc="El log se completa automáticamente a medida que crees clientes, registres egresos y gestiones cobros." />
-      ) : (
-        <div className={styles.table}>
-          <h3>Movimientos</h3>
-          {log.map((item, i) => (
-            <div key={i} style={{
-              padding: "14px 0", borderBottom: "1px solid rgba(196,168,130,0.08)",
-              display: "grid", gridTemplateColumns: "100px 40px 2.5fr 1fr", gap: 16, alignItems: "center", fontSize: 13,
-            }}>
-              <div style={{ color: "var(--sand)", fontSize: 11 }}>{item.date}</div>
-              <div style={{ width: 32, height: 32, background: "rgba(196,168,130,0.12)", color: item.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{item.type}</div>
-              <div style={{ color: "var(--off-white)" }}>{item.text}</div>
-              <div style={{ color: "rgba(232,228,220,0.55)", fontSize: 12 }}>{item.meta}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
 
 function KPIsView({ mrr, clients, marginPct, pipelineValue }: {
   mrr: number; clients: Client[]; marginPct: number; pipelineValue: number;

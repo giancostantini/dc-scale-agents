@@ -83,9 +83,9 @@ export function TeamCostView() {
           marginBottom: 8,
         }}
       >
-        Finanzas · Equipo
+        Finanzas · Funcionales
       </div>
-      <h1 style={h1Style}>Costo del equipo</h1>
+      <h1 style={h1Style}>Funcionales</h1>
       <p
         style={{
           maxWidth: 700,
@@ -281,8 +281,49 @@ export function DividendosView({
     }
   }
 
-  if (loading || !config) {
+  if (loading) {
     return <div>Cargando configuración…</div>;
+  }
+
+  // Si no hay config en DB, mostramos defaults + aviso de que falta
+  // correr la migración 025.
+  if (!config) {
+    return (
+      <>
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 600,
+            marginBottom: 8,
+          }}
+        >
+          Finanzas · Distribución
+        </div>
+        <h1 style={h1Style}>Distribución de dividendos</h1>
+        <div
+          style={{
+            padding: 24,
+            background: "rgba(196,168,130,0.1)",
+            borderLeft: "3px solid var(--sand)",
+            marginTop: 24,
+            fontSize: 13,
+            color: "var(--text-soft, #5a6a5e)",
+            lineHeight: 1.6,
+          }}
+        >
+          <strong style={{ color: "var(--deep-green)" }}>
+            Configuración no disponible
+          </strong>
+          <br />
+          La tabla <code>dividend_config</code> todavía no existe en la
+          base de datos. Pegá la migración 025 en el SQL Editor de
+          Supabase y dale Run. Después refrescá esta página.
+        </div>
+      </>
+    );
   }
 
   const dist = distributeDividends(monthlyNet, config);
@@ -817,11 +858,41 @@ export function ManualRevenuesPanel() {
 
   return (
     <div className={styles.table} style={{ marginTop: 24 }}>
-      <h3>Ingresos manuales (fijos + one-time)</h3>
-      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
-        Adicional a los fees mensuales de clientes. Ej: alquiler de cowork
-        sub-arrendado, venta puntual de un servicio, premio.
-      </p>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 12,
+          paddingBottom: 14,
+          borderBottom: "1px solid rgba(10,26,12,0.08)",
+        }}
+      >
+        <div>
+          <h3 style={{ margin: 0, border: "none", padding: 0 }}>
+            Ingresos manuales (fijos + one-time)
+          </h3>
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              marginTop: 6,
+              marginBottom: 0,
+            }}
+          >
+            Adicional a los fees mensuales de clientes. Ej: alquiler de
+            cowork sub-arrendado, venta puntual, premio.
+          </p>
+        </div>
+        {!adding && (
+          <button
+            onClick={() => setAdding(true)}
+            style={solidBtn}
+          >
+            + Agregar un ingreso
+          </button>
+        )}
+      </div>
 
       {loading && <div>Cargando…</div>}
 
@@ -888,17 +959,9 @@ export function ManualRevenuesPanel() {
             fontStyle: "italic",
           }}
         >
-          Sin ingresos manuales cargados.
+          Sin ingresos manuales cargados. Click en &quot;+ Agregar un
+          ingreso&quot; arriba para empezar.
         </div>
-      )}
-
-      {!adding && (
-        <button
-          onClick={() => setAdding(true)}
-          style={{ ...solidBtn, marginTop: 14 }}
-        >
-          + Cargar ingreso manual
-        </button>
       )}
 
       {adding && (
