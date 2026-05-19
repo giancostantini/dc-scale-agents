@@ -1,0 +1,161 @@
+/* ================================================================
+   PaymentCTA — Indicador de pago en el PortalHeader.
+   Semáforo glass con color según fecha y estado del pago.
+   ================================================================ */
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 180ms ease-out;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.fee {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* ============ Variantes de color (semáforo) ============ */
+
+/* GREEN — pagado */
+.color_green {
+  color: var(--off-white);
+  background: linear-gradient(135deg, var(--green-ok), #4aa86d);
+  border-color: rgba(74, 168, 109, 0.5);
+}
+
+.color_green .dot {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--off-white);
+}
+
+/* NEUTRAL — antes del rango */
+.color_neutral {
+  color: var(--off-white);
+  background: linear-gradient(
+    135deg,
+    rgba(196, 168, 130, 0.35),
+    rgba(196, 168, 130, 0.18)
+  );
+  border-color: rgba(196, 168, 130, 0.45);
+}
+
+.color_neutral .dot {
+  background: rgba(196, 168, 130, 0.5);
+  color: var(--off-white);
+}
+
+/* AMBER — vence en ventana */
+.color_amber {
+  color: #1a1108;
+  background: linear-gradient(135deg, #ffc94a, #d99a2a);
+  border-color: rgba(217, 154, 42, 0.6);
+}
+
+.color_amber .dot {
+  background: rgba(0, 0, 0, 0.15);
+  color: #1a1108;
+}
+
+.color_amber .label {
+  font-weight: 700;
+}
+
+/* RED — vencido (pulsa suave para llamar la atención) */
+.color_red {
+  color: var(--off-white);
+  background: linear-gradient(135deg, var(--red-warn), #c05a48);
+  border-color: rgba(176, 75, 58, 0.6);
+  animation: redPulse 2.2s ease-in-out infinite;
+}
+
+.color_red .dot {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--off-white);
+}
+
+@keyframes redPulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 2px 8px rgba(176, 75, 58, 0.35),
+      0 0 0 0 rgba(176, 75, 58, 0.5);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 2px 8px rgba(176, 75, 58, 0.4),
+      0 0 0 6px rgba(176, 75, 58, 0);
+  }
+}
+
+/* ============ Responsive ============ */
+
+@media (max-width: 700px) {
+  .cta {
+    padding: 6px 12px 6px 8px;
+    gap: 8px;
+  }
+  .dot {
+    width: 22px;
+    height: 22px;
+  }
+  .label {
+    font-size: 10px;
+  }
+  .fee {
+    display: none;
+  }
+}

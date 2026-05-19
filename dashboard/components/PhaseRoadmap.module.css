@@ -326,30 +326,51 @@
   border-top: 1px solid rgba(10, 26, 12, 0.06);
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
 }
 
-.drawerCommentBtn {
+.drawerCommentBtn,
+.drawerPdfBtn {
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 600;
-  color: var(--sand-dark);
   background: transparent;
-  border: 1px solid rgba(196, 168, 130, 0.4);
   padding: 9px 16px;
   cursor: pointer;
   font-family: inherit;
   transition:
     border-color 180ms ease-out,
     color 180ms ease-out,
-    background 180ms ease-out;
-  border-radius: 1px;
+    background 180ms ease-out,
+    transform 120ms ease-out;
+  border-radius: 4px;
+}
+
+.drawerCommentBtn {
+  color: var(--sand-dark);
+  border: 1px solid rgba(196, 168, 130, 0.4);
 }
 
 .drawerCommentBtn:hover {
   color: var(--deep-green);
   border-color: var(--deep-green);
   background: rgba(196, 168, 130, 0.08);
+}
+
+/* Botón primario del drawer — Ver PDF. Se destaca sobre Comentar porque
+   es la acción principal: el cliente quiere abrir el documento, no
+   anotarlo. Usa el verde de marca con leve gradient para sentirse glass. */
+.drawerPdfBtn {
+  color: var(--off-white);
+  border: 1px solid var(--deep-green);
+  background: linear-gradient(135deg, var(--deep-green), var(--forest-2));
+  box-shadow: 0 4px 12px rgba(10, 26, 12, 0.15);
+}
+
+.drawerPdfBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(10, 26, 12, 0.22);
 }
 
 /* ===== Mobile ===== */

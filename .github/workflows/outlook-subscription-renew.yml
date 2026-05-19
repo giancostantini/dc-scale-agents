@@ -1,0 +1,44 @@
+name: Outlook Subscription Renew
+
+# Las subscriptions de Microsoft Graph para events tienen TTL máximo de
+# ~3 días (4230 minutos). Este cron corre todos los días a las 10:00 UTC
+# (7am UY) y le pega al endpoint /api/calendar/outlook/subscribe que:
+#   - Renueva la subscription activa si todavía está viva.
+#   - Crea una nueva si la subscription expiró (404 al renovar).
+#
+# El endpoint usa el header x-cron-secret como auth alterno (no requiere
+# sesión de director).
+#
+# Manual via workflow_dispatch para arranque inicial o re-sync.
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Renovar subscription Outlook
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/calendar/outlook/subscribe" \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Subscription response: $response"
+          mode=$(echo "$response" | jq -r '.mode // "unknown"')
+          if [ "$mode" != "renewed" ] && [ "$mode" != "created" ]; then
+            echo "ERROR: subscription no se procesó correctamente" >&2
+            exit 1
+          fi
+          echo "OK: subscription $mode"

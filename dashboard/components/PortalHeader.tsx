@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Lockup from "@/components/Lockup";
 import NotificationBell from "@/components/NotificationBell";
+import PaymentCTA from "@/components/PaymentCTA";
 import { signOut, type Profile } from "@/lib/supabase/auth";
 import type { Client } from "@/lib/types";
 import styles from "./PortalHeader.module.css";
@@ -22,7 +23,11 @@ export interface PortalHeaderProps {
  * Header unificado del portal del cliente. Muestra:
  *   - Logo del cliente (si existe) + Lockup D&C
  *   - Eyebrow contextual centrado
- *   - Conexiones · Alertas · Perfil · Salir
+ *   - PaymentCTA (semáforo del pago mensual) · Alertas · Perfil · Salir
+ *
+ * El botón "Conexiones" se eliminó: las integraciones las gestiona el
+ * equipo directamente con los programadores del cliente (no es una
+ * acción autoservicio).
  *
  * Todos los botones del lado derecho mantienen la misma altura/padding
  * para sentirse uniformes (el styling del NotificationBell se sobreescribe
@@ -61,13 +66,7 @@ export default function PortalHeader({
             ← Portal
           </Link>
         ) : (
-          <Link
-            href="/portal/conexiones"
-            className={styles.headerBtn}
-            title="Tus integraciones"
-          >
-            Conexiones
-          </Link>
+          <PaymentCTA />
         )}
 
         <NotificationBell />

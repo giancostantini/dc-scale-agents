@@ -3,8 +3,44 @@
 import { useState } from "react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { extractExecutiveSummary } from "@/lib/phases";
+import { getSupabase } from "@/lib/supabase/client";
 import type { Client, PhaseReport } from "@/lib/types";
 import styles from "./PhaseRoadmap.module.css";
+
+/**
+ * Abre el PDF subido del reporte aprobado (signed URL, en una pestaña nueva).
+ * Hereda la auth del cliente desde la sesión de Supabase y consulta
+ * /api/phases/uploaded-pdf que devuelve un signed URL válido por 30 minutos.
+ */
+async function openUploadedPdf(
+  clientId: string,
+  phase: string,
+  version: number,
+): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      alert("Sin sesión. Refrescá la página.");
+      return;
+    }
+    const res = await fetch(
+      `/api/phases/uploaded-pdf?clientId=${encodeURIComponent(clientId)}&phase=${phase}&version=${version}`,
+      { headers: { Authorization: `Bearer ${session.access_token}` } },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.signedUrl) {
+      alert(data?.error ?? `No se pudo abrir el PDF (HTTP ${res.status})`);
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  } catch (err) {
+    console.error("openUploadedPdf failed:", err);
+    alert("No se pudo abrir el PDF. Probá de nuevo.");
+  }
+}
 
 const PHASES = [
   { key: "diagnostico", label: "Diagnóstico", short: "Diag." },
@@ -229,18 +265,35 @@ export default function PhaseRoadmap({
                 )}
               </div>
 
-              {showCommentBtn && opened.report && (
+              {opened.report?.status === "approved" && opened.report && (
                 <footer className={styles.drawerFooter}>
-                  <button
-                    type="button"
-                    className={styles.drawerCommentBtn}
-                    onClick={() => {
-                      onCommentReport!(opened.report!.id, opened.label);
-                      setOpenPhase(null);
-                    }}
-                  >
-                    Comentar este reporte
-                  </button>
+                  {opened.report.pdf_path && (
+                    <button
+                      type="button"
+                      className={styles.drawerPdfBtn}
+                      onClick={() =>
+                        openUploadedPdf(
+                          client.id,
+                          opened.key,
+                          opened.report!.version,
+                        )
+                      }
+                    >
+                      Ver PDF
+                    </button>
+                  )}
+                  {showCommentBtn && (
+                    <button
+                      type="button"
+                      className={styles.drawerCommentBtn}
+                      onClick={() => {
+                        onCommentReport!(opened.report!.id, opened.label);
+                        setOpenPhase(null);
+                      }}
+                    >
+                      Comentar este reporte
+                    </button>
+                  )}
                 </footer>
               )}
             </div>

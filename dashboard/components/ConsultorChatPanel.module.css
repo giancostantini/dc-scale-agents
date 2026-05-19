@@ -1,24 +1,35 @@
 /* ================================================================
-   ConsultorChatPanel — chat embebible con el Consultor IA.
+   ConsultorChatPanel — chat con D&C Advisor, refresh glassmorphism.
    Variante "embedded" para el home, "fullscreen" para /portal/consultor.
    ================================================================ */
 
 .panel {
-  background: var(--white);
-  border: 1px solid rgba(10, 26, 12, 0.06);
-  border-left: 3px solid var(--sand);
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.55) 100%
+  );
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 18px;
   display: flex;
   flex-direction: column;
   min-height: 580px;
   max-height: 760px;
-  box-shadow: 0 1px 3px rgba(10, 26, 12, 0.05), 0 8px 24px rgba(10, 26, 12, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 12px 36px rgba(10, 26, 12, 0.10);
   overflow: hidden;
 }
 
 .panel.fullscreen {
   min-height: calc(100vh - 200px);
   max-height: none;
-  box-shadow: 0 1px 3px rgba(10, 26, 12, 0.05), 0 12px 32px rgba(10, 26, 12, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 16px 48px rgba(10, 26, 12, 0.14);
 }
 
 /* ===== Header ===== */
@@ -27,46 +38,69 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 22px;
-  border-bottom: 1px solid rgba(10, 26, 12, 0.06);
-  background: var(--ivory);
+  padding: 16px 22px;
+  background: linear-gradient(
+    135deg,
+    rgba(10, 26, 12, 0.85) 0%,
+    rgba(30, 58, 40, 0.78) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--off-white);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.consultorAvatar {
-  width: 38px;
-  height: 38px;
-  background: var(--deep-green);
-  color: var(--sand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  gap: 14px;
 }
 
 .headerTitle {
   font-size: 14px;
   font-weight: 700;
-  color: var(--deep-green);
+  color: var(--off-white);
   letter-spacing: -0.01em;
   line-height: 1.1;
 }
 
 .headerSub {
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--sand-dark);
+  color: rgba(196, 168, 130, 0.88);
   font-weight: 600;
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.onlineLabel {
+  color: var(--green-ok);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.onlineLabel::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green-ok);
+  box-shadow: 0 0 6px var(--green-ok);
+  animation: onlineLabelPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes onlineLabelPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.headerSubSeparator {
+  opacity: 0.45;
 }
 
 .expandBtn {
@@ -74,21 +108,26 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 600;
-  color: var(--sand-dark);
-  background: transparent;
-  border: 1px solid rgba(196, 168, 130, 0.4);
+  color: rgba(196, 168, 130, 0.88);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(196, 168, 130, 0.3);
   padding: 7px 12px;
   cursor: pointer;
   text-decoration: none;
   font-family: inherit;
-  transition: border-color 180ms ease-out, color 180ms ease-out, background 180ms ease-out;
-  border-radius: 1px;
+  transition:
+    border-color 180ms ease-out,
+    color 180ms ease-out,
+    background 180ms ease-out,
+    transform 120ms ease-out;
+  border-radius: 8px;
 }
 
 .expandBtn:hover {
-  color: var(--deep-green);
-  border-color: var(--deep-green);
-  background: rgba(196, 168, 130, 0.08);
+  color: var(--sand);
+  border-color: var(--sand);
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
 }
 
 /* ===== Messages ===== */
@@ -101,43 +140,64 @@
   flex-direction: column;
   gap: 18px;
   scroll-behavior: smooth;
+  background:
+    radial-gradient(
+      circle at 20% 0%,
+      rgba(196, 168, 130, 0.10) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 80% 100%,
+      rgba(58, 139, 92, 0.06) 0%,
+      transparent 50%
+    );
 }
 
 .assistantRow {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-}
-
-.assistantAvatar {
-  width: 30px;
-  height: 30px;
-  background: var(--sand);
-  color: var(--deep-green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 2px;
+  animation: slideUp 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .assistantBubble {
-  background: var(--ivory);
-  border-left: 2px solid rgba(196, 168, 130, 0.4);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   padding: 14px 18px;
   font-size: 14px;
   color: var(--deep-green);
   line-height: 1.6;
   max-width: 88%;
-  border-radius: 0 4px 4px 4px;
+  border-radius: 4px 16px 16px 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 4px 14px rgba(10, 26, 12, 0.06);
 }
 
-/* Variante "welcome": un poquito más destacada */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Variante "welcome": más destacada con tinte sand y leve gradient */
 .welcomeBubble {
-  background: linear-gradient(135deg, var(--ivory) 0%, rgba(196, 168, 130, 0.10) 100%);
-  border-left: 3px solid var(--sand);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(196, 168, 130, 0.18) 100%
+  );
+  border-color: rgba(196, 168, 130, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 6px 20px rgba(196, 168, 130, 0.18);
 }
 
 .welcomeLabel {
@@ -192,34 +252,43 @@
 .assistantBubble :global(code) {
   font-family: "SF Mono", Consolas, monospace;
   font-size: 12px;
-  background: rgba(10, 26, 12, 0.06);
-  padding: 1px 5px;
-  border-radius: 2px;
+  background: rgba(10, 26, 12, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .userRow {
   display: flex;
   justify-content: flex-end;
+  animation: slideUp 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .userBubble {
-  background: var(--deep-green);
+  background: linear-gradient(
+    135deg,
+    var(--deep-green) 0%,
+    var(--forest-2) 100%
+  );
   color: var(--off-white);
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.55;
   max-width: 78%;
-  border-radius: 4px 0 4px 4px;
+  border-radius: 16px 4px 16px 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 4px 14px rgba(10, 26, 12, 0.18);
 }
 
 /* ===== Skeleton de welcome ===== */
 
 .skeleton {
-  background: var(--ivory);
-  border-left: 2px solid rgba(196, 168, 130, 0.4);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   padding: 14px 18px;
   max-width: 88%;
-  border-radius: 0 4px 4px 4px;
+  border-radius: 4px 16px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -235,13 +304,15 @@
 
 .skelLine {
   height: 10px;
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     rgba(10, 26, 12, 0.06) 0%,
-    rgba(10, 26, 12, 0.10) 50%,
-    rgba(10, 26, 12, 0.06) 100%);
+    rgba(10, 26, 12, 0.12) 50%,
+    rgba(10, 26, 12, 0.06) 100%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 @keyframes shimmer {
@@ -252,7 +323,9 @@
 /* ===== Welcome error ===== */
 
 .welcomeError {
-  background: rgba(176, 75, 58, 0.06);
+  background: rgba(176, 75, 58, 0.10);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(176, 75, 58, 0.3);
   border-left: 3px solid var(--red-warn);
   padding: 14px 18px;
   font-size: 13px;
@@ -261,6 +334,7 @@
   flex-direction: column;
   gap: 4px;
   line-height: 1.5;
+  border-radius: 4px 14px 14px 14px;
 }
 
 .welcomeError strong {
@@ -279,28 +353,17 @@
   display: flex;
   gap: 12px;
   align-items: center;
-}
-
-.thinkingAvatar {
-  width: 30px;
-  height: 30px;
-  background: var(--sand);
-  color: var(--deep-green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  animation: slideUp 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .thinkingDots {
-  background: var(--ivory);
-  border-left: 2px solid rgba(196, 168, 130, 0.4);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
   padding: 14px 18px;
   display: flex;
   gap: 6px;
-  border-radius: 0 4px 4px 4px;
+  border-radius: 4px 16px 16px 16px;
 }
 
 .thinkingDots span {
@@ -323,7 +386,9 @@
 
 .suggestions {
   padding: 14px 22px 0;
-  border-top: 1px solid rgba(10, 26, 12, 0.06);
+  border-top: 1px solid rgba(10, 26, 12, 0.05);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
   flex-shrink: 0;
 }
 
@@ -344,21 +409,26 @@
 
 .suggestionBtn {
   text-align: left;
-  background: var(--ivory);
-  border: 1px solid rgba(196, 168, 130, 0.25);
-  padding: 10px 12px;
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(196, 168, 130, 0.4);
+  padding: 11px 14px;
+  font-size: 12.5px;
   color: var(--deep-green);
   cursor: pointer;
   font-family: inherit;
   line-height: 1.4;
-  transition: border-color 180ms ease-out, background 180ms ease-out;
-  border-radius: 1px;
+  transition:
+    border-color 180ms ease-out,
+    background 180ms ease-out,
+    transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 10px;
 }
 
 .suggestionBtn:hover:not(:disabled) {
   border-color: var(--sand);
-  background: rgba(196, 168, 130, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-1px);
 }
 
 .suggestionBtn:disabled {
@@ -370,10 +440,11 @@
 
 .composer {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   padding: 14px 22px 16px;
-  border-top: 1px solid rgba(10, 26, 12, 0.06);
-  background: var(--white);
+  border-top: 1px solid rgba(10, 26, 12, 0.05);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
   flex-shrink: 0;
 }
 
@@ -382,20 +453,30 @@
   padding: 11px 14px;
   font-size: 14px;
   color: var(--deep-green);
-  background: var(--ivory);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(10, 26, 12, 0.10);
   font-family: inherit;
   resize: none;
   line-height: 1.45;
-  transition: border-color 180ms ease-out, background 180ms ease-out;
-  border-radius: 1px;
+  transition:
+    border-color 180ms ease-out,
+    background 180ms ease-out,
+    box-shadow 180ms ease-out;
+  border-radius: 10px;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 .input:focus {
   outline: none;
   border-color: var(--sand);
-  background: var(--white);
-  box-shadow: 0 0 0 3px rgba(196, 168, 130, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 0 4px rgba(196, 168, 130, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .input:disabled {
@@ -406,23 +487,32 @@
 .sendBtn {
   width: 44px;
   height: 44px;
-  background: var(--deep-green);
+  background: linear-gradient(135deg, var(--deep-green), var(--forest-2));
   color: var(--sand);
   border: 1px solid var(--deep-green);
   font-size: 20px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 180ms ease-out, transform 120ms ease-out;
+  transition:
+    background 180ms ease-out,
+    transform 120ms ease-out,
+    box-shadow 180ms ease-out;
   flex-shrink: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 4px 12px rgba(10, 26, 12, 0.22);
 }
 
 .sendBtn:hover:not(:disabled) {
-  background: var(--forest);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 6px 16px rgba(10, 26, 12, 0.30);
 }
 
 .sendBtn:active:not(:disabled) {
@@ -439,10 +529,13 @@
 .chatError {
   margin: 0 22px 12px;
   padding: 10px 14px;
-  background: rgba(176, 75, 58, 0.08);
+  background: rgba(176, 75, 58, 0.10);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(176, 75, 58, 0.3);
   border-left: 3px solid var(--red-warn);
   color: var(--red-warn);
   font-size: 12px;
+  border-radius: 8px;
 }
 
 /* ===== Responsive ===== */
@@ -451,7 +544,7 @@
   .panel {
     min-height: 480px;
     max-height: none;
-    border-left: 2px solid var(--sand);
+    border-radius: 14px;
   }
   .messages {
     padding: 18px 16px;
@@ -474,25 +567,16 @@
 }
 
 /* Mobile chico (375px-480px) — chat pegado al bottom para que el composer
-   nunca se pierda al hacer focus en el textarea. Suggestions más grandes
-   para tappear cómodo (44x44 mínimo). */
+   nunca se pierda al hacer focus en el textarea. */
 @media (max-width: 480px) {
   .panel {
     min-height: calc(100vh - 220px);
     height: auto;
-    border-left: none;
-    border-top: 2px solid var(--sand);
-    box-shadow: none;
     border-radius: 0;
+    box-shadow: none;
   }
   .panelHeader {
     padding: 12px 14px;
-    background: linear-gradient(180deg, var(--ivory) 0%, rgba(196, 168, 130, 0.06) 100%);
-  }
-  .consultorAvatar {
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
   }
   .headerTitle {
     font-size: 13px;
@@ -509,14 +593,6 @@
   .messages {
     padding: 14px 12px 12px;
     gap: 14px;
-  }
-
-  .assistantAvatar,
-  .thinkingAvatar {
-    width: 26px;
-    height: 26px;
-    font-size: 12px;
-    margin-top: 4px;
   }
 
   .assistantBubble,
@@ -547,9 +623,7 @@
     min-height: 44px;
   }
 
-  /* Composer pegado al bottom — usa safe-area para iOS notch.
-     Sticky-bottom evita que el textarea suba al hacer focus y deje
-     un gap raro. */
+  /* Composer pegado al bottom — usa safe-area para iOS notch. */
   .composer {
     padding: 10px 12px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -557,7 +631,7 @@
     bottom: 0;
     z-index: 5;
     border-top: 1px solid rgba(10, 26, 12, 0.08);
-    box-shadow: 0 -4px 12px rgba(10, 26, 12, 0.04);
+    box-shadow: 0 -4px 12px rgba(10, 26, 12, 0.06);
   }
 
   .input {
