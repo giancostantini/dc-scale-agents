@@ -11,6 +11,7 @@ import { getClient } from "@/lib/storage";
 import PortalHeader from "@/components/PortalHeader";
 import MonthlyCalendar from "@/components/MonthlyCalendar";
 import ScheduleMeetingCTA from "@/components/ScheduleMeetingCTA";
+import OutlookConnectionCard from "@/components/OutlookConnectionCard";
 import type { Client } from "@/lib/types";
 import portalStyles from "../portal.module.css";
 
@@ -72,6 +73,8 @@ export default function PortalCalendarioPage() {
           </div>
           <ScheduleMeetingCTA />
         </section>
+
+        <OutlookConnectionCard returnTo="/portal/calendario" />
 
         <MonthlyCalendar />
       </main>
