@@ -78,6 +78,7 @@ interface ClientRow {
   country: string | null;
   onboarding: ClientOnboarding | null;
   external_links: Client["external_links"] | null;
+  looker_studio_url: string | null;
   content_frequency: Client["content_frequency"] | null;
 }
 
@@ -98,6 +99,7 @@ function clientFromRow(r: ClientRow): Client {
     sprints: r.sprints ?? undefined,
     onboarding: r.onboarding ?? undefined,
     external_links: r.external_links ?? undefined,
+    looker_studio_url: r.looker_studio_url,
     content_frequency: r.content_frequency ?? undefined,
   };
 }

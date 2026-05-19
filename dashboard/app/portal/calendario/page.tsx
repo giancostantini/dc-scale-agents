@@ -10,6 +10,7 @@ import {
 import { getClient } from "@/lib/storage";
 import PortalHeader from "@/components/PortalHeader";
 import MonthlyCalendar from "@/components/MonthlyCalendar";
+import ScheduleMeetingCTA from "@/components/ScheduleMeetingCTA";
 import type { Client } from "@/lib/types";
 import portalStyles from "../portal.module.css";
 
@@ -61,12 +62,15 @@ export default function PortalCalendarioPage() {
 
       <main className={portalStyles.wrap}>
         <section className={portalStyles.heroBlock}>
-          <div className={portalStyles.heroEyebrow}>Tu mes</div>
-          <h1 className={portalStyles.heroTitle}>Calendario</h1>
-          <p className={portalStyles.heroSub}>
-            Reuniones, lanzamientos de campañas y publicaciones programadas.
-            Click en un día para ver el detalle.
-          </p>
+          <div className={portalStyles.heroLeft}>
+            <div className={portalStyles.heroEyebrow}>Tu mes</div>
+            <h1 className={portalStyles.heroTitle}>Calendario</h1>
+            <p className={portalStyles.heroSub}>
+              Reuniones que el equipo agenda en Outlook se sincronizan
+              automáticamente. Click en un día para ver el detalle.
+            </p>
+          </div>
+          <ScheduleMeetingCTA />
         </section>
 
         <MonthlyCalendar />

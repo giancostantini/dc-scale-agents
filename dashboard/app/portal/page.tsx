@@ -9,16 +9,10 @@ import {
   signOut,
   type Profile,
 } from "@/lib/supabase/auth";
-import {
-  getClient,
-  getObjectives,
-  getEvents,
-  getPayments,
-} from "@/lib/storage";
-import { listPhaseReports, extractExecutiveSummary } from "@/lib/phases";
+import { getClient, getObjectives, getEvents } from "@/lib/storage";
+import { listPhaseReports } from "@/lib/phases";
 import { getSupabase } from "@/lib/supabase/client";
 import { getDownloadUrl } from "@/lib/upload";
-import MarkdownRenderer from "@/components/MarkdownRenderer";
 import Lockup from "@/components/Lockup";
 import PortalOnboardingTour from "@/components/PortalOnboardingTour";
 import PortalHeader from "@/components/PortalHeader";
@@ -26,14 +20,12 @@ import ConsultorChatPanel from "@/components/ConsultorChatPanel";
 import ConsultorHistoryPanel from "@/components/ConsultorHistoryPanel";
 import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
-import MonthSummaryBlock from "@/components/MonthSummaryBlock";
-import KpiTrendChart from "@/components/KpiTrendChart";
+import LookerStudioCard from "@/components/LookerStudioCard";
 import type {
   CalEvent,
   Client,
   ClientObjectives,
   ContentPost,
-  InvoicePayment,
   OnboardingFile,
   PhaseReport,
 } from "@/lib/types";
@@ -55,13 +47,6 @@ function getPathFromFile(f: OnboardingFile | string): string {
   return typeof f === "string" ? f : f.path;
 }
 
-const PHASE_LABELS: Record<string, string> = {
-  diagnostico: "Diagnóstico",
-  estrategia: "Estrategia",
-  setup: "Setup",
-  lanzamiento: "Lanzamiento",
-};
-
 export default function PortalPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -70,7 +55,6 @@ export default function PortalPage() {
   const [reports, setReports] = useState<PhaseReport[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [content, setContent] = useState<ContentPost[]>([]);
-  const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
@@ -123,37 +107,6 @@ export default function PortalPage() {
       active = false;
     };
   }, [profile?.client_id]);
-
-  /** Abre el PDF subido del reporte (signed URL, en una pestaña nueva). */
-  async function openUploadedPdf(
-    clientId: string,
-    phase: string,
-    version: number,
-  ) {
-    try {
-      const supabase = getSupabase();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        alert("Sin sesión. Refrescá la página.");
-        return;
-      }
-      const res = await fetch(
-        `/api/phases/uploaded-pdf?clientId=${encodeURIComponent(clientId)}&phase=${phase}&version=${version}`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.signedUrl) {
-        alert(data?.error ?? `No se pudo abrir el PDF (HTTP ${res.status})`);
-        return;
-      }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      console.error("openUploadedPdf failed:", err);
-      alert("No se pudo abrir el PDF. Probá de nuevo.");
-    }
-  }
 
   async function handleNewConversation() {
     try {
@@ -208,11 +161,10 @@ export default function PortalPage() {
       }
 
       const supabase = getSupabase();
-      const [c, o, ev, pay, rs, ct] = await Promise.all([
+      const [c, o, ev, rs, ct] = await Promise.all([
         getClient(p.client_id),
         getObjectives(p.client_id),
         getEvents(),
-        getPayments(),
         listPhaseReports(p.client_id),
         supabase
           .from("content_posts")
@@ -229,10 +181,10 @@ export default function PortalPage() {
       setEvents(
         ev.filter((e) => e.clientId === p.client_id || e.clientLabel === c?.name),
       );
-      setPayments(pay.filter((pp) => pp.clientId === p.client_id));
       // Reportes: TODOS los estados — el PhaseRoadmap necesita ver
       // approved/draft/review/pending para pintar la barra de fases.
-      // Para la sección "Reportes aprobados" más abajo filtramos a approved.
+      // El detalle (incluido botón "Ver PDF") vive ahora dentro del modal
+      // del PhaseRoadmap, no en una sección suelta debajo.
       setReports(rs);
       setContent(ct);
       setLoading(false);
@@ -266,9 +218,7 @@ export default function PortalPage() {
 
   if (!client || !profile) return null;
 
-  const k = client.kpis;
   const monthIso = new Date().toISOString().slice(0, 7);
-  const thisMonthPayment = payments.find((p) => p.month === monthIso);
   const upcomingEvents = events
     .filter((e) => new Date(e.date + "T" + (e.time || "00:00")) >= new Date())
     .slice(0, 3);
@@ -318,9 +268,6 @@ export default function PortalPage() {
           }
         />
 
-        {/* "Qué hicimos este mes" — agregación del trabajo del equipo */}
-        <MonthSummaryBlock />
-
         {/* CHAT-FIRST LAYOUT */}
         <section className={styles.chatLayout}>
           <div className={styles.chatColumn}>
@@ -344,21 +291,9 @@ export default function PortalPage() {
           </div>
 
           <aside className={styles.sidebar}>
-            {/* KPIs compactos — visibles para cualquier cliente. RLS aísla por client_id. */}
-            {k && (
-              <div className={styles.sidebarBlock}>
-                <div className={styles.sidebarLabel}>KPIs del mes</div>
-                <div className={styles.compactKpiGrid}>
-                  <CompactKPI label="ROAS" value={k.roas || "—"} />
-                  <CompactKPI label="Leads" value={String(k.leads ?? "—")} />
-                  <CompactKPI label="CAC" value={k.cac || "—"} />
-                  <CompactKPI label="Conv" value={k.conv || "—"} />
-                </div>
-              </div>
-            )}
-
-            {/* Evolución histórica de KPIs (últimos 12 meses) */}
-            <KpiTrendChart />
+            {/* Dashboard de métricas externo — Looker Studio. Los KPIs en
+                vivo y la evolución viven allá; el portal solo redirige. */}
+            <LookerStudioCard url={client.looker_studio_url ?? null} />
 
             {/* Objetivos compactos */}
             {objectives && objectives.items.length > 0 && (
@@ -416,32 +351,8 @@ export default function PortalPage() {
               </div>
             )}
 
-            {/* Estado de pagos compacto */}
-            <div className={styles.sidebarBlock}>
-              <div className={styles.sidebarLabel}>Tu pago de {monthIso}</div>
-              <div className={styles.paymentCompact}>
-                <div className={styles.paymentFee}>
-                  US$ {client.fee.toLocaleString()}
-                </div>
-                <div
-                  className={styles.paymentStatus}
-                  style={{
-                    color:
-                      thisMonthPayment?.status === "paid"
-                        ? "var(--green-ok)"
-                        : thisMonthPayment?.status === "late"
-                          ? "var(--red-warn)"
-                          : "var(--sand-dark)",
-                  }}
-                >
-                  {thisMonthPayment?.status === "paid"
-                    ? "✓ Pagado"
-                    : thisMonthPayment?.status === "late"
-                      ? "⚠ Atrasado"
-                      : "○ Pendiente"}
-                </div>
-              </div>
-            </div>
+            {/* Estado de pago: ahora vive en el PortalHeader como CTA con
+                semáforo (verde / ámbar / rojo según fecha del mes). */}
 
             {/* CTA Solicitudes — generar nueva oferta o acción */}
             <Link href="/portal/solicitudes" className={styles.requestCta}>
@@ -458,71 +369,9 @@ export default function PortalPage() {
           </aside>
         </section>
 
-        {/* DETALLE SCROLLEABLE */}
-
-        {reports.filter((r) => r.status === "approved").length > 0 && (
-          <section className={styles.detailSection}>
-            <div className={styles.sectionLabel}>Reportes aprobados</div>
-            <div className={styles.panel}>
-              {reports
-                .filter((r) => r.status === "approved")
-                .map((r) => {
-                  const summary = extractExecutiveSummary(r.content_md);
-                  const phaseLabel = PHASE_LABELS[r.phase] ?? r.phase;
-                  return (
-                    <div key={r.id} className={styles.reportRow}>
-                      <div className={styles.reportHead}>
-                        <div className={styles.reportTitle}>{phaseLabel}</div>
-                        <div className={styles.reportHeadActions}>
-                          <span className={styles.reportDate}>
-                            {r.approved_at &&
-                              new Date(r.approved_at).toLocaleDateString(
-                                "es-AR",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )}
-                          </span>
-                          {r.pdf_path && (
-                            <button
-                              type="button"
-                              className={styles.reportCommentBtn}
-                              onClick={() => openUploadedPdf(r.client_id, r.phase, r.version)}
-                              style={{ fontWeight: 600 }}
-                            >
-                              Ver PDF
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className={styles.reportCommentBtn}
-                            onClick={() =>
-                              setCommentsDrawer({
-                                open: true,
-                                reportId: r.id,
-                                reportLabel: phaseLabel,
-                              })
-                            }
-                          >
-                            Comentar
-                          </button>
-                        </div>
-                      </div>
-                      {summary ? (
-                        <MarkdownRenderer content={summary} shiftHeadings />
-                      ) : (
-                        <div className={styles.muted}>
-                          Sin resumen disponible.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          </section>
-        )}
+        {/* La sección "Reportes aprobados" se eliminó del home: el resumen
+            ejecutivo + botón "Ver PDF" + "Comentar" viven ahora dentro del
+            modal de cada fase en el PhaseRoadmap (más arriba). */}
 
         <ReportCommentsDrawer
           open={commentsDrawer.open}
@@ -572,14 +421,5 @@ export default function PortalPage() {
         </footer>
       </main>
     </>
-  );
-}
-
-function CompactKPI({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={styles.compactKpiCell}>
-      <div className={styles.compactKpiLabel}>{label}</div>
-      <div className={styles.compactKpiValue}>{value}</div>
-    </div>
   );
 }

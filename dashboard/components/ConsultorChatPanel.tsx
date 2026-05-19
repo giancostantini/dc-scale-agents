@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/client";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import ConsultorAvatar from "@/components/ConsultorAvatar";
 import styles from "./ConsultorChatPanel.module.css";
 
 interface ChatMessage {
@@ -305,10 +306,14 @@ export default function ConsultorChatPanel({
     >
       <header className={styles.panelHeader}>
         <div className={styles.headerLeft}>
-          <div className={styles.consultorAvatar}>✦</div>
+          <ConsultorAvatar size="lg" showStatus />
           <div>
             <div className={styles.headerTitle}>D&C Advisor</div>
-            <div className={styles.headerSub}>{clientName}</div>
+            <div className={styles.headerSub}>
+              <span className={styles.onlineLabel}>En línea</span>
+              <span className={styles.headerSubSeparator}>·</span>
+              <span>{clientName}</span>
+            </div>
           </div>
         </div>
         {showExpandButton && (
@@ -348,7 +353,7 @@ export default function ConsultorChatPanel({
 
         {sending && (
           <div className={styles.thinkingRow}>
-            <div className={styles.thinkingAvatar}>✦</div>
+            <ConsultorAvatar size="md" />
             <div className={styles.thinkingDots}>
               <span />
               <span />
@@ -432,7 +437,7 @@ function ChatBubble({
   }
   return (
     <div className={styles.assistantRow}>
-      <div className={styles.assistantAvatar}>✦</div>
+      <ConsultorAvatar size="sm" />
       <div
         className={`${styles.assistantBubble} ${isWelcome ? styles.welcomeBubble : ""}`}
       >
@@ -448,7 +453,7 @@ function ChatBubble({
 function WelcomeSkeleton() {
   return (
     <div className={styles.assistantRow}>
-      <div className={styles.assistantAvatar}>✦</div>
+      <ConsultorAvatar size="sm" />
       <div className={styles.skeleton}>
         <div className={styles.skelLabel}>Preparando tu resumen…</div>
         <div className={styles.skelLine} style={{ width: "85%" }} />

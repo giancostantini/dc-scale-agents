@@ -151,6 +151,9 @@ export interface Client {
   /** URLs a herramientas externas (Espor.ai, Looker Studio, Teams).
    *  Las configura el director desde Analítica / Biblioteca. */
   external_links?: ClientExternalLinks;
+  /** URL pública del dashboard Looker Studio del cliente. El portal lo
+   *  expone como CTA en el sidebar (reemplaza los KPI charts internos). */
+  looker_studio_url?: string | null;
   /** Frecuencia semanal de publicación por red. El planificador la
    *  usa para marcar los días "sugeridos" en el calendario. */
   content_frequency?: ContentFrequency;

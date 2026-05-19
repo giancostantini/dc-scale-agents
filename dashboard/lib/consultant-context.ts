@@ -384,7 +384,7 @@ export function buildClientContextBlock(bundle: ClientContextBundle): string {
   } else {
     lines.push("");
     lines.push("## Herramientas conectadas");
-    lines.push("- Ninguna conectada todavía. El cliente puede cargarlas desde /portal/conexiones.");
+    lines.push("- Ninguna conectada todavía. Las conexiones las gestiona el equipo de D&C con los programadores del cliente — el cliente no las configura desde el portal.");
   }
 
   // ===== Assets cargados (branding) =====
