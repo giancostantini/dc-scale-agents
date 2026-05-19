@@ -20,7 +20,11 @@ import {
   removeAssignment,
 } from "@/lib/team";
 import { getClients } from "@/lib/storage";
+import { listProfiles } from "@/lib/team";
 import type { Client } from "@/lib/types";
+import TrayectoriaSection from "@/components/TrayectoriaSection";
+import ManagerChain from "@/components/ManagerChain";
+import RequestBox from "@/components/RequestBox";
 import styles from "../equipo.module.css";
 import detail from "./detail.module.css";
 
@@ -55,6 +59,8 @@ export default function EquipoDetailPage({
   const [editNotes, setEditNotes] = useState("");
   // Permisos granulares (migration 007)
   const [editPipelineAccess, setEditPipelineAccess] = useState(false);
+  const [editReportsTo, setEditReportsTo] = useState<string>("");
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [saving, setSaving] = useState(false);
 
   // assignment form
@@ -74,14 +80,16 @@ export default function EquipoDetailPage({
         return;
       }
       setAuthChecked(true);
-      const [meP, p, clis] = await Promise.all([
+      const [meP, p, clis, profs] = await Promise.all([
         getCurrentProfile(),
         getProfile(id),
         getClients(),
+        listProfiles(),
       ]);
       setMe(meP);
       setProfile(p);
       setClients(clis);
+      setAllProfiles(profs.filter((x) => x.role !== "client"));
       if (p) {
         setEditName(p.name);
         setEditPosition(p.position ?? "");
@@ -96,6 +104,7 @@ export default function EquipoDetailPage({
         setEditPhone(p.phone ?? "");
         setEditNotes(p.notes ?? "");
         setEditPipelineAccess(p.permissions?.pipeline_access === true);
+        setEditReportsTo(p.reports_to_id ?? "");
         await loadAssignments();
       }
     });
@@ -155,6 +164,9 @@ export default function EquipoDetailPage({
         permissions: isClientRole
           ? {}
           : { pipeline_access: editPipelineAccess },
+        // Manager directo. Vacío = sin jefe asignado (típico de directores).
+        // Clientes del portal nunca tienen manager interno.
+        reports_to_id: isClientRole ? null : editReportsTo || null,
       });
       if (updated) setProfile(updated);
       alert("Cambios guardados.");
@@ -250,6 +262,11 @@ export default function EquipoDetailPage({
           </div>
         )}
 
+        {/* Cadena de mando — visible para todos */}
+        {profile.role !== "client" && (
+          <ManagerChain user={profile} allProfiles={allProfiles} />
+        )}
+
         {/* ===== Identidad + Rol ===== */}
         <Section title="Identidad y rol">
           <div className={detail.fieldGrid2}>
@@ -301,6 +318,27 @@ export default function EquipoDetailPage({
                 setValue={setEditStartDate}
                 disabled={!canEdit}
               />
+            )}
+            {editRole !== "client" && (
+              <div className={detail.field}>
+                <label>Reporta a (manager directo)</label>
+                <select
+                  value={editReportsTo}
+                  onChange={(e) => setEditReportsTo(e.target.value)}
+                  disabled={!canEdit}
+                >
+                  <option value="">— sin jefe directo —</option>
+                  {allProfiles
+                    .filter((x) => x.id !== profile.id) // no podés ser tu propio jefe
+                    .map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name}
+                        {x.position ? ` · ${x.position}` : ""}
+                        {x.role === "director" ? " (Director)" : ""}
+                      </option>
+                    ))}
+                </select>
+              </div>
             )}
           </div>
           {editRole === "client" && editClientId && (
@@ -422,6 +460,16 @@ export default function EquipoDetailPage({
           </div>
         )}
 
+        {/* ===== Trayectoria ===== */}
+        {editRole !== "client" && (
+          <TrayectoriaSection
+            userId={profile.id}
+            canEdit={canEdit}
+            assignments={assignments}
+            clients={clients}
+          />
+        )}
+
         {/* ===== Asignaciones a clientes (solo team — los clients no se
              asignan a clientes, ellos SON el cliente) ===== */}
         {editRole !== "client" && (
@@ -513,6 +561,16 @@ export default function EquipoDetailPage({
           )}
         </Section>
           </>
+        )}
+
+        {/* Caja de pedidos — self ve sus propios y puede crear nuevos;
+            director ve los del miembro y puede resolverlos. */}
+        {profile.role !== "client" && (
+          <RequestBox
+            userId={profile.id}
+            isSelf={isSelf}
+            isDirector={isDirector}
+          />
         )}
       </main>
     </>

@@ -1,6 +1,6 @@
 .view {
-  background: var(--deep-green);
-  color: var(--off-white);
+  background: var(--white);
+  color: var(--deep-green);
   min-height: calc(100vh - 72px);
 }
 
@@ -11,14 +11,14 @@
 }
 
 .sidebar {
-  background: var(--dark);
+  background: var(--off-white);
   padding: 36px 0;
-  border-right: 1px solid rgba(196, 168, 130, 0.1);
+  border-right: 1px solid rgba(10, 26, 12, 0.08);
 }
 
 .sidebarInfo {
   padding: 0 28px 28px;
-  border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
   margin-bottom: 20px;
 }
 
@@ -26,13 +26,13 @@
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.015em;
-  color: var(--off-white);
+  color: var(--deep-green);
   margin-bottom: 4px;
 }
 
 .sidebarSub {
   font-size: 11px;
-  color: var(--sand);
+  color: var(--sand-dark);
   letter-spacing: 0.05em;
 }
 
@@ -45,7 +45,7 @@
   font-size: 9px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--sand);
+  color: var(--sand-dark);
   font-weight: 600;
   margin-bottom: 10px;
 }
@@ -56,7 +56,7 @@
   gap: 12px;
   padding: 10px 0;
   font-size: 14px;
-  color: var(--off-white);
+  color: var(--deep-green);
   cursor: pointer;
   transition: color 0.15s;
   font-weight: 400;
@@ -68,17 +68,17 @@
 }
 
 .sidebarNavItem:hover {
-  color: var(--sand);
+  color: var(--sand-dark);
 }
 
 .sidebarNavItem.active {
-  color: var(--sand);
-  font-weight: 500;
+  color: var(--sand-dark);
+  font-weight: 600;
 }
 
 .sidebarNavItem .icon {
   width: 18px;
-  color: var(--sand);
+  color: var(--sand-dark);
   font-size: 13px;
 }
 
@@ -94,39 +94,40 @@
   align-items: flex-end;
   margin-bottom: 40px;
   padding-bottom: 24px;
-  border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
 }
 
 .eyebrow {
   font-size: 10px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  color: var(--sand);
+  color: var(--sand-dark);
   margin-bottom: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .head h1 {
   font-size: 40px;
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: var(--off-white);
+  color: var(--deep-green);
   line-height: 1;
 }
 
 .metaLabel {
   text-align: right;
   font-size: 11px;
-  color: var(--sand);
+  color: var(--sand-dark);
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  font-weight: 600;
 }
 
 .metaStrong {
   display: block;
   font-size: 28px;
   font-weight: 700;
-  color: var(--sand);
+  color: var(--deep-green);
   letter-spacing: -0.02em;
   margin-top: 6px;
   text-transform: none;
@@ -134,8 +135,8 @@
 
 .btnPrimary {
   padding: 14px 24px;
-  background: var(--sand);
-  color: var(--deep-green);
+  background: var(--deep-green);
+  color: var(--off-white);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -146,7 +147,7 @@
 }
 
 .btnPrimary:hover {
-  background: var(--sand-light);
+  background: #1f3a26;
 }
 
 /* ======== KPIs ======== */
@@ -155,13 +156,14 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  border: 1px solid rgba(196, 168, 130, 0.15);
+  border: 1px solid rgba(10, 26, 12, 0.08);
   margin-bottom: 32px;
+  background: var(--white);
 }
 
 .kpi {
   padding: 28px 32px;
-  border-right: 1px solid rgba(196, 168, 130, 0.15);
+  border-right: 1px solid rgba(10, 26, 12, 0.08);
 }
 
 .kpi:last-child {
@@ -172,8 +174,8 @@
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--sand);
-  font-weight: 500;
+  color: var(--sand-dark);
+  font-weight: 600;
   margin-bottom: 12px;
 }
 
@@ -181,40 +183,41 @@
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.025em;
-  color: var(--off-white);
+  color: var(--deep-green);
 }
 
 .kSub {
   font-size: 12px;
-  color: rgba(232, 228, 220, 0.5);
+  color: var(--text-muted);
   margin-top: 6px;
 }
 
 /* ======== Tables ======== */
 
 .table {
-  background: var(--dark);
-  border: 1px solid rgba(196, 168, 130, 0.15);
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.08);
   padding: 28px;
   margin-bottom: 28px;
 }
 
 .table h3 {
   font-size: 14px;
-  color: var(--off-white);
+  color: var(--deep-green);
   font-weight: 600;
   margin-bottom: 24px;
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
 }
 
 .row {
   display: grid;
   gap: 16px;
   padding: 14px 0;
-  border-bottom: 1px solid rgba(196, 168, 130, 0.08);
+  border-bottom: 1px solid rgba(10, 26, 12, 0.05);
   font-size: 13px;
   align-items: center;
+  color: var(--deep-green);
 }
 
 .row:last-child {
@@ -225,12 +228,12 @@
   font-size: 10px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--sand);
-  font-weight: 500;
+  color: var(--sand-dark);
+  font-weight: 700;
 }
 
 .num {
-  color: var(--off-white);
+  color: var(--deep-green);
   font-weight: 500;
 }
 
@@ -244,7 +247,7 @@
 
 .marginBar {
   height: 4px;
-  background: rgba(232, 228, 220, 0.08);
+  background: rgba(10, 26, 12, 0.08);
   position: relative;
   overflow: hidden;
   margin-top: 6px;
@@ -252,7 +255,7 @@
 
 .marginFill {
   height: 100%;
-  background: var(--sand);
+  background: var(--sand-dark);
 }
 
 .pill {
@@ -265,17 +268,17 @@
 }
 
 .pillPaid {
-  background: rgba(58, 139, 92, 0.2);
+  background: rgba(58, 139, 92, 0.15);
   color: var(--green-ok);
 }
 
 .pillPending {
-  background: rgba(201, 161, 74, 0.2);
+  background: rgba(201, 161, 74, 0.18);
   color: var(--yellow-warn);
 }
 
 .pillLate {
-  background: rgba(176, 75, 58, 0.2);
+  background: rgba(176, 75, 58, 0.15);
   color: var(--red-warn);
 }
 
@@ -284,26 +287,27 @@
 .emptyState {
   padding: 60px 40px;
   text-align: center;
-  border: 1px dashed rgba(196, 168, 130, 0.2);
+  border: 1px dashed rgba(10, 26, 12, 0.15);
+  background: var(--off-white);
 }
 
 .emptyIcon {
   font-size: 40px;
-  color: var(--sand);
+  color: var(--sand-dark);
   margin-bottom: 20px;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .emptyTitle {
   font-size: 20px;
   font-weight: 600;
-  color: var(--off-white);
+  color: var(--deep-green);
   margin-bottom: 10px;
 }
 
 .emptyDesc {
   font-size: 13px;
-  color: rgba(232, 228, 220, 0.55);
+  color: var(--text-muted);
   max-width: 440px;
   margin: 0 auto 24px;
   line-height: 1.6;
@@ -315,7 +319,7 @@
   }
   .sidebar {
     border-right: none;
-    border-bottom: 1px solid rgba(196, 168, 130, 0.1);
+    border-bottom: 1px solid rgba(10, 26, 12, 0.08);
   }
   .kpis {
     grid-template-columns: repeat(2, 1fr);

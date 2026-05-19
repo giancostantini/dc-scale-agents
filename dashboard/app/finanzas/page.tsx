@@ -15,16 +15,29 @@ import {
 } from "@/lib/storage";
 import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
 import type { Client, Expense, InvoicePayment, Lead } from "@/lib/types";
+import {
+  DividendosView,
+  EstadosView,
+  KPIsViewV2,
+  ManualRevenuesPanel,
+  TeamCostView,
+} from "./FinanzasViews";
+import {
+  listManualRevenues,
+  revenueMonthlyImpact,
+  type ManualRevenue,
+} from "@/lib/finanzas";
 import styles from "./finanzas.module.css";
 
 type FinPage =
   | "dashboard"
   | "ingresos"
   | "egresos"
+  | "equipo"
+  | "dividendos"
+  | "estados"
   | "clientes"
-  | "resultados"
   | "facturacion"
-  | "log"
   | "kpis";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
@@ -39,12 +52,14 @@ export default function FinanzasPage() {
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [expenseModal, setExpenseModal] = useState(false);
+  const [manualRevs, setManualRevs] = useState<ManualRevenue[]>([]);
 
   const refresh = useCallback(() => {
     getClients().then(setClients);
     getExpenses().then(setExpenses);
     getPayments().then(setPayments);
     getLeads().then(setLeads);
+    listManualRevenues().then(setManualRevs);
   }, []);
 
   useEffect(() => {
@@ -74,6 +89,27 @@ export default function FinanzasPage() {
     () => expenses.reduce((s, e) => s + e.amount, 0),
     [expenses],
   );
+  // Net del mes actual incluye fees mensuales + ingresos manuales que
+  // aplican al mes − egresos. Es la base sobre la que se calculan los
+  // dividendos en DividendosView.
+  const monthYYYYMM = MONTH_ISO();
+  const manualRevImpact = useMemo(
+    () =>
+      manualRevs.reduce(
+        (s, r) => s + revenueMonthlyImpact(r, monthYYYYMM),
+        0,
+      ),
+    [manualRevs, monthYYYYMM],
+  );
+  const monthlyExpenses = useMemo(
+    () =>
+      expenses
+        .filter((e) => (e.date ?? "").startsWith(monthYYYYMM))
+        .reduce((s, e) => s + e.amount, 0),
+    [expenses, monthYYYYMM],
+  );
+  const monthlyNet = mrr + manualRevImpact - monthlyExpenses;
+
   const netResult = mrr - totalExpenses;
   const marginPct = mrr > 0 ? Math.round((netResult / mrr) * 100) : 0;
   const pipelineValue = useMemo(
@@ -83,6 +119,8 @@ export default function FinanzasPage() {
 
   if (!authChecked) return null;
 
+  // Sidebar unificado bajo un solo header "Finanzas" — el director
+  // pidió no fragmentar en sub-secciones.
   const SECTIONS: {
     label: string;
     items: { key: FinPage; icon: string; label: string }[];
@@ -90,23 +128,16 @@ export default function FinanzasPage() {
     {
       label: "Finanzas",
       items: [
-        { key: "dashboard", icon: "◈", label: "Dashboard" },
+        { key: "dashboard", icon: "◈", label: "Panel principal" },
         { key: "ingresos", icon: "↑", label: "Ingresos" },
         { key: "egresos", icon: "↓", label: "Egresos" },
-      ],
-    },
-    {
-      label: "Análisis",
-      items: [
+        { key: "equipo", icon: "◌", label: "Funcionales" },
+        { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
+        { key: "estados", icon: "▦", label: "Estados financieros" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
-        { key: "resultados", icon: "▦", label: "Resultados operativos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
-        { key: "log", icon: "▢", label: "Log de actividad" },
+        { key: "kpis", icon: "▲", label: "KPIs anuales" },
       ],
-    },
-    {
-      label: "Empresa",
-      items: [{ key: "kpis", icon: "▲", label: "KPIs anuales" }],
     },
   ];
 
@@ -154,19 +185,38 @@ export default function FinanzasPage() {
               />
             )}
             {page === "ingresos" && (
-              <IngresosView
+              <>
+                <IngresosView
+                  clients={clients}
+                  payments={payments}
+                  onTogglePaid={async (clientId, month) => {
+                    const existing = payments.find(
+                      (p) => p.clientId === clientId && p.month === month,
+                    );
+                    const next =
+                      existing?.status === "paid" ? "pending" : "paid";
+                    await setPaymentStatus(clientId, month, next);
+                    refresh();
+                  }}
+                  mrr={mrr}
+                />
+                <ManualRevenuesPanel />
+              </>
+            )}
+            {page === "equipo" && <TeamCostView />}
+            {page === "dividendos" && (
+              <DividendosView monthlyNet={monthlyNet} />
+            )}
+            {page === "estados" && (
+              <EstadosView
                 clients={clients}
-                payments={payments}
-                onTogglePaid={async (clientId, month) => {
-                  const existing = payments.find(
-                    (p) => p.clientId === clientId && p.month === month,
-                  );
-                  const next =
-                    existing?.status === "paid" ? "pending" : "paid";
-                  await setPaymentStatus(clientId, month, next);
-                  refresh();
-                }}
-                mrr={mrr}
+                expenses={expenses}
+                payments={payments.map((p) => ({
+                  clientId: p.clientId,
+                  month: p.month,
+                  status: p.status,
+                }))}
+                monthYYYYMM={monthYYYYMM}
               />
             )}
             {page === "egresos" && (
@@ -188,15 +238,6 @@ export default function FinanzasPage() {
             {page === "clientes" && (
               <ClientesView clients={clients} expenses={expenses} />
             )}
-            {page === "resultados" && (
-              <ResultadosView
-                clients={clients}
-                mrr={mrr}
-                marginPct={marginPct}
-                pipelineValue={pipelineValue}
-                leads={leads}
-              />
-            )}
             {page === "facturacion" && (
               <FacturacionView
                 clients={clients}
@@ -207,13 +248,16 @@ export default function FinanzasPage() {
                 }}
               />
             )}
-            {page === "log" && <LogView expenses={expenses} clients={clients} />}
             {page === "kpis" && (
-              <KPIsView
+              <KPIsViewV2
                 mrr={mrr}
                 clients={clients}
+                expenses={expenses}
+                payments={payments}
+                manualRevs={manualRevs}
                 marginPct={marginPct}
                 pipelineValue={pipelineValue}
+                leads={leads}
               />
             )}
           </main>
@@ -540,43 +584,6 @@ function ClientesView({ clients, expenses }: { clients: Client[]; expenses: Expe
   );
 }
 
-function ResultadosView({ clients, mrr, marginPct, pipelineValue, leads }: {
-  clients: Client[]; mrr: number; marginPct: number; pipelineValue: number; leads: Lead[];
-}) {
-  const ticket = clients.length > 0 ? Math.round(mrr / clients.length) : 0;
-  const ltv = ticket * 12;
-  const closed = leads.filter((l) => l.stage === "cerrado").length;
-
-  return (
-    <>
-      <Header eyebrow="Análisis" title="Resultados operativos" />
-
-      <div className={styles.kpis}>
-        <div className={styles.kpi}><div className={styles.kLabel}>Ticket promedio</div><div className={styles.kValue}>US$ {ticket.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>LTV (estimado 12m)</div><div className={styles.kValue}>US$ {ltv.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Margen neto</div><div className={styles.kValue}>{marginPct}%</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Leads cerrados</div><div className={styles.kValue}>{closed}</div></div>
-      </div>
-
-      <div className={styles.table}>
-        <h3>Composición</h3>
-        {[
-          ["Growth Partners activos", clients.filter((c) => c.type === "gp").length],
-          ["Clientes de Desarrollo", clients.filter((c) => c.type === "dev").length],
-          ["Clientes en On-boarding", clients.filter((c) => c.status === "onboarding").length],
-          ["Clientes en Execution", clients.filter((c) => c.status === "active").length],
-          ["Pipeline activo (leads)", leads.length],
-          ["Valor pipeline", `US$ ${pipelineValue.toLocaleString()}`],
-        ].map(([label, value]) => (
-          <div key={label as string} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr" }}>
-            <div>{label}</div><div className={styles.num}>{value}</div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
 function FacturacionView({ clients, payments, onSetStatus }: {
   clients: Client[]; payments: InvoicePayment[];
   onSetStatus: (clientId: string, month: string, status: "paid" | "pending" | "late") => void;
@@ -642,73 +649,4 @@ const btnMini: React.CSSProperties = {
   textTransform: "uppercase", fontWeight: 500,
 };
 
-function LogView({ expenses, clients }: { expenses: Expense[]; clients: Client[] }) {
-  const log = [
-    ...expenses.map((e) => ({ date: e.date, type: "↓", text: e.concept, meta: `${e.category} · ${e.assignedTo}`, color: "var(--red-warn)" })),
-    ...clients.map((c) => ({ date: c.id, type: "◉", text: `Cliente creado: ${c.name}`, meta: `${c.sector} · US$ ${c.fee}/mes`, color: "var(--green-ok)" })),
-  ].slice(0, 50);
-
-  return (
-    <>
-      <Header eyebrow="Auditoría · Actividad" title="Log de actividad" />
-
-      {log.length === 0 ? (
-        <EmptyState icon="▢" title="Sin actividad registrada" desc="El log se completa automáticamente a medida que crees clientes, registres egresos y gestiones cobros." />
-      ) : (
-        <div className={styles.table}>
-          <h3>Movimientos</h3>
-          {log.map((item, i) => (
-            <div key={i} style={{
-              padding: "14px 0", borderBottom: "1px solid rgba(196,168,130,0.08)",
-              display: "grid", gridTemplateColumns: "100px 40px 2.5fr 1fr", gap: 16, alignItems: "center", fontSize: 13,
-            }}>
-              <div style={{ color: "var(--sand)", fontSize: 11 }}>{item.date}</div>
-              <div style={{ width: 32, height: 32, background: "rgba(196,168,130,0.12)", color: item.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{item.type}</div>
-              <div style={{ color: "var(--off-white)" }}>{item.text}</div>
-              <div style={{ color: "rgba(232,228,220,0.55)", fontSize: 12 }}>{item.meta}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
-function KPIsView({ mrr, clients, marginPct, pipelineValue }: {
-  mrr: number; clients: Client[]; marginPct: number; pipelineValue: number;
-}) {
-  const targetMRR = 25000;
-  const targetClients = 10;
-  const mrrPct = Math.round((mrr / targetMRR) * 100);
-  const clientsPct = Math.round((clients.length / targetClients) * 100);
-
-  return (
-    <>
-      <Header eyebrow="Empresa" title={`KPIs ${new Date().getFullYear()}`} rightLabel="Objetivo anual" rightValue={`US$ ${(targetMRR * 12).toLocaleString()}`} />
-
-      <div className={styles.table}>
-        <h3>Métricas clave</h3>
-        {[
-          { label: "MRR", actual: `US$ ${mrr.toLocaleString()}`, target: `US$ ${targetMRR.toLocaleString()}`, pct: mrrPct },
-          { label: "Clientes activos", actual: `${clients.length}`, target: `${targetClients}`, pct: clientsPct },
-          { label: "Margen neto", actual: `${marginPct}%`, target: "65%", pct: Math.round((marginPct / 65) * 100) },
-          { label: "Pipeline qualified", actual: `US$ ${pipelineValue.toLocaleString()}`, target: "US$ 80k", pct: Math.round((pipelineValue / 80000) * 100) },
-        ].map((r) => (
-          <div key={r.label} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}>
-            <div className={styles.num}>{r.label}</div>
-            <div className={`${styles.num} ${styles.pos}`}>{r.actual}</div>
-            <div style={{ color: "rgba(232,228,220,0.6)", fontSize: 12 }}>{r.target}</div>
-            <div>
-              <div style={{ color: r.pct >= 85 ? "var(--green-ok)" : r.pct >= 50 ? "var(--sand)" : "var(--yellow-warn)", fontWeight: 600 }}>
-                {Math.max(0, Math.min(r.pct, 100))}%
-              </div>
-              <div className={styles.marginBar}>
-                <div className={styles.marginFill} style={{ width: `${Math.max(0, Math.min(r.pct, 100))}%`, background: r.pct >= 85 ? "var(--green-ok)" : "var(--sand)" }} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
+// KPIsView movido a FinanzasViews.tsx (versión completa con gráficas).

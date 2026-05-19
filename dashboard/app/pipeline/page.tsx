@@ -68,8 +68,6 @@ export default function PipelinePage() {
 
   if (!authChecked) return null;
 
-  const totalValue = leads.reduce((sum, l) => sum + l.value, 0);
-
   async function moveLead(lead: Lead, direction: 1 | -1) {
     const idx = STAGES.findIndex((s) => s.key === lead.stage);
     const next = idx + direction;
@@ -102,16 +100,104 @@ export default function PipelinePage() {
               Captación <span className="amp">&</span> ventas
             </h1>
           </div>
-          <div className={styles.meta}>
-            Pipeline total
-            <strong className={styles.metaStrong}>
-              US$ {totalValue.toLocaleString()}
-            </strong>
-          </div>
         </div>
 
-        {/* ============ CAMPAIGNS ============ */}
-        <div className={styles.campaignsPanel}>
+        {/* ============ KANBAN ============ */}
+        <div className={styles.kanbanHeader}>
+          <h2>Pipeline · Kanban</h2>
+        </div>
+
+        <div className={styles.kanban}>
+          {STAGES.map((stage) => {
+            const stageLeads = leads.filter((l) => l.stage === stage.key);
+            return (
+              <div key={stage.key} className={styles.kanbanCol}>
+                <div className={styles.kanbanColHead}>
+                  <div className={styles.kanbanColName}>{stage.label}</div>
+                  <div className={styles.kanbanColCount}>
+                    {stageLeads.length}
+                  </div>
+                </div>
+
+                {stageLeads.map((lead) => {
+                  const idx = STAGES.findIndex((s) => s.key === lead.stage);
+                  return (
+                    <div
+                      key={lead.id}
+                      className={`${styles.kanbanCard} ${
+                        lead.type === "dev" ? styles.kanbanCardDev : ""
+                      }`}
+                    >
+                      <div className={styles.kType}>
+                        {lead.type === "gp" ? "Growth Partner" : "Desarrollo"}
+                        {lead.source === "linkedin" ? " · in" : ""}
+                        {lead.source === "email" ? " · ✉" : ""}
+                      </div>
+                      <div className={styles.kName}>{lead.name}</div>
+                      <div className={styles.kSector}>
+                        {lead.company} · {lead.sector}
+                      </div>
+                      <div className={styles.kValue}>
+                        US$ {lead.value.toLocaleString()}/mes
+                      </div>
+                      {lead.note && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          {lead.note}
+                        </div>
+                      )}
+                      <div className={styles.kActions}>
+                        {idx > 0 && (
+                          <button
+                            className={styles.kBtn}
+                            onClick={() => moveLead(lead, -1)}
+                            title="Etapa anterior"
+                          >
+                            ←
+                          </button>
+                        )}
+                        {idx < STAGES.length - 1 && (
+                          <button
+                            className={styles.kBtn}
+                            onClick={() => moveLead(lead, 1)}
+                            title="Avanzar"
+                          >
+                            →
+                          </button>
+                        )}
+                        <button
+                          className={styles.kBtn}
+                          onClick={() => removeLead(lead.id)}
+                          style={{ color: "var(--red-warn)" }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <button
+                  className={styles.addLeadBtn}
+                  onClick={() =>
+                    setLeadModal({ open: true, stage: stage.key })
+                  }
+                >
+                  + Lead
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ============ CAMPAIGNS (debajo del pipeline) ============ */}
+        <div className={styles.campaignsPanel} style={{ marginTop: 40 }}>
           <div className={styles.panelHead}>
             <div>
               <div className={styles.panelTitle}>Campañas de prospección</div>
@@ -301,100 +387,6 @@ export default function PipelinePage() {
               </div>
             ))
           )}
-        </div>
-
-        {/* ============ KANBAN ============ */}
-        <div className={styles.kanbanHeader}>
-          <h2>Pipeline · Kanban</h2>
-        </div>
-
-        <div className={styles.kanban}>
-          {STAGES.map((stage) => {
-            const stageLeads = leads.filter((l) => l.stage === stage.key);
-            return (
-              <div key={stage.key} className={styles.kanbanCol}>
-                <div className={styles.kanbanColHead}>
-                  <div className={styles.kanbanColName}>{stage.label}</div>
-                  <div className={styles.kanbanColCount}>
-                    {stageLeads.length}
-                  </div>
-                </div>
-
-                {stageLeads.map((lead) => {
-                  const idx = STAGES.findIndex((s) => s.key === lead.stage);
-                  return (
-                    <div
-                      key={lead.id}
-                      className={`${styles.kanbanCard} ${
-                        lead.type === "dev" ? styles.kanbanCardDev : ""
-                      }`}
-                    >
-                      <div className={styles.kType}>
-                        {lead.type === "gp" ? "Growth Partner" : "Desarrollo"}
-                        {lead.source === "linkedin" ? " · in" : ""}
-                        {lead.source === "email" ? " · ✉" : ""}
-                      </div>
-                      <div className={styles.kName}>{lead.name}</div>
-                      <div className={styles.kSector}>
-                        {lead.company} · {lead.sector}
-                      </div>
-                      <div className={styles.kValue}>
-                        US$ {lead.value.toLocaleString()}/mes
-                      </div>
-                      {lead.note && (
-                        <div
-                          style={{
-                            marginTop: 8,
-                            fontSize: 11,
-                            color: "var(--text-muted)",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          {lead.note}
-                        </div>
-                      )}
-                      <div className={styles.kActions}>
-                        {idx > 0 && (
-                          <button
-                            className={styles.kBtn}
-                            onClick={() => moveLead(lead, -1)}
-                            title="Etapa anterior"
-                          >
-                            ←
-                          </button>
-                        )}
-                        {idx < STAGES.length - 1 && (
-                          <button
-                            className={styles.kBtn}
-                            onClick={() => moveLead(lead, 1)}
-                            title="Avanzar"
-                          >
-                            →
-                          </button>
-                        )}
-                        <button
-                          className={styles.kBtn}
-                          onClick={() => removeLead(lead.id)}
-                          style={{ color: "var(--red-warn)" }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <button
-                  className={styles.addLeadBtn}
-                  onClick={() =>
-                    setLeadModal({ open: true, stage: stage.key })
-                  }
-                >
-                  + Lead
-                </button>
-              </div>
-            );
-          })}
         </div>
       </main>
 

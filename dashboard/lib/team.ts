@@ -12,7 +12,7 @@ import type {
 } from "./supabase/auth";
 
 const PROFILE_COLS =
-  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions";
+  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions, reports_to_id";
 
 // ============ PROFILES ============
 
@@ -54,6 +54,8 @@ export interface UpdateProfileInput {
   initials?: string;
   permissions?: ProfilePermissions;
   client_id?: string | null;
+  /** Manager directo (FK a profiles.id). NULL = sin jefe directo. */
+  reports_to_id?: string | null;
 }
 
 export async function updateProfile(

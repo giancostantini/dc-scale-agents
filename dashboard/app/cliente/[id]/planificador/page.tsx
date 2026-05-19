@@ -1,8 +1,21 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
-import { addContent, deleteContent, getContent } from "@/lib/storage";
-import type { ContentFormat, ContentNetwork, ContentPost, ContentStatus } from "@/lib/types";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { addContent, deleteContent, getClient, getContent } from "@/lib/storage";
+import { getCurrentProfile } from "@/lib/supabase/auth";
+import {
+  suggestedWeekdays,
+  weekdayLunFirst,
+} from "@/lib/content-frequency";
+import ContentFrequencyModal from "@/components/ContentFrequencyModal";
+import type {
+  Client,
+  ContentFormat,
+  ContentFrequency,
+  ContentNetwork,
+  ContentPost,
+  ContentStatus,
+} from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
 
 const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -22,9 +35,15 @@ const NETWORK_LABEL: Record<ContentNetwork, string> = {
   fb: "Facebook",
 };
 
+// Networks en orden estable para iterar y armar chips ghost.
+const NETWORK_ORDER: ContentNetwork[] = ["ig", "tt", "in", "fb"];
+
 export default function PlanificadorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [posts, setPosts] = useState<ContentPost[]>([]);
+  const [client, setClient] = useState<Client | null>(null);
+  const [isDirector, setIsDirector] = useState(false);
+  const [freqModal, setFreqModal] = useState(false);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -35,6 +54,23 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   useEffect(() => refresh(), [refresh]);
+
+  useEffect(() => {
+    getClient(id).then((c) => setClient(c ?? null));
+    getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
+  }, [id]);
+
+  // Para cada network configurada, qué días de la semana corresponden.
+  // Si el cliente publica IG 3x/sem → IG aparece Lun/Mié/Vie como ghost.
+  const suggestedByNetwork = useMemo(() => {
+    const map = new Map<ContentNetwork, Set<number>>();
+    const freq = client?.content_frequency ?? {};
+    for (const net of NETWORK_ORDER) {
+      const perWeek = freq[net] ?? 0;
+      if (perWeek > 0) map.set(net, suggestedWeekdays(perWeek));
+    }
+    return map;
+  }, [client?.content_frequency]);
 
   const firstOfMonth = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -59,15 +95,69 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
       <div className={ui.head}>
         <div>
           <div className={ui.eyebrow}>Contenido · Planificador editorial</div>
-          <h1>Calendario de contenido</h1>
+          <h1>Calendario de acciones</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "var(--off-white)", borderLeft: "2px solid var(--green-ok)" }}>
-          <span style={{ width: 8, height: 8, background: "var(--green-ok)", borderRadius: "50%" }} />
-          <span style={{ fontSize: 11, letterSpacing: "0.1em", fontWeight: 500 }}>
-            Meta Business Suite · Pendiente de conectar
-          </span>
-        </div>
+        {isDirector && (
+          <button
+            className={ui.btnSolid}
+            onClick={() => setFreqModal(true)}
+          >
+            ⚑ Frecuencia de contenido
+          </button>
+        )}
       </div>
+
+      {/* Leyenda de redes configuradas (resumen visible para todos) */}
+      {suggestedByNetwork.size > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 16,
+            padding: "10px 14px",
+            background: "var(--off-white)",
+            fontSize: 11,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginRight: 4,
+            }}
+          >
+            Frecuencia
+          </span>
+          {Array.from(suggestedByNetwork.entries()).map(([net, days]) => (
+            <span
+              key={net}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                color: "var(--deep-green)",
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  background: NETWORK_COLOR[net],
+                  display: "inline-block",
+                }}
+              />
+              <strong>{NETWORK_LABEL[net]}</strong>
+              <span style={{ color: "var(--text-muted)" }}>
+                {days.size}x/sem
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Calendar */}
       <div className={ui.panel}>
@@ -95,6 +185,21 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
             const key = dayKey(d);
             const dayPosts = posts.filter((p) => p.date === key);
             const isToday = isCurrentMonth && d === today.getDate();
+
+            // Día de la semana (Lun=0..Dom=6) para chequear sugeridos.
+            const cellDate = new Date(year, month, d);
+            const weekday = weekdayLunFirst(cellDate);
+
+            // Redes sugeridas para este día (excluyendo las que ya tienen
+            // un post real ese día — no queremos doblar la info).
+            const networksWithRealPost = new Set(dayPosts.map((p) => p.network));
+            const suggestedNets: ContentNetwork[] = [];
+            for (const [net, days] of suggestedByNetwork.entries()) {
+              if (days.has(weekday) && !networksWithRealPost.has(net)) {
+                suggestedNets.push(net);
+              }
+            }
+
             return (
               <div
                 key={d}
@@ -106,7 +211,17 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                   cursor: "pointer",
                 }}
               >
-                <div style={{ fontSize: 13, fontWeight: isToday ? 700 : 500, color: isToday ? "var(--sand-dark)" : "var(--deep-green)" }}>{d}</div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: isToday ? 700 : 500,
+                    color: isToday ? "var(--sand-dark)" : "var(--deep-green)",
+                  }}
+                >
+                  {d}
+                </div>
+
+                {/* Posts reales — chip sólido con info */}
                 {dayPosts.slice(0, 3).map((p) => (
                   <span
                     key={p.id}
@@ -116,7 +231,12 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                       padding: "2px 6px",
                       marginTop: 4,
                       background: NETWORK_COLOR[p.network],
-                      color: p.network === "ig" ? "var(--sand)" : p.network === "tt" ? "var(--white)" : "var(--off-white)",
+                      color:
+                        p.network === "ig"
+                          ? "var(--sand)"
+                          : p.network === "tt"
+                          ? "var(--white)"
+                          : "var(--off-white)",
                       fontWeight: 500,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -130,6 +250,39 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                   <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 2, display: "block" }}>
                     +{dayPosts.length - 3}
                   </span>
+                )}
+
+                {/* Días sugeridos — chips ghost color de la red.
+                    Indican "tocaría publicar en X red este día" según
+                    la frecuencia configurada. Sin texto, solo color. */}
+                {suggestedNets.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 3,
+                      marginTop: 4,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {suggestedNets.map((net) => (
+                      <span
+                        key={net}
+                        title={`${NETWORK_LABEL[net]} · día sugerido`}
+                        style={{
+                          fontSize: 9,
+                          padding: "1px 6px",
+                          background: "transparent",
+                          color: NETWORK_COLOR[net],
+                          border: `1px dashed ${NETWORK_COLOR[net]}`,
+                          fontWeight: 600,
+                          letterSpacing: "0.05em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {net}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             );
@@ -146,6 +299,19 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           onChange={refresh}
         />
       )}
+
+      <ContentFrequencyModal
+        open={freqModal}
+        clientId={id}
+        current={client?.content_frequency}
+        onClose={() => setFreqModal(false)}
+        onSaved={(newFreq: ContentFrequency) => {
+          // Update local state inmediato sin necesidad de re-fetch del cliente
+          setClient((prev) =>
+            prev ? { ...prev, content_frequency: newFreq } : prev,
+          );
+        }}
+      />
     </>
   );
 }
