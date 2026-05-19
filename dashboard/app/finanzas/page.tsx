@@ -18,6 +18,7 @@ import type { Client, Expense, InvoicePayment, Lead } from "@/lib/types";
 import {
   DividendosView,
   EstadosView,
+  KPIsViewV2,
   ManualRevenuesPanel,
   TeamCostView,
 } from "./FinanzasViews";
@@ -248,11 +249,15 @@ export default function FinanzasPage() {
               />
             )}
             {page === "kpis" && (
-              <KPIsView
+              <KPIsViewV2
                 mrr={mrr}
                 clients={clients}
+                expenses={expenses}
+                payments={payments}
+                manualRevs={manualRevs}
                 marginPct={marginPct}
                 pipelineValue={pipelineValue}
+                leads={leads}
               />
             )}
           </main>
@@ -644,41 +649,4 @@ const btnMini: React.CSSProperties = {
   textTransform: "uppercase", fontWeight: 500,
 };
 
-function KPIsView({ mrr, clients, marginPct, pipelineValue }: {
-  mrr: number; clients: Client[]; marginPct: number; pipelineValue: number;
-}) {
-  const targetMRR = 25000;
-  const targetClients = 10;
-  const mrrPct = Math.round((mrr / targetMRR) * 100);
-  const clientsPct = Math.round((clients.length / targetClients) * 100);
-
-  return (
-    <>
-      <Header eyebrow="Empresa" title={`KPIs ${new Date().getFullYear()}`} rightLabel="Objetivo anual" rightValue={`US$ ${(targetMRR * 12).toLocaleString()}`} />
-
-      <div className={styles.table}>
-        <h3>Métricas clave</h3>
-        {[
-          { label: "MRR", actual: `US$ ${mrr.toLocaleString()}`, target: `US$ ${targetMRR.toLocaleString()}`, pct: mrrPct },
-          { label: "Clientes activos", actual: `${clients.length}`, target: `${targetClients}`, pct: clientsPct },
-          { label: "Margen neto", actual: `${marginPct}%`, target: "65%", pct: Math.round((marginPct / 65) * 100) },
-          { label: "Pipeline qualified", actual: `US$ ${pipelineValue.toLocaleString()}`, target: "US$ 80k", pct: Math.round((pipelineValue / 80000) * 100) },
-        ].map((r) => (
-          <div key={r.label} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}>
-            <div className={styles.num}>{r.label}</div>
-            <div className={`${styles.num} ${styles.pos}`}>{r.actual}</div>
-            <div style={{ color: "rgba(232,228,220,0.6)", fontSize: 12 }}>{r.target}</div>
-            <div>
-              <div style={{ color: r.pct >= 85 ? "var(--green-ok)" : r.pct >= 50 ? "var(--sand)" : "var(--yellow-warn)", fontWeight: 600 }}>
-                {Math.max(0, Math.min(r.pct, 100))}%
-              </div>
-              <div className={styles.marginBar}>
-                <div className={styles.marginFill} style={{ width: `${Math.max(0, Math.min(r.pct, 100))}%`, background: r.pct >= 85 ? "var(--green-ok)" : "var(--sand)" }} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
+// KPIsView movido a FinanzasViews.tsx (versión completa con gráficas).

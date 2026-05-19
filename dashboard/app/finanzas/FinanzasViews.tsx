@@ -12,8 +12,20 @@
  * acá también filtramos por isDirector cuando aplica).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { listProfiles } from "@/lib/team";
 import type { Profile } from "@/lib/supabase/auth";
 import {
@@ -29,7 +41,12 @@ import {
   type ManualRevenue,
   type ManualRevenueKind,
 } from "@/lib/finanzas";
-import type { Client, Expense } from "@/lib/types";
+import type {
+  Client,
+  Expense,
+  InvoicePayment,
+  Lead,
+} from "@/lib/types";
 import styles from "./finanzas.module.css";
 
 // ============================================================
@@ -1100,3 +1117,484 @@ const ghostBtn: React.CSSProperties = {
   cursor: "pointer",
   fontFamily: "inherit",
 };
+
+// ============================================================
+// KPIsViewV2 — KPIs anuales con gráficas + concentración + reportes
+// ============================================================
+
+const CHART_COLORS = [
+  "#0A1A0C",
+  "#9B8259",
+  "#C4A882",
+  "#3A8B5C",
+  "#2E5D45",
+  "#5A6A5E",
+  "#B04B3A",
+  "#1E3A28",
+  "#7A8A7E",
+];
+
+export function KPIsViewV2({
+  mrr,
+  clients,
+  expenses,
+  payments,
+  manualRevs,
+  marginPct,
+  pipelineValue,
+  leads,
+}: {
+  mrr: number;
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
+  marginPct: number;
+  pipelineValue: number;
+  leads: Lead[];
+}) {
+  const targetARR = 300_000; // configurable a futuro
+  const arr = mrr * 12;
+  const arrPct = Math.round((arr / targetARR) * 100);
+
+  // Cobranza del mes en curso
+  const monthYYYYMM = new Date().toISOString().slice(0, 7);
+  const collectedThisMonth = useMemo(() => {
+    return clients.reduce((s, c) => {
+      const p = payments.find(
+        (p) => p.clientId === c.id && p.month === monthYYYYMM,
+      );
+      return s + (p?.status === "paid" ? c.fee : 0);
+    }, 0);
+  }, [clients, payments, monthYYYYMM]);
+
+  // Pipeline conversion (proxy: cerrados / total leads)
+  const leadsClosed = leads.filter((l) => l.stage === "cerrado").length;
+  const conversionPct =
+    leads.length > 0 ? Math.round((leadsClosed / leads.length) * 100) : 0;
+
+  // === Composición del MRR por cliente ===
+  const mrrComposition = useMemo(() => {
+    return [...clients]
+      .map((c) => ({
+        name: c.name,
+        value: c.fee,
+        pct: mrr > 0 ? (c.fee / mrr) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [clients, mrr]);
+
+  // === Concentración: % del top 1 y top 3 ===
+  const topClient = mrrComposition[0];
+  const top3Share = mrrComposition
+    .slice(0, 3)
+    .reduce((s, c) => s + c.pct, 0);
+
+  // === Ingresos vs Egresos por mes (últimos 6 meses, basados en payments + manual revs + expenses) ===
+  const monthlyData = useMemo(() => {
+    const out: {
+      month: string;
+      label: string;
+      ingresos: number;
+      egresos: number;
+      neto: number;
+    }[] = [];
+    const today = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const ym = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString("es-AR", {
+        month: "short",
+        year: "2-digit",
+      });
+
+      // Ingresos = fees cobrados ese mes + manual revenues que aplican
+      const feesCobrados = clients.reduce((s, c) => {
+        const p = payments.find((p) => p.clientId === c.id && p.month === ym);
+        return s + (p?.status === "paid" ? c.fee : 0);
+      }, 0);
+      const manualImpact = manualRevs.reduce(
+        (s, r) => s + revenueMonthlyImpact(r, ym),
+        0,
+      );
+      const ingresos = feesCobrados + manualImpact;
+
+      // Egresos = gastos con date YYYY-MM
+      const egresos = expenses
+        .filter((e) => (e.date ?? "").startsWith(ym))
+        .reduce((s, e) => s + e.amount, 0);
+
+      out.push({
+        month: ym,
+        label,
+        ingresos,
+        egresos,
+        neto: ingresos - egresos,
+      });
+    }
+    return out;
+  }, [clients, payments, manualRevs, expenses]);
+
+  // KPI cards principales
+  const kpis = [
+    {
+      label: "MRR",
+      value: `US$ ${mrr.toLocaleString()}`,
+      sub: `${clients.length} clientes activos`,
+    },
+    {
+      label: "ARR",
+      value: `US$ ${arr.toLocaleString()}`,
+      sub: `${arrPct}% del objetivo (US$ ${targetARR.toLocaleString()})`,
+    },
+    {
+      label: "Cobrado este mes",
+      value: `US$ ${collectedThisMonth.toLocaleString()}`,
+      sub: `de US$ ${mrr.toLocaleString()} facturados`,
+    },
+    {
+      label: "Margen neto (mes)",
+      value: `${marginPct}%`,
+      sub: marginPct >= 50 ? "saludable" : "atención",
+    },
+    {
+      label: "Pipeline",
+      value: `US$ ${pipelineValue.toLocaleString()}`,
+      sub: `${leads.length} leads · ${conversionPct}% conv`,
+    },
+    {
+      label: "Concentración top 1",
+      value: topClient ? `${topClient.pct.toFixed(1)}%` : "—",
+      sub: topClient ? topClient.name : "Sin clientes",
+    },
+  ];
+
+  return (
+    <>
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          marginBottom: 8,
+        }}
+      >
+        Finanzas · KPIs anuales
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: 28,
+        }}
+      >
+        <h1 style={h1Style}>KPIs {new Date().getFullYear()}</h1>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => window.print()}
+            style={{
+              ...ghostBtn,
+              padding: "10px 16px",
+            }}
+            title="Imprimir / exportar como PDF"
+          >
+            ↓ Imprimir reporte
+          </button>
+        </div>
+      </div>
+
+      {/* ===== KPI cards (6 chiquitos) ===== */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 0,
+          border: "1px solid rgba(10,26,12,0.08)",
+          marginBottom: 32,
+          background: "var(--white)",
+        }}
+      >
+        {kpis.map((k, i) => (
+          <div
+            key={k.label}
+            style={{
+              padding: "22px 24px",
+              borderRight:
+                i < kpis.length - 1
+                  ? "1px solid rgba(10,26,12,0.08)"
+                  : "none",
+              borderBottom: "1px solid rgba(10,26,12,0.08)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              {k.label}
+            </div>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                color: "var(--deep-green)",
+                letterSpacing: "-0.02em",
+                marginBottom: 4,
+              }}
+            >
+              {k.value}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              {k.sub}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ===== Composición del MRR (pie + tabla) ===== */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 20,
+          marginBottom: 32,
+        }}
+      >
+        <div className={styles.table} style={{ margin: 0 }}>
+          <h3>Composición del MRR por cliente</h3>
+          {mrrComposition.length === 0 ? (
+            <div style={{ padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
+              Sin clientes para graficar.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={mrrComposition}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={(entry) => {
+                    const p =
+                      typeof (entry as { percent?: number }).percent === "number"
+                        ? ((entry as { percent: number }).percent * 100).toFixed(0)
+                        : "";
+                    return `${p}%`;
+                  }}
+                  labelLine={false}
+                >
+                  {mrrComposition.map((_, idx) => (
+                    <Cell
+                      key={idx}
+                      fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number, _name, props) => [
+                    `US$ ${v.toLocaleString()} (${(
+                      props.payload as { pct: number }
+                    ).pct.toFixed(1)}%)`,
+                    props.payload?.name,
+                  ]}
+                />
+                <Legend
+                  layout="vertical"
+                  align="right"
+                  verticalAlign="middle"
+                  iconType="square"
+                  wrapperStyle={{ fontSize: 11 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className={styles.table} style={{ margin: 0 }}>
+          <h3>Top clientes por fee</h3>
+          {mrrComposition.slice(0, 8).map((c, i) => (
+            <div
+              key={c.name}
+              className={styles.row}
+              style={{ gridTemplateColumns: "30px 2fr 1fr 60px" }}
+            >
+              <div
+                style={{
+                  width: 16,
+                  height: 16,
+                  background: CHART_COLORS[i % CHART_COLORS.length],
+                }}
+              />
+              <div>{c.name}</div>
+              <div className={`${styles.num} ${styles.pos}`}>
+                US$ {c.value.toLocaleString()}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  textAlign: "right",
+                }}
+              >
+                {c.pct.toFixed(1)}%
+              </div>
+            </div>
+          ))}
+          {top3Share > 50 && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "10px 14px",
+                background: "rgba(176,75,58,0.08)",
+                borderLeft: "3px solid var(--red-warn)",
+                fontSize: 12,
+                color: "var(--text-soft, #5a6a5e)",
+                lineHeight: 1.5,
+              }}
+            >
+              <strong style={{ color: "var(--red-warn)" }}>
+                ⚠ Alta concentración
+              </strong>
+              <br />
+              Top 3 clientes = <strong>{top3Share.toFixed(0)}%</strong> del
+              MRR. Riesgo si alguno se va.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===== Ingresos vs Egresos (bar chart 6 meses) ===== */}
+      <div className={styles.table}>
+        <h3>Ingresos vs Egresos · últimos 6 meses</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={monthlyData}>
+            <XAxis dataKey="label" stroke="#5A6A5E" fontSize={11} />
+            <YAxis
+              stroke="#5A6A5E"
+              fontSize={11}
+              tickFormatter={(v) =>
+                v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+              }
+            />
+            <Tooltip
+              formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+              cursor={{ fill: "rgba(10,26,12,0.04)" }}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} iconType="square" />
+            <Bar dataKey="ingresos" fill="#3A8B5C" name="Ingresos" />
+            <Bar dataKey="egresos" fill="#B04B3A" name="Egresos" />
+            <Bar dataKey="neto" fill="#0A1A0C" name="Neto" />
+          </BarChart>
+        </ResponsiveContainer>
+        <div
+          style={{
+            marginTop: 14,
+            display: "grid",
+            gridTemplateColumns: "repeat(6, 1fr)",
+            gap: 8,
+            fontSize: 11,
+            color: "var(--text-muted)",
+          }}
+        >
+          {monthlyData.map((m) => (
+            <div
+              key={m.month}
+              style={{
+                textAlign: "center",
+                padding: 8,
+                background: "var(--off-white)",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "var(--deep-green)" }}>
+                {m.label}
+              </div>
+              <div
+                style={{
+                  marginTop: 4,
+                  color: m.neto >= 0 ? "var(--green-ok)" : "var(--red-warn)",
+                  fontWeight: 600,
+                }}
+              >
+                {m.neto >= 0 ? "+" : ""}US$ {m.neto.toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ===== Pipeline detail ===== */}
+      <div className={styles.table}>
+        <h3>Pipeline comercial</h3>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 1fr)",
+            gap: 16,
+          }}
+        >
+          {(
+            [
+              ["prospecto", "Prospectos"],
+              ["contacto", "En contacto"],
+              ["propuesta", "Con propuesta"],
+              ["negociacion", "Negociando"],
+              ["cerrado", "Cerrados"],
+            ] as const
+          ).map(([stage, label]) => {
+            const count = leads.filter((l) => l.stage === stage).length;
+            const value = leads
+              .filter((l) => l.stage === stage)
+              .reduce((s, l) => s + l.value, 0);
+            return (
+              <div
+                key={stage}
+                style={{
+                  padding: 14,
+                  background: "var(--off-white)",
+                  borderLeft: "3px solid var(--sand)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: "var(--deep-green)",
+                  }}
+                >
+                  {count}
+                </div>
+                <div
+                  style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
+                >
+                  US$ {value.toLocaleString()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
