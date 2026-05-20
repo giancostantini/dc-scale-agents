@@ -2,29 +2,28 @@
 
 /**
  * Modal donde el director define la frecuencia semanal de publicación
- * por red social del cliente. Ej: Instagram 3x/sem, LinkedIn 2x/sem.
+ * por SLOT (red × formato) del cliente.
  *
- * El planificador consume estos valores para marcar visualmente los
- * días "sugeridos" de cada red en el calendario (chip ghost color
- * de la red). No publica nada automáticamente — es solo guía visual.
+ * Ej: Instagram Feed 3x/sem, Instagram Story 7x/sem, IG Reel 2x/sem,
+ *     TikTok Video 3x/sem, LinkedIn Post 2x/sem.
+ *
+ * El roadmap consume estos valores para marcar los días "sugeridos"
+ * de cada slot en el calendario (chip ghost con sigla del slot).
+ * No publica nada automáticamente — es guía visual.
+ *
+ * BACK-COMPAT: si el cliente ya tenía `{ ig: 3, tt: 5 }` (keys
+ * legacy), las leemos y las mapeamos a `ig_feed: 3, tt_video: 5`
+ * usando normalizeFrequency. Al guardar, escribimos solo keys
+ * canónicas con sufijo.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { updateClientContentFrequency } from "@/lib/storage";
-import type { ContentFrequency, ContentNetwork } from "@/lib/types";
-
-interface NetworkConfig {
-  key: ContentNetwork;
-  label: string;
-  color: string;
-}
-
-const NETWORKS: NetworkConfig[] = [
-  { key: "ig", label: "Instagram", color: "var(--deep-green)" },
-  { key: "tt", label: "TikTok", color: "var(--sand-dark)" },
-  { key: "in", label: "LinkedIn", color: "var(--forest-2, #2d5036)" },
-  { key: "fb", label: "Facebook", color: "var(--forest, #1f3a26)" },
-];
+import {
+  CONTENT_SLOTS,
+  normalizeFrequency,
+} from "@/lib/content-frequency";
+import type { ContentFrequency } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -41,23 +40,21 @@ export default function ContentFrequencyModal({
   onClose,
   onSaved,
 }: Props) {
-  // Estado local: una entrada por red, valor 0 = no usa esa red.
-  const [freq, setFreq] = useState<Record<ContentNetwork, number>>({
-    ig: 0,
-    tt: 0,
-    in: 0,
-    fb: 0,
-  });
+  // Estado local: una entrada por slot (red×formato). Valor 0 = no usa.
+  const [freq, setFreq] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setFreq({
-      ig: current?.ig ?? 0,
-      tt: current?.tt ?? 0,
-      in: current?.in ?? 0,
-      fb: current?.fb ?? 0,
-    });
+    // Inicializar con la frecuencia normalizada del cliente
+    const normalized = normalizeFrequency(
+      current as Record<string, number | undefined> | undefined,
+    );
+    const initial: Record<string, number> = {};
+    for (const slot of CONTENT_SLOTS) {
+      initial[slot.key] = normalized[slot.key] ?? 0;
+    }
+    setFreq(initial);
   }, [open, current]);
 
   useEffect(() => {
@@ -69,20 +66,41 @@ export default function ContentFrequencyModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, saving, onClose]);
 
+  // Agrupar slots por red para mostrarlos en secciones
+  const slotsByNetwork = useMemo(() => {
+    const groups = new Map<
+      string,
+      { label: string; color: string; slots: typeof CONTENT_SLOTS }
+    >();
+    for (const s of CONTENT_SLOTS) {
+      const g = groups.get(s.network) ?? {
+        label: s.networkLabel,
+        color: s.color,
+        slots: [],
+      };
+      g.slots.push(s);
+      groups.set(s.network, g);
+    }
+    return Array.from(groups.entries());
+  }, []);
+
   if (!open) return null;
 
-  function set(network: ContentNetwork, value: number) {
-    const clamped = Math.max(0, Math.min(7, Math.round(value)));
-    setFreq((f) => ({ ...f, [network]: clamped }));
+  function set(slotKey: string, value: number) {
+    const clamped = Math.max(0, Math.min(14, Math.round(value)));
+    setFreq((f) => ({ ...f, [slotKey]: clamped }));
   }
 
   async function save() {
     setSaving(true);
     try {
-      // Solo guardamos redes con freq > 0 (más limpio)
+      // Solo guardamos slots con freq > 0 (más limpio)
       const cleaned: ContentFrequency = {};
-      for (const n of NETWORKS) {
-        if (freq[n.key] > 0) cleaned[n.key] = freq[n.key];
+      for (const slot of CONTENT_SLOTS) {
+        if (freq[slot.key] > 0) {
+          // El cast es seguro: slot.key es ContentSlotKey
+          (cleaned as Record<string, number>)[slot.key] = freq[slot.key];
+        }
       }
       await updateClientContentFrequency(clientId, cleaned);
       onSaved(cleaned);
@@ -95,7 +113,7 @@ export default function ContentFrequencyModal({
     }
   }
 
-  const totalPerWeek = NETWORKS.reduce((s, n) => s + freq[n.key], 0);
+  const totalPerWeek = Object.values(freq).reduce((s, v) => s + v, 0);
 
   return (
     <div
@@ -117,8 +135,10 @@ export default function ContentFrequencyModal({
       <div
         style={{
           background: "var(--white)",
-          maxWidth: 540,
+          maxWidth: 640,
           width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
           padding: 36,
         }}
       >
@@ -132,7 +152,7 @@ export default function ContentFrequencyModal({
             marginBottom: 12,
           }}
         >
-          Planificador · Frecuencia
+          Roadmap · Frecuencia
         </div>
         <h2
           style={{
@@ -152,95 +172,164 @@ export default function ContentFrequencyModal({
             lineHeight: 1.5,
           }}
         >
-          ¿Cuántas veces por semana publica el cliente en cada red? El
-          calendario sombrea los días sugeridos según esta config. 0 = el
-          cliente no usa esa red.
+          ¿Cuántas veces por semana publica el cliente en cada formato? El
+          calendario sombrea los días sugeridos con la sigla del slot
+          (IG·F, IG·S, IG·R, TT·V, etc). 0 = no usa ese formato.
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {NETWORKS.map((n) => (
-            <div
-              key={n.key}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                padding: "10px 14px",
-                background: "var(--off-white)",
-                borderLeft: `3px solid ${n.color}`,
-              }}
-            >
-              <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--deep-green)" }}>
-                {n.label}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  onClick={() => set(n.key, freq[n.key] - 1)}
-                  disabled={saving || freq[n.key] === 0}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    background: "var(--white)",
-                    border: "1px solid rgba(10,26,12,0.15)",
-                    color: "var(--deep-green)",
-                    fontSize: 16,
-                    cursor: saving || freq[n.key] === 0 ? "default" : "pointer",
-                    fontFamily: "inherit",
-                    opacity: saving || freq[n.key] === 0 ? 0.4 : 1,
-                  }}
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={0}
-                  max={7}
-                  value={freq[n.key]}
-                  onChange={(e) => set(n.key, parseInt(e.target.value || "0", 10))}
-                  disabled={saving}
-                  style={{
-                    width: 56,
-                    textAlign: "center",
-                    padding: "6px",
-                    border: "1px solid rgba(10,26,12,0.15)",
-                    background: "var(--white)",
-                    color: "var(--deep-green)",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    outline: "none",
-                    fontFamily: "inherit",
-                  }}
-                />
-                <button
-                  onClick={() => set(n.key, freq[n.key] + 1)}
-                  disabled={saving || freq[n.key] >= 7}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    background: "var(--white)",
-                    border: "1px solid rgba(10,26,12,0.15)",
-                    color: "var(--deep-green)",
-                    fontSize: 16,
-                    cursor: saving || freq[n.key] >= 7 ? "default" : "pointer",
-                    fontFamily: "inherit",
-                    opacity: saving || freq[n.key] >= 7 ? 0.4 : 1,
-                  }}
-                >
-                  +
-                </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {slotsByNetwork.map(([network, group]) => {
+            const networkTotal = group.slots.reduce(
+              (s, slot) => s + (freq[slot.key] ?? 0),
+              0,
+            );
+            return (
+              <div
+                key={network}
+                style={{
+                  padding: "12px 14px",
+                  background: "var(--off-white)",
+                  borderLeft: `3px solid ${group.color}`,
+                }}
+              >
                 <div
                   style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginLeft: 6,
-                    minWidth: 50,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    marginBottom: 8,
                   }}
                 >
-                  / semana
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "var(--deep-green)",
+                    }}
+                  >
+                    {group.label}
+                  </div>
+                  {networkTotal > 0 && (
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      {networkTotal}{" "}
+                      {networkTotal === 1 ? "publicación" : "publicaciones"}
+                      /sem
+                    </div>
+                  )}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  {group.slots.map((slot) => (
+                    <div
+                      key={slot.key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          flex: 1,
+                          fontSize: 13,
+                          color: "var(--deep-green)",
+                        }}
+                      >
+                        {slot.formatLabel}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <button
+                          onClick={() => set(slot.key, (freq[slot.key] ?? 0) - 1)}
+                          disabled={saving || (freq[slot.key] ?? 0) === 0}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            background: "var(--white)",
+                            border: "1px solid rgba(10,26,12,0.15)",
+                            color: "var(--deep-green)",
+                            fontSize: 14,
+                            cursor:
+                              saving || (freq[slot.key] ?? 0) === 0
+                                ? "default"
+                                : "pointer",
+                            fontFamily: "inherit",
+                            opacity:
+                              saving || (freq[slot.key] ?? 0) === 0 ? 0.4 : 1,
+                          }}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min={0}
+                          max={14}
+                          value={freq[slot.key] ?? 0}
+                          onChange={(e) =>
+                            set(slot.key, parseInt(e.target.value || "0", 10))
+                          }
+                          disabled={saving}
+                          style={{
+                            width: 50,
+                            textAlign: "center",
+                            padding: "5px",
+                            border: "1px solid rgba(10,26,12,0.15)",
+                            background: "var(--white)",
+                            color: "var(--deep-green)",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            outline: "none",
+                            fontFamily: "inherit",
+                          }}
+                        />
+                        <button
+                          onClick={() => set(slot.key, (freq[slot.key] ?? 0) + 1)}
+                          disabled={saving || (freq[slot.key] ?? 0) >= 14}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            background: "var(--white)",
+                            border: "1px solid rgba(10,26,12,0.15)",
+                            color: "var(--deep-green)",
+                            fontSize: 14,
+                            cursor:
+                              saving || (freq[slot.key] ?? 0) >= 14
+                                ? "default"
+                                : "pointer",
+                            fontFamily: "inherit",
+                            opacity:
+                              saving || (freq[slot.key] ?? 0) >= 14 ? 0.4 : 1,
+                          }}
+                        >
+                          +
+                        </button>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            marginLeft: 4,
+                            minWidth: 36,
+                          }}
+                        >
+                          / sem
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div
@@ -264,7 +353,7 @@ export default function ContentFrequencyModal({
             display: "flex",
             gap: 10,
             justifyContent: "flex-end",
-            marginTop: 28,
+            marginTop: 24,
           }}
         >
           <button

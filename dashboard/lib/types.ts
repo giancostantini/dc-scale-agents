@@ -127,11 +127,42 @@ export interface ClientExternalLinks {
 }
 
 /**
- * Frecuencia semanal de publicación por red social.
- * Ej: { ig: 3, tt: 5, in: 2 } = Instagram 3/sem, TikTok 5/sem, LinkedIn 2/sem.
- * Solo se incluyen las redes que el cliente usa.
+ * Frecuencia semanal de publicación por "slot" (red × formato).
+ *
+ * Ej:
+ *   { ig_feed: 3, ig_story: 7, ig_reel: 2, tt_video: 3, in_feed: 2 }
+ *   = Instagram: 3 feeds + 7 stories + 2 reels por semana,
+ *     TikTok: 3 videos por semana,
+ *     LinkedIn: 2 feeds por semana.
+ *
+ * BACK-COMPAT: las keys legacy "ig", "tt", "in", "fb" (sin sufijo de
+ * formato) se aceptan y se interpretan como "feed". Los helpers que
+ * leen este objeto las normalizan a "ig_feed", etc.
  */
-export type ContentFrequency = Partial<Record<ContentNetwork, number>>;
+export type ContentSlotKey =
+  // Instagram
+  | "ig_feed"
+  | "ig_story"
+  | "ig_reel"
+  // TikTok
+  | "tt_video"
+  | "tt_story"
+  // LinkedIn
+  | "in_feed"
+  // Facebook
+  | "fb_feed"
+  | "fb_story"
+  | "fb_reel"
+  // YouTube
+  | "yt_video"
+  | "yt_short"
+  // Legacy (se interpretan como *_feed)
+  | "ig"
+  | "tt"
+  | "in"
+  | "fb";
+
+export type ContentFrequency = Partial<Record<ContentSlotKey, number>>;
 
 export interface Client {
   id: string;

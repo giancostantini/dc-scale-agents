@@ -4,6 +4,8 @@ import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { addContent, deleteContent, getClient, getContent } from "@/lib/storage";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import {
+  CONTENT_SLOTS,
+  normalizeFrequency,
   suggestedWeekdays,
   weekdayLunFirst,
 } from "@/lib/content-frequency";
@@ -36,8 +38,6 @@ const NETWORK_LABEL: Record<ContentNetwork, string> = {
   fb: "Facebook",
 };
 
-// Networks en orden estable para iterar y armar chips ghost.
-const NETWORK_ORDER: ContentNetwork[] = ["ig", "tt", "in", "fb"];
 
 export default function PlanificadorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -62,14 +62,21 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
   }, [id]);
 
-  // Para cada network configurada, qué días de la semana corresponden.
-  // Si el cliente publica IG 3x/sem → IG aparece Lun/Mié/Vie como ghost.
-  const suggestedByNetwork = useMemo(() => {
-    const map = new Map<ContentNetwork, Set<number>>();
-    const freq = client?.content_frequency ?? {};
-    for (const net of NETWORK_ORDER) {
-      const perWeek = freq[net] ?? 0;
-      if (perWeek > 0) map.set(net, suggestedWeekdays(perWeek));
+  // Para cada SLOT configurado (red × formato), qué días de la semana
+  // corresponden. Ej: { ig_feed: 3, ig_story: 7 } →
+  //   ig_feed: Lun/Mié/Vie (3x/sem)
+  //   ig_story: Lun-Dom (7x/sem)
+  // Soporta back-compat con keys legacy (ig, tt, in, fb) via normalizeFrequency.
+  const suggestedBySlot = useMemo(() => {
+    const normalized = normalizeFrequency(
+      client?.content_frequency as
+        | Record<string, number | undefined>
+        | undefined,
+    );
+    const map = new Map<string, Set<number>>();
+    for (const slot of CONTENT_SLOTS) {
+      const perWeek = normalized[slot.key] ?? 0;
+      if (perWeek > 0) map.set(slot.key, suggestedWeekdays(perWeek));
     }
     return map;
   }, [client?.content_frequency]);
@@ -120,12 +127,12 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {/* Leyenda de redes configuradas (resumen visible para todos) */}
-      {suggestedByNetwork.size > 0 && (
+      {/* Leyenda de slots configurados (red × formato) — visible para todos */}
+      {suggestedBySlot.size > 0 && (
         <div
           style={{
             display: "flex",
-            gap: 12,
+            gap: 10,
             flexWrap: "wrap",
             marginBottom: 16,
             padding: "10px 14px",
@@ -145,30 +152,37 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           >
             Frecuencia
           </span>
-          {Array.from(suggestedByNetwork.entries()).map(([net, days]) => (
-            <span
-              key={net}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                color: "var(--deep-green)",
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: NETWORK_COLOR[net],
-                  display: "inline-block",
-                }}
-              />
-              <strong>{NETWORK_LABEL[net]}</strong>
-              <span style={{ color: "var(--text-muted)" }}>
-                {days.size}x/sem
-              </span>
-            </span>
-          ))}
+          {CONTENT_SLOTS.filter((s) => suggestedBySlot.has(s.key)).map(
+            (slot) => {
+              const days = suggestedBySlot.get(slot.key)!;
+              return (
+                <span
+                  key={slot.key}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "var(--deep-green)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      background: slot.color,
+                      display: "inline-block",
+                    }}
+                  />
+                  <strong>
+                    {slot.networkLabel} {slot.formatLabel}
+                  </strong>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {days.size}x/sem
+                  </span>
+                </span>
+              );
+            },
+          )}
         </div>
       )}
 
@@ -203,15 +217,26 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
             const cellDate = new Date(year, month, d);
             const weekday = weekdayLunFirst(cellDate);
 
-            // Redes sugeridas para este día (excluyendo las que ya tienen
-            // un post real ese día — no queremos doblar la info).
-            const networksWithRealPost = new Set(dayPosts.map((p) => p.network));
-            const suggestedNets: ContentNetwork[] = [];
-            for (const [net, days] of suggestedByNetwork.entries()) {
-              if (days.has(weekday) && !networksWithRealPost.has(net)) {
-                suggestedNets.push(net);
-              }
+            // Slots sugeridos para este día (red × formato).
+            // Excluimos los slots cuyo network+format ya tiene un post
+            // cargado para ese día — para no doblar la info.
+            // Mapping de ContentFormat de la DB a "feed/story/reel/video":
+            //   reel → reel; story → story; otros → feed (excepto TikTok
+            //   donde "video" sigue siendo el formato principal).
+            const slotsWithRealPost = new Set<string>();
+            for (const p of dayPosts) {
+              let fmt: string;
+              if (p.format === "story") fmt = "story";
+              else if (p.format === "reel") fmt = "reel";
+              else if (p.network === "tt") fmt = "video";
+              else fmt = "feed";
+              slotsWithRealPost.add(`${p.network}_${fmt}`);
             }
+            const suggestedSlots = CONTENT_SLOTS.filter((slot) => {
+              const days = suggestedBySlot.get(slot.key);
+              if (!days || !days.has(weekday)) return false;
+              return !slotsWithRealPost.has(slot.key);
+            });
 
             return (
               <div
@@ -265,10 +290,11 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                   </span>
                 )}
 
-                {/* Días sugeridos — chips ghost color de la red.
-                    Indican "tocaría publicar en X red este día" según
-                    la frecuencia configurada. Sin texto, solo color. */}
-                {suggestedNets.length > 0 && (
+                {/* Días sugeridos — chips ghost por SLOT.
+                    Indican "tocaría publicar este formato en esta red"
+                    según la frecuencia configurada. Sigla corta tipo
+                    IG·F / IG·S / IG·R / TT·V. */}
+                {suggestedSlots.length > 0 && (
                   <div
                     style={{
                       display: "flex",
@@ -277,22 +303,21 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                       flexWrap: "wrap",
                     }}
                   >
-                    {suggestedNets.map((net) => (
+                    {suggestedSlots.map((slot) => (
                       <span
-                        key={net}
-                        title={`${NETWORK_LABEL[net]} · día sugerido`}
+                        key={slot.key}
+                        title={`${slot.networkLabel} ${slot.formatLabel} · día sugerido`}
                         style={{
-                          fontSize: 9,
-                          padding: "1px 6px",
+                          fontSize: 8.5,
+                          padding: "1px 4px",
                           background: "transparent",
-                          color: NETWORK_COLOR[net],
-                          border: `1px dashed ${NETWORK_COLOR[net]}`,
+                          color: slot.color,
+                          border: `1px dashed ${slot.color}`,
                           fontWeight: 600,
-                          letterSpacing: "0.05em",
-                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
                         }}
                       >
-                        {net}
+                        {slot.shortCode}
                       </span>
                     ))}
                   </div>
