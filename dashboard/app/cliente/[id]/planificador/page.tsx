@@ -50,6 +50,12 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   const [month, setMonth] = useState(today.getMonth());
   const [modalDate, setModalDate] = useState<string | null>(null);
   const [eventModalDate, setEventModalDate] = useState<string | null>(null);
+  const [pdfModal, setPdfModal] = useState(false);
+  const [pdfFromYear, setPdfFromYear] = useState(today.getFullYear());
+  const [pdfFromMonth, setPdfFromMonth] = useState(today.getMonth());
+  const [pdfToYear, setPdfToYear] = useState(today.getFullYear());
+  const [pdfToMonth, setPdfToMonth] = useState(today.getMonth());
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
@@ -99,6 +105,82 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     else setMonth(month + 1);
   }
 
+  /**
+   * Descarga el PDF del roadmap para el rango pdfFromYear/Month →
+   * pdfToYear/Month. Lazy-load de react-pdf para no inflar el bundle
+   * inicial. La grilla por mes va en página A4 horizontal.
+   */
+  async function downloadRoadmapPdf() {
+    if (pdfBusy || !client) return;
+    setPdfBusy(true);
+    try {
+      // Validar rango: from <= to
+      const fromIdx = pdfFromYear * 12 + pdfFromMonth;
+      const toIdx = pdfToYear * 12 + pdfToMonth;
+      if (toIdx < fromIdx) {
+        alert("El mes 'hasta' tiene que ser igual o posterior al 'desde'.");
+        setPdfBusy(false);
+        return;
+      }
+      // Generar array de meses del rango
+      const months: { year: number; month0: number }[] = [];
+      let cur = fromIdx;
+      while (cur <= toIdx) {
+        months.push({
+          year: Math.floor(cur / 12),
+          month0: cur % 12,
+        });
+        cur++;
+      }
+      // Cap defensivo: no permitimos rangos absurdos (>24 meses)
+      if (months.length > 24) {
+        alert(
+          `El rango es de ${months.length} meses. Cap máximo: 24. Reducí el rango.`,
+        );
+        setPdfBusy(false);
+        return;
+      }
+
+      // Lazy-load react-pdf + componente
+      const { pdf } = await import("@react-pdf/renderer");
+      const { default: RoadmapPdf } = await import("@/components/RoadmapPdf");
+
+      // Pasamos TODOS los posts y dejamos que el componente filtre
+      // por mes — más simple que pre-filtrar.
+      const blob = await pdf(
+        <RoadmapPdf
+          clientName={client.name}
+          posts={posts}
+          contentFrequency={
+            client.content_frequency as
+              | Record<string, number | undefined>
+              | undefined
+          }
+          months={months}
+        />,
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const fromLabel = `${pdfFromYear}-${String(pdfFromMonth + 1).padStart(2, "0")}`;
+      const toLabel = `${pdfToYear}-${String(pdfToMonth + 1).padStart(2, "0")}`;
+      a.download = `Roadmap ${client.name} ${fromLabel}_${toLabel}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setPdfModal(false);
+    } catch (err) {
+      const e = err as Error;
+      console.error("downloadRoadmapPdf error:", err);
+      alert(`No se pudo generar el PDF:\n${e.message}`);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
   return (
     <>
       <div className={ui.head}>
@@ -107,6 +189,13 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           <h1>Calendario de acciones</h1>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
+          <button
+            className={ui.btnGhost}
+            onClick={() => setPdfModal(true)}
+            style={{ fontWeight: 600 }}
+          >
+            ↓ Descargar PDF
+          </button>
           <button
             className={ui.btnGhost}
             onClick={() =>
@@ -364,9 +453,199 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           );
         }}
       />
+
+      {/* Modal de descarga PDF: rango de meses */}
+      {pdfModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !pdfBusy) setPdfModal(false);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.6)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 40,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              maxWidth: 520,
+              width: "100%",
+              padding: 36,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 600,
+                marginBottom: 12,
+              }}
+            >
+              Roadmap · Descarga PDF
+            </div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                marginBottom: 8,
+              }}
+            >
+              Elegí el rango de meses
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              Se genera un PDF con un mes por página (A4 horizontal) con
+              los posts cargados + chips de frecuencia sugerida. Máximo 24 meses.
+            </p>
+
+            <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                    marginBottom: 6,
+                  }}
+                >
+                  Desde
+                </label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select
+                    value={pdfFromMonth}
+                    onChange={(e) => setPdfFromMonth(Number(e.target.value))}
+                    disabled={pdfBusy}
+                    style={selectStyle}
+                  >
+                    {MONTHS_ES.map((m, i) => (
+                      <option key={i} value={i}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    value={pdfFromYear}
+                    onChange={(e) => setPdfFromYear(Number(e.target.value))}
+                    disabled={pdfBusy}
+                    min={2020}
+                    max={2099}
+                    style={{ ...selectStyle, width: 70 }}
+                  />
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                    marginBottom: 6,
+                  }}
+                >
+                  Hasta
+                </label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select
+                    value={pdfToMonth}
+                    onChange={(e) => setPdfToMonth(Number(e.target.value))}
+                    disabled={pdfBusy}
+                    style={selectStyle}
+                  >
+                    {MONTHS_ES.map((m, i) => (
+                      <option key={i} value={i}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    value={pdfToYear}
+                    onChange={(e) => setPdfToYear(Number(e.target.value))}
+                    disabled={pdfBusy}
+                    min={2020}
+                    max={2099}
+                    style={{ ...selectStyle, width: 70 }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "var(--ivory)",
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginBottom: 20,
+              }}
+            >
+              {(() => {
+                const from = pdfFromYear * 12 + pdfFromMonth;
+                const to = pdfToYear * 12 + pdfToMonth;
+                const count = to - from + 1;
+                if (count <= 0) return "⚠ El rango es inválido.";
+                if (count > 24) return `⚠ ${count} meses — máximo 24.`;
+                return `${count} ${count === 1 ? "página" : "páginas"} (un mes por página).`;
+              })()}
+            </div>
+
+            <div
+              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
+            >
+              <button
+                onClick={() => setPdfModal(false)}
+                disabled={pdfBusy}
+                className={ui.btnGhost}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={downloadRoadmapPdf}
+                disabled={pdfBusy}
+                className={ui.btnSolid}
+              >
+                {pdfBusy ? "Generando…" : "↓ Descargar PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
+
+const selectStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  border: "1px solid rgba(10,26,12,0.15)",
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  fontSize: 13,
+  fontFamily: "inherit",
+  outline: "none",
+};
 
 function ContentDayModal({
   clientId, date, posts, onClose, onChange, onOpenEvent,
