@@ -227,6 +227,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
             padding: "10px 14px",
             background: "var(--off-white)",
             fontSize: 11,
+            borderRadius: "var(--r-md)",
           }}
         >
           <span
@@ -478,6 +479,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               maxWidth: 520,
               width: "100%",
               padding: 36,
+              borderRadius: "var(--r-lg)",
             }}
           >
             <div
@@ -600,6 +602,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 fontSize: 12,
                 color: "var(--text-muted)",
                 marginBottom: 20,
+                borderRadius: "var(--r-md)",
               }}
             >
               {(() => {
@@ -645,6 +648,7 @@ const selectStyle: React.CSSProperties = {
   fontSize: 13,
   fontFamily: "inherit",
   outline: "none",
+  borderRadius: "var(--r-md)",
 };
 
 function ContentDayModal({
@@ -691,7 +695,7 @@ function ContentDayModal({
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: "var(--white)", maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 48, position: "relative" }}>
+      <div style={{ background: "var(--white)", maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 48, position: "relative", borderRadius: "var(--r-lg)" }}>
         <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, fontSize: 20, width: 32, height: 32, background: "transparent", border: "none", cursor: "pointer" }}>×</button>
 
         <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--sand-dark)", fontWeight: 600, marginBottom: 12 }}>
@@ -716,6 +720,7 @@ function ContentDayModal({
             gap: 12,
             fontSize: 12,
             color: "var(--text-muted)",
+            borderRadius: "var(--r-md)",
           }}
         >
           <span>
@@ -734,6 +739,7 @@ function ContentDayModal({
               cursor: "pointer",
               fontFamily: "inherit",
               whiteSpace: "nowrap",
+              borderRadius: "var(--r-md)",
             }}
           >
             + Producción / Evento →
@@ -747,7 +753,7 @@ function ContentDayModal({
               <div key={p.id} style={{ padding: "12px 0", borderBottom: "1px solid rgba(10,26,12,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ padding: "2px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: NETWORK_COLOR[p.network], color: p.network === "ig" ? "var(--sand)" : "var(--off-white)", fontWeight: 600 }}>
+                    <span style={{ padding: "2px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: NETWORK_COLOR[p.network], color: p.network === "ig" ? "var(--sand)" : "var(--off-white)", fontWeight: 600, borderRadius: "var(--r-pill)" }}>
                       {NETWORK_LABEL[p.network]} · {p.format}
                     </span>
                     <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.time}</span>
@@ -774,6 +780,8 @@ function ContentDayModal({
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "inherit",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div style={{ fontSize: 20, marginBottom: 8, color: "var(--sand-dark)" }}>⚡</div>
@@ -791,6 +799,8 @@ function ContentDayModal({
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "inherit",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div style={{ fontSize: 20, marginBottom: 8, color: "var(--sand-dark)" }}>▲</div>
@@ -871,4 +881,5 @@ const inputS: React.CSSProperties = {
   fontFamily: "inherit",
   fontSize: 13,
   outline: "none",
+  borderRadius: "var(--r-md)",
 };

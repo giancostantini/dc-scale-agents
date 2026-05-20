@@ -31,7 +31,7 @@ export default function FabricaPage({ params }: { params: Promise<{ id: string }
           <div className={ui.eyebrow}>Producción · Agente Creativo</div>
           <h1>Fábrica de contenidos</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "var(--off-white)", borderLeft: "2px solid var(--green-ok)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "var(--off-white)", borderLeft: "2px solid var(--green-ok)", borderRadius: "var(--r-md)" }}>
           <span style={{ width: 8, height: 8, background: "var(--green-ok)", borderRadius: "50%" }} />
           <span style={{ fontSize: 11, letterSpacing: "0.1em", fontWeight: 500 }}>
             Agente alimentado con el branding
@@ -57,7 +57,7 @@ export default function FabricaPage({ params }: { params: Promise<{ id: string }
             { label: "Estrategia", value: "Growth Strategy Plan", icon: "◈" },
             { label: "Referencias", value: "Ejemplos cargados manualmente", icon: "⚑" },
           ].map((c) => (
-            <div key={c.label} style={{ padding: 16, background: "var(--off-white)" }}>
+            <div key={c.label} style={{ padding: 16, background: "var(--off-white)", borderRadius: "var(--r-md)" }}>
               <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--sand-dark)", fontWeight: 600, marginBottom: 8 }}>
                 {c.icon} {c.label}
               </div>
@@ -75,6 +75,7 @@ export default function FabricaPage({ params }: { params: Promise<{ id: string }
           padding: 36,
           marginBottom: 24,
           borderLeft: "3px solid var(--sand)",
+          borderRadius: "var(--r-lg)",
         }}
       >
         <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--sand)", fontWeight: 600, marginBottom: 16 }}>
@@ -128,6 +129,7 @@ export default function FabricaPage({ params }: { params: Promise<{ id: string }
             resize: "vertical",
             fontFamily: "inherit",
             marginBottom: 20,
+            borderRadius: "var(--r-md)",
           }}
         />
 
@@ -178,6 +180,7 @@ export default function FabricaPage({ params }: { params: Promise<{ id: string }
                   fontFamily: "inherit",
                   fontSize: 13,
                   outline: "none",
+                  borderRadius: "var(--r-md)",
                 }}
               />
             </div>

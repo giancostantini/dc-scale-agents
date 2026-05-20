@@ -349,6 +349,7 @@ function PlatformMetricsView({ metrics }: { metrics: PlatformMetrics }) {
             fontSize: 13,
             color: "var(--text-muted)",
             lineHeight: 1.5,
+            borderRadius: "var(--r-md)",
           }}
         >
           <strong style={{ color: "var(--deep-green)" }}>Notas:</strong>{" "}
@@ -481,6 +482,7 @@ function PlatformEditor({
                 background: "var(--white)",
                 fontSize: 14,
                 color: "var(--deep-green)",
+                borderRadius: "var(--r-md)",
               }}
             />
           </div>
@@ -514,6 +516,7 @@ function PlatformEditor({
             fontSize: 14,
             color: "var(--deep-green)",
             resize: "vertical",
+            borderRadius: "var(--r-md)",
           }}
         />
       </div>
@@ -527,6 +530,7 @@ function PlatformEditor({
             borderLeft: "3px solid var(--red-warn)",
             color: "var(--red-warn)",
             fontSize: 12,
+            borderRadius: "var(--r-md)",
           }}
         >
           {error}
@@ -548,6 +552,7 @@ function PlatformEditor({
             textTransform: "uppercase",
             cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.6 : 1,
+            borderRadius: "var(--r-md)",
           }}
         >
           {saving ? "Guardando…" : "Guardar"}
@@ -565,6 +570,7 @@ function PlatformEditor({
             letterSpacing: "0.05em",
             textTransform: "uppercase",
             cursor: "pointer",
+            borderRadius: "var(--r-md)",
           }}
         >
           Cancelar

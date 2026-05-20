@@ -203,6 +203,7 @@ function TareasContent() {
               padding: 16,
               background: "rgba(201, 161, 74, 0.12)",
               borderLeft: "3px solid var(--yellow-warn)",
+              borderRadius: "var(--r-md)",
               fontSize: 13,
               marginBottom: 24,
               display: "flex",
@@ -231,6 +232,7 @@ function TareasContent() {
                 textTransform: "uppercase",
                 fontWeight: 600,
                 cursor: "pointer",
+                borderRadius: "var(--r-sm)",
               }}
             >
               Filtrar pendientes →
@@ -310,6 +312,7 @@ function TareasContent() {
               color: "var(--text-muted)",
               cursor: "pointer",
               fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
             }}
           >
             Limpiar
@@ -335,6 +338,8 @@ function TareasContent() {
               padding: 48,
               textAlign: "center",
               background: "var(--white)",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div
@@ -376,6 +381,8 @@ function TareasContent() {
                     textDecoration: "none",
                     color: "inherit",
                     transition: "border-color 0.15s",
+                    borderRadius: "var(--r-md)",
+                    boxShadow: "var(--shadow-sm)",
                   }}
                   className="hover-card"
                 >
@@ -416,6 +423,7 @@ function TareasContent() {
                             padding: "2px 8px",
                             background: URGENCY_COLORS[r.urgency] ?? "var(--text-muted)",
                             color: "var(--white)",
+                            borderRadius: "var(--r-pill)",
                           }}
                         >
                           {r.urgency}
@@ -472,6 +480,7 @@ function TareasContent() {
                           textTransform: "uppercase",
                           fontWeight: 700,
                           display: "inline-block",
+                          borderRadius: "var(--r-pill)",
                         }}
                       >
                         {STATUS_LABELS[r.status] ?? r.status}
@@ -517,6 +526,7 @@ const selectStyle: React.CSSProperties = {
   background: "var(--white)",
   fontSize: 13,
   fontFamily: "inherit",
+  borderRadius: "var(--r-sm)",
 };
 
 function statusBgColor(status: string): string {
