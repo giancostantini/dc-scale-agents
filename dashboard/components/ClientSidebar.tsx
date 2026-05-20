@@ -2,6 +2,24 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  LayoutDashboard,
+  Layers,
+  Map,
+  Clapperboard,
+  TrendingUp,
+  ListChecks,
+  Plus,
+  BookOpen,
+  Inbox,
+  Target,
+  Bot,
+  PenLine,
+  Mail,
+  Trash2,
+  ArrowLeft,
+  type LucideIcon,
+} from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { deleteClient } from "@/lib/storage";
 import InviteUserModal from "./InviteUserModal";
@@ -10,7 +28,7 @@ import styles from "./ClientSidebar.module.css";
 
 interface NavItem {
   href: string;
-  icon: string;
+  icon: LucideIcon;
   label: string;
   directorOnly?: boolean;
 }
@@ -69,27 +87,27 @@ export default function ClientSidebar({ client }: { client: Client }) {
   const base = `/cliente/${client.id}`;
 
   const navGP: NavItem[] = [
-    { href: base,                  icon: "◈", label: "Dashboard" },
-    { href: `${base}/fases`,        icon: "⁞", label: "Fases del negocio" },
-    { href: `${base}/planificador`, icon: "▦", label: "Roadmap" },
-    { href: `${base}/campanas`,     icon: "◎", label: "Producciones" },
-    { href: `${base}/analitica`,    icon: "↗", label: "Analítica" },
+    { href: base,                  icon: LayoutDashboard, label: "Dashboard" },
+    { href: `${base}/fases`,        icon: Layers,         label: "Fases del negocio" },
+    { href: `${base}/planificador`, icon: Map,            label: "Roadmap" },
+    { href: `${base}/campanas`,     icon: Clapperboard,   label: "Producciones" },
+    { href: `${base}/analitica`,    icon: TrendingUp,     label: "Analítica" },
   ];
 
   const navDev: NavItem[] = [
-    { href: base,                  icon: "◈", label: "Dashboard" },
-    { href: `${base}/sprints`,      icon: "▣", label: "Sprints" },
-    { href: `${base}/nueva-tarea`,  icon: "+", label: "Nueva tarea" },
+    { href: base,                  icon: LayoutDashboard, label: "Dashboard" },
+    { href: `${base}/sprints`,      icon: ListChecks,     label: "Sprints" },
+    { href: `${base}/nueva-tarea`,  icon: Plus,           label: "Nueva tarea" },
   ];
 
   const gestion: NavItem[] = [
-    { href: `${base}/biblioteca`,    icon: "▢", label: "Biblioteca" },
-    { href: `${base}/solicitudes`,   icon: "◎", label: "Solicitudes del cliente" },
-    { href: `${base}/objetivos`,     icon: "◆", label: "Setear objetivos", directorOnly: true },
+    { href: `${base}/biblioteca`,    icon: BookOpen, label: "Biblioteca" },
+    { href: `${base}/solicitudes`,   icon: Inbox,    label: "Solicitudes del cliente" },
+    { href: `${base}/objetivos`,     icon: Target,   label: "Setear objetivos", directorOnly: true },
     ...(client.type === "gp"
-      ? [{ href: `${base}/agentes`, icon: "⚡", label: "Agentes IA" }]
+      ? [{ href: `${base}/agentes`, icon: Bot, label: "Agentes IA" }]
       : []),
-    { href: `${base}/notas`,         icon: "✎", label: "Notas internas" },
+    { href: `${base}/notas`,         icon: PenLine, label: "Notas internas" },
   ];
 
   const nav = client.type === "gp" ? navGP : navDev;
@@ -97,13 +115,15 @@ export default function ClientSidebar({ client }: { client: Client }) {
   function renderItem(it: NavItem) {
     if (it.directorOnly && !isDirector) return null;
     const active = pathname === it.href;
+    const Icon = it.icon;
     return (
       <button
         key={it.href}
         className={`${styles.item} ${active ? styles.active : ""}`}
         onClick={() => router.push(it.href)}
       >
-        <span className={styles.icon}>{it.icon}</span> {it.label}
+        <Icon className={styles.icon} size={17} strokeWidth={1.9} />
+        <span className={styles.itemLabel}>{it.label}</span>
         {it.directorOnly && <span className={styles.directorTag}>DIRECTOR</span>}
       </button>
     );
@@ -112,7 +132,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
   return (
     <aside className={styles.sidebar}>
       <button className={styles.back} onClick={() => router.push("/hub")}>
-        ← Volver al hub
+        <ArrowLeft size={15} strokeWidth={2} /> Volver al hub
       </button>
 
       <div className={styles.info}>
@@ -135,13 +155,9 @@ export default function ClientSidebar({ client }: { client: Client }) {
         <>
           <div className={styles.section}>
             <div className={styles.label}>Acceso del cliente</div>
-            <button
-              className={styles.item}
-              onClick={() => setInviteOpen(true)}
-              style={{ color: "var(--deep-green)" }}
-            >
-              <span className={styles.icon}>✉</span>
-              Invitar al portal
+            <button className={styles.item} onClick={() => setInviteOpen(true)}>
+              <Mail className={styles.icon} size={17} strokeWidth={1.9} />
+              <span className={styles.itemLabel}>Invitar al portal</span>
               <span className={styles.directorTag}>DIRECTOR</span>
             </button>
           </div>
@@ -156,8 +172,10 @@ export default function ClientSidebar({ client }: { client: Client }) {
               disabled={deleting}
               title="Solo directores pueden eliminar un cliente"
             >
-              <span className={styles.icon}>×</span>
-              {deleting ? "Eliminando…" : "Eliminar cliente"}
+              <Trash2 className={styles.icon} size={16} strokeWidth={1.9} />
+              <span className={styles.itemLabel}>
+                {deleting ? "Eliminando…" : "Eliminar cliente"}
+              </span>
               <span className={styles.directorTag}>DIRECTOR</span>
             </button>
           </div>

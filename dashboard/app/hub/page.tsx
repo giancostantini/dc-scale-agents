@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Users } from "lucide-react";
 import Topbar from "@/components/Topbar";
+import WelcomeBanner from "@/components/WelcomeBanner";
 import ClientCard from "@/components/ClientCard";
 import NewClientModal from "@/components/NewClientModal";
 import { getClients } from "@/lib/storage";
@@ -71,12 +73,25 @@ export default function HubPage() {
 
   const teamWithoutAssignments = isTeam(profile) && clients.length === 0;
   const clientById = new Map(clients.map((c) => [c.id, c]));
+  const activeCount = clients.filter((c) => c.status === "active").length;
 
   return (
     <>
       <Topbar onPrimaryClick={() => setModalOpen(true)} />
 
       <main className={styles.wrap}>
+        <WelcomeBanner
+          subtitle={
+            clients.length
+              ? `Estás gestionando ${clients.length} cliente${clients.length === 1 ? "" : "s"}.`
+              : "Tu hub de clientes."
+          }
+          stats={[
+            { label: "Clientes", value: clients.length },
+            { label: "Activos", value: activeCount },
+          ]}
+        />
+
         {/* Banner de pending sin asignar (director) */}
         {pendingUnassigned > 0 && (
           <div
@@ -248,23 +263,12 @@ export default function HubPage() {
           </section>
         )}
 
-        <div className={styles.sectionHead}>
-          <div>
-            <div className={styles.eyebrow}>
-              Hub ·{" "}
-              {new Date().toLocaleDateString("es-UY", {
-                month: "long",
-                year: "numeric",
-              })}
-            </div>
-            <h1>Clientes</h1>
-          </div>
-        </div>
+        <div className={styles.gridLabel}>Clientes</div>
 
         {clients.length === 0 ? (
           teamWithoutAssignments ? (
             <div className={styles.empty}>
-              <div className={styles.emptyIcon}>◌</div>
+              <div className={styles.emptyIcon}><Users size={40} strokeWidth={1.3} /></div>
               <div className={styles.emptyTitle}>
                 Todavía no tenés clientes asignados
               </div>
@@ -276,7 +280,7 @@ export default function HubPage() {
             </div>
           ) : (
             <div className={styles.empty}>
-              <div className={styles.emptyIcon}>◌</div>
+              <div className={styles.emptyIcon}><Users size={40} strokeWidth={1.3} /></div>
               <div className={styles.emptyTitle}>Todavía no hay clientes</div>
               <p className={styles.emptyDesc}>
                 Empezá creando tu primer cliente. El kickoff, la estrategia y
