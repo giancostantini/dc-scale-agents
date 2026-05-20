@@ -43,12 +43,16 @@
   color: var(--deep-green);
   border: 1px solid rgba(10, 26, 12, 0.15);
   background: transparent;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btn:hover {
   background: var(--off-white);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .btnSolid {
@@ -60,12 +64,16 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btnSolid:hover {
   background: var(--forest);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ======== Google Cal banner ======== */
@@ -76,6 +84,8 @@
   border-left: 3px solid var(--green-ok);
   background: var(--deep-green);
   color: var(--off-white);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -133,6 +143,8 @@
 .calendar {
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   padding: 28px;
 }
 
@@ -164,12 +176,16 @@
   justify-content: center;
   font-size: 14px;
   background: var(--white);
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .calNavBtn:hover {
   background: var(--off-white);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .calDaysHead {
@@ -195,6 +211,8 @@
   gap: 1px;
   background: rgba(10, 26, 12, 0.08);
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-md);
+  overflow: hidden;
 }
 
 .calDay {
@@ -238,7 +256,7 @@
   background: var(--sand);
   color: var(--deep-green);
   font-weight: 500;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -275,6 +293,8 @@
 .upcoming {
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   padding: 28px;
 }
 
@@ -310,6 +330,7 @@
   text-align: center;
   padding: 6px 0;
   background: var(--off-white);
+  border-radius: var(--r-md);
 }
 
 .eventDate .d {
@@ -361,11 +382,13 @@
   color: var(--deep-green);
   border: 1px solid rgba(10, 26, 12, 0.15);
   background: var(--white);
+  border-radius: var(--r-pill);
   cursor: pointer;
   font-family: inherit;
   display: flex;
   align-items: center;
   gap: 6px;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .filterBtn.active {
