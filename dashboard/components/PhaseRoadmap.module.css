@@ -59,8 +59,9 @@
   border: 1px solid rgba(10, 26, 12, 0.08);
   font-family: inherit;
   cursor: pointer;
-  transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out;
-  border-radius: 1px;
+  transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out, box-shadow 180ms ease-out;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
   white-space: nowrap;
   font-size: 13px;
   color: var(--deep-green);
@@ -71,6 +72,8 @@
 .step:hover:not(:disabled) {
   border-color: var(--sand);
   background: var(--ivory);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .step:disabled {
@@ -81,7 +84,7 @@
 .stepNum {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -239,8 +242,9 @@
   max-height: calc(100vh - 112px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 48px rgba(10, 26, 12, 0.32);
+  box-shadow: 0 16px 48px rgba(10, 26, 12, 0.32), var(--shadow-md);
   border-top: 3px solid var(--sand);
+  border-radius: var(--r-lg);
   animation: slideUp 220ms ease-out;
 }
 
@@ -288,13 +292,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 1px;
-  transition: border-color 180ms ease-out, color 180ms ease-out;
+  border-radius: var(--r-sm);
+  transition: border-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out, transform 120ms ease-out;
 }
 
 .drawerClose:hover {
   border-color: var(--deep-green);
   color: var(--deep-green);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .drawerBody {
@@ -343,8 +349,9 @@
     border-color 180ms ease-out,
     color 180ms ease-out,
     background 180ms ease-out,
-    transform 120ms ease-out;
-  border-radius: 4px;
+    transform 120ms ease-out,
+    box-shadow 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .drawerCommentBtn {
@@ -356,6 +363,8 @@
   color: var(--deep-green);
   border-color: var(--deep-green);
   background: rgba(196, 168, 130, 0.08);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* Botón primario del drawer — Ver PDF. Se destaca sobre Comentar porque

@@ -3,8 +3,9 @@
 .panel {
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.06);
-  box-shadow: 0 1px 2px rgba(10, 26, 12, 0.03);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
+  border-radius: var(--r-md);
 }
 
 .header {
@@ -91,12 +92,14 @@
   cursor: pointer;
   font-family: inherit;
   text-align: center;
-  transition: background 180ms ease-out;
-  border-radius: 1px;
+  transition: background 180ms ease-out, box-shadow 180ms ease-out, transform 120ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .newBtn:hover {
   background: var(--forest);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ============ Lista de conversaciones ============ */
