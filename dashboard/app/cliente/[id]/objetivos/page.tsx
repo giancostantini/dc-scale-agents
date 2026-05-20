@@ -139,6 +139,7 @@ export default function ObjetivosPage({
             letterSpacing: "0.2em",
             textTransform: "uppercase",
             fontWeight: 600,
+            borderRadius: "var(--r-pill)",
           }}
         >
           ◆ Solo director
@@ -166,6 +167,8 @@ export default function ObjetivosPage({
                 padding: 18,
                 border: `2px solid ${periodType === p.value ? "var(--sand)" : "rgba(10,26,12,0.08)"}`,
                 background: periodType === p.value ? "var(--off-white)" : "var(--white)",
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-sm)",
                 textAlign: "center",
                 cursor: "pointer",
                 fontFamily: "inherit",
@@ -259,6 +262,7 @@ export default function ObjetivosPage({
             fontWeight: 600,
             border: "1px dashed rgba(196,168,130,0.4)",
             background: "transparent",
+            borderRadius: "var(--r-md)",
             cursor: "pointer",
             fontFamily: "inherit",
           }}

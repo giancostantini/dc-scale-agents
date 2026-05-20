@@ -132,6 +132,8 @@ export default function CompetenciaPage({ params }: { params: Promise<{ id: stri
                   background: "var(--white)",
                   border: "1px solid rgba(10,26,12,0.08)",
                   borderLeft: "3px solid var(--sand)",
+                  borderRadius: "var(--r-md)",
+                  boxShadow: "var(--shadow-sm)",
                 }}
               >
                 <div

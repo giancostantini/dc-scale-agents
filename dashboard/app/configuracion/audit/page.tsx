@@ -156,6 +156,7 @@ export default function AuditLogPage() {
               background: "var(--white)",
               fontSize: 13,
               fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
             }}
           >
             <option value="">Todas las acciones</option>
@@ -176,6 +177,7 @@ export default function AuditLogPage() {
               background: "var(--white)",
               fontSize: 13,
               fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
             }}
           />
           <button
@@ -194,6 +196,7 @@ export default function AuditLogPage() {
               color: "var(--text-muted)",
               cursor: "pointer",
               fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
             }}
           >
             Limpiar
@@ -219,6 +222,8 @@ export default function AuditLogPage() {
               padding: 48,
               textAlign: "center",
               background: "var(--white)",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div
@@ -243,6 +248,8 @@ export default function AuditLogPage() {
               border: "1px solid rgba(10,26,12,0.08)",
               background: "var(--white)",
               overflow: "hidden",
+              borderRadius: "var(--r-lg)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
