@@ -45,7 +45,9 @@
 /* ============ PANEL ============ */
 .panel {
   background: var(--white);
-  border: 1px solid rgba(10, 26, 12, 0.08);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   padding: 32px;
   margin-bottom: 24px;
 }
@@ -124,6 +126,7 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
+  border-radius: var(--r-pill);
 }
 
 /* ============ FIELDS ============ */
@@ -200,6 +203,7 @@
   font-size: 13px;
   background: var(--off-white);
   border-left: 3px solid var(--sand);
+  border-radius: var(--r-md);
   font-style: italic;
 }
 
@@ -217,6 +221,7 @@
   padding: 16px;
   background: var(--off-white);
   border: 1px solid transparent;
+  border-radius: var(--r-md);
   text-decoration: none;
   color: inherit;
   transition: all 0.15s;
@@ -238,6 +243,7 @@
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
+  border-radius: var(--r-md);
 }
 
 .assignName {
@@ -261,6 +267,7 @@
   text-transform: uppercase;
   font-weight: 600;
   color: var(--sand-dark);
+  border-radius: var(--r-pill);
 }
 
 .assignArrow {
@@ -285,6 +292,7 @@
   text-transform: uppercase;
   color: var(--text-muted);
   border: 1px solid rgba(10, 26, 12, 0.1);
+  border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
@@ -306,12 +314,16 @@
   color: var(--off-white);
   background: var(--deep-green);
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btnSolid:hover {
   background: var(--forest);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .btnSolid:disabled {

@@ -5,6 +5,8 @@
   border-left: 3px solid var(--sand);
   padding: 24px 28px 26px;
   box-shadow: 0 1px 3px rgba(10, 26, 12, 0.04);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .header {
@@ -40,6 +42,8 @@
   background: rgba(10, 26, 12, 0.06);
   border: 1px solid rgba(10, 26, 12, 0.06);
   margin-bottom: 22px;
+  border-radius: var(--r-md);
+  overflow: hidden;
 }
 
 .stat {
@@ -176,6 +180,7 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--r-md);
 }
 
 @keyframes shimmer {

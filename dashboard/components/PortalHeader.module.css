@@ -33,7 +33,7 @@
   object-fit: contain;
   background: rgba(232, 228, 220, 0.06);
   padding: 4px 10px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   border: 1px solid rgba(196, 168, 130, 0.12);
 }
 
@@ -77,14 +77,16 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out;
-  border-radius: 1px;
+  transition: background 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out, box-shadow 180ms ease-out;
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 
 .headerBtn:hover {
   background: rgba(196, 168, 130, 0.10);
   border-color: var(--sand);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .headerBtn:active {
@@ -108,11 +110,11 @@
   color: var(--off-white);
   background: transparent;
   border: 1px solid rgba(196, 168, 130, 0.22);
-  border-radius: 1px;
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background 180ms ease-out, border-color 180ms ease-out;
+  transition: background 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out, transform 120ms ease-out;
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
@@ -121,6 +123,8 @@
 .headerRight :global(button[title="Notificaciones"]:hover) {
   background: rgba(196, 168, 130, 0.10);
   border-color: var(--sand);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ===== User button (avatar + nombre) =====
@@ -143,7 +147,7 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
-  border-radius: 1px;
+  border-radius: var(--r-md);
   flex-shrink: 0;
 }
 

@@ -202,6 +202,7 @@ export default function AgentesPage({ params }: { params: Promise<{ id: string }
             letterSpacing: "0.05em",
             fontWeight: 500,
             boxShadow: "0 8px 24px rgba(10,26,12,0.2)",
+            borderRadius: "var(--r-md)",
             zIndex: 200,
           }}
         >

@@ -54,6 +54,8 @@
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.08);
   border-left: 3px solid var(--sand);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   padding: 28px;
   margin-bottom: 28px;
 }
@@ -81,12 +83,16 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btnSolid:hover {
   background: var(--forest);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .campaignsEmpty {
@@ -100,6 +106,8 @@
   padding: 20px;
   background: var(--off-white);
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
   margin-bottom: 12px;
 }
 
@@ -131,6 +139,8 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-md);
+  overflow: hidden;
 }
 
 .statCell {
@@ -184,6 +194,8 @@
   min-height: 400px;
   display: flex;
   flex-direction: column;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .kanbanColHead {
@@ -208,7 +220,7 @@
   font-size: 10px;
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 10px;
+  border-radius: var(--r-pill);
 }
 
 .kanbanCard {
@@ -216,6 +228,8 @@
   padding: 14px;
   margin-bottom: 10px;
   border-left: 3px solid var(--sand);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -273,13 +287,17 @@
   letter-spacing: 0.05em;
   border: 1px solid rgba(10, 26, 12, 0.1);
   background: transparent;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .kBtn:hover {
   color: var(--deep-green);
   border-color: var(--sand);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .addLeadBtn {
@@ -291,9 +309,11 @@
   color: var(--sand-dark);
   border: 1px dashed rgba(196, 168, 130, 0.4);
   background: transparent;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
   font-weight: 600;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .addLeadBtn:hover {

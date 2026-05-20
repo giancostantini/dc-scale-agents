@@ -354,6 +354,8 @@ function ReportesFolder({
                 textDecoration: "none",
                 color: "inherit",
                 transition: "all 0.15s",
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <div style={{ fontSize: 22, color: "var(--sand-dark)" }}>▢</div>
@@ -402,6 +404,7 @@ function ReportesFolder({
                   padding: "3px 8px",
                   background: isDraft ? "var(--yellow-warn)" : "var(--green-ok)",
                   color: "var(--white)",
+                  borderRadius: "var(--r-pill)",
                 }}
               >
                 {isDraft ? "Draft" : "Aprobado"}
@@ -458,6 +461,8 @@ function ContenidosFolder({
                 padding: "12px 14px",
                 background: "var(--white)",
                 border: "1px solid rgba(10,26,12,0.08)",
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <div style={{ fontSize: 22, color: "var(--sand-dark)" }}>
@@ -513,6 +518,8 @@ function CampanasFolder({ campaigns }: { campaigns: ProductionCampaign[] }) {
               padding: 18,
               background: "var(--white)",
               border: "1px solid rgba(10,26,12,0.08)",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div
@@ -576,6 +583,7 @@ function FolderShell({
             color: "var(--text-muted)",
             fontSize: 13,
             fontStyle: "italic",
+            borderRadius: "var(--r-md)",
           }}
         >
           {emptyMsg ||
@@ -629,6 +637,8 @@ function FilesList({
               padding: "10px 14px",
               background: "var(--white)",
               border: "1px solid rgba(10,26,12,0.08)",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -720,6 +730,8 @@ function TeamsFolderBanner({
         justifyContent: "space-between",
         gap: 16,
         flexWrap: "wrap",
+        borderRadius: "var(--r-md)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
       <div style={{ flex: 1, minWidth: 280 }}>
@@ -765,6 +777,7 @@ function TeamsFolderBanner({
               fontSize: 12,
               outline: "none",
               fontFamily: "inherit",
+              borderRadius: "var(--r-md)",
             }}
           />
           <button

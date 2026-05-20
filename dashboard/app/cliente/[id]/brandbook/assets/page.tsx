@@ -249,6 +249,7 @@ export default function AssetsPage({
             boxShadow: "0 8px 24px rgba(10,26,12,0.2)",
             zIndex: 200,
             maxWidth: 480,
+            borderRadius: "var(--r-md)",
           }}
         >
           {toast}

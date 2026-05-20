@@ -75,6 +75,8 @@ export default function IntegracionesPage({ params }: { params: Promise<{ id: st
                     padding: 18,
                     border: "1px solid rgba(10,26,12,0.08)",
                     borderLeft: `3px solid ${i.status === "connected" ? "var(--green-ok)" : "var(--rule)"}`,
+                    borderRadius: "var(--r-md)",
+                    boxShadow: "var(--shadow-sm)",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "flex-start",

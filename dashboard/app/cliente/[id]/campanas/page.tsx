@@ -125,7 +125,7 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
                         <summary style={{ cursor: "pointer", fontSize: 11, letterSpacing: "0.1em", color: "var(--sand-dark)", fontWeight: 600, textTransform: "uppercase" }}>
                           Ver desglose ({c.items.length}) →
                         </summary>
-                        <div style={{ marginTop: 12, padding: 14, background: "var(--off-white)" }}>
+                        <div style={{ marginTop: 12, padding: 14, background: "var(--off-white)", borderRadius: "var(--r-md)" }}>
                           {c.items.map((it, i) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 12, borderBottom: "1px solid rgba(10,26,12,0.06)" }}>
                               <span>{it.label}</span>

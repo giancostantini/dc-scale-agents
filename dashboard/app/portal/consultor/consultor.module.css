@@ -25,6 +25,7 @@
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.06);
   border-left: 3px solid var(--sand);
+  border-radius: var(--r-md);
 }
 
 .link {

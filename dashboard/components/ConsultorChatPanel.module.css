@@ -13,7 +13,7 @@
   backdrop-filter: blur(22px) saturate(160%);
   -webkit-backdrop-filter: blur(22px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 18px;
+  border-radius: var(--r-lg);
   display: flex;
   flex-direction: column;
   min-height: 580px;
@@ -119,8 +119,9 @@
     border-color 180ms ease-out,
     color 180ms ease-out,
     background 180ms ease-out,
-    transform 120ms ease-out;
-  border-radius: 8px;
+    transform 120ms ease-out,
+    box-shadow 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .expandBtn:hover {
@@ -128,6 +129,7 @@
   border-color: var(--sand);
   background: rgba(255, 255, 255, 0.14);
   transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ===== Messages ===== */
@@ -421,14 +423,16 @@
   transition:
     border-color 180ms ease-out,
     background 180ms ease-out,
-    transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 10px;
+    transform 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .suggestionBtn:hover:not(:disabled) {
   border-color: var(--sand);
   background: rgba(255, 255, 255, 0.85);
   transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .suggestionBtn:disabled {
@@ -462,7 +466,7 @@
     border-color 180ms ease-out,
     background 180ms ease-out,
     box-shadow 180ms ease-out;
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 
 .input::placeholder {
@@ -535,7 +539,7 @@
   border-left: 3px solid var(--red-warn);
   color: var(--red-warn);
   font-size: 12px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
 
 /* ===== Responsive ===== */

@@ -959,6 +959,7 @@ export default function FaseDetailPage({
               maxWidth: 560,
               width: "100%",
               padding: 36,
+              borderRadius: "var(--r-lg)",
             }}
           >
             <div
@@ -1008,6 +1009,8 @@ export default function FaseDetailPage({
                 fontSize: 12,
                 color: "var(--text-soft)",
                 lineHeight: 1.6,
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <strong style={{ color: "var(--deep-green)" }}>
@@ -1041,6 +1044,7 @@ export default function FaseDetailPage({
                 marginBottom: 24,
                 background: uploadFile ? "rgba(196,168,130,0.08)" : "transparent",
                 transition: "background 0.15s",
+                borderRadius: "var(--r-md)",
               }}
             >
               <input
@@ -1177,6 +1181,7 @@ export default function FaseDetailPage({
               fontSize: 13,
               background: "var(--off-white)",
               borderLeft: "3px solid var(--sand)",
+              borderRadius: "var(--r-md)",
             }}
           >
             {status === "pending"
@@ -1228,6 +1233,7 @@ export default function FaseDetailPage({
               maxWidth: 620,
               width: "100%",
               padding: 36,
+              borderRadius: "var(--r-lg)",
             }}
           >
             <div
@@ -1281,6 +1287,7 @@ export default function FaseDetailPage({
                 fontFamily: "inherit",
                 resize: "vertical",
                 marginBottom: 20,
+                borderRadius: "var(--r-md)",
               }}
             />
             <div
@@ -1322,6 +1329,7 @@ export default function FaseDetailPage({
             background: "rgba(176,75,58,0.06)",
             borderLeft: "3px solid var(--red-warn)",
             marginTop: 24,
+            borderRadius: "var(--r-md)",
           }}
         >
           <div
@@ -1381,6 +1389,7 @@ function Header({
           padding: 24,
           marginBottom: 24,
           borderLeft: "3px solid var(--sand)",
+          borderRadius: "var(--r-md)",
         }}
       >
         <div
@@ -1435,6 +1444,7 @@ function StatusBanner({
         alignItems: "center",
         flexWrap: "wrap",
         gap: 12,
+        borderRadius: "var(--r-md)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

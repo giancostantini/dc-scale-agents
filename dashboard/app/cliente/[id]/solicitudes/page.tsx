@@ -212,6 +212,7 @@ function Section({
             background: "var(--off-white)",
             borderLeft: "3px solid var(--sand)",
             fontStyle: "italic",
+            borderRadius: "var(--r-md)",
           }}
         >
           {empty}
@@ -265,6 +266,8 @@ function RequestRow({
         padding: 18,
         background: "var(--white)",
         border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: "var(--r-md)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
       <div
@@ -312,6 +315,7 @@ function RequestRow({
             fontWeight: 700,
             flexShrink: 0,
             alignSelf: "flex-start",
+            borderRadius: "var(--r-pill)",
           }}
         >
           {requestStatusLabel(req.status)}
@@ -342,6 +346,7 @@ function RequestRow({
             padding: 12,
             background: "var(--off-white)",
             marginBottom: 14,
+            borderRadius: "var(--r-md)",
           }}
         >
           {Object.entries(req.metadata).map(([k, v]) => {
@@ -430,6 +435,7 @@ function RequestRow({
                 fontSize: 13,
                 fontFamily: "inherit",
                 color: "var(--deep-green)",
+                borderRadius: "var(--r-md)",
               }}
             >
               {STATUS_OPTIONS.map((o) => (
@@ -446,6 +452,7 @@ function RequestRow({
                 border: "1px solid rgba(10,26,12,0.06)",
                 fontSize: 13,
                 color: "var(--text-muted)",
+                borderRadius: "var(--r-md)",
               }}
             >
               {requestStatusLabel(req.status)}
@@ -494,6 +501,7 @@ function RequestRow({
                   fontSize: 13,
                   fontFamily: "inherit",
                   color: "var(--deep-green)",
+                  borderRadius: "var(--r-md)",
                 }}
               >
                 <option value="">— sin asignar —</option>
@@ -512,6 +520,7 @@ function RequestRow({
                   border: "1px solid rgba(10,26,12,0.06)",
                   fontSize: 13,
                   color: "var(--text-muted)",
+                  borderRadius: "var(--r-md)",
                 }}
               >
                 {assignedProfile
@@ -585,6 +594,7 @@ function RequestRow({
                 color: "var(--deep-green)",
                 resize: "vertical",
                 marginBottom: 8,
+                borderRadius: "var(--r-md)",
               }}
             />
             <div style={{ display: "flex", gap: 8 }}>
@@ -619,6 +629,7 @@ function RequestRow({
               color: "var(--deep-green)",
               whiteSpace: "pre-wrap",
               marginBottom: 8,
+              borderRadius: "var(--r-md)",
             }}
           >
             {req.response}
@@ -651,6 +662,7 @@ function RequestRow({
               fontSize: 12,
               color: "var(--text-muted)",
               fontStyle: "italic",
+              borderRadius: "var(--r-md)",
             }}
           >
             El director todavía no escribió respuesta para el cliente.

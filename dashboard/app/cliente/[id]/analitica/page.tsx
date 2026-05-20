@@ -149,6 +149,8 @@ export default function AnaliticaPage({
               color: "var(--text-soft, #5a6a5e)",
               marginBottom: 18,
               lineHeight: 1.5,
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <strong style={{ color: "var(--deep-green)" }}>
@@ -212,6 +214,7 @@ export default function AnaliticaPage({
               fontFamily: "inherit",
               fontSize: 13,
               outline: "none",
+              borderRadius: "var(--r-md)",
             }}
           />
           <div
@@ -275,6 +278,8 @@ function ShortcutCard({
         display: "flex",
         flexDirection: "column",
         gap: 12,
+        borderRadius: "var(--r-md)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
       <div
@@ -326,6 +331,7 @@ function ShortcutCard({
               fontSize: 12,
               outline: "none",
               fontFamily: "inherit",
+              borderRadius: "var(--r-md)",
             }}
           />
           <div style={{ display: "flex", gap: 8 }}>
