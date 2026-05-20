@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Search, Plus, Target, CalendarDays, Wallet, Users } from "lucide-react";
 import {
   getCurrentProfile,
   hasPipelineAccess,
@@ -47,6 +48,7 @@ export default function Topbar({
       {/* Cliente no tiene buscador (no busca clientes ni leads) */}
       {!isClient && (
         <div className={styles.search}>
+          <Search className={styles.searchIcon} size={15} strokeWidth={2} />
           <input placeholder={searchPlaceholder} />
         </div>
       )}
@@ -59,7 +61,7 @@ export default function Topbar({
             className={`${styles.btn} ${styles.btnPrimary}`}
             onClick={onPrimaryClick}
           >
-            + Nuevo cliente
+            <Plus size={15} strokeWidth={2.2} /> Nuevo cliente
           </button>
         )}
 
@@ -69,7 +71,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/pipeline")}
           >
-            Pipeline
+            <Target size={15} strokeWidth={2} /> Pipeline
           </button>
         )}
 
@@ -79,7 +81,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/calendario")}
           >
-            Calendario
+            <CalendarDays size={15} strokeWidth={2} /> Calendario
           </button>
         )}
 
@@ -89,7 +91,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/finanzas")}
           >
-            Finanzas
+            <Wallet size={15} strokeWidth={2} /> Finanzas
           </button>
         )}
 
@@ -99,7 +101,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/equipo")}
           >
-            Equipo
+            <Users size={15} strokeWidth={2} /> Equipo
           </button>
         )}
 

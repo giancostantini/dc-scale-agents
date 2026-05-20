@@ -1,33 +1,16 @@
 .wrap {
-  padding: 60px 40px 80px;
+  padding: 28px 40px 80px;
   max-width: 1600px;
   margin: 0 auto;
 }
 
-.sectionHead {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 40px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid rgba(10, 26, 12, 0.1);
-}
-
-.eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.25em;
+.gridLabel {
+  font-size: 11px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--sand-dark);
-  margin-bottom: 14px;
-  font-weight: 500;
-}
-
-.sectionHead h1 {
-  font-size: 48px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  color: var(--deep-green);
+  font-weight: 600;
+  margin-bottom: 16px;
 }
 
 .grid {
@@ -38,16 +21,18 @@
 
 .empty {
   border: 1px dashed rgba(10, 26, 12, 0.15);
+  border-radius: var(--r-lg);
   padding: 80px 40px;
   text-align: center;
   background: var(--white);
 }
 
 .emptyIcon {
-  font-size: 40px;
   color: var(--sand-dark);
   margin-bottom: 20px;
-  line-height: 1;
+  opacity: 0.55;
+  display: flex;
+  justify-content: center;
 }
 
 .emptyTitle {
@@ -74,12 +59,16 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .emptyBtn:hover {
   background: var(--sand-light);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 1100px) {

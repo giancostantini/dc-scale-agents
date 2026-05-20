@@ -6,8 +6,8 @@
 
 .sidebar {
   background: var(--white);
-  border-right: 1px solid rgba(10, 26, 12, 0.08);
-  padding: 36px 0;
+  border-right: 1px solid var(--hairline);
+  padding: 28px 0;
   position: sticky;
   top: 72px;
   height: calc(100vh - 72px);
@@ -17,17 +17,21 @@
 }
 
 .back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 0 28px;
   margin-bottom: 24px;
   font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   background: transparent;
   border: none;
   font-family: inherit;
   text-align: left;
   width: 100%;
+  transition: color 0.15s;
 }
 
 .back:hover {
@@ -35,21 +39,22 @@
 }
 
 .info {
-  padding: 0 28px 28px;
-  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+  padding: 0 28px 24px;
+  border-bottom: 1px solid var(--hairline);
   margin-bottom: 20px;
 }
 
 .logo {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   background: var(--deep-green);
   color: var(--sand);
+  border-radius: var(--r-md);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   margin-bottom: 16px;
 }
 
@@ -68,8 +73,8 @@
 }
 
 .section {
-  padding: 0 28px;
-  margin-bottom: 24px;
+  padding: 0 16px;
+  margin-bottom: 22px;
 }
 
 .label {
@@ -78,39 +83,50 @@
   text-transform: uppercase;
   color: var(--sand-dark);
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  padding: 0 12px;
 }
 
 .item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 11px;
+  padding: 9px 12px;
   font-size: 14px;
   color: var(--deep-green);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: background 0.15s, color 0.15s;
   font-weight: 400;
   background: transparent;
   border: none;
+  border-radius: var(--r-sm);
   width: 100%;
   text-align: left;
   font-family: inherit;
 }
 
 .item:hover {
-  color: var(--sand-dark);
+  background: var(--off-white);
 }
 
 .item.active {
-  color: var(--sand-dark);
+  background: var(--sand-tint);
+  color: var(--deep-green);
   font-weight: 500;
 }
 
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+}
+
 .item .icon {
-  width: 18px;
   color: var(--sand-dark);
-  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.item.active .icon {
+  color: var(--deep-green);
 }
 
 .directorTag {
@@ -119,13 +135,18 @@
   letter-spacing: 0.15em;
   color: var(--sand-dark);
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 /* ============ ZONA CRÍTICA ============ */
 .dangerSection {
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: 22px;
+}
+
+.dangerSection .label {
   border-top: 1px solid rgba(176, 75, 58, 0.15);
+  padding-top: 18px;
 }
 
 .dangerLabel {
@@ -135,18 +156,19 @@
 .deleteBtn {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 12px;
   font-size: 13px;
   font-weight: 500;
   color: var(--red-warn);
-  background: rgba(176, 75, 58, 0.06);
-  border: 1px solid rgba(176, 75, 58, 0.2);
+  background: var(--red-tint);
+  border: 1px solid rgba(176, 75, 58, 0.18);
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .deleteBtn:hover:not(:disabled) {
@@ -160,10 +182,8 @@
 }
 
 .deleteBtn .icon {
-  width: 18px;
-  font-size: 16px;
   color: var(--red-warn);
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .deleteBtn .directorTag {
@@ -172,7 +192,7 @@
 }
 
 .main {
-  padding: 48px 56px 80px;
+  padding: 40px 48px 80px;
   overflow-x: hidden;
 }
 
