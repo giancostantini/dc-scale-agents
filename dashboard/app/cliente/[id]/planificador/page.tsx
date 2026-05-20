@@ -8,6 +8,7 @@ import {
   weekdayLunFirst,
 } from "@/lib/content-frequency";
 import ContentFrequencyModal from "@/components/ContentFrequencyModal";
+import NewEventModal from "@/components/NewEventModal";
 import type {
   Client,
   ContentFormat,
@@ -48,6 +49,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [modalDate, setModalDate] = useState<string | null>(null);
+  const [eventModalDate, setEventModalDate] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
@@ -94,17 +96,28 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     <>
       <div className={ui.head}>
         <div>
-          <div className={ui.eyebrow}>Contenido · Planificador editorial</div>
+          <div className={ui.eyebrow}>Roadmap · Acciones del cliente</div>
           <h1>Calendario de acciones</h1>
         </div>
-        {isDirector && (
+        <div style={{ display: "flex", gap: 10 }}>
           <button
-            className={ui.btnSolid}
-            onClick={() => setFreqModal(true)}
+            className={ui.btnGhost}
+            onClick={() =>
+              setEventModalDate(new Date().toISOString().slice(0, 10))
+            }
+            style={{ fontWeight: 600 }}
           >
-            ⚑ Frecuencia de contenido
+            + Nuevo evento / producción
           </button>
-        )}
+          {isDirector && (
+            <button
+              className={ui.btnSolid}
+              onClick={() => setFreqModal(true)}
+            >
+              ⚑ Frecuencia de contenido
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Leyenda de redes configuradas (resumen visible para todos) */}
@@ -297,8 +310,22 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           posts={posts.filter((p) => p.date === modalDate)}
           onClose={() => setModalDate(null)}
           onChange={refresh}
+          onOpenEvent={(d) => {
+            setModalDate(null);
+            setEventModalDate(d);
+          }}
         />
       )}
+
+      {/* NewEventModal: produccion / reunion / deadline. Misma fecha
+          que clickeó el usuario o "hoy" si vino desde botón del header. */}
+      <NewEventModal
+        open={eventModalDate !== null}
+        initialDate={eventModalDate ?? undefined}
+        initialClientId={id}
+        onClose={() => setEventModalDate(null)}
+        onCreated={() => setEventModalDate(null)}
+      />
 
       <ContentFrequencyModal
         open={freqModal}
@@ -317,10 +344,11 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
 }
 
 function ContentDayModal({
-  clientId, date, posts, onClose, onChange,
+  clientId, date, posts, onClose, onChange, onOpenEvent,
 }: {
   clientId: string; date: string; posts: ContentPost[];
   onClose: () => void; onChange: () => void;
+  onOpenEvent: (date: string) => void;
 }) {
   const [mode, setMode] = useState<"agent" | "upload">("agent");
   const [network, setNetwork] = useState<ContentNetwork>("ig");
@@ -368,6 +396,45 @@ function ContentDayModal({
         <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.025em", marginBottom: 8 }}>
           {posts.length === 0 ? "Agregar contenido" : `${posts.length} post${posts.length === 1 ? "" : "s"} ese día`}
         </h2>
+
+        {/* Quick-link a NewEventModal para crear producción / evento
+            con la fecha ya seteada. */}
+        <div
+          style={{
+            marginTop: 8,
+            marginBottom: 24,
+            padding: "10px 14px",
+            background: "var(--ivory)",
+            borderLeft: "3px solid var(--sand)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 12,
+            color: "var(--text-muted)",
+          }}
+        >
+          <span>
+            ¿No es contenido? Creá una <strong>producción, reunión, sesión o
+            deadline</strong> en el calendario.
+          </span>
+          <button
+            onClick={() => onOpenEvent(date)}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--sand)",
+              color: "var(--deep-green)",
+              padding: "6px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              whiteSpace: "nowrap",
+            }}
+          >
+            + Producción / Evento →
+          </button>
+        </div>
 
         {/* Posts existentes */}
         {posts.length > 0 && (
