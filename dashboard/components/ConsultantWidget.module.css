@@ -43,8 +43,8 @@
   max-height: calc(100vh - 48px);
   background: var(--ivory);
   border: 1px solid var(--rule);
-  border-radius: 14px;
-  box-shadow: 0 16px 48px rgba(10, 26, 12, 0.22);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -135,7 +135,7 @@
 .bubble {
   max-width: 82%;
   padding: 10px 13px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   font-size: 13.5px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -214,7 +214,7 @@
 .textarea {
   width: 100%;
   border: 1px solid var(--rule);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 10px 12px;
   font-size: 13.5px;
   line-height: 1.4;
@@ -249,12 +249,13 @@
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
-  border-radius: 8px;
-  transition: opacity 100ms ease, transform 100ms ease;
+  border-radius: var(--r-sm);
+  transition: opacity 100ms ease, transform 100ms ease, box-shadow 100ms ease;
 }
 
 .sendBtn:hover {
   transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .sendBtn:disabled {
@@ -268,7 +269,7 @@
   border: 1px solid var(--red-warn);
   color: var(--red-warn);
   padding: 10px 13px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   font-size: 13px;
   align-self: flex-start;
   max-width: 82%;
