@@ -94,6 +94,8 @@ export default function FaseDetailPage({
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -313,6 +315,7 @@ export default function FaseDetailPage({
   const isApproved = status === "approved";
   const isDraft = status === "draft";
   const isGenerating = status === "generating";
+  const isChangesRequested = status === "changes_requested";
   const hasContent = report?.content_md && report.content_md.length > 0;
 
   // ===== Acciones =====
@@ -476,6 +479,65 @@ export default function FaseDetailPage({
     } catch (err) {
       const e = err as Error;
       alert(`No se pudo aprobar:\n${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Director propone cambios al reporte. Envía feedback al endpoint
+   * /api/phases/request-changes (marca como changes_requested) y
+   * luego dispara /api/phases/generate con el mismo feedback para
+   * regenerar en modo edición (preserva verbatim lo no tocado).
+   */
+  async function submitChangesRequest() {
+    if (busy) return;
+    if (!feedbackText.trim()) {
+      alert("Escribí qué cambios querés.");
+      return;
+    }
+    setBusy(true);
+
+    // Paso 1: guardar feedback (marca como changes_requested)
+    try {
+      await callPhaseEndpoint("/api/phases/request-changes", {
+        clientId: id,
+        phase: phaseKey,
+        feedback: feedbackText.trim(),
+      });
+    } catch (err) {
+      const e = err as Error;
+      alert(
+        `No se pudo guardar el feedback:\n\n${e.message}\n\n` +
+          `El reporte sigue en su estado anterior. Probá de nuevo en unos segundos.`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    // Paso 2: regenerar con el feedback
+    try {
+      await callPhaseEndpoint("/api/phases/generate", {
+        clientId: id,
+        phase: phaseKey,
+        feedback: feedbackText.trim(),
+      });
+      setFeedbackText("");
+      setFeedbackOpen(false);
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      // El feedback ya está guardado; falla solo la regeneración.
+      // Cerramos el modal y refrescamos para mostrar el banner de
+      // changes_requested con el feedback persistido + botón "Regenerar
+      // con feedback".
+      setFeedbackText("");
+      setFeedbackOpen(false);
+      setReloadFlag((f) => f + 1);
+      alert(
+        `Tu feedback se guardó, pero la regeneración falló:\n\n${e.message}\n\n` +
+          `Click en "Regenerar con feedback" cuando quieras reintentar — el feedback ya quedó guardado.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -765,13 +827,57 @@ export default function FaseDetailPage({
 
           {/* Confirmar (cuando hay draft) */}
           {isDraft && (
+            <>
+              <button
+                className={ui.btnSolid}
+                onClick={approve}
+                disabled={busy}
+                style={{ background: "var(--green-ok)" }}
+              >
+                ✓ Confirmar y desbloquear siguiente fase
+              </button>
+              <button
+                className={ui.btnGhost}
+                onClick={() => setFeedbackOpen(true)}
+                disabled={busy}
+                style={{ fontWeight: 600 }}
+              >
+                ↻ Proponer cambios
+              </button>
+            </>
+          )}
+
+          {/* Regenerar con feedback (cuando status=changes_requested) */}
+          {isChangesRequested && (
             <button
               className={ui.btnSolid}
-              onClick={approve}
+              onClick={() => generate(report?.feedback ?? undefined)}
               disabled={busy}
-              style={{ background: "var(--green-ok)" }}
             >
-              ✓ Confirmar y desbloquear siguiente fase
+              {busy ? "Regenerando…" : "↻ Regenerar con feedback"}
+            </button>
+          )}
+
+          {/* Regenerar desde cero — disponible mientras haya contenido
+              y no esté aprobado. Ignora el feedback previo. */}
+          {hasContent && !isApproved && (
+            <button
+              className={ui.btnGhost}
+              onClick={() => {
+                if (
+                  confirm(
+                    "¿Regenerar el reporte desde cero, ignorando el contenido actual?\n\n" +
+                      "Esto sobreescribe la versión actual con una nueva generación del agente. " +
+                      "La versión anterior queda archivada en el historial.",
+                  )
+                ) {
+                  generate();
+                }
+              }}
+              disabled={busy}
+              style={{ fontSize: 11 }}
+            >
+              Regenerar desde cero
             </button>
           )}
 
@@ -1095,6 +1201,153 @@ export default function FaseDetailPage({
           />
         )}
       </div>
+
+      {/* Modal de feedback: el director escribe qué cambios quiere
+          y el agente regenera el reporte aplicando esos cambios
+          en modo edición (preserva verbatim lo no tocado). */}
+      {feedbackOpen && (
+        <div
+          onClick={(e) =>
+            e.target === e.currentTarget && !busy && setFeedbackOpen(false)
+          }
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.6)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 40,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              maxWidth: 620,
+              width: "100%",
+              padding: 36,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 600,
+                marginBottom: 12,
+              }}
+            >
+              Proponer cambios al reporte
+            </div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                marginBottom: 8,
+              }}
+            >
+              ¿Qué te gustaría que ajuste?
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              Sé específico. El agente entra en modo edición: solo cambia
+              lo que pidas, preserva el resto del reporte verbatim.
+            </p>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              rows={6}
+              autoFocus
+              placeholder="Ej: La sección de competidores tiene que enfocarse en empresas LATAM, no globales. El benchmark táctico que armaste para el sector está bien pero falta incluir TikTok como canal a explorar."
+              style={{
+                width: "100%",
+                background: "var(--ivory)",
+                border: "1px solid rgba(10,26,12,0.12)",
+                padding: 14,
+                color: "var(--deep-green)",
+                fontSize: 14,
+                fontWeight: 300,
+                outline: "none",
+                fontFamily: "inherit",
+                resize: "vertical",
+                marginBottom: 20,
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className={ui.btnGhost}
+                onClick={() => {
+                  setFeedbackOpen(false);
+                  setFeedbackText("");
+                }}
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+              <button
+                className={ui.btnSolid}
+                onClick={submitChangesRequest}
+                disabled={busy}
+              >
+                {busy ? "Regenerando…" : "Enviar y regenerar →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de "Cambios solicitados" cuando el reporte está en
+          changes_requested. El feedback persiste hasta que se
+          regenera con éxito o el director borra. */}
+      {isChangesRequested && report?.feedback && (
+        <div
+          style={{
+            padding: "14px 18px",
+            background: "rgba(176,75,58,0.06)",
+            borderLeft: "3px solid var(--red-warn)",
+            marginTop: 24,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--red-warn)",
+              fontWeight: 600,
+              marginBottom: 8,
+            }}
+          >
+            Cambios solicitados (pendiente de regenerar)
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--deep-green)",
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.5,
+            }}
+          >
+            {report.feedback}
+          </div>
+        </div>
+      )}
     </>
   );
 }
