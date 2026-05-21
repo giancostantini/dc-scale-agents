@@ -39,7 +39,7 @@
 }
 
 .phaseBadgeExec {
-  background: var(--sand);
+  background: var(--accent);
   color: var(--deep-green);
 }
 
@@ -233,7 +233,7 @@
 
 .btnPrimary {
   padding: 12px 22px;
-  background: var(--sand);
+  background: var(--accent);
   color: var(--deep-green);
   font-size: 11px;
   font-weight: 600;
@@ -247,7 +247,7 @@
 }
 
 .btnPrimary:hover {
-  background: var(--sand-light);
+  background: var(--accent-deep);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }
@@ -281,8 +281,8 @@
 }
 
 .segTabActive {
-  background: var(--white);
-  color: var(--deep-green);
+  background: var(--accent-tint);
+  color: var(--accent-deep);
   box-shadow: var(--shadow-sm);
 }
 
@@ -386,7 +386,7 @@
 
 .progressFill {
   height: 100%;
-  background: var(--sand);
+  background: var(--accent);
   transition: width 0.4s;
   border-radius: var(--r-pill);
 }

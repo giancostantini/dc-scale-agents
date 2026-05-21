@@ -110,8 +110,8 @@
 }
 
 .item.active {
-  background: var(--sand-tint);
-  color: var(--deep-green);
+  background: var(--accent-tint);
+  color: var(--accent-deep);
   font-weight: 500;
 }
 
@@ -126,7 +126,7 @@
 }
 
 .item.active .icon {
-  color: var(--deep-green);
+  color: var(--accent-deep);
 }
 
 .directorTag {
