@@ -17,7 +17,7 @@
 }
 
 .card:hover {
-  border-color: var(--sand);
+  border-color: var(--accent);
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
 }

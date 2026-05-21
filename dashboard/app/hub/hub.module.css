@@ -52,7 +52,7 @@
 
 .emptyBtn {
   padding: 14px 28px;
-  background: var(--sand);
+  background: var(--accent);
   color: var(--deep-green);
   font-size: 12px;
   font-weight: 600;
@@ -66,7 +66,7 @@
 }
 
 .emptyBtn:hover {
-  background: var(--sand-light);
+  background: var(--accent-deep);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }

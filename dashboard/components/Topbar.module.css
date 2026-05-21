@@ -59,7 +59,7 @@
 }
 
 .search input:focus {
-  border-color: var(--sand);
+  border-color: var(--accent);
   background: rgba(232, 228, 220, 0.1);
 }
 
@@ -105,14 +105,15 @@
 }
 
 .btnPrimary {
-  background: var(--sand);
+  background: var(--accent);
   color: var(--deep-green);
-  border-color: var(--sand);
+  border-color: var(--accent);
   font-weight: 500;
 }
 
 .btnPrimary:hover {
-  background: var(--sand-light);
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
 }
 
 .badge {
