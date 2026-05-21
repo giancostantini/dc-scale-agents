@@ -18,7 +18,7 @@
  */
 
 export const CLAUDE_MODEL_OPUS =
-  process.env.ANTHROPIC_MODEL ?? "claude-opus-4-5";
+  process.env.ANTHROPIC_MODEL ?? "claude-opus-4-7";
 
 export const CLAUDE_MODEL_SONNET =
   process.env.ANTHROPIC_MODEL_SONNET ?? "claude-sonnet-4-5";
