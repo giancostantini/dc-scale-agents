@@ -24,8 +24,9 @@ import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext, buildVaultBlock } from "@/lib/vault-loader";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
-const MODEL = "claude-opus-4-7";
+const MODEL = CLAUDE_MODEL_OPUS;
 
 const DISPATCHABLE_AGENTS = [
   "content-creator",

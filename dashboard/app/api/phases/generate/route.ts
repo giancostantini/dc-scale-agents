@@ -24,6 +24,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import {
   PHASE_PROMPTS,
   PHASE_PROMPTS_BRAND_LAUNCH,
@@ -372,7 +373,7 @@ Reglas absolutas:
   let claudeResponse;
   try {
     claudeResponse = await anthropic.messages.create({
-      model: "claude-opus-4-7",
+      model: CLAUDE_MODEL_OPUS,
       // 16k da margen para los reportes largos en español (12 secciones
       // densas con tablas). Antes tenía 8k y el output se cortaba en
       // reportes ricos.

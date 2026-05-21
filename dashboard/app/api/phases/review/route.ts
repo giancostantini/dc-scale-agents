@@ -16,6 +16,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 type PhaseKey = (typeof PHASES)[number];
@@ -200,7 +201,7 @@ Generá el análisis siguiendo la estructura del system prompt.`;
   let reviewMd: string;
   try {
     const resp = await anthropic.messages.create({
-      model: "claude-opus-4-7",
+      model: CLAUDE_MODEL_OPUS,
       max_tokens: 2500,
       system: REVIEW_SYSTEM,
       messages: [{ role: "user", content: userPrompt }],

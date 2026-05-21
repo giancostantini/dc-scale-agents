@@ -25,6 +25,7 @@
 
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { CLAUDE_MODEL_SONNET } from "@/lib/anthropic-model";
 
 const ALLOWED_ORIGINS = new Set([
   "https://dearmascostantini.com",
@@ -212,7 +213,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const stream = client.messages.stream({
-            model: "claude-sonnet-4-5",
+            model: CLAUDE_MODEL_SONNET,
             max_tokens: 600,
             system: [
               {
