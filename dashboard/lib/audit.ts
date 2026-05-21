@@ -22,6 +22,7 @@ export type AuditAction =
   | "phase.approve"
   | "phase.unapprove"
   | "phase.request_changes"
+  | "phase.reset_stuck"
   | "request.update"
   | "agent.dispatch"
   | "kpis.update"

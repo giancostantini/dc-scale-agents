@@ -32,6 +32,16 @@ import {
   type PhaseGenerationInput,
 } from "./prompts";
 
+// Vercel/Next route config:
+// - maxDuration: la generación de la estrategia (16 secciones, 18-25
+//   páginas) con thinking adaptativo tarda 2-5 min. Default de Vercel
+//   es 10s (Hobby) / 60s (Pro) — necesitamos extender. 300s es el
+//   máximo que aceptan los planes Pro estándar; si Vercel rechaza,
+//   bajar a 60 y movernos a Fluid Compute.
+// - dynamic: nunca cachear, siempre ejecutar.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 type PhaseKey = (typeof PHASES)[number];
 

@@ -18,6 +18,11 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
+// Vercel route config: el análisis crítico también es largo, le damos
+// hasta 300s. Default de Pro es 60s y muchos reviews lo pasan.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 type PhaseKey = (typeof PHASES)[number];
 
