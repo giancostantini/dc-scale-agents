@@ -9,6 +9,8 @@ import {
   getEvents,
   updateRoadmapMonthNote,
 } from "@/lib/storage";
+import { getPhaseReport } from "@/lib/phases";
+import { getSupabase } from "@/lib/supabase/client";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import {
   CONTENT_SLOTS,
@@ -100,6 +102,22 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   const [monthNoteEditing, setMonthNoteEditing] = useState(false);
   const [monthNoteDraft, setMonthNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  /** Si la estrategia está aprobada habilitamos el botón "Poblar
+   *  desde estrategia". Si no, mostramos disabled con tooltip. */
+  const [strategyApproved, setStrategyApproved] = useState(false);
+  const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
+  const [seedModal, setSeedModal] = useState(false);
+  const [seedLaunchDate, setSeedLaunchDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [seedBusy, setSeedBusy] = useState(false);
+  const [seedResult, setSeedResult] = useState<{
+    events_created: number;
+    frequency_keys: number;
+    mix_networks: number;
+    month_notes_count: number;
+    strategy_version: number;
+  } | null>(null);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
@@ -115,7 +133,62 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   useEffect(() => {
     getClient(id).then((c) => setClient(c ?? null));
     getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
+    // Chequeamos si la estrategia del cliente está aprobada para habilitar
+    // el botón de "Poblar desde estrategia".
+    getPhaseReport(id, "estrategia").then((r) => {
+      setStrategyApproved(r?.status === "approved");
+      setStrategyVersion(r?.version ?? null);
+    });
   }, [id]);
+
+  /** Llama al endpoint /api/roadmap/seed-from-strategy con la fecha de
+   *  lanzamiento elegida. Borra eventos auto-generados previos y crea
+   *  los nuevos + actualiza frecuencia/mix/notas. */
+  async function runSeedFromStrategy() {
+    if (seedBusy) return;
+    setSeedBusy(true);
+    setSeedResult(null);
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sin sesión");
+
+      const res = await fetch("/api/roadmap/seed-from-strategy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          clientId: id,
+          launchDate: seedLaunchDate,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const parts = [data?.error, data?.detail].filter(Boolean);
+        throw new Error(parts.join("\n— ") || `HTTP ${res.status}`);
+      }
+      setSeedResult({
+        events_created: data.events_created ?? 0,
+        frequency_keys: data.frequency_keys ?? 0,
+        mix_networks: data.mix_networks ?? 0,
+        month_notes_count: data.month_notes_count ?? 0,
+        strategy_version: data.strategy_version ?? 0,
+      });
+      // Refrescamos cliente + eventos + posts
+      const c = await getClient(id);
+      setClient(c ?? null);
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo poblar el roadmap:\n${e.message}`);
+    } finally {
+      setSeedBusy(false);
+    }
+  }
 
   // Map slot → días sugeridos (Lun-Dom).
   // Soporta back-compat con keys legacy via normalizeFrequency.
@@ -355,10 +428,31 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           </button>
           {isDirector && (
             <button
-              className={ui.btnSolid}
+              className={ui.btnGhost}
               onClick={() => setFreqModal(true)}
             >
               ⚑ Frecuencia + mix
+            </button>
+          )}
+          {isDirector && (
+            <button
+              className={ui.btnSolid}
+              onClick={() => {
+                setSeedResult(null);
+                setSeedModal(true);
+              }}
+              disabled={!strategyApproved}
+              title={
+                strategyApproved
+                  ? "Poblar el roadmap desde la estrategia aprobada"
+                  : "Necesitás aprobar primero la fase Estrategia"
+              }
+              style={{
+                opacity: strategyApproved ? 1 : 0.45,
+                cursor: strategyApproved ? "pointer" : "not-allowed",
+              }}
+            >
+              ⚡ Poblar desde estrategia
             </button>
           )}
         </div>
@@ -960,6 +1054,188 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           );
         }}
       />
+
+      {/* Modal de "Poblar desde estrategia" */}
+      {seedModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !seedBusy) {
+              setSeedModal(false);
+              setSeedResult(null);
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.6)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 40,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              maxWidth: 560,
+              width: "100%",
+              padding: 36,
+              borderRadius: "var(--r-lg)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 600,
+                marginBottom: 12,
+              }}
+            >
+              Roadmap · Poblar desde estrategia
+            </div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                marginBottom: 8,
+              }}
+            >
+              Alimentar el roadmap automáticamente
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              Claude va a leer la <strong>estrategia aprobada
+              v{strategyVersion ?? "?"}</strong> del cliente y extraer:
+              frecuencia + mix de contenido por red, batches de pauta
+              con fechas, hitos del cronograma, y estrategia escrita
+              de cada mes. Todo eso se carga en el roadmap.
+            </p>
+
+            <div
+              style={{
+                padding: "12px 14px",
+                background: "var(--ivory)",
+                borderLeft: "3px solid var(--sand)",
+                fontSize: 12,
+                color: "var(--deep-green)",
+                lineHeight: 1.5,
+                marginBottom: 20,
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              <strong>⚠ Sobreescribe:</strong> la frecuencia, el mix,
+              las notas de estrategia mensual, y los eventos generados
+              previamente desde la estrategia (los manuales se conservan
+              intactos).
+            </div>
+
+            {!seedResult && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={pdfLabelStyle}>
+                  Fecha de lanzamiento de referencia
+                </label>
+                <input
+                  type="date"
+                  value={seedLaunchDate}
+                  onChange={(e) => setSeedLaunchDate(e.target.value)}
+                  disabled={seedBusy}
+                  style={{ ...selectStyle, width: "100%" }}
+                />
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Si la estrategia menciona "semana -2", "lanzamiento", etc.
+                  esas fechas se calculan respecto a este día.
+                </div>
+              </div>
+            )}
+
+            {seedResult ? (
+              <div
+                style={{
+                  padding: 16,
+                  background: "rgba(47, 125, 79, 0.08)",
+                  border: "1px solid rgba(47, 125, 79, 0.3)",
+                  borderRadius: "var(--r-md)",
+                  marginBottom: 20,
+                  fontSize: 13,
+                  lineHeight: 1.7,
+                  color: "var(--deep-green)",
+                }}
+              >
+                <strong style={{ color: "#2f7d4f" }}>✓ Listo.</strong> Se
+                cargaron desde la estrategia v{seedResult.strategy_version}:
+                <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
+                  <li>{seedResult.events_created} eventos en el calendario (pauta + producciones + hitos)</li>
+                  <li>{seedResult.frequency_keys} slots de frecuencia (red × formato)</li>
+                  <li>{seedResult.mix_networks} redes con mix V/O/E configurado</li>
+                  <li>{seedResult.month_notes_count} meses con estrategia escrita</li>
+                </ul>
+              </div>
+            ) : seedBusy ? (
+              <div
+                style={{
+                  padding: 24,
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                  background: "var(--ivory)",
+                  borderRadius: "var(--r-md)",
+                  marginBottom: 20,
+                }}
+              >
+                ⏳ Claude está leyendo la estrategia y extrayendo el roadmap…<br />
+                Tarda 30-90 segundos.
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setSeedModal(false);
+                  setSeedResult(null);
+                }}
+                disabled={seedBusy}
+                className={ui.btnGhost}
+              >
+                {seedResult ? "Cerrar" : "Cancelar"}
+              </button>
+              {!seedResult && (
+                <button
+                  onClick={runSeedFromStrategy}
+                  disabled={seedBusy}
+                  className={ui.btnSolid}
+                >
+                  {seedBusy ? "Procesando…" : "⚡ Poblar"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de descarga PDF: rango de meses */}
       {pdfModal && (
