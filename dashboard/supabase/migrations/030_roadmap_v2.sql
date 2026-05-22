@@ -29,8 +29,14 @@
 ALTER TABLE public.cal_events
   ADD COLUMN IF NOT EXISTS end_date date;
 
--- Drop el CHECK viejo (puede tener un nombre auto-generado o explícito).
--- Lo recreamos con el set ampliado.
+-- Drop el CHECK viejo. Postgres internamente convierte CHECK (type IN
+-- (...)) a CHECK ((type = ANY (ARRAY[...]))) — por eso filtramos por
+-- "type" + ("IN" o "ANY") para cazar ambas formas. Además dropeamos
+-- explícitamente el nombre cal_events_type_check si ya existe, así la
+-- migración es 100% safe-re-run.
+ALTER TABLE public.cal_events
+  DROP CONSTRAINT IF EXISTS cal_events_type_check;
+
 DO $$
 DECLARE
   r record;
@@ -39,7 +45,7 @@ BEGIN
     SELECT conname FROM pg_constraint
     WHERE conrelid = 'public.cal_events'::regclass
       AND contype = 'c'
-      AND pg_get_constraintdef(oid) ILIKE '%type%IN%'
+      AND pg_get_constraintdef(oid) ~* 'type\s*(IN\s*\(|=\s*ANY)'
   LOOP
     EXECUTE format('ALTER TABLE public.cal_events DROP CONSTRAINT %I', r.conname);
   END LOOP;
