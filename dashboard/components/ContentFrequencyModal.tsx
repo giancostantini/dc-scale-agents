@@ -1,52 +1,66 @@
 "use client";
 
 /**
- * Modal donde el director define la frecuencia semanal de publicación
- * por SLOT (red × formato) del cliente.
+ * Modal donde el director define:
+ *  1. Frecuencia semanal de publicación por SLOT (red × formato).
+ *     Ej: Instagram Feed 3x/sem, Instagram Story 7x/sem.
+ *  2. Mix porcentual de tipos de contenido por RED:
+ *     Valor / Oferta / Engagement → ej IG: 60/25/15.
  *
- * Ej: Instagram Feed 3x/sem, Instagram Story 7x/sem, IG Reel 2x/sem,
- *     TikTok Video 3x/sem, LinkedIn Post 2x/sem.
+ * El roadmap consume ambos:
+ *  - Los días "sugeridos" se calculan con la frecuencia.
+ *  - El tipo (V/O/E) de cada posteo sugerido se calcula con el mix.
  *
- * El roadmap consume estos valores para marcar los días "sugeridos"
- * de cada slot en el calendario (chip ghost con sigla del slot).
- * No publica nada automáticamente — es guía visual.
- *
- * BACK-COMPAT: si el cliente ya tenía `{ ig: 3, tt: 5 }` (keys
- * legacy), las leemos y las mapeamos a `ig_feed: 3, tt_video: 5`
- * usando normalizeFrequency. Al guardar, escribimos solo keys
- * canónicas con sufijo.
+ * BACK-COMPAT con keys legacy (ig/tt/in/fb) — los normalizamos al leer.
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { updateClientContentFrequency } from "@/lib/storage";
+import {
+  updateClientContentFrequency,
+  updateClientContentMix,
+} from "@/lib/storage";
 import {
   CONTENT_SLOTS,
+  CONTENT_TYPE_META,
   normalizeFrequency,
 } from "@/lib/content-frequency";
-import type { ContentFrequency } from "@/lib/types";
+import type {
+  ContentFrequency,
+  ContentMix,
+  ContentNetworkKey,
+  ContentTypeMix,
+} from "@/lib/types";
 
 interface Props {
   open: boolean;
   clientId: string;
   current: ContentFrequency | undefined;
+  currentMix: ContentMix | undefined;
   onClose: () => void;
-  onSaved: (newFreq: ContentFrequency) => void;
+  onSaved: (newFreq: ContentFrequency, newMix: ContentMix) => void;
+}
+
+/** Devuelve un ContentTypeMix saneado (valores >= 0). */
+function defaultMix(): ContentTypeMix {
+  return { valor: 60, oferta: 25, engagement: 15 };
 }
 
 export default function ContentFrequencyModal({
   open,
   clientId,
   current,
+  currentMix,
   onClose,
   onSaved,
 }: Props) {
-  // Estado local: una entrada por slot (red×formato). Valor 0 = no usa.
   const [freq, setFreq] = useState<Record<string, number>>({});
+  const [mix, setMix] = useState<Record<ContentNetworkKey, ContentTypeMix>>(
+    {} as Record<ContentNetworkKey, ContentTypeMix>,
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    // Inicializar con la frecuencia normalizada del cliente
     const normalized = normalizeFrequency(
       current as Record<string, number | undefined> | undefined,
     );
@@ -55,7 +69,15 @@ export default function ContentFrequencyModal({
       initial[slot.key] = normalized[slot.key] ?? 0;
     }
     setFreq(initial);
-  }, [open, current]);
+
+    // Inicializar mix con default para las redes activas
+    const initialMix = {} as Record<ContentNetworkKey, ContentTypeMix>;
+    const networks: ContentNetworkKey[] = ["ig", "tt", "in", "fb", "yt"];
+    for (const n of networks) {
+      initialMix[n] = currentMix?.[n] ?? defaultMix();
+    }
+    setMix(initialMix);
+  }, [open, current, currentMix]);
 
   useEffect(() => {
     if (!open) return;
@@ -66,7 +88,6 @@ export default function ContentFrequencyModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, saving, onClose]);
 
-  // Agrupar slots por red para mostrarlos en secciones
   const slotsByNetwork = useMemo(() => {
     const groups = new Map<
       string,
@@ -81,29 +102,62 @@ export default function ContentFrequencyModal({
       g.slots.push(s);
       groups.set(s.network, g);
     }
-    return Array.from(groups.entries());
+    return Array.from(groups.entries()) as [
+      ContentNetworkKey,
+      { label: string; color: string; slots: typeof CONTENT_SLOTS },
+    ][];
   }, []);
 
   if (!open) return null;
 
-  function set(slotKey: string, value: number) {
+  function setSlotFreq(slotKey: string, value: number) {
     const clamped = Math.max(0, Math.min(14, Math.round(value)));
     setFreq((f) => ({ ...f, [slotKey]: clamped }));
+  }
+
+  function setMixValue(
+    network: ContentNetworkKey,
+    type: keyof ContentTypeMix,
+    value: number,
+  ) {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+    setMix((m) => ({
+      ...m,
+      [network]: { ...(m[network] ?? defaultMix()), [type]: clamped },
+    }));
   }
 
   async function save() {
     setSaving(true);
     try {
-      // Solo guardamos slots con freq > 0 (más limpio)
-      const cleaned: ContentFrequency = {};
+      const cleanedFreq: ContentFrequency = {};
       for (const slot of CONTENT_SLOTS) {
         if (freq[slot.key] > 0) {
-          // El cast es seguro: slot.key es ContentSlotKey
-          (cleaned as Record<string, number>)[slot.key] = freq[slot.key];
+          (cleanedFreq as Record<string, number>)[slot.key] = freq[slot.key];
         }
       }
-      await updateClientContentFrequency(clientId, cleaned);
-      onSaved(cleaned);
+
+      // Mix: solo guardamos redes con al menos 1 slot activo. Para esas,
+      // normalizamos a 100 si los % no suman exacto (no rompe nada
+      // estructural pero queda más prolijo).
+      const activeNetworks = new Set<ContentNetworkKey>();
+      for (const slot of CONTENT_SLOTS) {
+        if (freq[slot.key] > 0) activeNetworks.add(slot.network);
+      }
+      const cleanedMix: ContentMix = {};
+      for (const n of activeNetworks) {
+        const m = mix[n];
+        if (!m) continue;
+        cleanedMix[n] = {
+          valor: m.valor ?? 0,
+          oferta: m.oferta ?? 0,
+          engagement: m.engagement ?? 0,
+        };
+      }
+
+      await updateClientContentFrequency(clientId, cleanedFreq);
+      await updateClientContentMix(clientId, cleanedMix);
+      onSaved(cleanedFreq, cleanedMix);
       onClose();
     } catch (err) {
       const e = err as Error;
@@ -135,11 +189,12 @@ export default function ContentFrequencyModal({
       <div
         style={{
           background: "var(--white)",
-          maxWidth: 640,
+          maxWidth: 720,
           width: "100%",
           maxHeight: "90vh",
           overflowY: "auto",
           padding: 36,
+          borderRadius: "var(--r-lg)",
         }}
       >
         <div
@@ -152,7 +207,7 @@ export default function ContentFrequencyModal({
             marginBottom: 12,
           }}
         >
-          Roadmap · Frecuencia
+          Roadmap · Frecuencia + mix de contenido
         </div>
         <h2
           style={{
@@ -162,7 +217,7 @@ export default function ContentFrequencyModal({
             marginBottom: 8,
           }}
         >
-          Frecuencia de contenido
+          Frecuencia y tipo de contenido
         </h2>
         <p
           style={{
@@ -172,17 +227,26 @@ export default function ContentFrequencyModal({
             lineHeight: 1.5,
           }}
         >
-          ¿Cuántas veces por semana publica el cliente en cada formato? El
-          calendario sombrea los días sugeridos con la sigla del slot
-          (IG·F, IG·S, IG·R, TT·V, etc). 0 = no usa ese formato.
+          ¿Cuántas veces por semana publica cada formato, y qué porcentaje
+          es <strong style={{ color: "#2f7d4f" }}>valor</strong>,{" "}
+          <strong style={{ color: "#b04b3a" }}>oferta</strong> o{" "}
+          <strong style={{ color: "#9b8259" }}>engagement</strong>? El
+          calendario etiqueta automáticamente cada posteo sugerido con el
+          tipo correspondiente.
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {slotsByNetwork.map(([network, group]) => {
             const networkTotal = group.slots.reduce(
               (s, slot) => s + (freq[slot.key] ?? 0),
               0,
             );
+            const isActive = networkTotal > 0;
+            const networkMix = mix[network] ?? defaultMix();
+            const mixSum =
+              (networkMix.valor ?? 0) +
+              (networkMix.oferta ?? 0) +
+              (networkMix.engagement ?? 0);
             return (
               <div
                 key={network}
@@ -190,6 +254,7 @@ export default function ContentFrequencyModal({
                   padding: "12px 14px",
                   background: "var(--off-white)",
                   borderLeft: `3px solid ${group.color}`,
+                  borderRadius: "var(--r-md)",
                 }}
               >
                 <div
@@ -197,7 +262,7 @@ export default function ContentFrequencyModal({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "baseline",
-                    marginBottom: 8,
+                    marginBottom: 10,
                   }}
                 >
                   <div
@@ -217,11 +282,14 @@ export default function ContentFrequencyModal({
                     </div>
                   )}
                 </div>
+
+                {/* Frecuencia por formato */}
                 <div
                   style={{
                     display: "flex",
                     flexDirection: "column",
                     gap: 6,
+                    marginBottom: isActive ? 14 : 0,
                   }}
                 >
                   {group.slots.map((slot) => (
@@ -250,23 +318,9 @@ export default function ContentFrequencyModal({
                         }}
                       >
                         <button
-                          onClick={() => set(slot.key, (freq[slot.key] ?? 0) - 1)}
+                          onClick={() => setSlotFreq(slot.key, (freq[slot.key] ?? 0) - 1)}
                           disabled={saving || (freq[slot.key] ?? 0) === 0}
-                          style={{
-                            width: 28,
-                            height: 28,
-                            background: "var(--white)",
-                            border: "1px solid rgba(10,26,12,0.15)",
-                            color: "var(--deep-green)",
-                            fontSize: 14,
-                            cursor:
-                              saving || (freq[slot.key] ?? 0) === 0
-                                ? "default"
-                                : "pointer",
-                            fontFamily: "inherit",
-                            opacity:
-                              saving || (freq[slot.key] ?? 0) === 0 ? 0.4 : 1,
-                          }}
+                          style={stepBtn(saving || (freq[slot.key] ?? 0) === 0)}
                         >
                           −
                         </button>
@@ -276,40 +330,15 @@ export default function ContentFrequencyModal({
                           max={14}
                           value={freq[slot.key] ?? 0}
                           onChange={(e) =>
-                            set(slot.key, parseInt(e.target.value || "0", 10))
+                            setSlotFreq(slot.key, parseInt(e.target.value || "0", 10))
                           }
                           disabled={saving}
-                          style={{
-                            width: 50,
-                            textAlign: "center",
-                            padding: "5px",
-                            border: "1px solid rgba(10,26,12,0.15)",
-                            background: "var(--white)",
-                            color: "var(--deep-green)",
-                            fontSize: 13,
-                            fontWeight: 600,
-                            outline: "none",
-                            fontFamily: "inherit",
-                          }}
+                          style={stepInput}
                         />
                         <button
-                          onClick={() => set(slot.key, (freq[slot.key] ?? 0) + 1)}
+                          onClick={() => setSlotFreq(slot.key, (freq[slot.key] ?? 0) + 1)}
                           disabled={saving || (freq[slot.key] ?? 0) >= 14}
-                          style={{
-                            width: 28,
-                            height: 28,
-                            background: "var(--white)",
-                            border: "1px solid rgba(10,26,12,0.15)",
-                            color: "var(--deep-green)",
-                            fontSize: 14,
-                            cursor:
-                              saving || (freq[slot.key] ?? 0) >= 14
-                                ? "default"
-                                : "pointer",
-                            fontFamily: "inherit",
-                            opacity:
-                              saving || (freq[slot.key] ?? 0) >= 14 ? 0.4 : 1,
-                          }}
+                          style={stepBtn(saving || (freq[slot.key] ?? 0) >= 14)}
                         >
                           +
                         </button>
@@ -327,6 +356,112 @@ export default function ContentFrequencyModal({
                     </div>
                   ))}
                 </div>
+
+                {/* Mix V/O/E — solo si esta red tiene al menos 1 slot
+                    activo (>0). No tiene sentido configurar mix de una
+                    red que no publica nada. */}
+                {isActive && (
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      background: "var(--white)",
+                      border: "1px solid rgba(10,26,12,0.06)",
+                      borderRadius: "var(--r-md)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Mix por tipo
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: 10,
+                      }}
+                    >
+                      {(["valor", "oferta", "engagement"] as const).map((t) => {
+                        const meta = CONTENT_TYPE_META[t];
+                        return (
+                          <div key={t}>
+                            <label
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                fontSize: 11,
+                                color: "var(--deep-green)",
+                                marginBottom: 4,
+                                fontWeight: 600,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  background: meta.color,
+                                  color: "#fff",
+                                  fontSize: 8.5,
+                                  fontWeight: 700,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  borderRadius: 3,
+                                }}
+                              >
+                                {meta.short}
+                              </span>
+                              {meta.label}
+                            </label>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={networkMix[t] ?? 0}
+                                onChange={(e) =>
+                                  setMixValue(
+                                    network,
+                                    t,
+                                    parseInt(e.target.value || "0", 10),
+                                  )
+                                }
+                                disabled={saving}
+                                style={{
+                                  ...stepInput,
+                                  width: 55,
+                                }}
+                              />
+                              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 11,
+                        color: mixSum === 100 ? "#2f7d4f" : mixSum === 0 ? "var(--text-muted)" : "#b04b3a",
+                      }}
+                    >
+                      Total: <strong>{mixSum}%</strong>{" "}
+                      {mixSum === 100
+                        ? "✓"
+                        : mixSum === 0
+                          ? "(sin mix — todos los posts quedan como Valor)"
+                          : "(se normaliza a 100% al asignar tipos)"}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -340,6 +475,7 @@ export default function ContentFrequencyModal({
             fontSize: 12,
             color: "var(--text-soft, #5a6a5e)",
             lineHeight: 1.5,
+            borderRadius: "var(--r-md)",
           }}
         >
           <strong style={{ color: "var(--deep-green)" }}>
@@ -368,6 +504,7 @@ export default function ContentFrequencyModal({
               fontWeight: 500,
               cursor: saving ? "default" : "pointer",
               fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
             }}
           >
             Cancelar
@@ -385,6 +522,7 @@ export default function ContentFrequencyModal({
               cursor: saving ? "default" : "pointer",
               letterSpacing: "0.5px",
               opacity: saving ? 0.5 : 1,
+              borderRadius: "var(--r-sm)",
             }}
           >
             {saving ? "Guardando…" : "Guardar"}
@@ -394,3 +532,32 @@ export default function ContentFrequencyModal({
     </div>
   );
 }
+
+function stepBtn(disabled: boolean): React.CSSProperties {
+  return {
+    width: 28,
+    height: 28,
+    background: "var(--white)",
+    border: "1px solid rgba(10,26,12,0.15)",
+    color: "var(--deep-green)",
+    fontSize: 14,
+    cursor: disabled ? "default" : "pointer",
+    fontFamily: "inherit",
+    opacity: disabled ? 0.4 : 1,
+    borderRadius: "var(--r-sm)",
+  };
+}
+
+const stepInput: React.CSSProperties = {
+  width: 50,
+  textAlign: "center",
+  padding: "5px",
+  border: "1px solid rgba(10,26,12,0.15)",
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  fontSize: 13,
+  fontWeight: 600,
+  outline: "none",
+  fontFamily: "inherit",
+  borderRadius: "var(--r-sm)",
+};

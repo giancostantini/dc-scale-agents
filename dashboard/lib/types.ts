@@ -164,6 +164,31 @@ export type ContentSlotKey =
 
 export type ContentFrequency = Partial<Record<ContentSlotKey, number>>;
 
+/** Red social a nivel network (sin formato). Es el subset de
+ *  ContentSlotKey que representa solo la red.  */
+export type ContentNetworkKey = "ig" | "tt" | "in" | "fb" | "yt";
+
+/** Mix porcentual de tipos de contenido para una red. Los 3 valores
+ *  deberían sumar 100 pero no se valida estrictamente — el calendario
+ *  normaliza si no llegan a 100. */
+export interface ContentTypeMix {
+  /** Contenido de VALOR: educativo, informativo, expertise. */
+  valor?: number;
+  /** Contenido de OFERTA: comercial, promo, descuento, CTA directo. */
+  oferta?: number;
+  /** Contenido de ENGAGEMENT: conversacional, behind-the-scenes,
+   *  polls, UGC, comunidad. */
+  engagement?: number;
+}
+
+/** Distribución de tipos de contenido por red. Estructura del JSONB en
+ *  clients.content_mix. */
+export type ContentMix = Partial<Record<ContentNetworkKey, ContentTypeMix>>;
+
+/** Notas de estrategia por mes. Key = "YYYY-MM", value = markdown.
+ *  Aparecen en el PDF del roadmap como página intercalada. */
+export type RoadmapMonthNotes = Record<string, string>;
+
 export interface Client {
   id: string;
   initials: string;
@@ -188,6 +213,13 @@ export interface Client {
   /** Frecuencia semanal de publicación por red. El planificador la
    *  usa para marcar los días "sugeridos" en el calendario. */
   content_frequency?: ContentFrequency;
+  /** Mix % de tipos de contenido (valor/oferta/engagement) por red.
+   *  El calendario lo usa para auto-asignar el tipo de cada posteo
+   *  sugerido (chip V/O/E). */
+  content_mix?: ContentMix;
+  /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
+   *  value = markdown. Aparece en el PDF del roadmap. */
+  roadmap_month_notes?: RoadmapMonthNotes;
 }
 
 // ==================== PIPELINE / CRM ====================
@@ -279,13 +311,23 @@ export interface ProspectCampaign {
 
 // ==================== CALENDAR ====================
 
-export type EventType = "reunion" | "cobro" | "reporte" | "dev" | "contenido";
+export type EventType =
+  | "reunion"
+  | "cobro"
+  | "reporte"
+  | "dev"
+  | "contenido"
+  | "pauta";
 
 export interface CalEvent {
   id: string;
   title: string;
   type: EventType;
-  date: string;               // YYYY-MM-DD
+  date: string;               // YYYY-MM-DD (start)
+  /** Fecha de fin (inclusiva). Si está, el evento es multi-día y se
+   *  renderiza como banda horizontal en el calendario. NULL/undefined
+   *  → evento de 1 solo día. */
+  end_date?: string | null;
   time: string;               // HH:mm
   duration: number;           // minutos
   clientId?: string;          // referencia a client.id

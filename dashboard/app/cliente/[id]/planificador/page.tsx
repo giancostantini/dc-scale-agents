@@ -1,20 +1,34 @@
 "use client";
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
-import { addContent, deleteContent, getClient, getContent } from "@/lib/storage";
+import {
+  addContent,
+  deleteContent,
+  getClient,
+  getContent,
+  getEvents,
+  updateRoadmapMonthNote,
+} from "@/lib/storage";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import {
   CONTENT_SLOTS,
+  CONTENT_TYPE_META,
+  NETWORK_COLORS,
+  distributeContentTypes,
   normalizeFrequency,
   suggestedWeekdays,
   weekdayLunFirst,
+  type ContentType,
 } from "@/lib/content-frequency";
+import { commercialDatesIndex } from "@/lib/commercial-dates";
 import ContentFrequencyModal from "@/components/ContentFrequencyModal";
 import NewEventModal from "@/components/NewEventModal";
 import type {
+  CalEvent,
   Client,
   ContentFormat,
   ContentFrequency,
+  ContentMix,
   ContentNetwork,
   ContentPost,
   ContentStatus,
@@ -24,11 +38,20 @@ import ui from "@/components/ClientUI.module.css";
 const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-const NETWORK_COLOR: Record<ContentNetwork, string> = {
-  ig: "var(--deep-green)",
-  tt: "var(--sand-dark)",
-  in: "var(--forest-2)",
-  fb: "var(--forest)",
+/** Colores para los chips de posteo en el calendario — usamos los
+ *  colores oficiales de cada red para que se diferencien a primera
+ *  vista. (Centralizados en lib/content-frequency.ts). */
+const NETWORK_COLOR_BG: Record<ContentNetwork, string> = {
+  ig: NETWORK_COLORS.ig.solid,
+  tt: NETWORK_COLORS.tt.solid,
+  in: NETWORK_COLORS.in.solid,
+  fb: NETWORK_COLORS.fb.solid,
+};
+const NETWORK_COLOR_FG: Record<ContentNetwork, string> = {
+  ig: NETWORK_COLORS.ig.onSolid,
+  tt: NETWORK_COLORS.tt.onSolid,
+  in: NETWORK_COLORS.in.onSolid,
+  fb: NETWORK_COLORS.fb.onSolid,
 };
 
 const NETWORK_LABEL: Record<ContentNetwork, string> = {
@@ -38,10 +61,28 @@ const NETWORK_LABEL: Record<ContentNetwork, string> = {
   fb: "Facebook",
 };
 
+/** Colores para tipos de evento del calendario (multi-día). */
+const EVENT_TYPE_COLOR: Record<string, string> = {
+  reunion: "#5A6A5E",
+  cobro: "#2f7d4f",
+  reporte: "#1f3a26",
+  dev: "#9b8259",
+  contenido: "#0A1A0C",
+  pauta: "#b04b3a",
+};
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  reunion: "Reunión",
+  cobro: "Cobro",
+  reporte: "Reporte",
+  dev: "Dev",
+  contenido: "Contenido",
+  pauta: "Pauta",
+};
 
 export default function PlanificadorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [posts, setPosts] = useState<ContentPost[]>([]);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [client, setClient] = useState<Client | null>(null);
   const [isDirector, setIsDirector] = useState(false);
   const [freqModal, setFreqModal] = useState(false);
@@ -56,9 +97,17 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   const [pdfToYear, setPdfToYear] = useState(today.getFullYear());
   const [pdfToMonth, setPdfToMonth] = useState(today.getMonth());
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [monthNoteEditing, setMonthNoteEditing] = useState(false);
+  const [monthNoteDraft, setMonthNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
+    // Eventos: traemos TODOS y filtramos por cliente del lado del cliente.
+    // Es chico — los eventos no escalan a miles para un cliente individual.
+    getEvents().then((all) =>
+      setEvents(all.filter((e) => e.clientId === id || e.clientId === undefined || e.clientId === null)),
+    );
   }, [id]);
 
   useEffect(() => refresh(), [refresh]);
@@ -68,11 +117,8 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
   }, [id]);
 
-  // Para cada SLOT configurado (red × formato), qué días de la semana
-  // corresponden. Ej: { ig_feed: 3, ig_story: 7 } →
-  //   ig_feed: Lun/Mié/Vie (3x/sem)
-  //   ig_story: Lun-Dom (7x/sem)
-  // Soporta back-compat con keys legacy (ig, tt, in, fb) via normalizeFrequency.
+  // Map slot → días sugeridos (Lun-Dom).
+  // Soporta back-compat con keys legacy via normalizeFrequency.
   const suggestedBySlot = useMemo(() => {
     const normalized = normalizeFrequency(
       client?.content_frequency as
@@ -87,10 +133,20 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     return map;
   }, [client?.content_frequency]);
 
+  // Fechas comerciales del año visible (lookup O(1) por día).
+  const commercialIdx = useMemo(
+    () => commercialDatesIndex(year),
+    [year],
+  );
+
   const firstOfMonth = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = (firstOfMonth.getDay() + 6) % 7;
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+
+  // Key del mes visible (para roadmap_month_notes).
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const monthNote = client?.roadmap_month_notes?.[monthKey] ?? "";
 
   function dayKey(d: number) {
     return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -105,10 +161,76 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     else setMonth(month + 1);
   }
 
+  /** Para un día del mes, calcula el "índice ordinal" del slot
+   *  sugerido en el mes y le asigna un tipo (V/O/E) según el mix
+   *  configurado para esa red. Ej: si en IG hay 8 sugeridos en el mes
+   *  con mix 60/25/15, el 1° y 2° son V, el 3° es O, el 4° y 5° son V, etc.
+   *
+   *  Devuelve un Map<dayKey, Map<slotKey, ContentType>>.
+   */
+  const slotTypesByDay = useMemo(() => {
+    if (!client?.content_mix && !client?.content_frequency) {
+      return new Map<string, Map<string, ContentType>>();
+    }
+
+    // Para cada slot: lista de [day, ordinalIndex] del slot en este mes.
+    const slotOrdinals = new Map<string, { day: number; key: string }[]>();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cellDate = new Date(year, month, d);
+      const weekday = weekdayLunFirst(cellDate);
+      for (const slot of CONTENT_SLOTS) {
+        const days = suggestedBySlot.get(slot.key);
+        if (!days || !days.has(weekday)) continue;
+        const list = slotOrdinals.get(slot.key) ?? [];
+        list.push({ day: d, key: dayKey(d) });
+        slotOrdinals.set(slot.key, list);
+      }
+    }
+
+    // Para cada slot, distribuir tipos según el mix de su red.
+    const out = new Map<string, Map<string, ContentType>>();
+    for (const [slotKey, ordinals] of slotOrdinals.entries()) {
+      const slot = CONTENT_SLOTS.find((s) => s.key === slotKey);
+      if (!slot) continue;
+      const networkMix = client?.content_mix?.[slot.network];
+      const types = distributeContentTypes(networkMix, ordinals.length);
+      ordinals.forEach((o, i) => {
+        const inner = out.get(o.key) ?? new Map<string, ContentType>();
+        inner.set(slotKey, types[i]);
+        out.set(o.key, inner);
+      });
+    }
+    return out;
+  }, [
+    client?.content_mix,
+    client?.content_frequency,
+    suggestedBySlot,
+    year,
+    month,
+    daysInMonth,
+  ]);
+
+  /** Eventos multi-día visibles en este mes (intersección con el mes
+   *  visible). Cada evento puede empezar antes y terminar después del
+   *  mes — lo recortamos al rango visible y devolvemos las "bandas"
+   *  que tienen que renderizarse. */
+  const visibleEvents = useMemo(() => {
+    const startOfMonthIso = dayKey(1);
+    const endOfMonthIso = dayKey(daysInMonth);
+    return events.filter((ev) => {
+      const evStart = ev.date;
+      const evEnd = ev.end_date ?? ev.date;
+      // intersección con el mes
+      return evStart <= endOfMonthIso && evEnd >= startOfMonthIso;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, year, month]);
+
   /**
    * Descarga el PDF del roadmap para el rango pdfFromYear/Month →
    * pdfToYear/Month. Lazy-load de react-pdf para no inflar el bundle
-   * inicial. La grilla por mes va en página A4 horizontal.
+   * inicial. La grilla por mes va en página A4 horizontal, seguida
+   * de una página de "estrategia del mes" si hay nota cargada.
    */
   async function downloadRoadmapPdf() {
     if (pdfBusy || !client) return;
@@ -122,7 +244,6 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         setPdfBusy(false);
         return;
       }
-      // Generar array de meses del rango
       const months: { year: number; month0: number }[] = [];
       let cur = fromIdx;
       while (cur <= toIdx) {
@@ -132,7 +253,6 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         });
         cur++;
       }
-      // Cap defensivo: no permitimos rangos absurdos (>24 meses)
       if (months.length > 24) {
         alert(
           `El rango es de ${months.length} meses. Cap máximo: 24. Reducí el rango.`,
@@ -141,21 +261,21 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         return;
       }
 
-      // Lazy-load react-pdf + componente
       const { pdf } = await import("@react-pdf/renderer");
       const { default: RoadmapPdf } = await import("@/components/RoadmapPdf");
 
-      // Pasamos TODOS los posts y dejamos que el componente filtre
-      // por mes — más simple que pre-filtrar.
       const blob = await pdf(
         <RoadmapPdf
           clientName={client.name}
           posts={posts}
+          events={events}
           contentFrequency={
             client.content_frequency as
               | Record<string, number | undefined>
               | undefined
           }
+          contentMix={client.content_mix}
+          monthNotes={client.roadmap_month_notes}
           months={months}
         />,
       ).toBlob();
@@ -178,6 +298,34 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
       alert(`No se pudo generar el PDF:\n${e.message}`);
     } finally {
       setPdfBusy(false);
+    }
+  }
+
+  async function saveMonthNote() {
+    if (savingNote || !client) return;
+    setSavingNote(true);
+    try {
+      await updateRoadmapMonthNote(id, monthKey, monthNoteDraft);
+      setClient((prev) =>
+        prev
+          ? {
+              ...prev,
+              roadmap_month_notes: monthNoteDraft.trim()
+                ? { ...(prev.roadmap_month_notes ?? {}), [monthKey]: monthNoteDraft }
+                : (() => {
+                    const next = { ...(prev.roadmap_month_notes ?? {}) };
+                    delete next[monthKey];
+                    return next;
+                  })(),
+            }
+          : prev,
+      );
+      setMonthNoteEditing(false);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo guardar la nota:\n${e.message}`);
+    } finally {
+      setSavingNote(false);
     }
   }
 
@@ -210,13 +358,13 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               className={ui.btnSolid}
               onClick={() => setFreqModal(true)}
             >
-              ⚑ Frecuencia de contenido
+              ⚑ Frecuencia + mix
             </button>
           )}
         </div>
       </div>
 
-      {/* Leyenda de slots configurados (red × formato) — visible para todos */}
+      {/* Leyenda de slots configurados (red × formato) + tipos V/O/E */}
       {suggestedBySlot.size > 0 && (
         <div
           style={{
@@ -228,6 +376,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
             background: "var(--off-white)",
             fontSize: 11,
             borderRadius: "var(--r-md)",
+            alignItems: "center",
           }}
         >
           <span
@@ -240,7 +389,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               marginRight: 4,
             }}
           >
-            Frecuencia
+            Redes
           </span>
           {CONTENT_SLOTS.filter((s) => suggestedBySlot.has(s.key)).map(
             (slot) => {
@@ -261,6 +410,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                       height: 8,
                       background: slot.color,
                       display: "inline-block",
+                      borderRadius: 2,
                     }}
                   />
                   <strong>
@@ -273,6 +423,52 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               );
             },
           )}
+          <span style={{ flex: 1 }} />
+          <span
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginRight: 4,
+            }}
+          >
+            Tipo
+          </span>
+          {(["valor", "oferta", "engagement"] as ContentType[]).map((t) => {
+            const meta = CONTENT_TYPE_META[t];
+            return (
+              <span
+                key={t}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "var(--deep-green)",
+                  fontWeight: 600,
+                }}
+              >
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: meta.color,
+                    color: "#fff",
+                    fontSize: 8.5,
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 3,
+                  }}
+                >
+                  {meta.short}
+                </span>
+                {meta.label}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -287,6 +483,86 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
+        {/* Bandas de eventos multi-día arriba del calendario, agrupadas
+            por tipo para ahorrar espacio. */}
+        {visibleEvents.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              padding: "8px 0 12px",
+              borderBottom: "1px solid rgba(10,26,12,0.06)",
+              marginBottom: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+              }}
+            >
+              Eventos y producciones del mes
+            </div>
+            {visibleEvents.map((ev) => {
+              const startD = Math.max(
+                1,
+                new Date(ev.date).getMonth() === month &&
+                  new Date(ev.date).getFullYear() === year
+                  ? new Date(ev.date).getDate()
+                  : 1,
+              );
+              const endIso = ev.end_date ?? ev.date;
+              const endD = Math.min(
+                daysInMonth,
+                new Date(endIso).getMonth() === month &&
+                  new Date(endIso).getFullYear() === year
+                  ? new Date(endIso).getDate()
+                  : daysInMonth,
+              );
+              const days = endD - startD + 1;
+              const color =
+                EVENT_TYPE_COLOR[ev.type] ?? EVENT_TYPE_COLOR.contenido;
+              return (
+                <div
+                  key={ev.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 11,
+                    background: `${color}14`,
+                    padding: "4px 8px",
+                    borderLeft: `3px solid ${color}`,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 8.5,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color,
+                      fontWeight: 700,
+                      minWidth: 56,
+                    }}
+                  >
+                    {EVENT_TYPE_LABEL[ev.type] ?? ev.type}
+                  </span>
+                  <span style={{ fontWeight: 600 }}>{ev.title}</span>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {ev.end_date
+                      ? `${ev.date} → ${ev.end_date} (${days} día${days === 1 ? "" : "s"})`
+                      : ev.date}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 1 }}>
           {WEEKDAYS.map((d) => (
             <div key={d} style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--sand-dark)", textAlign: "center", padding: "10px 0", fontWeight: 500 }}>{d}</div>
@@ -295,24 +571,18 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: "rgba(10,26,12,0.08)", border: "1px solid rgba(10,26,12,0.08)" }}>
           {Array.from({ length: startOffset }).map((_, i) => (
-            <div key={`m${i}`} style={{ background: "var(--ivory)", minHeight: 80 }} />
+            <div key={`m${i}`} style={{ background: "var(--ivory)", minHeight: 90 }} />
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const key = dayKey(d);
             const dayPosts = posts.filter((p) => p.date === key);
             const isToday = isCurrentMonth && d === today.getDate();
+            const commercial = commercialIdx.get(key);
 
-            // Día de la semana (Lun=0..Dom=6) para chequear sugeridos.
             const cellDate = new Date(year, month, d);
             const weekday = weekdayLunFirst(cellDate);
 
-            // Slots sugeridos para este día (red × formato).
-            // Excluimos los slots cuyo network+format ya tiene un post
-            // cargado para ese día — para no doblar la info.
-            // Mapping de ContentFormat de la DB a "feed/story/reel/video":
-            //   reel → reel; story → story; otros → feed (excepto TikTok
-            //   donde "video" sigue siendo el formato principal).
             const slotsWithRealPost = new Set<string>();
             for (const p of dayPosts) {
               let fmt: string;
@@ -327,6 +597,15 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               if (!days || !days.has(weekday)) return false;
               return !slotsWithRealPost.has(slot.key);
             });
+            const typesForDay = slotTypesByDay.get(key);
+
+            // Eventos multi-día que cubren este día — chip-banda
+            // chiquito al fondo de la celda.
+            const dayEvents = events.filter((ev) => {
+              const evStart = ev.date;
+              const evEnd = ev.end_date ?? ev.date;
+              return evStart <= key && evEnd >= key;
+            });
 
             return (
               <div
@@ -334,23 +613,61 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 onClick={() => setModalDate(key)}
                 style={{
                   background: isToday ? "var(--off-white)" : "var(--white)",
-                  minHeight: 80,
-                  padding: "8px 10px",
+                  minHeight: 90,
+                  padding: "6px 8px",
                   cursor: "pointer",
+                  position: "relative",
                 }}
               >
+                {/* Header de la celda: día + flag de fecha comercial */}
                 <div
                   style={{
-                    fontSize: 13,
-                    fontWeight: isToday ? 700 : 500,
-                    color: isToday ? "var(--sand-dark)" : "var(--deep-green)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 4,
                   }}
                 >
-                  {d}
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: isToday ? 700 : 500,
+                      color: isToday
+                        ? "var(--sand-dark)"
+                        : "var(--deep-green)",
+                    }}
+                  >
+                    {d}
+                  </div>
+                  {commercial && (
+                    <div
+                      title={commercial.label}
+                      style={{
+                        fontSize: 9,
+                        padding: "1px 5px",
+                        background:
+                          commercial.importance === "alta"
+                            ? "rgba(196, 168, 130, 0.25)"
+                            : "rgba(196, 168, 130, 0.10)",
+                        color: "var(--sand-dark)",
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "100%",
+                        borderRadius: 2,
+                      }}
+                    >
+                      {commercial.emoji} {commercial.label.length > 12
+                        ? commercial.label.slice(0, 11) + "…"
+                        : commercial.label}
+                    </div>
+                  )}
                 </div>
 
                 {/* Posts reales — chip sólido con info */}
-                {dayPosts.slice(0, 3).map((p) => (
+                {dayPosts.slice(0, 2).map((p) => (
                   <span
                     key={p.id}
                     style={{
@@ -358,32 +675,26 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                       fontSize: 10,
                       padding: "2px 6px",
                       marginTop: 4,
-                      background: NETWORK_COLOR[p.network],
-                      color:
-                        p.network === "ig"
-                          ? "var(--sand)"
-                          : p.network === "tt"
-                          ? "var(--white)"
-                          : "var(--off-white)",
+                      background: NETWORK_COLOR_BG[p.network],
+                      color: NETWORK_COLOR_FG[p.network],
                       fontWeight: 500,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      borderRadius: 2,
                     }}
                   >
                     {p.time} {p.brief.slice(0, 14)}
                   </span>
                 ))}
-                {dayPosts.length > 3 && (
+                {dayPosts.length > 2 && (
                   <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 2, display: "block" }}>
-                    +{dayPosts.length - 3}
+                    +{dayPosts.length - 2}
                   </span>
                 )}
 
-                {/* Días sugeridos — chips ghost por SLOT.
-                    Indican "tocaría publicar este formato en esta red"
-                    según la frecuencia configurada. Sigla corta tipo
-                    IG·F / IG·S / IG·R / TT·V. */}
+                {/* Días sugeridos — chips ghost por SLOT con tag V/O/E
+                    superpuesto si hay mix configurado. */}
                 {suggestedSlots.length > 0 && (
                   <div
                     style={{
@@ -393,29 +704,221 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                       flexWrap: "wrap",
                     }}
                   >
-                    {suggestedSlots.map((slot) => (
-                      <span
-                        key={slot.key}
-                        title={`${slot.networkLabel} ${slot.formatLabel} · día sugerido`}
-                        style={{
-                          fontSize: 8.5,
-                          padding: "1px 4px",
-                          background: "transparent",
-                          color: slot.color,
-                          border: `1px dashed ${slot.color}`,
-                          fontWeight: 600,
-                          letterSpacing: "0.03em",
-                        }}
-                      >
-                        {slot.shortCode}
-                      </span>
-                    ))}
+                    {suggestedSlots.map((slot) => {
+                      const type = typesForDay?.get(slot.key);
+                      const typeMeta = type
+                        ? CONTENT_TYPE_META[type]
+                        : null;
+                      return (
+                        <span
+                          key={slot.key}
+                          title={`${slot.networkLabel} ${slot.formatLabel}${typeMeta ? ` · ${typeMeta.label}` : ""}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 2,
+                            fontSize: 8.5,
+                            padding: "1px 4px",
+                            background: "transparent",
+                            color: slot.color,
+                            border: `1px dashed ${slot.color}`,
+                            fontWeight: 600,
+                            letterSpacing: "0.03em",
+                            borderRadius: 2,
+                          }}
+                        >
+                          {slot.shortCode}
+                          {typeMeta && (
+                            <span
+                              style={{
+                                fontSize: 7,
+                                background: typeMeta.color,
+                                color: "#fff",
+                                padding: "0 3px",
+                                fontWeight: 700,
+                                borderRadius: 2,
+                              }}
+                            >
+                              {typeMeta.short}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Pie de celda: bandas de eventos multi-día que la cubren */}
+                {dayEvents.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 4,
+                      right: 4,
+                      bottom: 4,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 1,
+                    }}
+                  >
+                    {dayEvents.slice(0, 2).map((ev) => {
+                      const color =
+                        EVENT_TYPE_COLOR[ev.type] ?? EVENT_TYPE_COLOR.contenido;
+                      const isStart = ev.date === key;
+                      const isEnd = (ev.end_date ?? ev.date) === key;
+                      return (
+                        <div
+                          key={ev.id}
+                          style={{
+                            height: 4,
+                            background: color,
+                            borderTopLeftRadius: isStart ? 2 : 0,
+                            borderBottomLeftRadius: isStart ? 2 : 0,
+                            borderTopRightRadius: isEnd ? 2 : 0,
+                            borderBottomRightRadius: isEnd ? 2 : 0,
+                          }}
+                          title={`${EVENT_TYPE_LABEL[ev.type] ?? ev.type}: ${ev.title}`}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>
             );
           })}
         </div>
+      </div>
+
+      {/* Estrategia del mes — editable por el director, sale en el PDF. */}
+      <div
+        style={{
+          marginTop: 24,
+          padding: 24,
+          background: "var(--white)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          borderRadius: "var(--r-lg)",
+          boxShadow: "var(--shadow-sm)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginBottom: 14,
+            paddingBottom: 12,
+            borderBottom: "1px solid rgba(10,26,12,0.06)",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Estrategia del mes
+            </div>
+            <h3
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--deep-green)",
+              }}
+            >
+              {MONTHS_ES[month]} {year}
+            </h3>
+          </div>
+          {isDirector && !monthNoteEditing && (
+            <button
+              onClick={() => {
+                setMonthNoteDraft(monthNote);
+                setMonthNoteEditing(true);
+              }}
+              className={ui.btnGhost}
+            >
+              {monthNote ? "Editar" : "+ Escribir estrategia"}
+            </button>
+          )}
+        </div>
+
+        {monthNoteEditing ? (
+          <>
+            <textarea
+              value={monthNoteDraft}
+              onChange={(e) => setMonthNoteDraft(e.target.value)}
+              placeholder="Ej: En mayo arrancamos el batch de awareness frío con Reels. Foco en hook de los primeros 3s. Pauta inicial US$ 800/mes en IG+FB. Black Friday capturamos demanda con campaña dedicada de retargeting…"
+              rows={10}
+              style={{
+                width: "100%",
+                padding: 14,
+                border: "1px solid rgba(10,26,12,0.15)",
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                fontFamily: "inherit",
+                fontSize: 13,
+                lineHeight: 1.6,
+                resize: "vertical",
+                borderRadius: "var(--r-md)",
+                outline: "none",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                marginTop: 12,
+              }}
+            >
+              <button
+                onClick={() => setMonthNoteEditing(false)}
+                disabled={savingNote}
+                className={ui.btnGhost}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveMonthNote}
+                disabled={savingNote}
+                className={ui.btnSolid}
+              >
+                {savingNote ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </>
+        ) : monthNote ? (
+          <div
+            style={{
+              fontSize: 14,
+              color: "var(--deep-green)",
+              lineHeight: 1.7,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {monthNote}
+          </div>
+        ) : (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--text-muted)",
+              padding: 24,
+              textAlign: "center",
+              background: "var(--ivory)",
+              borderRadius: "var(--r-md)",
+              lineHeight: 1.6,
+            }}
+          >
+            {isDirector
+              ? "Escribí la estrategia del mes — campaña principal, prioridades, fechas clave. Va en el PDF del roadmap."
+              : "El director todavía no escribió la estrategia de este mes."}
+          </div>
+        )}
       </div>
 
       {modalDate && (
@@ -432,25 +935,28 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         />
       )}
 
-      {/* NewEventModal: produccion / reunion / deadline. Misma fecha
-          que clickeó el usuario o "hoy" si vino desde botón del header. */}
       <NewEventModal
         open={eventModalDate !== null}
         initialDate={eventModalDate ?? undefined}
         initialClientId={id}
         onClose={() => setEventModalDate(null)}
-        onCreated={() => setEventModalDate(null)}
+        onCreated={() => {
+          setEventModalDate(null);
+          refresh();
+        }}
       />
 
       <ContentFrequencyModal
         open={freqModal}
         clientId={id}
         current={client?.content_frequency}
+        currentMix={client?.content_mix}
         onClose={() => setFreqModal(false)}
-        onSaved={(newFreq: ContentFrequency) => {
-          // Update local state inmediato sin necesidad de re-fetch del cliente
+        onSaved={(newFreq: ContentFrequency, newMix: ContentMix) => {
           setClient((prev) =>
-            prev ? { ...prev, content_frequency: newFreq } : prev,
+            prev
+              ? { ...prev, content_frequency: newFreq, content_mix: newMix }
+              : prev,
           );
         }}
       />
@@ -512,25 +1018,13 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 lineHeight: 1.5,
               }}
             >
-              Se genera un PDF con un mes por página (A4 horizontal) con
-              los posts cargados + chips de frecuencia sugerida. Máximo 24 meses.
+              Cada mes va a salir con un calendario A4 horizontal + una página
+              con la estrategia escrita de ese mes (si está cargada). Máximo 24 meses.
             </p>
 
             <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
               <div style={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 10,
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    color: "var(--sand-dark)",
-                    fontWeight: 700,
-                    marginBottom: 6,
-                  }}
-                >
-                  Desde
-                </label>
+                <label style={pdfLabelStyle}>Desde</label>
                 <div style={{ display: "flex", gap: 6 }}>
                   <select
                     value={pdfFromMonth}
@@ -556,19 +1050,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 </div>
               </div>
               <div style={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 10,
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    color: "var(--sand-dark)",
-                    fontWeight: 700,
-                    marginBottom: 6,
-                  }}
-                >
-                  Hasta
-                </label>
+                <label style={pdfLabelStyle}>Hasta</label>
                 <div style={{ display: "flex", gap: 6 }}>
                   <select
                     value={pdfToMonth}
@@ -611,7 +1093,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 const count = to - from + 1;
                 if (count <= 0) return "⚠ El rango es inválido.";
                 if (count > 24) return `⚠ ${count} meses — máximo 24.`;
-                return `${count} ${count === 1 ? "página" : "páginas"} (un mes por página).`;
+                return `${count} ${count === 1 ? "mes" : "meses"} (~${count * 2} páginas).`;
               })()}
             </div>
 
@@ -649,6 +1131,16 @@ const selectStyle: React.CSSProperties = {
   fontFamily: "inherit",
   outline: "none",
   borderRadius: "var(--r-md)",
+};
+
+const pdfLabelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 10,
+  letterSpacing: "0.18em",
+  textTransform: "uppercase",
+  color: "var(--sand-dark)",
+  fontWeight: 700,
+  marginBottom: 6,
 };
 
 function ContentDayModal({
@@ -705,8 +1197,6 @@ function ContentDayModal({
           {posts.length === 0 ? "Agregar contenido" : `${posts.length} post${posts.length === 1 ? "" : "s"} ese día`}
         </h2>
 
-        {/* Quick-link a NewEventModal para crear producción / evento
-            con la fecha ya seteada. */}
         <div
           style={{
             marginTop: 8,
@@ -724,8 +1214,8 @@ function ContentDayModal({
           }}
         >
           <span>
-            ¿No es contenido? Creá una <strong>producción, reunión, sesión o
-            deadline</strong> en el calendario.
+            ¿No es contenido? Creá una <strong>producción, reunión, pauta o
+            deadline</strong> (puede abarcar varios días).
           </span>
           <button
             onClick={() => onOpenEvent(date)}
@@ -753,7 +1243,7 @@ function ContentDayModal({
               <div key={p.id} style={{ padding: "12px 0", borderBottom: "1px solid rgba(10,26,12,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ padding: "2px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: NETWORK_COLOR[p.network], color: p.network === "ig" ? "var(--sand)" : "var(--off-white)", fontWeight: 600, borderRadius: "var(--r-pill)" }}>
+                    <span style={{ padding: "2px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: NETWORK_COLOR_BG[p.network], color: NETWORK_COLOR_FG[p.network], fontWeight: 600, borderRadius: "var(--r-pill)" }}>
                       {NETWORK_LABEL[p.network]} · {p.format}
                     </span>
                     <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.time}</span>

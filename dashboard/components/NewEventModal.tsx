@@ -37,6 +37,8 @@ export default function NewEventModal({
   const [clientId, setClientId] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [date, setDate] = useState("");
+  /** Fecha de fin opcional. Si está, el evento es multi-día. */
+  const [endDate, setEndDate] = useState("");
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState("60");
   const [participants, setParticipants] = useState("");
@@ -48,6 +50,7 @@ export default function NewEventModal({
     if (open) {
       getClients().then(setClients);
       setDate(initialDate || new Date().toISOString().slice(0, 10));
+      setEndDate("");
       setSyncGoogle(googleConnected);
       if (initialClientId) setClientId(initialClientId);
     }
@@ -55,15 +58,21 @@ export default function NewEventModal({
 
   if (!open) return null;
 
-  const canSubmit = title.trim() && date;
+  // Validación: si hay endDate, debe ser >= date.
+  const endDateInvalid = endDate !== "" && endDate < date;
+  const canSubmit = title.trim() !== "" && date !== "" && !endDateInvalid;
 
   async function handleSubmit() {
     if (!canSubmit) return;
     const client = clients.find((c) => c.id === clientId);
+    // Solo guardamos end_date si es != date (evitar ruido)
+    const effectiveEndDate =
+      endDate && endDate !== date ? endDate : null;
     await addEvent({
       title: title.trim(),
       type,
       date,
+      end_date: effectiveEndDate,
       time,
       duration: Number(duration),
       clientId: clientId || undefined,
@@ -80,6 +89,7 @@ export default function NewEventModal({
     setTitle("");
     setNotes("");
     setParticipants("");
+    setEndDate("");
     onClose();
     onCreated?.();
   }
@@ -124,6 +134,7 @@ export default function NewEventModal({
               <option value="reporte">Reporte</option>
               <option value="dev">Desarrollo / Deploy</option>
               <option value="contenido">Contenido</option>
+              <option value="pauta">Pauta publicitaria</option>
             </select>
           </div>
           <div className={styles.field}>
@@ -146,7 +157,7 @@ export default function NewEventModal({
 
         <div className={styles.fieldGrid3}>
           <div className={styles.field}>
-            <label>Fecha</label>
+            <label>Fecha {endDate ? "(desde)" : ""}</label>
             <input
               type="date"
               value={date}
@@ -174,6 +185,57 @@ export default function NewEventModal({
               <option value="90">1:30 hs</option>
               <option value="120">2 hs</option>
             </select>
+          </div>
+        </div>
+
+        {/* Bloque de evento multi-día — producciones, sprints, batches
+            de pauta. Si endDate está vacío, es un evento de 1 día. */}
+        <div
+          className={styles.field}
+          style={{
+            background: "var(--off-white)",
+            padding: 14,
+            borderLeft: "3px solid var(--sand)",
+            marginBottom: 14,
+          }}
+        >
+          <label style={{ marginBottom: 6 }}>
+            ¿Abarca más de un día? <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(opcional)</span>
+          </label>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              type="date"
+              value={endDate}
+              min={date}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={{ flex: 1 }}
+              placeholder="Fecha de fin"
+            />
+            {endDate && (
+              <button
+                type="button"
+                onClick={() => setEndDate("")}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  color: "var(--deep-green)",
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  borderRadius: "var(--r-sm)",
+                }}
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
+            {!endDate
+              ? "Dejá vacío si el evento es de un solo día. Para pauta o producciones largas, marcá el día de fin."
+              : endDateInvalid
+                ? <span style={{ color: "var(--red-warn)" }}>⚠ La fecha de fin tiene que ser igual o posterior a la de inicio.</span>
+                : `Evento multi-día: ${date} → ${endDate}.`}
           </div>
         </div>
 
