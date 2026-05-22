@@ -530,10 +530,19 @@ function renderBlock(
         </Text>
       );
     case "h2": {
-      // Cada H2 después del primero arranca en página nueva.
+      // H2 = inicio de sección. NO forzamos page-break duro (eso
+      // generaba páginas en blanco cuando el contenido previo cortaba
+      // justo en el borde inferior). Usamos minPresenceAhead para que
+      // el H2 baje a la siguiente página solo si no queda al menos
+      // ~120 puntos abajo (≈ título + 2-3 líneas siguientes), evitando
+      // títulos huérfanos al pie de página.
       const { number, titleSpans } = splitH2(block.spans);
       return (
-        <View key={idx} break={!isFirstH2} wrap={false}>
+        <View
+          key={idx}
+          minPresenceAhead={isFirstH2 ? 0 : 120}
+          wrap={false}
+        >
           {number && <Text style={styles.h2Eyebrow}>Sección {number}</Text>}
           <Text style={styles.h2}>{renderSpans(titleSpans)}</Text>
         </View>
