@@ -21,6 +21,7 @@ import ConsultorHistoryPanel from "@/components/ConsultorHistoryPanel";
 import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
 import LookerStudioCard from "@/components/LookerStudioCard";
+import TeamCard from "@/components/TeamCard";
 import type {
   CalEvent,
   Client,
@@ -250,9 +251,6 @@ export default function PortalPage() {
             </div>
           </div>
           <nav className={styles.heroLinks} aria-label="Navegación principal del portal">
-            <Link href="/portal/calendario" className={styles.heroLink}>
-              Calendario →
-            </Link>
             <Link href="/portal/faq" className={styles.heroLink}>
               ¿Cómo funciona el portal? →
             </Link>
@@ -361,6 +359,9 @@ export default function PortalPage() {
                 </div>
               )}
             </Link>
+
+            {/* Tu equipo D&C — account leads asignados + contacto directo */}
+            <TeamCard />
 
             {/* Estado de pago: ahora vive en el PortalHeader como CTA con
                 semáforo (verde / ámbar / rojo según fecha del mes). */}

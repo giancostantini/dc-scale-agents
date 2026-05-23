@@ -105,10 +105,11 @@ export async function GET(req: NextRequest) {
       .eq("client_id", clientId)
       .eq("month", monthIso)
       .maybeSingle(),
-    admin.from("clients").select("fee").eq("id", clientId).maybeSingle(),
+    admin.from("clients").select("fee, name").eq("id", clientId).maybeSingle(),
   ]);
 
   const fee = clientRow?.fee ? Number(clientRow.fee) : null;
+  const clientName = (clientRow?.name as string | undefined) ?? null;
   const paymentStatus = (paymentRow?.status ?? "pending") as
     | "paid"
     | "pending"
@@ -122,6 +123,7 @@ export async function GET(req: NextRequest) {
     month: monthIso,
     monthLabel,
     fee,
+    clientName,
   };
 
   // PAGADO → verde, barra llena
