@@ -29,6 +29,30 @@ interface PaymentStatus {
   month: string;
   monthLabel: string;
   fee: number | null;
+  clientName: string | null;
+}
+
+// Número de WhatsApp del fundador para coordinar pagos (formato
+// internacional sin '+'). Si no está seteado, el botón cae al fallback
+// de solicitudes.
+const PAYMENT_WHATSAPP = process.env.NEXT_PUBLIC_PAYMENT_WHATSAPP;
+
+/** Arma el href del botón "Coordinar pago": WhatsApp si hay número, sino
+ *  fallback a la pantalla de solicitudes. */
+function buildPaymentHref(data: PaymentStatus): {
+  href: string;
+  external: boolean;
+} {
+  const num = PAYMENT_WHATSAPP?.trim();
+  if (num) {
+    const who = data.clientName ? `soy de ${data.clientName}. ` : "";
+    const msg = `Hola, ${who}quiero coordinar el pago de ${data.monthLabel}.`;
+    return {
+      href: `https://wa.me/${num}?text=${encodeURIComponent(msg)}`,
+      external: true,
+    };
+  }
+  return { href: "/portal/solicitudes?type=pago", external: false };
 }
 
 export default function PaymentCTA() {
@@ -155,15 +179,24 @@ export default function PaymentCTA() {
             <div className={styles.popDone}>
               Tu cuenta está al día. ¡Gracias!
             </div>
-          ) : (
-            <Link
-              href="/portal/solicitudes?type=pago"
-              className={styles.popAction}
-              onClick={closePopover}
-            >
-              Coordinar pago →
-            </Link>
-          )}
+          ) : (() => {
+            const { href, external } = buildPaymentHref(data);
+            return external ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.popAction}
+                onClick={closePopover}
+              >
+                Coordinar pago →
+              </a>
+            ) : (
+              <Link href={href} className={styles.popAction} onClick={closePopover}>
+                Coordinar pago →
+              </Link>
+            );
+          })()}
         </div>
       )}
     </div>
