@@ -65,6 +65,8 @@
   padding: 14px 16px;
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.05);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
   text-decoration: none;
   color: inherit;
   transition: all 0.15s;
@@ -85,6 +87,7 @@
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
+  border-radius: var(--r-md);
 }
 
 .info {
@@ -107,6 +110,7 @@
   color: var(--sand-dark);
   background: var(--off-white);
   padding: 2px 6px;
+  border-radius: var(--r-pill);
 }
 
 .email {
@@ -138,6 +142,7 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
+  border-radius: var(--r-pill);
 }
 
 .teamBadge {
@@ -149,6 +154,7 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
+  border-radius: var(--r-pill);
 }
 
 .assignCount {
@@ -178,16 +184,20 @@
   text-transform: uppercase;
   color: var(--text-muted);
   border: 1px solid rgba(10, 26, 12, 0.1);
+  border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
   text-decoration: none;
   display: inline-block;
+  transition: all 0.15s;
 }
 
 .btnGhost:hover {
   color: var(--deep-green);
   border-color: var(--deep-green);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .btnSolid {
@@ -199,12 +209,16 @@
   color: var(--off-white);
   background: var(--deep-green);
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btnSolid:hover {
   background: var(--forest);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 1100px) {

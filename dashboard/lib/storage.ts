@@ -80,6 +80,8 @@ interface ClientRow {
   external_links: Client["external_links"] | null;
   looker_studio_url: string | null;
   content_frequency: Client["content_frequency"] | null;
+  content_mix: Client["content_mix"] | null;
+  roadmap_month_notes: Client["roadmap_month_notes"] | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -101,6 +103,8 @@ function clientFromRow(r: ClientRow): Client {
     external_links: r.external_links ?? undefined,
     looker_studio_url: r.looker_studio_url,
     content_frequency: r.content_frequency ?? undefined,
+    content_mix: r.content_mix ?? undefined,
+    roadmap_month_notes: r.roadmap_month_notes ?? undefined,
   };
 }
 
@@ -234,6 +238,59 @@ export async function updateClientContentFrequency(
   const { error } = await supabase
     .from("clients")
     .update({ content_frequency: freq ?? {} })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Actualiza el mix porcentual de contenido (valor/oferta/engagement)
+ * por red. Reemplaza el JSONB completo. Usado desde el modal de
+ * Frecuencia, donde el director también edita el mix.
+ */
+export async function updateClientContentMix(
+  clientId: string,
+  mix: Client["content_mix"],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ content_mix: mix ?? {} })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Actualiza la nota de estrategia de un mes específico del roadmap.
+ * Merge sobre el JSONB actual (no reemplaza otros meses).
+ *
+ * monthKey: "YYYY-MM"
+ * text: markdown plain. Pasar string vacío "" o null para borrar la
+ *       nota de ese mes.
+ */
+export async function updateRoadmapMonthNote(
+  clientId: string,
+  monthKey: string,
+  text: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  // Leemos el actual y mergeamos. No usamos jsonb_set por simplicidad.
+  const { data: row, error: selErr } = await supabase
+    .from("clients")
+    .select("roadmap_month_notes")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  const current =
+    (row?.roadmap_month_notes as Record<string, string> | null) ?? {};
+  const next: Record<string, string> = { ...current };
+  if (!text || !text.trim()) {
+    delete next[monthKey];
+  } else {
+    next[monthKey] = text;
+  }
+  const { error } = await supabase
+    .from("clients")
+    .update({ roadmap_month_notes: next })
     .eq("id", clientId);
   if (error) throw error;
 }
@@ -507,6 +564,7 @@ interface EventRow {
   title: string;
   type: EventType;
   date: string;
+  end_date: string | null;
   time: string;
   duration: number;
   client_id: string | null;
@@ -523,6 +581,7 @@ function eventFromRow(r: EventRow): CalEvent {
     title: r.title,
     type: r.type,
     date: r.date,
+    end_date: r.end_date,
     time: r.time,
     duration: r.duration,
     clientId: r.client_id ?? undefined,
@@ -552,6 +611,7 @@ export async function addEvent(data: Omit<CalEvent, "id">): Promise<CalEvent> {
       title: data.title,
       type: data.type,
       date: data.date,
+      end_date: data.end_date ?? null,
       time: data.time,
       duration: data.duration,
       client_id: data.clientId ?? null,

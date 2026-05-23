@@ -17,6 +17,7 @@ import type {
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
+import WelcomeBanner from "@/components/WelcomeBanner";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ClienteDashboard({
@@ -101,19 +102,20 @@ function GPDashboard({
 
   return (
     <>
-      <div className={ui.head}>
-        <div>
-          <div className={ui.eyebrow}>Growth Partner · {client.method}</div>
-          <h1>{client.name}</h1>
-        </div>
-        <div
+      <WelcomeBanner
+        greet={false}
+        eyebrow={`Growth Partner · ${client.method}`}
+        title={client.name}
+        subtitle={client.sector}
+      >
+        <span
           className={`${ui.phaseBadge} ${
             client.status === "active" ? ui.phaseBadgeExec : ""
           }`}
         >
           {client.phase}
-        </div>
-      </div>
+        </span>
+      </WelcomeBanner>
 
       {/* El morning briefing dejó de ser un panel por-cliente. Ahora vive
           en el widget global del consultor (bottom-right): es por user,
@@ -269,13 +271,14 @@ function DevDashboard({
 
   return (
     <>
-      <div className={ui.head}>
-        <div>
-          <div className={ui.eyebrow}>Desarrollo · {client.method}</div>
-          <h1>{client.name}</h1>
-        </div>
-        <div className={ui.phaseBadge}>{client.phase}</div>
-      </div>
+      <WelcomeBanner
+        greet={false}
+        eyebrow={`Desarrollo · ${client.method}`}
+        title={client.name}
+        subtitle={client.sector}
+      >
+        <span className={ui.phaseBadge}>{client.phase}</span>
+      </WelcomeBanner>
 
       <PendingRequestsPanel
         clientId={client.id}

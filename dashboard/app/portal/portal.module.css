@@ -17,9 +17,8 @@
 
 /* ============ Layout principal ============ */
 
-/* Fondo del portal — blobs sand + verde difuminados que dan profundidad
-   al glassmorphism (sin esto, el blur sobre fondo plano se ve casi igual
-   al original). Position fixed para que floten al hacer scroll. */
+/* Fondo del portal — plano (ivory), sin degradado. Las cards conservan su
+   translucidez + sombra suave; ya no dependen de blobs de color de fondo. */
 .main,
 .wrap {
   position: relative;
@@ -32,27 +31,7 @@
   position: fixed;
   inset: 0;
   z-index: -2;
-  background:
-    radial-gradient(
-      circle at 12% 8%,
-      rgba(196, 168, 130, 0.22) 0%,
-      transparent 38%
-    ),
-    radial-gradient(
-      circle at 88% 16%,
-      rgba(58, 139, 92, 0.08) 0%,
-      transparent 38%
-    ),
-    radial-gradient(
-      circle at 50% 95%,
-      rgba(196, 168, 130, 0.18) 0%,
-      transparent 45%
-    ),
-    radial-gradient(
-      circle at 85% 70%,
-      rgba(30, 58, 40, 0.10) 0%,
-      transparent 50%
-    );
+  background: var(--ivory);
   pointer-events: none;
 }
 
@@ -599,14 +578,16 @@
   padding: 7px 13px;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 180ms ease-out, color 180ms ease-out, background 180ms ease-out;
-  border-radius: 1px;
+  transition: border-color 180ms ease-out, color 180ms ease-out, background 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .reportCommentBtn:hover {
   color: var(--deep-green);
   border-color: var(--deep-green);
   background: rgba(196, 168, 130, 0.08);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ============ Contenido publicado ============ */
@@ -659,7 +640,7 @@
   font-weight: 700;
   background: var(--deep-green);
   padding: 2px 7px;
-  border-radius: 1px;
+  border-radius: var(--r-pill);
 }
 
 .contentDate {
@@ -822,12 +803,14 @@
   border: 1px solid var(--deep-green);
   cursor: pointer;
   font-family: inherit;
-  transition: background 180ms ease-out, transform 120ms ease-out;
-  border-radius: 1px;
+  transition: background 180ms ease-out, transform 120ms ease-out, box-shadow 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .errorBtn:hover {
   background: var(--forest);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ============ Legacy: header inline (deprecated, usar PortalHeader) ============
@@ -884,11 +867,13 @@
   font-family: inherit;
   text-decoration: none;
   display: inline-block;
-  transition: background 180ms ease-out, border-color 180ms ease-out;
-  border-radius: 1px;
+  transition: background 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .btnGhost:hover {
   background: rgba(196, 168, 130, 0.12);
   border-color: var(--sand);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }

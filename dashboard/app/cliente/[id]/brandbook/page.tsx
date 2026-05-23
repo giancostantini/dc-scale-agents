@@ -208,6 +208,7 @@ export default function BrandbookPage({
             borderLeft: "3px solid var(--red-warn)",
             color: "var(--red-warn)",
             fontSize: 13,
+            borderRadius: "var(--r-md)",
           }}
         >
           {error}
@@ -336,6 +337,7 @@ export default function BrandbookPage({
                           border: "1px solid rgba(10,26,12,0.15)",
                           background: "var(--off-white)",
                           resize: "vertical",
+                          borderRadius: "var(--r-md)",
                         }}
                       />
                       <div
@@ -403,6 +405,7 @@ export default function BrandbookPage({
                 borderLeft: "3px solid var(--sand)",
                 fontSize: 12,
                 color: "var(--text-muted)",
+                borderRadius: "var(--r-md)",
               }}
             >
               <div
@@ -440,6 +443,7 @@ export default function BrandbookPage({
                 padding: "16px 20px",
                 background: "var(--off-white)",
                 borderTop: "1px solid rgba(10,26,12,0.08)",
+                borderRadius: "var(--r-md)",
               }}
             >
               <button
@@ -485,6 +489,8 @@ export default function BrandbookPage({
                         background: "var(--white)",
                         border: "1px solid rgba(10,26,12,0.08)",
                         fontSize: 12,
+                        borderRadius: "var(--r-md)",
+                        boxShadow: "var(--shadow-sm)",
                       }}
                     >
                       <span
@@ -583,6 +589,7 @@ export default function BrandbookPage({
             fontWeight: 500,
             boxShadow: "0 8px 24px rgba(10,26,12,0.2)",
             zIndex: 200,
+            borderRadius: "var(--r-md)",
           }}
         >
           {toast}

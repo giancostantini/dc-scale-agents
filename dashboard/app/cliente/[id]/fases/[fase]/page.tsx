@@ -94,6 +94,8 @@ export default function FaseDetailPage({
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -313,6 +315,7 @@ export default function FaseDetailPage({
   const isApproved = status === "approved";
   const isDraft = status === "draft";
   const isGenerating = status === "generating";
+  const isChangesRequested = status === "changes_requested";
   const hasContent = report?.content_md && report.content_md.length > 0;
 
   // ===== Acciones =====
@@ -405,6 +408,38 @@ export default function FaseDetailPage({
     }
   }
 
+  /** Destraba un reporte que quedó en status='generating' por timeout
+   *  de la función serverless. El endpoint chequea el umbral de 5 min
+   *  por default; pasamos force=true cuando el director confirma. */
+  async function resetStuck(force: boolean) {
+    if (busy) return;
+    const label = meta?.reportName ?? phaseKey;
+    if (!force) {
+      if (
+        !confirm(
+          `¿Destrabar el reporte de ${label}?\n\n` +
+            `Esto vuelve el status a "pendiente" (o "borrador" si ya había contenido previo).\n` +
+            `Si la generación todavía está corriendo en el server, podés interrumpirla.`,
+        )
+      )
+        return;
+    }
+    setBusy(true);
+    try {
+      await callPhaseEndpoint("/api/phases/reset-stuck", {
+        clientId: id,
+        phase: phaseKey,
+        force,
+      });
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo destrabar:\n${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function approve() {
     if (busy) return;
     if (!confirm(`Confirmar el reporte de ${meta.reportName}?\n\nUna vez aprobado se desbloquea la siguiente fase.`)) return;
@@ -476,6 +511,65 @@ export default function FaseDetailPage({
     } catch (err) {
       const e = err as Error;
       alert(`No se pudo aprobar:\n${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Director propone cambios al reporte. Envía feedback al endpoint
+   * /api/phases/request-changes (marca como changes_requested) y
+   * luego dispara /api/phases/generate con el mismo feedback para
+   * regenerar en modo edición (preserva verbatim lo no tocado).
+   */
+  async function submitChangesRequest() {
+    if (busy) return;
+    if (!feedbackText.trim()) {
+      alert("Escribí qué cambios querés.");
+      return;
+    }
+    setBusy(true);
+
+    // Paso 1: guardar feedback (marca como changes_requested)
+    try {
+      await callPhaseEndpoint("/api/phases/request-changes", {
+        clientId: id,
+        phase: phaseKey,
+        feedback: feedbackText.trim(),
+      });
+    } catch (err) {
+      const e = err as Error;
+      alert(
+        `No se pudo guardar el feedback:\n\n${e.message}\n\n` +
+          `El reporte sigue en su estado anterior. Probá de nuevo en unos segundos.`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    // Paso 2: regenerar con el feedback
+    try {
+      await callPhaseEndpoint("/api/phases/generate", {
+        clientId: id,
+        phase: phaseKey,
+        feedback: feedbackText.trim(),
+      });
+      setFeedbackText("");
+      setFeedbackOpen(false);
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      // El feedback ya está guardado; falla solo la regeneración.
+      // Cerramos el modal y refrescamos para mostrar el banner de
+      // changes_requested con el feedback persistido + botón "Regenerar
+      // con feedback".
+      setFeedbackText("");
+      setFeedbackOpen(false);
+      setReloadFlag((f) => f + 1);
+      alert(
+        `Tu feedback se guardó, pero la regeneración falló:\n\n${e.message}\n\n` +
+          `Click en "Regenerar con feedback" cuando quieras reintentar — el feedback ya quedó guardado.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -765,13 +859,57 @@ export default function FaseDetailPage({
 
           {/* Confirmar (cuando hay draft) */}
           {isDraft && (
+            <>
+              <button
+                className={ui.btnSolid}
+                onClick={approve}
+                disabled={busy}
+                style={{ background: "var(--green-ok)" }}
+              >
+                ✓ Confirmar y desbloquear siguiente fase
+              </button>
+              <button
+                className={ui.btnGhost}
+                onClick={() => setFeedbackOpen(true)}
+                disabled={busy}
+                style={{ fontWeight: 600 }}
+              >
+                ↻ Proponer cambios
+              </button>
+            </>
+          )}
+
+          {/* Regenerar con feedback (cuando status=changes_requested) */}
+          {isChangesRequested && (
             <button
               className={ui.btnSolid}
-              onClick={approve}
+              onClick={() => generate(report?.feedback ?? undefined)}
               disabled={busy}
-              style={{ background: "var(--green-ok)" }}
             >
-              ✓ Confirmar y desbloquear siguiente fase
+              {busy ? "Regenerando…" : "↻ Regenerar con feedback"}
+            </button>
+          )}
+
+          {/* Regenerar desde cero — disponible mientras haya contenido
+              y no esté aprobado. Ignora el feedback previo. */}
+          {hasContent && !isApproved && (
+            <button
+              className={ui.btnGhost}
+              onClick={() => {
+                if (
+                  confirm(
+                    "¿Regenerar el reporte desde cero, ignorando el contenido actual?\n\n" +
+                      "Esto sobreescribe la versión actual con una nueva generación del agente. " +
+                      "La versión anterior queda archivada en el historial.",
+                  )
+                ) {
+                  generate();
+                }
+              }}
+              disabled={busy}
+              style={{ fontSize: 11 }}
+            >
+              Regenerar desde cero
             </button>
           )}
 
@@ -853,6 +991,7 @@ export default function FaseDetailPage({
               maxWidth: 560,
               width: "100%",
               padding: 36,
+              borderRadius: "var(--r-lg)",
             }}
           >
             <div
@@ -902,6 +1041,8 @@ export default function FaseDetailPage({
                 fontSize: 12,
                 color: "var(--text-soft)",
                 lineHeight: 1.6,
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <strong style={{ color: "var(--deep-green)" }}>
@@ -935,6 +1076,7 @@ export default function FaseDetailPage({
                 marginBottom: 24,
                 background: uploadFile ? "rgba(196,168,130,0.08)" : "transparent",
                 transition: "background 0.15s",
+                borderRadius: "var(--r-md)",
               }}
             >
               <input
@@ -1039,29 +1181,72 @@ export default function FaseDetailPage({
         </div>
 
         {isGenerating ? (
-          <div
-            style={{
-              padding: 64,
-              textAlign: "center",
-              color: "var(--text-muted)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 32,
-                color: "var(--sand)",
-                marginBottom: 12,
-              }}
-            >
-              ⏳
-            </div>
-            <div style={{ fontSize: 14, marginBottom: 6 }}>
-              Generando con Claude…
-            </div>
-            <div style={{ fontSize: 12 }}>
-              Esto tarda 30-60 segundos. La página se actualiza sola.
-            </div>
-          </div>
+          (() => {
+            // Mostramos el botón de "destrabar" cuando lleva más que
+            // el tiempo esperado de generación. La estrategia tarda
+            // 2-5 min, así que después de ~3 min asumimos que la
+            // función serverless se murió por timeout y el row quedó
+            // colgado.
+            const updatedAt = report?.updated_at
+              ? new Date(report.updated_at).getTime()
+              : null;
+            const ageSec = updatedAt
+              ? Math.floor((Date.now() - updatedAt) / 1000)
+              : 0;
+            // Mostramos el botón temprano (60s) para no dejar al director
+            // mirando un loader sin salida si la función ya murió. El
+            // endpoint protege el caso real con su propio threshold de 5 min,
+            // y agrega force=true cuando el director confirma.
+            const showReset = ageSec > 60;
+            const forceReset = ageSec > 300;
+            return (
+              <div
+                style={{
+                  padding: 64,
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 32,
+                    color: "var(--sand)",
+                    marginBottom: 12,
+                  }}
+                >
+                  ⏳
+                </div>
+                <div style={{ fontSize: 14, marginBottom: 6 }}>
+                  Generando con Claude…
+                </div>
+                <div style={{ fontSize: 12 }}>
+                  {ageSec > 0
+                    ? `Llevamos ${Math.floor(ageSec / 60)}m ${ageSec % 60}s. La estrategia tarda 2-5 min.`
+                    : "Esto tarda 2-5 min para reportes largos. La página se actualiza sola."}
+                </div>
+                {showReset && isDirector && (
+                  <div style={{ marginTop: 24 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--red-warn, #b04b3a)",
+                        marginBottom: 10,
+                      }}
+                    >
+                      Lleva mucho tiempo — puede ser que la función se haya cortado.
+                    </div>
+                    <button
+                      className={ui.btnGhost}
+                      onClick={() => resetStuck(forceReset)}
+                      disabled={busy}
+                    >
+                      {busy ? "Destrabando…" : "Destrabar y reintentar"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()
         ) : !hasContent ? (
           <div
             style={{
@@ -1071,6 +1256,7 @@ export default function FaseDetailPage({
               fontSize: 13,
               background: "var(--off-white)",
               borderLeft: "3px solid var(--sand)",
+              borderRadius: "var(--r-md)",
             }}
           >
             {status === "pending"
@@ -1095,6 +1281,156 @@ export default function FaseDetailPage({
           />
         )}
       </div>
+
+      {/* Modal de feedback: el director escribe qué cambios quiere
+          y el agente regenera el reporte aplicando esos cambios
+          en modo edición (preserva verbatim lo no tocado). */}
+      {feedbackOpen && (
+        <div
+          onClick={(e) =>
+            e.target === e.currentTarget && !busy && setFeedbackOpen(false)
+          }
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.6)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 40,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              maxWidth: 620,
+              width: "100%",
+              padding: 36,
+              borderRadius: "var(--r-lg)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 600,
+                marginBottom: 12,
+              }}
+            >
+              Proponer cambios al reporte
+            </div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                marginBottom: 8,
+              }}
+            >
+              ¿Qué te gustaría que ajuste?
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              Sé específico. El agente entra en modo edición: solo cambia
+              lo que pidas, preserva el resto del reporte verbatim.
+            </p>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              rows={6}
+              autoFocus
+              placeholder="Ej: La sección de competidores tiene que enfocarse en empresas LATAM, no globales. El benchmark táctico que armaste para el sector está bien pero falta incluir TikTok como canal a explorar."
+              style={{
+                width: "100%",
+                background: "var(--ivory)",
+                border: "1px solid rgba(10,26,12,0.12)",
+                padding: 14,
+                color: "var(--deep-green)",
+                fontSize: 14,
+                fontWeight: 300,
+                outline: "none",
+                fontFamily: "inherit",
+                resize: "vertical",
+                marginBottom: 20,
+                borderRadius: "var(--r-md)",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className={ui.btnGhost}
+                onClick={() => {
+                  setFeedbackOpen(false);
+                  setFeedbackText("");
+                }}
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+              <button
+                className={ui.btnSolid}
+                onClick={submitChangesRequest}
+                disabled={busy}
+              >
+                {busy ? "Regenerando…" : "Enviar y regenerar →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de "Cambios solicitados" cuando el reporte está en
+          changes_requested. El feedback persiste hasta que se
+          regenera con éxito o el director borra. */}
+      {isChangesRequested && report?.feedback && (
+        <div
+          style={{
+            padding: "14px 18px",
+            background: "rgba(176,75,58,0.06)",
+            borderLeft: "3px solid var(--red-warn)",
+            marginTop: 24,
+            borderRadius: "var(--r-md)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--red-warn)",
+              fontWeight: 600,
+              marginBottom: 8,
+            }}
+          >
+            Cambios solicitados (pendiente de regenerar)
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--deep-green)",
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.5,
+            }}
+          >
+            {report.feedback}
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1128,6 +1464,7 @@ function Header({
           padding: 24,
           marginBottom: 24,
           borderLeft: "3px solid var(--sand)",
+          borderRadius: "var(--r-md)",
         }}
       >
         <div
@@ -1182,6 +1519,7 @@ function StatusBanner({
         alignItems: "center",
         flexWrap: "wrap",
         gap: 12,
+        borderRadius: "var(--r-md)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

@@ -127,11 +127,67 @@ export interface ClientExternalLinks {
 }
 
 /**
- * Frecuencia semanal de publicación por red social.
- * Ej: { ig: 3, tt: 5, in: 2 } = Instagram 3/sem, TikTok 5/sem, LinkedIn 2/sem.
- * Solo se incluyen las redes que el cliente usa.
+ * Frecuencia semanal de publicación por "slot" (red × formato).
+ *
+ * Ej:
+ *   { ig_feed: 3, ig_story: 7, ig_reel: 2, tt_video: 3, in_feed: 2 }
+ *   = Instagram: 3 feeds + 7 stories + 2 reels por semana,
+ *     TikTok: 3 videos por semana,
+ *     LinkedIn: 2 feeds por semana.
+ *
+ * BACK-COMPAT: las keys legacy "ig", "tt", "in", "fb" (sin sufijo de
+ * formato) se aceptan y se interpretan como "feed". Los helpers que
+ * leen este objeto las normalizan a "ig_feed", etc.
  */
-export type ContentFrequency = Partial<Record<ContentNetwork, number>>;
+export type ContentSlotKey =
+  // Instagram
+  | "ig_feed"
+  | "ig_story"
+  | "ig_reel"
+  // TikTok
+  | "tt_video"
+  | "tt_story"
+  // LinkedIn
+  | "in_feed"
+  // Facebook
+  | "fb_feed"
+  | "fb_story"
+  | "fb_reel"
+  // YouTube
+  | "yt_video"
+  | "yt_short"
+  // Legacy (se interpretan como *_feed)
+  | "ig"
+  | "tt"
+  | "in"
+  | "fb";
+
+export type ContentFrequency = Partial<Record<ContentSlotKey, number>>;
+
+/** Red social a nivel network (sin formato). Es el subset de
+ *  ContentSlotKey que representa solo la red.  */
+export type ContentNetworkKey = "ig" | "tt" | "in" | "fb" | "yt";
+
+/** Mix porcentual de tipos de contenido para una red. Los 3 valores
+ *  deberían sumar 100 pero no se valida estrictamente — el calendario
+ *  normaliza si no llegan a 100. */
+export interface ContentTypeMix {
+  /** Contenido de VALOR: educativo, informativo, expertise. */
+  valor?: number;
+  /** Contenido de OFERTA: comercial, promo, descuento, CTA directo. */
+  oferta?: number;
+  /** Contenido de ENGAGEMENT: conversacional, behind-the-scenes,
+   *  polls, UGC, comunidad. */
+  engagement?: number;
+}
+
+/** Distribución de tipos de contenido por red. Estructura del JSONB en
+ *  clients.content_mix. */
+export type ContentMix = Partial<Record<ContentNetworkKey, ContentTypeMix>>;
+
+/** Notas de estrategia por mes. Key = "YYYY-MM", value = markdown.
+ *  Aparecen en el PDF del roadmap como página intercalada. */
+export type RoadmapMonthNotes = Record<string, string>;
 
 export interface Client {
   id: string;
@@ -157,6 +213,13 @@ export interface Client {
   /** Frecuencia semanal de publicación por red. El planificador la
    *  usa para marcar los días "sugeridos" en el calendario. */
   content_frequency?: ContentFrequency;
+  /** Mix % de tipos de contenido (valor/oferta/engagement) por red.
+   *  El calendario lo usa para auto-asignar el tipo de cada posteo
+   *  sugerido (chip V/O/E). */
+  content_mix?: ContentMix;
+  /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
+   *  value = markdown. Aparece en el PDF del roadmap. */
+  roadmap_month_notes?: RoadmapMonthNotes;
 }
 
 // ==================== PIPELINE / CRM ====================
@@ -248,13 +311,23 @@ export interface ProspectCampaign {
 
 // ==================== CALENDAR ====================
 
-export type EventType = "reunion" | "cobro" | "reporte" | "dev" | "contenido";
+export type EventType =
+  | "reunion"
+  | "cobro"
+  | "reporte"
+  | "dev"
+  | "contenido"
+  | "pauta";
 
 export interface CalEvent {
   id: string;
   title: string;
   type: EventType;
-  date: string;               // YYYY-MM-DD
+  date: string;               // YYYY-MM-DD (start)
+  /** Fecha de fin (inclusiva). Si está, el evento es multi-día y se
+   *  renderiza como banda horizontal en el calendario. NULL/undefined
+   *  → evento de 1 solo día. */
+  end_date?: string | null;
   time: string;               // HH:mm
   duration: number;           // minutos
   clientId?: string;          // referencia a client.id

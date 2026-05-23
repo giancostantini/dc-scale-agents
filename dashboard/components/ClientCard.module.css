@@ -1,10 +1,13 @@
 .card {
   background: var(--white);
-  border: 1px solid rgba(10, 26, 12, 0.08);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   padding: 40px 28px;
   transition: all 0.25s;
   cursor: pointer;
   position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14,9 +17,9 @@
 }
 
 .card:hover {
-  border-color: var(--sand);
+  border-color: var(--accent);
   transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(10, 26, 12, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .statusBar {
@@ -24,7 +27,7 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
   background: var(--sand);
 }
 
@@ -46,6 +49,7 @@
   text-transform: uppercase;
   padding: 5px 12px;
   font-weight: 600;
+  border-radius: var(--r-pill);
   margin-bottom: 28px;
 }
 
@@ -64,6 +68,7 @@
   height: 82px;
   background: var(--deep-green);
   color: var(--sand);
+  border-radius: var(--r-lg);
   display: flex;
   align-items: center;
   justify-content: center;

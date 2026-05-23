@@ -142,12 +142,16 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .btnPrimary:hover {
   background: #1f3a26;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ======== KPIs ======== */
@@ -157,6 +161,9 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
   margin-bottom: 32px;
   background: var(--white);
 }
@@ -197,6 +204,8 @@
 .table {
   background: var(--white);
   border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   padding: 28px;
   margin-bottom: 28px;
 }
@@ -265,6 +274,7 @@
   text-transform: uppercase;
   font-weight: 600;
   display: inline-block;
+  border-radius: var(--r-pill);
 }
 
 .pillPaid {

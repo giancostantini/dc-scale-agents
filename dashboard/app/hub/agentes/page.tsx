@@ -97,6 +97,7 @@ export default function HubAgentesPage() {
                   border: "1px solid rgba(10,26,12,0.15)",
                   cursor: "pointer",
                   fontFamily: "inherit",
+                  borderRadius: "var(--r-sm)",
                 }}
               >
                 {k === "all" ? "Todos" : k}
@@ -112,6 +113,8 @@ export default function HubAgentesPage() {
               textAlign: "center",
               border: "1px dashed rgba(10,26,12,0.12)",
               background: "var(--white)",
+              borderRadius: "var(--r-md)",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div style={{ fontSize: 20, fontWeight: 600, color: "var(--deep-green)", marginBottom: 10 }}>
@@ -122,7 +125,7 @@ export default function HubAgentesPage() {
             </div>
           </div>
         ) : (
-          <div style={{ background: "var(--white)", border: "1px solid rgba(10,26,12,0.08)" }}>
+          <div style={{ background: "var(--white)", border: "1px solid rgba(10,26,12,0.08)", borderRadius: "var(--r-lg)", boxShadow: "var(--shadow-sm)" }}>
             <div
               style={{
                 display: "grid",
@@ -189,6 +192,7 @@ export default function HubAgentesPage() {
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
                       fontWeight: 700,
+                      borderRadius: "var(--r-pill)",
                       background:
                         r.status === "success"
                           ? "rgba(58,139,92,0.18)"

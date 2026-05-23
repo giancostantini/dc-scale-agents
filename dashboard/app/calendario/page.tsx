@@ -25,6 +25,7 @@ const TYPE_STYLE: Record<
   reporte:   { className: "calEventReporte",   label: "Reportes",   color: "var(--sand)" },
   dev:       { className: "calEventDev",       label: "Dev",        color: "var(--sand-dark)" },
   contenido: { className: "calEventContenido", label: "Contenido",  color: "var(--forest-2)" },
+  pauta:     { className: "calEventPauta",     label: "Pauta",      color: "#b04b3a" },
 };
 
 export default function CalendarioPage() {

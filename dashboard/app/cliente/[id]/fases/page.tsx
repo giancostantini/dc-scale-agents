@@ -155,6 +155,8 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
           padding: 32,
           marginBottom: 28,
           borderLeft: "3px solid var(--sand)",
+          borderRadius: "var(--r-md)",
+          boxShadow: "var(--shadow-sm)",
           cursor: "pointer",
         }}
         onClick={() => router.push(`/cliente/${id}/fases/kickoff`)}
@@ -226,6 +228,7 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
                 textTransform: "uppercase",
                 fontWeight: 700,
                 display: "inline-block",
+                borderRadius: "var(--r-pill)",
               }}
             >
               ✓ Cargado
@@ -252,6 +255,7 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
             padding: "12px 18px",
             background: "rgba(196,168,130,0.12)",
             borderLeft: "3px solid var(--sand)",
+            borderRadius: "var(--r-md)",
             fontSize: 13,
             color: "var(--deep-green)",
             marginBottom: 24,
@@ -292,6 +296,8 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
                   : "var(--white)",
                 border: "1px solid rgba(10,26,12,0.08)",
                 borderLeft: `3px solid ${color}`,
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-sm)",
                 cursor: isLocked ? "not-allowed" : "pointer",
                 opacity: isLocked ? 0.55 : 1,
                 transition: "all 0.2s",
@@ -361,6 +367,7 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  borderRadius: "var(--r-md)",
                 }}
               >
                 <div>

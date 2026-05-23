@@ -1,5 +1,5 @@
 -- ============================================================
--- Migración 031: cal_events.owner_user_id
+-- Migración 033: cal_events.owner_user_id
 -- ============================================================
 -- Objetivo:
 --   Cada usuario que conecta su Outlook ve sus propios eventos. Para

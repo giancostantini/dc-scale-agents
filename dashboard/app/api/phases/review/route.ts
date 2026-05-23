@@ -16,6 +16,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+
+// Vercel route config: el análisis crítico también es largo, le damos
+// hasta 300s. Default de Pro es 60s y muchos reviews lo pasan.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 type PhaseKey = (typeof PHASES)[number];
@@ -41,13 +47,22 @@ const EXPECTED_SECTIONS: Record<PhaseKey, string[]> = {
     "Conclusión y próximos pasos",
   ],
   estrategia: [
-    "Resumen ejecutivo",
-    "Buyer personas",
-    "Posicionamiento",
-    "Plan de medios",
-    "KPIs objetivo",
-    "Roadmap táctico",
-    "Conclusión",
+    "Resumen ejecutivo del lanzamiento",
+    "Objetivos del lanzamiento",
+    "Definición del público objetivo",
+    "Propuesta de valor",
+    "Posicionamiento y narrativa de marca",
+    "Estrategia de canales digitales",
+    "Funnel de lanzamiento",
+    "Plan de contenidos",
+    "Estrategia de paid media",
+    "Estrategia de influencers y alianzas",
+    "Estrategia comercial y promocional",
+    "Cronograma de lanzamiento",
+    "Presupuesto estimado",
+    "Dashboard y reporting",
+    "Riesgos y plan de contingencia",
+    "Conclusiones y próximos pasos",
   ],
   setup: [
     "Resumen ejecutivo",
@@ -191,7 +206,7 @@ Generá el análisis siguiendo la estructura del system prompt.`;
   let reviewMd: string;
   try {
     const resp = await anthropic.messages.create({
-      model: "claude-opus-4-7",
+      model: CLAUDE_MODEL_OPUS,
       max_tokens: 2500,
       system: REVIEW_SYSTEM,
       messages: [{ role: "user", content: userPrompt }],

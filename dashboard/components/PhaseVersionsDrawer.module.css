@@ -25,7 +25,9 @@
   z-index: 101;
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 32px rgba(10, 26, 12, 0.15);
+  box-shadow: -8px 0 32px rgba(10, 26, 12, 0.15), var(--shadow-md);
+  border-top-left-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-lg);
   animation: slideIn 0.2s ease-out;
 }
 
@@ -77,15 +79,18 @@
   border: 1px solid rgba(10, 26, 12, 0.15);
   color: #0a1a0c;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   font-size: 12px;
   cursor: pointer;
   font-weight: 500;
   flex-shrink: 0;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .closeBtn:hover {
   background: rgba(10, 26, 12, 0.05);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ===== Selectores de versión ===== */
@@ -117,7 +122,7 @@
 .select {
   background: #ffffff;
   border: 1px solid rgba(10, 26, 12, 0.18);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 6px 10px;
   font-size: 13px;
   color: #0a1a0c;
@@ -184,7 +189,7 @@
   text-align: center;
   background: #faf8f3;
   border: 1px dashed rgba(10, 26, 12, 0.15);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   color: #5a6a5e;
   font-size: 13px;
   line-height: 1.6;
@@ -200,7 +205,8 @@
   font-size: 12.5px;
   line-height: 1.55;
   border: 1px solid rgba(10, 26, 12, 0.1);
-  border-radius: 6px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -277,7 +283,7 @@
   border-left: 3px solid #c4a882;
   padding: 10px 14px;
   margin-bottom: 16px;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 var(--r-md) var(--r-md) 0;
   font-size: 12.5px;
   color: #5a6a5e;
   line-height: 1.5;

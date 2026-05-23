@@ -1,5 +1,5 @@
 -- ============================================================
--- Migración 030: outlook_connections (per-user OAuth)
+-- Migración 032: outlook_connections (per-user OAuth)
 -- ============================================================
 -- Objetivo:
 --   Reemplaza outlook_subscriptions (single global subscription para el

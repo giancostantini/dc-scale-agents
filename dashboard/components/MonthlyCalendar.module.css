@@ -3,6 +3,8 @@
   border: 1px solid rgba(10, 26, 12, 0.06);
   padding: 22px 26px 28px;
   box-shadow: 0 1px 3px rgba(10, 26, 12, 0.04);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
 }
 
 /* ===== Header ===== */
@@ -34,13 +36,16 @@
   font-family: inherit;
   font-size: 16px;
   color: var(--deep-green);
-  transition: border-color 180ms ease-out, background 180ms ease-out;
-  border-radius: 1px;
+  transition: border-color 180ms ease-out, background 180ms ease-out,
+    box-shadow 180ms ease-out, transform 180ms ease-out;
+  border-radius: var(--r-sm);
 }
 
 .navBtn:hover {
   border-color: var(--sand);
   background: rgba(196, 168, 130, 0.08);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ===== Legend ===== */
@@ -91,6 +96,8 @@
   background: rgba(10, 26, 12, 0.06);
   border: 1px solid rgba(10, 26, 12, 0.06);
   border-bottom: none;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  overflow: hidden;
 }
 
 .weekHeaderCell {
@@ -112,6 +119,8 @@
   gap: 1px;
   background: rgba(10, 26, 12, 0.06);
   border: 1px solid rgba(10, 26, 12, 0.06);
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  overflow: hidden;
 }
 
 .cell {
@@ -193,6 +202,7 @@
   background: rgba(176, 75, 58, 0.08);
   border-left: 3px solid var(--red-warn);
   color: var(--red-warn);
+  border-radius: var(--r-md);
 }
 
 .empty {
@@ -200,6 +210,7 @@
   border-left: 2px solid rgba(196, 168, 130, 0.35);
   color: var(--text-muted);
   line-height: 1.55;
+  border-radius: var(--r-md);
 }
 
 /* ===== Drawer (eventos del día clickeado) ===== */
@@ -233,6 +244,8 @@
   box-shadow: 0 16px 48px rgba(10, 26, 12, 0.32);
   border-top: 3px solid var(--sand);
   animation: slideUp 220ms ease-out;
+  border-radius: var(--r-lg);
+  overflow: hidden;
 }
 
 @keyframes slideUp {
@@ -280,12 +293,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 1px;
+  border-radius: var(--r-sm);
+  transition: border-color 180ms ease-out, color 180ms ease-out,
+    box-shadow 180ms ease-out, transform 180ms ease-out;
 }
 
 .drawerClose:hover {
   border-color: var(--deep-green);
   color: var(--deep-green);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .drawerBody {
@@ -344,14 +361,17 @@
   cursor: pointer;
   text-decoration: none;
   font-family: inherit;
-  transition: border-color 180ms ease-out, color 180ms ease-out;
-  border-radius: 1px;
+  transition: border-color 180ms ease-out, color 180ms ease-out,
+    box-shadow 180ms ease-out, transform 180ms ease-out;
+  border-radius: var(--r-sm);
   flex-shrink: 0;
 }
 
 .eventBtn:hover {
   color: var(--deep-green);
   border-color: var(--deep-green);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* ===== Mobile ===== */
