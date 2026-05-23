@@ -1,5 +1,5 @@
 -- ============================================================
--- Migración 024: clients.looker_studio_url
+-- Migración 027: clients.looker_studio_url
 -- ============================================================
 -- Objetivo:
 --   El portal del cliente reemplaza los KPI charts internos (recharts

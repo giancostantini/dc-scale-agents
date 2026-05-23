@@ -1,85 +1,210 @@
 /**
- * Microsoft Graph — helpers minimal para sync de calendario.
+ * Microsoft Graph — OAuth delegated flow + helpers para sync de calendario.
  *
- * Auth: client_credentials grant (app-only). Requiere registrar una app en
- * Azure AD con permiso `Calendars.Read` (Application). El director da
- * admin consent una vez; después la app accede al mailbox del director
- * vía app token sin interacción de user.
+ * Cada usuario conecta su propio Outlook vía OAuth (consent screen
+ * personal). Persistimos refresh_token cifrado en outlook_connections.
+ * Cuando hace falta llamar Graph, intercambiamos el refresh_token por
+ * un access_token fresco si el cacheado expiró.
  *
  * Env vars:
- *   MS_TENANT_ID         — GUID del tenant Azure AD
- *   MS_CLIENT_ID         — application (client) id de la app registrada
- *   MS_CLIENT_SECRET     — client secret de la app
- *   MS_DIRECTOR_USER_ID  — ObjectId del director en Azure AD
- *                          (usuario cuyo calendario se sincroniza)
- *   MS_WEBHOOK_URL       — URL pública del endpoint webhook
- *                          (ej. https://sistemadearmascostantini.com/api/calendar/outlook/webhook)
- *   MS_WEBHOOK_CLIENT_STATE — string secreto que Microsoft rebota en cada
- *                          notificación; validamos para descartar requests falsas.
+ *   MS_TENANT_ID                 — GUID del tenant (puede ser "common"
+ *                                  para multi-tenant; usamos el GUID)
+ *   MS_CLIENT_ID                 — application (client) id
+ *   MS_CLIENT_SECRET             — client secret
+ *   MS_REDIRECT_URI              — https://.../api/auth/outlook/callback
+ *   MS_WEBHOOK_URL               — URL pública del webhook
+ *   MS_WEBHOOK_CLIENT_STATE      — secreto que rebotamos en notifs
+ *   OUTLOOK_TOKEN_ENCRYPTION_KEY — clave AES-256 hex (32 bytes)
  *
- * Setup manual (una sola vez):
- *   1. portal.azure.com → App registrations → New
- *   2. API permissions → Microsoft Graph → Application → Calendars.Read
- *   3. Grant admin consent (con cuenta director)
- *   4. Certificates & secrets → New client secret → guardar valor
- *   5. Setear las 5 env vars de arriba en Vercel
- *   6. Llamar POST /api/calendar/outlook/subscribe (una vez) para arrancar
+ * Scopes que pedimos:
+ *   - User.Read       → necesario para obtener email del user
+ *   - Calendars.Read  → leer eventos
+ *   - offline_access  → emitir refresh_token
  */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { decryptToken, encryptToken } from "@/lib/token-crypto";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-const TOKEN_TTL_BUFFER_MS = 5 * 60 * 1000; // 5min antes de expirar, renovamos
+const TOKEN_TTL_BUFFER_MS = 5 * 60 * 1000; // refresh 5min antes de expirar
 
-interface CachedToken {
-  token: string;
-  expiresAt: number;
+export const OAUTH_SCOPES = [
+  "openid",
+  "profile",
+  "email",
+  "offline_access",
+  "User.Read",
+  "Calendars.Read",
+].join(" ");
+
+// ---------------------------------------------------------------------------
+// OAuth: building URL + code exchange
+// ---------------------------------------------------------------------------
+
+function authBaseUrl(): string {
+  const tenant = requireEnv("MS_TENANT_ID");
+  return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0`;
 }
 
-let cachedToken: CachedToken | null = null;
-
 /**
- * Obtiene un app-only access token via client_credentials. Cachea hasta
- * 5min antes de expirar. Tokens dura típicamente 1h.
+ * URL para mandar al user al consent screen de Microsoft. `state` es
+ * opaque (CSRF + returnTo): lo emite el endpoint /start, lo valida el
+ * callback.
  */
-export async function getAppToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + TOKEN_TTL_BUFFER_MS) {
-    return cachedToken.token;
-  }
+export function buildAuthorizationUrl(state: string): string {
+  const clientId = requireEnv("MS_CLIENT_ID");
+  const redirectUri = requireEnv("MS_REDIRECT_URI");
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: redirectUri,
+    response_mode: "query",
+    scope: OAUTH_SCOPES,
+    state,
+    prompt: "select_account", // permitir al user elegir si tiene varias cuentas
+  });
+  return `${authBaseUrl()}/authorize?${params.toString()}`;
+}
 
-  const tenant = requireEnv("MS_TENANT_ID");
+export interface TokenSet {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number; // segundos
+  scope: string;
+  token_type: string;
+  id_token?: string;
+}
+
+export async function exchangeCodeForTokens(code: string): Promise<TokenSet> {
   const clientId = requireEnv("MS_CLIENT_ID");
   const clientSecret = requireEnv("MS_CLIENT_SECRET");
+  const redirectUri = requireEnv("MS_REDIRECT_URI");
 
-  const res = await fetch(
-    `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: clientId,
-        client_secret: clientSecret,
-        scope: "https://graph.microsoft.com/.default",
-      }),
-    },
-  );
+  const res = await fetch(`${authBaseUrl()}/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+      scope: OAUTH_SCOPES,
+    }),
+  });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Microsoft auth failed (${res.status}): ${body}`);
+    throw new Error(`OAuth code exchange failed (${res.status}): ${body}`);
+  }
+  return (await res.json()) as TokenSet;
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<TokenSet> {
+  const clientId = requireEnv("MS_CLIENT_ID");
+  const clientSecret = requireEnv("MS_CLIENT_SECRET");
+
+  const res = await fetch(`${authBaseUrl()}/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+      scope: OAUTH_SCOPES,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`OAuth refresh failed (${res.status}): ${body}`);
+  }
+  return (await res.json()) as TokenSet;
+}
+
+// ---------------------------------------------------------------------------
+// Per-user access token (con auto-refresh)
+// ---------------------------------------------------------------------------
+
+/**
+ * Devuelve un access_token válido para el user, refrescando si está
+ * por expirar. Persiste el nuevo token cifrado en outlook_connections.
+ * Lanza si el user no tiene conexión.
+ *
+ * NOTA: requiere el admin Supabase client (service role).
+ */
+export async function getUserAccessToken(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<string> {
+  const { data: conn, error } = await admin
+    .from("outlook_connections")
+    .select("access_token_encrypted, access_token_expires_at, refresh_token_encrypted")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`outlook_connections lookup failed: ${error.message}`);
+  }
+  if (!conn) {
+    throw new Error(`No Outlook connection for user ${userId}`);
   }
 
-  const data = (await res.json()) as {
-    access_token: string;
-    expires_in: number; // seconds
-  };
+  const now = Date.now();
+  const expiresAt = new Date(conn.access_token_expires_at as string).getTime();
 
-  cachedToken = {
-    token: data.access_token,
-    expiresAt: now + data.expires_in * 1000,
-  };
+  // Si todavía está fresco, devolver el cacheado descifrado
+  if (expiresAt > now + TOKEN_TTL_BUFFER_MS) {
+    return decryptToken(conn.access_token_encrypted as string);
+  }
 
-  return data.access_token;
+  // Refresh
+  const refreshToken = decryptToken(conn.refresh_token_encrypted as string);
+  const fresh = await refreshAccessToken(refreshToken);
+  const newExpiresAt = new Date(
+    now + fresh.expires_in * 1000,
+  ).toISOString();
+
+  // Microsoft puede rotar el refresh_token; si vino uno nuevo, persistir.
+  const updates: Record<string, string> = {
+    access_token_encrypted: encryptToken(fresh.access_token),
+    access_token_expires_at: newExpiresAt,
+  };
+  if (fresh.refresh_token) {
+    updates.refresh_token_encrypted = encryptToken(fresh.refresh_token);
+  }
+
+  await admin
+    .from("outlook_connections")
+    .update(updates)
+    .eq("user_id", userId);
+
+  return fresh.access_token;
+}
+
+// ---------------------------------------------------------------------------
+// Graph API calls — con token delegated del user
+// ---------------------------------------------------------------------------
+
+export interface GraphMeProfile {
+  id: string;           // ObjectId
+  mail?: string;
+  userPrincipalName?: string;
+  displayName?: string;
+}
+
+export async function fetchMeProfile(
+  accessToken: string,
+): Promise<GraphMeProfile> {
+  const res = await fetch(`${GRAPH_BASE}/me?$select=id,mail,userPrincipalName,displayName`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Graph /me failed (${res.status}): ${body}`);
+  }
+  return (await res.json()) as GraphMeProfile;
 }
 
 export interface OutlookAttendee {
@@ -102,19 +227,17 @@ export interface OutlookEvent {
 }
 
 /**
- * GET /users/{userId}/events/{eventId} — recupera el detalle de un evento
- * a partir del `resourceData.id` que viene en el webhook.
+ * GET /me/events/{id} con delegated token. Funciona porque el user que
+ * conectó posee el evento (es organizer o attendee con acceso).
  */
 export async function fetchEvent(
-  userId: string,
+  accessToken: string,
   eventId: string,
 ): Promise<OutlookEvent | null> {
-  const token = await getAppToken();
   const res = await fetch(
-    `${GRAPH_BASE}/users/${encodeURIComponent(userId)}/events/${encodeURIComponent(eventId)}`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    `${GRAPH_BASE}/me/events/${encodeURIComponent(eventId)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-
   if (res.status === 404) return null;
   if (!res.ok) {
     const body = await res.text();
@@ -123,45 +246,44 @@ export async function fetchEvent(
   return (await res.json()) as OutlookEvent;
 }
 
-export interface SubscriptionInput {
-  resource: string;
-  changeType: "created,updated,deleted" | "created" | "updated" | "deleted";
-  notificationUrl: string;
-  clientState: string;
-  expirationMinutesFromNow?: number; // default: 4230 (~2.94 días)
-}
+// ---------------------------------------------------------------------------
+// Subscriptions (per-user, sobre /me/events)
+// ---------------------------------------------------------------------------
 
 export interface SubscriptionResponse {
   id: string;
   resource: string;
-  expirationDateTime: string; // ISO
+  expirationDateTime: string;
   clientState?: string;
 }
 
+const SUBSCRIPTION_MAX_MINUTES = 4230; // ~2.94 días — máximo para events
+
 /**
- * POST /subscriptions — crea una nueva subscription. Para eventos de
- * calendario, el TTL máximo es ~3 días (4230 minutos). Devolvemos el
- * subscription_id y expires_at para persistir.
+ * Crea una subscription delegada al /me/events del user. Microsoft envía
+ * notifs al MS_WEBHOOK_URL cuando hay create/update/delete.
  */
-export async function createSubscription(
-  input: SubscriptionInput,
+export async function createMeSubscription(
+  accessToken: string,
 ): Promise<SubscriptionResponse> {
-  const token = await getAppToken();
-  const minutes = input.expirationMinutesFromNow ?? 4230;
-  const expires = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  const notificationUrl = requireEnv("MS_WEBHOOK_URL");
+  const clientState = requireEnv("MS_WEBHOOK_CLIENT_STATE");
+  const expires = new Date(
+    Date.now() + SUBSCRIPTION_MAX_MINUTES * 60 * 1000,
+  ).toISOString();
 
   const res = await fetch(`${GRAPH_BASE}/subscriptions`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      changeType: input.changeType,
-      notificationUrl: input.notificationUrl,
-      resource: input.resource,
+      changeType: "created,updated,deleted",
+      notificationUrl,
+      resource: "/me/events",
       expirationDateTime: expires,
-      clientState: input.clientState,
+      clientState,
     }),
   });
 
@@ -172,17 +294,12 @@ export async function createSubscription(
   return (await res.json()) as SubscriptionResponse;
 }
 
-/**
- * PATCH /subscriptions/{id} — renueva el expirationDateTime. Si la
- * subscription ya expiró (404), el caller la recrea.
- */
 export async function renewSubscription(
+  accessToken: string,
   subscriptionId: string,
-  expirationMinutesFromNow: number = 4230,
 ): Promise<SubscriptionResponse | null> {
-  const token = await getAppToken();
   const expires = new Date(
-    Date.now() + expirationMinutesFromNow * 60 * 1000,
+    Date.now() + SUBSCRIPTION_MAX_MINUTES * 60 * 1000,
   ).toISOString();
 
   const res = await fetch(
@@ -190,14 +307,14 @@ export async function renewSubscription(
     {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ expirationDateTime: expires }),
     },
   );
 
-  if (res.status === 404) return null;
+  if (res.status === 404) return null; // expiró del lado MS, recrear
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Graph renewSubscription failed (${res.status}): ${body}`);
@@ -205,19 +322,15 @@ export async function renewSubscription(
   return (await res.json()) as SubscriptionResponse;
 }
 
-/**
- * DELETE /subscriptions/{id} — cierra la subscription. Útil si queremos
- * desactivar el sync (ej. cambio de tenant) o cleanup.
- */
 export async function deleteSubscription(
+  accessToken: string,
   subscriptionId: string,
 ): Promise<boolean> {
-  const token = await getAppToken();
   const res = await fetch(
     `${GRAPH_BASE}/subscriptions/${encodeURIComponent(subscriptionId)}`,
     {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
   return res.ok || res.status === 404;

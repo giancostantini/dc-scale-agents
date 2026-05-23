@@ -33,22 +33,6 @@
     0 12px 32px rgba(10, 26, 12, 0.12);
 }
 
-/* Glow decorativo en la esquina superior derecha — refuerza la sensación
-   "glass premium" sin saturar la composición. */
-.cardGlow {
-  position: absolute;
-  top: -40px;
-  right: -40px;
-  width: 160px;
-  height: 160px;
-  background: radial-gradient(
-    circle,
-    rgba(196, 168, 130, 0.35) 0%,
-    rgba(196, 168, 130, 0) 70%
-  );
-  pointer-events: none;
-}
-
 .header {
   display: flex;
   align-items: center;

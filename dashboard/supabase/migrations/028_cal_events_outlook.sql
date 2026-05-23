@@ -1,5 +1,5 @@
 -- ============================================================
--- Migración 025: cal_events.external_id + source (sync con Outlook)
+-- Migración 028: cal_events.external_id + source (sync con Outlook)
 -- ============================================================
 -- Objetivo:
 --   Permitir sync one-way Outlook → portal: cuando el director crea/

@@ -5,16 +5,21 @@
 ### ¿Qué es exactamente lo que veo en el portal?
 
 Tu portal es la vista en vivo de todo lo que el equipo de D&C está haciendo con tu cuenta. Vas a ver:
-- KPIs del mes (ROAS, leads, CAC, conversiones)
+- Tu dashboard de métricas en vivo (ROAS, leads, CAC, conversiones) en Looker Studio
 - Tu fase del negocio actual y los reportes de fases anteriores
-- Próximas reuniones con el equipo
+- Tu calendario de reuniones (sincronizado con Outlook)
 - Contenido publicado y campañas activas
-- Estado de tus pagos
+- El estado de tu pago del mes (en el indicador del header)
 - Tus solicitudes y cómo van
+- D&C Advisor, tu asistente IA con contexto de toda tu cuenta
 
 ### ¿Quién más puede ver esto?
 
 Solo vos y tu equipo de D&C (director y account leads asignados). Otros clientes nunca ven tu información — la base de datos lo bloquea por arquitectura, no por confianza.
+
+### ¿Y las conexiones de Meta Ads, Google Ads, GA4?
+
+Esas las configura el equipo de D&C directamente con tus programadores o con vos cuando haga falta — no es algo que tengas que hacer desde el portal. Si te falta dar un acceso, tu account lead te lo va a pedir puntualmente.
 
 ### Si tengo un cambio en mi negocio (nuevo producto, cambio de ICP), ¿dónde lo cargo?
 
@@ -22,23 +27,19 @@ Cargá una **Solicitud** desde el menú correspondiente. El equipo la revisa, as
 
 ---
 
-## Sobre las conexiones
+## Sobre el calendario
 
-### ¿Por qué me piden conectar Meta Ads, Google Ads, GA4, etc.?
+### ¿Cómo aparecen las reuniones en mi calendario?
 
-Sin esos accesos, el equipo y los agentes IA no pueden leer datos reales de tu negocio. Sin datos reales, las recomendaciones son genéricas y los reportes incompletos. Las conexiones son el primer paso para que todo funcione.
+Conectá tu cuenta de Outlook desde la pantalla de **Calendario** (botón "Conectar Outlook"). Una vez conectada, tus reuniones aparecen acá automáticamente: cuando creás, editás o cancelás un evento en Outlook, el calendario del portal se actualiza solo.
 
-### ¿Es seguro pegar mis credenciales / IDs en el portal?
+### ¿La sincronización es en los dos sentidos?
 
-Sí. No te pedimos passwords. Te pedimos identificadores públicos (Pixel ID, Customer ID de Google Ads, número de WhatsApp Business) y, para ciertos servicios, el email con el que ya nos diste acceso compartido. Todo queda guardado con encriptación a nivel base de datos y solo el director y los team leads asignados a tu cuenta pueden verlo.
+No. Por ahora es de una sola vía: lo que está en tu Outlook aparece en el portal. Si querés agendar una reunión con nosotros, usá el botón **"Agendar con D&C"** — abre Outlook con la invitación lista para enviarnos.
 
-### ¿Qué pasa si todavía no tengo cuenta de Meta Business / Google Ads?
+### ¿Es seguro conectar mi Outlook?
 
-Avisá al equipo. En el modal de conexión vas a ver un botón "Avisar al equipo" que crea una notificación interna y tu account lead te contacta para coordinar la creación.
-
-### Conecté algo y la métrica todavía no aparece en el portal
-
-Las métricas se sincronizan periódicamente, no en tiempo real. Dale entre 24 y 48 horas. Si después de ese tiempo seguís sin verlas, hablá con tu account lead.
+Sí. Usamos el login oficial de Microsoft (nunca vemos tu contraseña) y solo pedimos permiso de **lectura** de tu calendario. Podés desconectarlo cuando quieras desde la misma pantalla; tus datos de acceso quedan cifrados.
 
 ---
 
@@ -48,17 +49,35 @@ Las métricas se sincronizan periódicamente, no en tiempo real. Dale entre 24 y
 
 Trabajamos en 4 fases secuenciales: **Diagnóstico → Estrategia → Setup → Lanzamiento**. Cada fase termina con un reporte que el equipo te presenta para aprobación. Hasta que no aprobás una fase, no avanzamos a la siguiente.
 
-### ¿Por qué solo veo el "Resumen ejecutivo" de los reportes?
+### ¿Dónde veo el reporte de cada fase?
 
-El portal muestra el resumen para que sea de lectura rápida. El reporte completo te lo presenta tu account lead en la reunión de cierre de fase. Si querés acceder al texto completo, pedíselo en una solicitud.
+Click en cualquier fase de la barra "Tu fase del negocio". Se abre un panel con el resumen ejecutivo y, si el reporte está aprobado, un botón **"Ver PDF"** para abrir el documento completo y **"Comentar"** para dejar feedback.
 
 ### ¿Cómo dejo feedback sobre un reporte?
 
-Click en **"Comentar"** en cualquier reporte aprobado y se abre un panel donde podés escribir tu feedback. El equipo lo recibe como notificación y te responde en el mismo hilo.
+Click en **"Comentar"** dentro del panel de la fase aprobada y se abre un espacio donde escribís tu feedback. El equipo lo recibe como notificación y te responde en el mismo hilo.
 
-### Vi un reporte que dice "borrador" o "en revisión", ¿qué significa?
+### Vi una fase que dice "borrador" o "en revisión", ¿qué significa?
 
 El equipo lo está terminando o el director lo está revisando antes de aprobarlo. Solo vas a ver el contenido cuando esté en estado **aprobado**.
+
+---
+
+## Sobre los pagos
+
+### ¿Dónde veo el estado de mi pago?
+
+En el indicador de pago del header (arriba a la derecha). Muestra una barra de progreso con color según la fecha:
+- **Verde**: pagado, al día.
+- **Neutro**: el pago todavía no entró en ventana (antes del día 4).
+- **Ámbar**: estás en la ventana de cobro (4 al 9 del mes).
+- **Rojo**: venció (pasó el día 9 sin registrarse el pago).
+
+Tocá el indicador para ver el detalle: monto, fecha de vencimiento y cómo coordinar el pago.
+
+### La fecha de pago es entre el 4 y el 9, ¿es siempre así?
+
+Sí, la ventana de cobro es del 4 al 9 de cada mes. Si necesitás coordinar algo distinto, escribile a tu account lead o cargá una solicitud desde el detalle del pago.
 
 ---
 
@@ -99,7 +118,7 @@ Cualquier cosa sobre tu cuenta. Algunos ejemplos:
 
 ### ¿Tiene memoria de conversaciones anteriores?
 
-No. Cada vez que entrás al portal, el chat empieza limpio (con un resumen del día). Si querés que el equipo recuerde algo importante, cargalo como solicitud.
+Sí. Tus conversaciones quedan guardadas y el Advisor las usa como contexto para darte continuidad — recuerda lo que hablaron antes. Podés ver el historial y abrir conversaciones nuevas cuando quieras.
 
 ### ¿Puede tomar acciones (lanzar campañas, modificar cosas)?
 

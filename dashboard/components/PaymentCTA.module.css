@@ -1,161 +1,261 @@
 /* ================================================================
    PaymentCTA — Indicador de pago en el PortalHeader.
-   Semáforo glass con color según fecha y estado del pago.
+   Botón compacto con barra de progreso + popover de detalle.
+   Vive sobre el header deep-green, así que el texto va claro.
    ================================================================ */
 
-.cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px 8px 10px;
-  border-radius: var(--r-pill);
-  text-decoration: none;
-  font-family: inherit;
+.wrapper {
   position: relative;
-  overflow: hidden;
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    background 180ms ease-out;
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+  padding: 8px 14px 9px;
+  border-radius: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition:
+    background 180ms ease-out,
+    border-color 180ms ease-out,
+    transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cta:hover {
+  background: rgba(255, 255, 255, 0.14);
   transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.ctaTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dot {
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  line-height: 1.15;
-  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--off-white);
 }
 
 .label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
-.fee {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-/* ============ Variantes de color (semáforo) ============ */
-
-/* GREEN — pagado */
-.color_green {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   color: var(--off-white);
-  background: linear-gradient(135deg, var(--green-ok), #4aa86d);
-  border-color: rgba(74, 168, 109, 0.5);
+  white-space: nowrap;
 }
+
+/* ===== Barra de progreso ===== */
+
+.progressTrack {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Variantes de color (solo dot + fill, no fondo sólido) ===== */
 
 .color_green .dot {
-  background: rgba(255, 255, 255, 0.22);
-  color: var(--off-white);
+  background: rgba(58, 139, 92, 0.9);
 }
-
-/* NEUTRAL — antes del rango */
-.color_neutral {
-  color: var(--off-white);
-  background: linear-gradient(
-    135deg,
-    rgba(196, 168, 130, 0.35),
-    rgba(196, 168, 130, 0.18)
-  );
-  border-color: rgba(196, 168, 130, 0.45);
+.color_green .progressFill {
+  background: linear-gradient(90deg, var(--green-ok), #4aa86d);
 }
 
 .color_neutral .dot {
-  background: rgba(196, 168, 130, 0.5);
-  color: var(--off-white);
+  background: rgba(196, 168, 130, 0.6);
 }
-
-/* AMBER — vence en ventana */
-.color_amber {
-  color: #1a1108;
-  background: linear-gradient(135deg, #ffc94a, #d99a2a);
-  border-color: rgba(217, 154, 42, 0.6);
+.color_neutral .progressFill {
+  background: linear-gradient(90deg, var(--sand-dark), var(--sand));
 }
 
 .color_amber .dot {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(217, 154, 42, 0.95);
   color: #1a1108;
 }
+.color_amber .progressFill {
+  background: linear-gradient(90deg, #d99a2a, #ffc94a);
+}
 
-.color_amber .label {
+.color_red {
+  border-color: rgba(176, 75, 58, 0.5);
+  background: rgba(176, 75, 58, 0.16);
+}
+.color_red:hover {
+  background: rgba(176, 75, 58, 0.24);
+}
+.color_red .dot {
+  background: var(--red-warn);
+}
+.color_red .progressFill {
+  background: linear-gradient(90deg, #c05a48, var(--red-warn));
+}
+
+/* ===== Popover ===== */
+
+.popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  min-width: 280px;
+  padding: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.82) 100%
+  );
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 16px 40px rgba(10, 26, 12, 0.22);
+  animation: popIn 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top right;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(10, 26, 12, 0.08);
+}
+
+.popEyebrow {
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
   font-weight: 700;
 }
 
-/* RED — vencido (pulsa suave para llamar la atención) */
-.color_red {
+.popStatus {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.pop_green {
+  color: var(--green-ok);
+}
+.pop_neutral {
+  color: var(--sand-dark);
+}
+.pop_amber {
+  color: #b07d1a;
+}
+.pop_red {
+  color: var(--red-warn);
+}
+
+.popRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.popRowLabel {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.popRowValue {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--deep-green);
+}
+
+.popDone {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(58, 139, 92, 0.10);
+  border: 1px solid rgba(58, 139, 92, 0.3);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--green-ok);
+  font-weight: 600;
+  text-align: center;
+}
+
+.popAction {
+  display: block;
+  margin-top: 14px;
+  padding: 11px 16px;
+  background: linear-gradient(135deg, var(--deep-green), var(--forest-2));
   color: var(--off-white);
-  background: linear-gradient(135deg, var(--red-warn), #c05a48);
-  border-color: rgba(176, 75, 58, 0.6);
-  animation: redPulse 2.2s ease-in-out infinite;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 6px 16px rgba(10, 26, 12, 0.2);
+  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.color_red .dot {
-  background: rgba(255, 255, 255, 0.22);
-  color: var(--off-white);
+.popAction:hover {
+  transform: translateY(-1px);
 }
 
-@keyframes redPulse {
-  0%, 100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.15),
-      0 2px 8px rgba(176, 75, 58, 0.35),
-      0 0 0 0 rgba(176, 75, 58, 0.5);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 2px 8px rgba(176, 75, 58, 0.4),
-      0 0 0 6px rgba(176, 75, 58, 0);
-  }
-}
-
-/* ============ Responsive ============ */
+/* ===== Responsive ===== */
 
 @media (max-width: 700px) {
   .cta {
-    padding: 6px 12px 6px 8px;
-    gap: 8px;
-  }
-  .dot {
-    width: 22px;
-    height: 22px;
+    min-width: 120px;
+    padding: 6px 12px 7px;
   }
   .label {
-    font-size: 10px;
+    font-size: 10.5px;
   }
-  .fee {
-    display: none;
+  .popover {
+    min-width: 240px;
+    right: -8px;
   }
 }

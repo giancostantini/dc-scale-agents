@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import NewEventModal from "@/components/NewEventModal";
+import OutlookConnectionCard from "@/components/OutlookConnectionCard";
 import { getEvents, deleteEvent } from "@/lib/storage";
 import { hasSession } from "@/lib/supabase/auth";
 import type { CalEvent, EventType } from "@/lib/types";
@@ -38,7 +39,6 @@ export default function CalendarioPage() {
   const [month, setMonth] = useState(today.getMonth());
 
   const [modal, setModal] = useState<{ open: boolean; date?: string }>({ open: false });
-  const [googleConnected, setGoogleConnected] = useState(true);
   const [filter, setFilter] = useState<EventType | "all">("all");
 
   const refresh = useCallback(() => {
@@ -115,12 +115,6 @@ export default function CalendarioPage() {
           </div>
           <div className={styles.actions}>
             <button
-              className={styles.btn}
-              onClick={() => setGoogleConnected(!googleConnected)}
-            >
-              {googleConnected ? "Desconectar Google" : "Conectar Google"}
-            </button>
-            <button
               className={styles.btnSolid}
               onClick={() =>
                 setModal({ open: true, date: new Date().toISOString().slice(0, 10) })
@@ -131,34 +125,8 @@ export default function CalendarioPage() {
           </div>
         </div>
 
-        {/* Google Calendar banner */}
-        <div
-          className={`${styles.googleBanner} ${
-            !googleConnected ? styles.googleBannerOff : ""
-          }`}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div className={styles.gLogo}>G</div>
-            <div>
-              <div className={styles.gLabel}>
-                {googleConnected
-                  ? "● Google Calendar conectado"
-                  : "◌ Google Calendar desconectado"}
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>
-                {googleConnected
-                  ? "Sincronización bidireccional activa · Los eventos aparecen en ambos lados"
-                  : "Conectá tu cuenta para sincronizar eventos automáticamente"}
-              </div>
-            </div>
-          </div>
-          {googleConnected && (
-            <div style={{ fontSize: 12, color: "rgba(232,228,220,0.6)" }}>
-              {events.filter((e) => e.synced).length} / {events.length} eventos
-              sincronizados
-            </div>
-          )}
-        </div>
+        {/* Outlook sync — cada user conecta su propia cuenta */}
+        <OutlookConnectionCard returnTo="/calendario" />
 
         {/* Filtros */}
         {events.length > 0 && (
@@ -339,7 +307,6 @@ export default function CalendarioPage() {
       <NewEventModal
         open={modal.open}
         initialDate={modal.date}
-        googleConnected={googleConnected}
         onClose={() => setModal({ open: false })}
         onCreated={refresh}
       />

@@ -328,10 +328,16 @@ export default function PortalPage() {
               </div>
             )}
 
-            {/* Próximas reuniones */}
-            {upcomingEvents.length > 0 && (
-              <div className={styles.sidebarBlock}>
-                <div className={styles.sidebarLabel}>Próximas reuniones</div>
+            {/* Próximas reuniones — toda la card linkea al calendario */}
+            <Link
+              href="/portal/calendario"
+              className={`${styles.sidebarBlock} ${styles.sidebarLink}`}
+            >
+              <div className={styles.sidebarLinkHead}>
+                <span className={styles.sidebarLabel}>Próximas reuniones</span>
+                <span className={styles.sidebarLinkArrow}>Ver calendario →</span>
+              </div>
+              {upcomingEvents.length > 0 ? (
                 <div className={styles.eventList}>
                   {upcomingEvents.map((e) => (
                     <div key={e.id} className={styles.eventCompact}>
@@ -348,8 +354,13 @@ export default function PortalPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className={styles.eventEmpty}>
+                  Sin reuniones próximas. Conectá tu Outlook desde el
+                  calendario para verlas acá.
+                </div>
+              )}
+            </Link>
 
             {/* Estado de pago: ahora vive en el PortalHeader como CTA con
                 semáforo (verde / ámbar / rojo según fecha del mes). */}
