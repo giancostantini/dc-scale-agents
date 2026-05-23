@@ -40,8 +40,8 @@
     ),
     radial-gradient(
       circle at 88% 16%,
-      rgba(58, 139, 92, 0.14) 0%,
-      transparent 40%
+      rgba(58, 139, 92, 0.08) 0%,
+      transparent 38%
     ),
     radial-gradient(
       circle at 50% 95%,
@@ -246,6 +246,52 @@
   color: var(--sand-dark);
   font-weight: 600;
   margin-bottom: 14px;
+}
+
+/* ============ Sidebar block como link (próximas reuniones) ============ */
+
+.sidebarLink {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Header con label + flecha "ver calendario". El label dentro del link
+   no necesita el margin-bottom del .sidebarLabel base, lo neutralizamos. */
+.sidebarLinkHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sidebarLinkHead .sidebarLabel {
+  margin-bottom: 0;
+}
+
+.sidebarLinkArrow {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--sand-dark);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  white-space: nowrap;
+}
+
+.sidebarLink:hover .sidebarLinkArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.eventEmpty {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  font-style: italic;
 }
 
 /* ============ KPIs compactos (sidebar) ============ */

@@ -1,21 +1,17 @@
 "use client";
 
 /**
- * PaymentCTA — Semáforo de pago en el PortalHeader.
+ * PaymentCTA — Indicador de pago en el PortalHeader.
  *
- * Reemplaza el botón "Conexiones" (que se eliminó porque las integraciones
- * las gestiona el equipo). Muestra el estado del pago del mes corriente
- * con color según la fecha relativa al rango 4–9 del mes:
- *   - verde:   pagado
- *   - neutral: antes del 4 (próximo)
- *   - amber:   día 4–9 (vence)
- *   - red:     después del 9 (vencido)
+ * Un botón compacto con barra de progreso fina + popover al click.
+ * NO navega: el popover muestra el detalle (estado, monto, vencimiento)
+ * y recién desde ahí se puede ir a cargar una solicitud de pago.
  *
- * Click → /portal/solicitudes?type=pago para que el cliente cargue
- * una solicitud si necesita info (factura, comprobante, etc.).
+ * Semáforo según fecha (ventana de cobro 4–9 del mes):
+ *   verde=pagado · neutral=antes del 4 · amber=4–9 · red=vencido.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/client";
 import styles from "./PaymentCTA.module.css";
@@ -25,6 +21,11 @@ interface PaymentStatus {
   color: "green" | "neutral" | "amber" | "red";
   label: string;
   daysToDue: number;
+  daysOverdue: number;
+  dayOfMonth: number;
+  dueRangeStart: number;
+  dueRangeEnd: number;
+  progress: number;
   month: string;
   monthLabel: string;
   fee: number | null;
@@ -33,10 +34,12 @@ interface PaymentStatus {
 export default function PaymentCTA() {
   const [data, setData] = useState<PaymentStatus | null>(null);
   const [errored, setErrored] = useState(false);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let cancelled = false;
-
     async function fetchStatus() {
       try {
         const supabase = getSupabase();
@@ -60,10 +63,7 @@ export default function PaymentCTA() {
         if (!cancelled) setErrored(true);
       }
     }
-
     fetchStatus();
-    // Refrescar cada 5 min — el estado puede cambiar al cruzar medianoche
-    // (rango 4–9) o cuando el director marca paid en el dashboard.
     const interval = setInterval(fetchStatus, 5 * 60 * 1000);
     return () => {
       cancelled = true;
@@ -71,79 +71,141 @@ export default function PaymentCTA() {
     };
   }, []);
 
-  if (errored || !data) {
-    return null;
-  }
+  // Click-outside + Escape para cerrar el popover
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const closePopover = useCallback(() => setOpen(false), []);
+
+  if (errored || !data) return null;
 
   const formattedFee =
-    data.fee !== null
-      ? `US$ ${data.fee.toLocaleString("es-AR")}`
-      : null;
+    data.fee !== null ? `US$ ${data.fee.toLocaleString("es-AR")}` : null;
 
-  const iconByColor: Record<PaymentStatus["color"], React.ReactNode> = {
-    green: <CheckIcon />,
-    neutral: <CalendarIcon />,
-    amber: <ClockIcon />,
-    red: <AlertIcon />,
-  };
+  // Label corto del botón: "Pago de mayo"
+  const shortLabel = `Pago de ${data.monthLabel}`;
+  const progressPct = Math.round(Math.max(0, Math.min(data.progress, 1)) * 100);
 
   return (
-    <Link
-      href="/portal/solicitudes?type=pago"
-      className={`${styles.cta} ${styles[`color_${data.color}`]}`}
-      title="Ver detalle del pago"
-    >
-      <span className={styles.dot} aria-hidden="true">
-        {iconByColor[data.color]}
-      </span>
-      <span className={styles.text}>
-        <span className={styles.label}>{data.label}</span>
-        {formattedFee && (
-          <span className={styles.fee}>{formattedFee}/mes</span>
-        )}
-      </span>
-    </Link>
+    <div ref={wrapperRef} className={styles.wrapper}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`${styles.cta} ${styles[`color_${data.color}`]}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title="Ver detalle del pago"
+      >
+        <span className={styles.ctaTop}>
+          <span className={styles.dot} aria-hidden="true">
+            <StatusIcon color={data.color} />
+          </span>
+          <span className={styles.label}>{shortLabel}</span>
+        </span>
+        <span className={styles.progressTrack} aria-hidden="true">
+          <span
+            className={styles.progressFill}
+            style={{ width: `${progressPct}%` }}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <div className={styles.popover} role="dialog" aria-label="Detalle del pago">
+          <div className={styles.popHeader}>
+            <span className={styles.popEyebrow}>Tu pago de {data.monthLabel}</span>
+            <span className={`${styles.popStatus} ${styles[`pop_${data.color}`]}`}>
+              {data.label}
+            </span>
+          </div>
+
+          <div className={styles.popRow}>
+            <span className={styles.popRowLabel}>Monto</span>
+            <span className={styles.popRowValue}>
+              {formattedFee ? `${formattedFee} / mes` : "—"}
+            </span>
+          </div>
+          <div className={styles.popRow}>
+            <span className={styles.popRowLabel}>Vencimiento</span>
+            <span className={styles.popRowValue}>
+              {data.dueRangeStart} al {data.dueRangeEnd} de {data.monthLabel}
+            </span>
+          </div>
+
+          {data.status === "paid" ? (
+            <div className={styles.popDone}>
+              Tu cuenta está al día. ¡Gracias!
+            </div>
+          ) : (
+            <Link
+              href="/portal/solicitudes?type=pago"
+              className={styles.popAction}
+              onClick={closePopover}
+            >
+              Coordinar pago →
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Inline SVG icons — evita extra deps
+// Icons
 // ---------------------------------------------------------------------------
 
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
+function StatusIcon({ color }: { color: PaymentStatus["color"] }) {
+  if (color === "green") {
+    return (
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    );
+  }
+  if (color === "red") {
+    return (
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
+  if (color === "amber") {
+    return (
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    );
+  }
+  // neutral
   return (
     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
       <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
-function AlertIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      <line x1="12" y1="9" x2="12" y2="13" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   );
 }
