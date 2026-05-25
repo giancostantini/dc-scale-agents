@@ -1,15 +1,16 @@
 /**
- * Content Creator Agent — Brief Schema
+ * Asistente Creativo — Brief Schema
  *
- * This is the contract for how any source communicates with the Content Creator.
- * Sources: Consultant Agent, Dashboard (business owner), Strategy Agent (calendar), CLI (manual)
+ * Contrato de cómo cualquier source le pide un brief creativo al Asistente.
+ * El agente genera un BRIEF (idea + ángulo + copy + dirección visual) para
+ * que la CM y el editor lo ejecuten. NO produce el video/static.
  *
- * The brief can arrive as:
+ * Sources: Consultant Agent, Dashboard (dueño), Estrategia de Contenido (calendario), CLI
+ *
+ * El brief puede llegar como:
  * - CLI: node index.js --brief path/to/brief.json
- * - CLI shorthand: node index.js <client> <pieceType> (minimal brief, uses defaults)
- * - API (future): POST /api/content-creator with JSON body
- * - Consultant Agent (future): calls createContent(brief) directly
- * - Dashboard (future): form submission → builds brief JSON → sends to API
+ * - CLI shorthand: node index.js <client> <pieceType>
+ * - Dashboard/Consultor: dispatch via repository_dispatch
  */
 
 /**
@@ -29,17 +30,15 @@
  * @property {string} [targetAudience] - Specific audience segment for this piece
  * @property {string} [cta] - Specific call-to-action to use
  *
- * --- Voice settings (for video, future Fase 3) ---
+ * --- Voice guidance (para que la CM grabe / para subtítulos) ---
  * @property {Object} [voice]
- * @property {string} [voice.provider] - "elevenlabs" (default)
- * @property {string} [voice.voiceId] - ElevenLabs voice ID
  * @property {string} [voice.style] - "narration" | "conversational" | "energetic"
  * @property {string} [voice.language] - "es" | "en" | "pt"
  *
- * --- Visual settings (future Fase 2-3) ---
+ * --- Visual guidance (dirección para el editor) ---
  * @property {Object} [visual]
- * @property {string} [visual.style] - "premium" | "artisanal" | "lifestyle" | "organic" | "minimalist" | "ugc"
- * @property {string[]} [visual.palette] - Brand colors override
+ * @property {string} [visual.style] - estilo según brandbook
+ * @property {string[]} [visual.palette] - paleta override (default: la del brandbook)
  * @property {string} [visual.aspectRatio] - "9:16" | "1:1" | "16:9"
  *
  * --- Reference examples ---
@@ -60,14 +59,8 @@
  * @property {string[]} [prioritize.angle] - Top angles by historical score
  * @property {string[]} [prioritize.publish_time] - Best historical publish times (HH:MM)
  *
- * --- Production flags ---
- * @property {boolean} [produceVideo] - true by default (Remotion renderea MP4 para pieceType "reel"). El caller debe pasar false explícito para "solo script".
- * @property {boolean} [produceStatic] - false by default (todavía sin imagen estática auto)
- * @property {boolean} [generateVoice] - true by default para reels (ElevenLabs); ignorado para otros tipos
- * @property {boolean} [autoPublish] - false hasta que el cliente pida publicar auto vía Blotato
- * @property {string[]} [crossPost] - Additional platforms to cross-post to
- *   e.g. ["tiktok", "instagram-stories"] — uses PLATFORM_MAP keys in produce-publish.js
- * @property {string} [scheduleTime] - ISO 8601 datetime to schedule post (null = publish immediately)
+ * --- Cross-posting (sugerencia para la CM al publicar) ---
+ * @property {string[]} [crossPost] - Plataformas adicionales sugeridas e.g. ["tiktok", "instagram-stories"]
  */
 
 /** Default brief — used when no brief file is provided. `client` is null on
@@ -90,12 +83,7 @@ export const DEFAULT_BRIEF = {
   instructions: null,
   calendarEntryId: null,
   prioritize: null,
-  produceVideo: true,
-  produceStatic: false,
-  generateVoice: true,
-  autoPublish: false,
   crossPost: [],
-  scheduleTime: null,
 };
 
 /** Validates a brief and fills missing fields with defaults */

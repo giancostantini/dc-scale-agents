@@ -9,6 +9,7 @@ import {
   pushNotification,
 } from "../lib/supabase.js";
 import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
+import { createContent } from "../creative-assistant/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -389,11 +390,7 @@ Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Lo
       visual: null,
       examples: [],
       calendarEntryId: `${date}-${seq}`,
-      produceVideo: false,
-      produceStatic: false,
-      generateVoice: false,
-      autoPublish: false,
-      // Strategy-specific metadata (Content Creator ignores, Consultant Agent uses)
+      // Strategy-specific metadata (el Asistente Creativo lo ignora, el Consultor lo usa)
       _strategy: {
         date: brief.date || null,
         platform: brief.platform || null,
@@ -409,6 +406,50 @@ Se concreto y especifico. Los hooks deben ser frases reales, no placeholders. Lo
   }
 
   console.log(`Wrote ${briefs.length} briefs to vault/clients/${CLIENT}/content-briefs/`);
+
+  // --- Proactividad: generar el brief creativo completo de cada slot ---
+  // La CM recibe los briefs de toda la semana de una. Lo hacemos in-process
+  // (no via dispatch) porque el GITHUB_TOKEN de GHA no puede disparar otros
+  // workflows (anti-recursión), y porque ambos agentes viven en el mismo repo.
+  // Default: true. Se puede desactivar con autoGenerateBriefs: false en el brief.
+  const autoGenerate = BRIEF.autoGenerateBriefs !== false;
+  let creativeBriefsGenerated = 0;
+  if (autoGenerate && briefs.length > 0) {
+    console.log(
+      `Generando ${briefs.length} briefs creativos completos via Asistente Creativo...`,
+    );
+    for (let i = 0; i < briefs.length; i++) {
+      const b = briefs[i];
+      const date = b.date || week.isoStart;
+      const seq = String(i + 1).padStart(2, "0");
+      try {
+        await createContent({
+          client: CLIENT,
+          pieceType: b.pieceType || "reel",
+          source: "strategy-agent",
+          objective: b.objective || null,
+          scriptFormat: b.scriptFormat || null,
+          emotionalTrigger: b.emotionalTrigger || null,
+          hookStyle: b.hookStyle || null,
+          tone: b.tone || null,
+          angle: b.angle || null,
+          targetAudience: b.targetAudience || null,
+          cta: b.cta || null,
+          instructions: b.instructions || null,
+          calendarEntryId: `${date}-${seq}`,
+        });
+        creativeBriefsGenerated++;
+        console.log(`  ✓ Brief creativo ${i + 1}/${briefs.length} (${b.pieceType})`);
+      } catch (err) {
+        console.warn(
+          `  ✗ Brief creativo ${i + 1}/${briefs.length} falló (non-fatal): ${err.message}`,
+        );
+      }
+    }
+    console.log(
+      `${creativeBriefsGenerated}/${briefs.length} briefs creativos generados y listos para la CM.`,
+    );
+  }
 
   // --- Write report for Consultant Agent ---
   const reportsDir = resolve(VAULT, `clients/${CLIENT}/agent-reports`);

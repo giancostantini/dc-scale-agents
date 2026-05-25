@@ -2,23 +2,20 @@
   "client": "<client-slug>",
   "pieceType": "reel",
   "source": "consultant-agent",
-  "objective": "sales",
-  "scriptFormat": "double-drop",
+  "objective": "value",
+  "scriptFormat": "direct-value",
   "emotionalTrigger": "awe",
   "hookStyle": "hook de ejemplo — reemplazar por el del cliente",
   "tone": "tono de ejemplo — reemplazar por el del cliente",
   "angle": "angulo de ejemplo — reemplazar por el del cliente",
   "targetAudience": "audiencia de ejemplo — reemplazar por la del cliente",
-  "cta": "Visita nuestra tienda — link en bio",
+  "cta": "CTA de ejemplo — reemplazar",
   "voice": {
-    "provider": "elevenlabs",
-    "voiceId": null,
-    "style": "narration",
+    "style": "conversational",
     "language": "es"
   },
   "visual": {
-    "style": "minimal",
-    "palette": ["#000000", "#FFFFFF"],
+    "style": "según brandbook",
     "aspectRatio": "9:16"
   },
   "examples": [
@@ -26,17 +23,9 @@
       "type": "video",
       "url": "https://www.instagram.com/reel/example123/",
       "notes": "Copiar el ritmo de edicion de los primeros 3 segundos"
-    },
-    {
-      "type": "static",
-      "filePath": "vault/clients/<client-slug>/references/competidor-ad-01.png",
-      "notes": "Usar este estilo de tipografia y layout como referencia"
     }
   ],
-  "instructions": "Reemplazar por instrucciones concretas del Consultor / dashboard.",
+  "instructions": "Reemplazar por instrucciones concretas del Consultor / dashboard. El output es un brief para la CM/editor, no el contenido final.",
   "calendarEntryId": null,
-  "produceVideo": false,
-  "produceStatic": false,
-  "generateVoice": false,
-  "autoPublish": false
+  "crossPost": []
 }

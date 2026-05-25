@@ -12,9 +12,9 @@ export interface AgentDef {
 
 export const AGENT_CATALOG: AgentDef[] = [
   {
-    key: "content-creator",
-    name: "Content Creator",
-    desc: "Genera piezas listas para producción (reels, static ads, social reviews).",
+    key: "creative-assistant",
+    name: "Asistente Creativo",
+    desc: "Apoyo creativo de la CM: ideas trending, briefs de contenido, copy y dirección visual listos para que el equipo produzca.",
     defaultBrief: { pieceType: "reel" },
     moduleGate: "content",
   },

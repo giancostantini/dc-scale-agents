@@ -2,10 +2,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
-import { produceVideo } from "./produce-video.js";
-import { produceVoice } from "./produce-voice.js";
-import { produceStatic } from "./produce-static.js";
-import { publishContent } from "./produce-publish.js";
 import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
 import {
   logAgentRun,
@@ -17,7 +13,7 @@ import {
   fetchClient,
 } from "../lib/supabase.js";
 
-const AGENT = "content-creator";
+const AGENT = "creative-assistant";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -279,9 +275,11 @@ Idioma: ${brief.voice.language || "es"}
 Nota: generar el texto de narracion optimizado para este estilo de voz.`;
   }
 
-  return `Eres el Content Creator Agent de D&C Scale Partners.
+  return `Eres el Asistente Creativo de D&C Scale Partners.
 
-Tu trabajo es generar contenido LISTO PARA PRODUCCION. No generas borradores — generas piezas completas que un editor o herramienta automatizada puede producir directamente.
+Tu trabajo es generar BRIEFS CREATIVOS para que la Community Manager (CM) y el editor de video del equipo produzcan el contenido. NO producís el video ni el static vos mismo — generás la idea, el ángulo, el copy listo y la dirección creativa completa para que un humano lo ejecute con criterio. Sos el apoyo creativo del equipo: les ahorrás el 70% del trabajo mental (qué postear, por qué, con qué hook, qué copy) y ellos ponen la ejecución y el toque final.
+
+Pensá tu output como el documento que le pasás a un compañero: tiene que ser tan claro y completo que la CM lo lee, ajusta lo mínimo, y el editor sabe exactamente qué producir.
 
 TIPO DE PIEZA: ${pieceTypeDescriptions[brief.pieceType] || brief.pieceType}
 CLIENTE: ${brief.client}
@@ -332,20 +330,21 @@ REGLAS DE ORO (SIEMPRE APLICAR):
 7. Un trigger emocional por video (enojo/asombro/empatia/miedo)
 8. CTA unico y directo al final — nunca dos acciones
 
-REGLAS DE ASSETS VISUALES:
+REGLAS DE DIRECCIÓN VISUAL (para el editor):
 9. Si el cliente tiene un asset library (sección \`brand/assets.md\` arriba),
-   referenciá los assets por su **canonical name exacto** (ej: \`wizzo-color-magia\`,
-   \`logotipo-blanco\`, \`curva-w-violeta\`). NO inventes nombres ni paths.
-10. Para mascot/personaje: usá la expresión correcta según el momento emocional
-    del frame (ver descripciones de uso en assets.md). Ejemplos:
-    - revelación / "el pique de Wizzo" → \`<mascot>-color-magia\`
-    - cierre celebratorio → \`<mascot>-color-festejo\` o \`<mascot>-color-baile\`
-    - advertencia / trampa turística → \`<mascot>-color-error\`
-    - apertura de pieza → \`<mascot>-color-saludo\`
-11. Si necesitás un asset que NO está en assets.md, listalo al final como
-    \`MISSING_ASSET: <descripción>\` para que el equipo sepa qué subir.
-12. En cada frame del Storyboard, donde uses un asset visual, indicá:
-    \`Asset: <canonical-name>\` (NO un path, NO una URL).
+   indicale al editor exactamente qué assets usar por su nombre de archivo
+   (ej: \`wizzo-color-magia.svg\`, \`logotipo-blanco.svg\`). El editor los saca
+   del library — vos solo decís cuál y dónde.
+10. Para mascot/personaje: indicá la expresión correcta según el momento
+    emocional. Ejemplos:
+    - revelación / "el pique de Wizzo" → expresión Magia
+    - cierre celebratorio → expresión Festejo o Baile
+    - advertencia / trampa turística → expresión Error
+    - apertura de pieza → expresión Saludo
+11. Si la dirección necesita un asset que NO está en el library, indicalo
+    como \`FALTA ASSET: <descripción>\` para que el equipo lo consiga/cree.
+12. Especificá paleta (hex), tipografías y estilo fotográfico según el
+    brandbook — el editor sigue tu dirección al pie.
 
 FORMATOS DE SCRIPT:
 A) "Double Drop" (ideal para ads de conversion):
@@ -383,26 +382,27 @@ const REEL_OUTPUT_FORMAT = `GENERA LO SIGUIENTE (formato Markdown):
 - **Textual:** texto en pantalla (<7 palabras)
 - **Verbal:** que dice la voz/narrador
 
-## Script completo
-Escena por escena:
+## Guión para el editor
+Escena por escena, lo suficientemente claro para que el editor lo produzca:
 \`\`\`
 Escena X [Xs-Xs]:
-  Visual: que se ve (descripcion precisa para Remotion)
-  Texto en pantalla: (texto exacto, posicion, tamano)
-  Narracion: (texto exacto para voz)
-  Musica/SFX: (tipo de sonido)
-  Transicion: tipo de corte al siguiente
+  Visual: qué se ve (descripción precisa para el editor)
+  Texto en pantalla: (texto exacto, posición, tamaño)
+  Narración / voz en off: (texto exacto que graba la CM o voz)
+  Música/SFX: (tipo de sonido / mood)
+  Transición: tipo de corte al siguiente
 \`\`\`
 
-## Storyboard de produccion
-Descripcion de cada frame clave con especificaciones tecnicas para Remotion:
-- Resolucion: 1080x1920 (9:16)
+## Dirección visual (para el editor)
+Especificaciones técnicas que el editor sigue:
+- Resolución: 1080x1920 (9:16)
 - Safe zones: no texto en los 150px superiores ni 250px inferiores (UI de IG/TikTok)
-- Fuentes, tamanos, colores exactos
-- Tipo de animacion por elemento
+- Fuentes, tamaños, colores exactos (según brandbook)
+- Qué assets del library usar y en qué momento (por nombre de archivo)
+- Tipo de animación / ritmo por escena
 
-## Texto de narracion completo
-El texto completo que se enviara a ElevenLabs, con marcas de pausa y enfasis.
+## Texto de narración completo
+El texto que la CM graba como voz en off (o que se usa para subtítulos), con marcas de pausa y énfasis.
 
 ## Captions listos para publicar
 ### Instagram
@@ -416,11 +416,11 @@ El texto completo que se enviara a ElevenLabs, con marcas de pausa y enfasis.
 - script_format: [A/B/C]
 - emotional_trigger: [cual]
 - estimated_duration_seconds: [numero]
-- assets_used: [lista de canonical names del asset library que el script referencia, e.g. wizzo-color-magia, logotipo-blanco, curva-w-violeta]
-- assets_missing: [lista de assets que serían ideales pero NO están en el library; cada uno como "tipo: descripción", e.g. "footage: persona caminando callejuela Trastevere POV"]
-- music_style: [genero/mood para buscar en Pixabay]
+- assets_a_usar: [lista de archivos del asset library que el editor debería usar, e.g. wizzo-color-magia.svg, logotipo-blanco.svg]
+- assets_faltantes: [lista de assets ideales que NO están en el library; cada uno como "tipo: descripción", e.g. "footage: persona caminando callejuela POV"]
+- music_style: [genero/mood para buscar en Pixabay/biblioteca de audio]
 
-Se directo, creativo, y especifico al contexto del cliente.`;
+Sé directo, creativo, y específico al contexto del cliente. Recordá: esto es un brief para que un humano lo ejecute, no el contenido final.`;
 
 const STATIC_OUTPUT_FORMAT = `GENERA LO SIGUIENTE (formato Markdown):
 
@@ -441,19 +441,20 @@ const STATIC_OUTPUT_FORMAT = `GENERA LO SIGUIENTE (formato Markdown):
 - **Callouts:** (beneficios clave, 2-4 bullets)
 - **CTA:** (texto del boton/accion)
 
-## Brief para NanoBanana Pro
+## Brief para el editor / diseñador
 \`\`\`
-Brand: [nombre]
-Piece type: [tipo]
-Product: [producto con descripcion]
-Main message: [headline]
-Key benefit: [beneficio principal]
-Visual style: [estilo]
-Palette: [colores]
-Dominant element: [elemento principal]
-CTA: [accion]
-Safe zones: respetar margenes para mobile
-DON'T include: [restricciones]
+Marca: [nombre]
+Tipo de pieza: [tipo]
+Producto: [producto con descripción]
+Mensaje principal: [headline]
+Beneficio clave: [beneficio principal]
+Estilo visual: [estilo según brandbook]
+Paleta: [colores hex]
+Elemento dominante: [qué ve primero el ojo]
+CTA: [acción]
+Assets a usar: [archivos del library, e.g. logotipo-color.svg]
+Safe zones: respetar márgenes para mobile
+NO incluir: [restricciones del brandbook]
 \`\`\`
 
 ## Captions listos para publicar
@@ -467,9 +468,10 @@ DON'T include: [restricciones]
 - static_type: [tipo]
 - funnel_stage: [TOF/MOF/BOF]
 - headline: [texto]
-- assets_needed: [fotos de producto, capturas, etc.]
+- assets_a_usar: [archivos del library]
+- assets_faltantes: [lo que el editor necesita conseguir]
 
-Se directo, creativo, y especifico al contexto del cliente.`;
+Sé directo, creativo, y específico al contexto del cliente. Recordá: esto es un brief para que el editor/diseñador lo produzca.`;
 
 // --- Content Library Registration ---
 
@@ -487,22 +489,21 @@ function buildContentEntry(pieceId, brief, scriptOutput) {
     );
 
   return `
-## Piece #${pieceId} — ${brief.pieceType}
-Date: ${getTodayISO()} | Source: ${brief.source} | Status: DRAFT
+## Brief #${pieceId} — ${brief.pieceType}
+Date: ${getTodayISO()} | Source: ${brief.source} | Status: BRIEF
 Type: ${brief.pieceType}
 Client: ${brief.client}
 ${briefSummary.length > 0 ? `Brief: ${briefSummary.join(" | ")}` : "Brief: defaults (no specific direction)"}
 
-### Generated Content
+### Brief Creativo (para la CM + editor)
 ${scriptOutput}
 
-### Production Status
-- [ ] Script approved
-- [ ] Assets gathered
-- [ ] ${brief.pieceType === "reel" ? "Video produced (Remotion)" : "Static produced (NanoBanana Pro)"}
-- [ ] ${brief.pieceType === "reel" ? "Voice generated (ElevenLabs)" : "N/A"}
-- [ ] Published
-- [ ] Metrics collected
+### Workflow Status
+- [ ] CM revisó el brief
+- [ ] CM aprobó / ajustó
+- [ ] Editor produjo la pieza
+- [ ] Publicado
+- [ ] Métricas recolectadas
 
 ### Real Metrics (fill when arriving)
 3s retention: PENDING
@@ -544,85 +545,16 @@ export async function createContent(briefInput) {
   const output = await callClaude(prompt);
   console.log("Content generated successfully.");
 
-  // Step 4: Register in content-library.md
+  // Step 4: Register the brief in content-library.md
   const pieceId = getNextPieceId(ctx.contentLibrary);
   const entry = buildContentEntry(pieceId, brief, output);
   appendToVaultFile(`clients/${brief.client}/content-library.md`, entry);
-  console.log(`Registered as Piece #${pieceId} in content-library.md`);
+  console.log(`Brief #${pieceId} registrado en content-library.md`);
 
-  // Step 4b: Fase 3 — Produce static with Google AI / NanoBanana Pro (if enabled)
-  let staticResult = null;
-  if (brief.produceStatic && brief.pieceType !== "reel") {
-    try {
-      staticResult = await produceStatic(brief, output, pieceId);
-      console.log(`Static produced: ${staticResult.filePath}`);
-    } catch (err) {
-      console.error(`Static production failed: ${err.message}`);
-    }
-  }
+  const shortSummary = `Brief #${pieceId} ${brief.pieceType} — listo para la CM/editor`;
 
-  // Step 4c: Fase 3 — Generate voice with ElevenLabs (if enabled)
-  let voiceResult = null;
-  if (brief.generateVoice && brief.pieceType === "reel") {
-    try {
-      voiceResult = await produceVoice(brief, output, pieceId);
-      console.log(`Voice generated: ${voiceResult.filePath}`);
-    } catch (err) {
-      console.error(`Voice generation failed: ${err.message}`);
-    }
-  }
-
-  // Step 4c: Fase 2 — Produce video with Remotion (if enabled)
-  // Voice is generated first so Remotion can include it in the composition
-  let videoPath = null;
-  let videoError = null;
-  let videoErrorStderr = null;
-  let videoErrorStage = null;
-  let compositionTsx = null;
-  let compositionFile = null;
-  if (brief.produceVideo && brief.pieceType === "reel") {
-    try {
-      const briefWithVoice = voiceResult
-        ? { ...brief, _voicePath: voiceResult.remotionPath }
-        : brief;
-      const result = await produceVideo(briefWithVoice, output, pieceId);
-      videoPath = result.outputPath;
-      compositionTsx = result.compositionTsx ?? null;
-      compositionFile = result.compositionFile ?? null;
-      console.log(`Video produced: ${videoPath}`);
-    } catch (err) {
-      videoError = err.message;
-      videoErrorStderr = err._stderr ?? null;
-      videoErrorStage = err._stage ?? null;
-      compositionTsx = err._compositionTsx ?? null;
-      compositionFile = err._compositionFile ?? null;
-      console.error(`Video production failed: ${videoError}`);
-      console.log("Produce manually with: cd remotion-studio && npm run studio");
-    }
-  }
-
-  // Step 5: Fase 4 — Publish with Blotato (if enabled)
-  let publishResults = null;
-  if (brief.autoPublish) {
-    const mediaPath = videoPath || staticResult?.filePath || null;
-    try {
-      publishResults = await publishContent(brief, output, mediaPath);
-      const published = publishResults.filter((r) => r.status === "published");
-      console.log(`Published to ${published.length} platform(s): ${published.map((r) => r.platform).join(", ")}`);
-    } catch (err) {
-      console.error(`Publishing failed: ${err.message}`);
-    }
-  }
-
-  const isPublished = publishResults?.some((r) => r.status === "published");
-  const pieceStatus = isPublished
-    ? "published"
-    : videoPath || staticResult
-    ? "produced"
-    : "draft";
-  const shortSummary = `Pieza #${pieceId} ${brief.pieceType} — ${pieceStatus}`;
-
-  // Step 7: Log to Supabase
+  // Log a content_pieces con status "brief" — la pieza arranca como brief,
+  // el equipo la mueve a producción/publicada manualmente.
   try {
     await registerContentPiece({
       client: brief.client,
@@ -636,11 +568,11 @@ export async function createContent(briefInput) {
       platforms: brief.crossPost?.length
         ? [brief._strategy?.platform, ...brief.crossPost].filter(Boolean)
         : [brief._strategy?.platform].filter(Boolean),
-      video_path: videoPath || null,
-      voice_path: voiceResult?.filePath || null,
-      static_path: staticResult?.filePath || null,
-      publish_results: publishResults || [],
-      status: pieceStatus,
+      video_path: null,
+      voice_path: null,
+      static_path: null,
+      publish_results: [],
+      status: "brief",
     });
   } catch (err) {
     console.warn(`[${AGENT}] registerContentPiece failed (non-fatal): ${err.message}`);
@@ -649,24 +581,15 @@ export async function createContent(briefInput) {
   const runId = brief.runId ?? null;
 
   await registerAgentOutput(runId, brief.client, AGENT, {
-    output_type: "content-piece",
-    title: `Pieza #${pieceId} — ${brief.pieceType}`,
+    output_type: "content-brief",
+    title: `Brief #${pieceId} — ${brief.pieceType}`,
     body_md: output,
     structured: {
       pieceId,
       pieceType: brief.pieceType,
       angle: brief.angle ?? null,
       objective: brief.objective ?? null,
-      status: pieceStatus,
-      videoPath: videoPath ?? null,
-      videoError: videoError ?? null,
-      videoErrorStderr: videoErrorStderr ?? null,
-      videoErrorStage: videoErrorStage ?? null,
-      compositionTsx: compositionTsx ?? null,
-      compositionFile: compositionFile ?? null,
-      voicePath: voiceResult?.filePath ?? null,
-      staticPath: staticResult?.filePath ?? null,
-      publishResults: publishResults ?? [],
+      status: "brief",
     },
   });
 
@@ -690,9 +613,9 @@ export async function createContent(briefInput) {
 
   await pushNotification(
     brief.client,
-    isPublished ? "success" : "info",
-    `Pieza #${pieceId} ${isPublished ? "publicada" : "lista"}`,
-    `${brief.pieceType}${brief.angle ? ` · ${brief.angle}` : ""}`,
+    "info",
+    `Brief creativo #${pieceId} listo`,
+    `${brief.pieceType}${brief.angle ? ` · ${brief.angle}` : ""} — para revisar y producir`,
     {
       agent: AGENT,
       link: `/cliente/${brief.client}/biblioteca`,
@@ -706,10 +629,6 @@ export async function createContent(briefInput) {
     pieceType: brief.pieceType,
     source: brief.source,
     output,
-    staticPath: staticResult?.filePath || null,
-    voicePath: voiceResult?.filePath || null,
-    videoPath,
-    publishResults,
     registeredAt: `vault/clients/${brief.client}/content-library.md`,
   };
 }
@@ -721,7 +640,7 @@ async function main() {
   try {
     const result = await createContent(brief);
     console.log("\n" + "=".repeat(60));
-    console.log(`PIEZA #${result.pieceId} — ${result.pieceType.toUpperCase()}`);
+    console.log(`BRIEF #${result.pieceId} — ${result.pieceType.toUpperCase()}`);
     console.log("=".repeat(60) + "\n");
     console.log(result.output);
     console.log("\n" + "=".repeat(60));
@@ -731,7 +650,7 @@ async function main() {
     if (brief.runId) {
       await updateAgentRun(brief.runId, { status: "error", summary: err.message });
     }
-    await pushNotification(brief.client, "error", `Content Creator falló`, err.message, {
+    await pushNotification(brief.client, "error", `Asistente Creativo falló`, err.message, {
       agent: AGENT,
       to_user_id: brief.triggered_by_user_id ?? null,
     });

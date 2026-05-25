@@ -21,10 +21,9 @@ AI agent system for D&C Scale Partners — growth marketing + automation agency.
 | Folder | Purpose |
 |---|---|
 | `scripts/` | Lógica de agentes (Node.js, ES modules). Cada carpeta = un agente. Entrypoint `index.js` recibe `--brief /path/to/brief.json` |
-| `scripts/lib/` | Utilities compartidas: `supabase.js` (logAgentRun, registerAgentOutput, pushNotification), `brand-loader.js`, `asset-sync.js` |
+| `scripts/lib/` | Utilities compartidas: `supabase.js` (logAgentRun, registerAgentOutput, pushNotification), `brand-loader.js` |
 | `vault/` | Obsidian vault — source of truth para todo el contexto no-código (specs, logs, datos por cliente) |
 | `dashboard/` | Dashboard web (Next.js 16 + React 19 + Supabase + Anthropic SDK, deployado a Vercel) — ver `dashboard/CLAUDE.md` |
-| `remotion-studio/` | Producción de video con Remotion (lo usa `content-creator`) |
 | `.github/workflows/` | Scheduling y triggers de agentes (reemplaza n8n) |
 
 ## Estado de los 9 agentes (post-auditoría 2026-05)
@@ -32,8 +31,8 @@ AI agent system for D&C Scale Partners — growth marketing + automation agency.
 | # | Agente | Modelo Claude | Status vs Wiztrip | Notas |
 |---|---|---|---|---|
 | 1 | `morning-briefing` | claude-sonnet-4-6 | ✅ Ready | Telegram opcional |
-| 2 | `content-strategy` | claude-sonnet-4-6 | ✅ Ready | Genera calendario + briefs JSON |
-| 3 | `content-creator` | claude-sonnet-4-6 | ✅ Ready (con retry) | TSX para Remotion. Retry de 3 intentos si Claude emite código inválido |
+| 2 | `content-strategy` | claude-sonnet-4-6 | ✅ Ready | Genera calendario + dispara briefs del Asistente Creativo por slot |
+| 3 | `creative-assistant` | claude-sonnet-4-6 | ✅ Ready | Asistente Creativo: genera briefs (idea + ángulo + copy + dirección visual) para que CM/editor produzcan. NO produce video |
 | 4 | `seo` | claude-sonnet-4-6 | ✅ Ready | Append a `seo-library.md` |
 | 5 | `reporting-performance` | claude-sonnet-4-6 | ✅ Ready | Stubs de `ads-log`/`sales-log`/`product-catalog` ya creados |
 | 6 | `social-media-metrics` | claude-sonnet-4-6 | ✅ Ready | Hook database se crea on-the-fly al primer winner |
@@ -41,6 +40,8 @@ AI agent system for D&C Scale Partners — growth marketing + automation agency.
 | 8 | `logistics` | claude-sonnet-4-6 | ⚠️ N/A para WizTrip | Trigger a stock vía repository_dispatch |
 | 9 | `client-bootstrap` | (no usa Claude) | ✅ Ready | Scaffold del vault desde templates |
 | + | `brandbook-processor` | claude-sonnet-4-6 | ✅ Ready (con retry + validación) | Procesa brandbook → 8 archivos en `brand/` |
+
+Nota: la pipeline de producción de video (Remotion / ElevenLabs / Blotato) fue removida — los agentes generan briefs/contenido en texto y el equipo humano (CM + editor) produce.
 
 **Reglas de "ready":**
 - Validó env vars al arranque
@@ -156,10 +157,7 @@ function findUnresolvedPlaceholders(content) {
 - **LLM:** Claude Sonnet 4.6 (model ID: `claude-sonnet-4-6`) — verificar SIEMPRE que está actualizado, no usar IDs viejos
 - **Data layer:** Supabase (tablas: `agent_runs`, `agent_outputs`, `notifications`, `content_pieces`, `audit_log`, `client_requests`, `phase_reports`, etc.)
 - **Dashboard:** Next.js 16 + React 19 + Vercel + Supabase Auth (NO es HTML estático — ver `dashboard/CLAUDE.md` para breaking changes)
-- **Video:** Remotion 4.0 (en `remotion-studio/`)
-- **Voice:** ElevenLabs
-- **Images:** Google AI / Gemini
-- **Publishing:** Blotato (opcional — solo si `brief.autoPublish=true`)
+- **Producción de contenido:** humana (CM + editor). Los agentes generan briefs/copy/dirección, no el media final.
 
 ## Audit log + RLS
 
@@ -179,7 +177,7 @@ Solo el director puede leer `audit_log` (RLS). Vista en `/configuracion/audit`.
 ```bash
 # Correr agente local (requiere env vars + brief.json)
 node scripts/morning-briefing/index.js --brief /tmp/brief.json
-node scripts/content-creator/index.js --brief /tmp/brief.json
+node scripts/creative-assistant/index.js --brief /tmp/brief.json
 node scripts/reporting-performance/index.js --brief /tmp/brief.json
 
 # Install deps
