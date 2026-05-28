@@ -158,7 +158,11 @@ export function DashboardView({
       const p = payments.find(
         (pp) => pp.clientId === c.id && pp.month === mk,
       );
-      return p?.status === "paid" ? s + c.fee : s;
+      if (p?.status !== "paid") return s;
+      // Respetamos amountOverride si está — el director cobró distinto
+      // al fee del contrato (descuento puntual, ajuste, extra).
+      const amt = p.amountOverride ?? c.fee;
+      return s + amt;
     }, 0);
     const mImpact = manualRevs.reduce(
       (s, r) => s + revenueMonthlyImpact(r, mk),
@@ -3124,7 +3128,8 @@ export function KPIsViewV2({
       const p = payments.find(
         (p) => p.clientId === c.id && p.month === monthYYYYMM,
       );
-      return s + (p?.status === "paid" ? c.fee : 0);
+      if (p?.status !== "paid") return s;
+      return s + (p.amountOverride ?? c.fee);
     }, 0);
   }, [clients, payments, monthYYYYMM]);
 
@@ -3168,10 +3173,12 @@ export function KPIsViewV2({
         year: "2-digit",
       });
 
-      // Ingresos = fees cobrados ese mes + manual revenues que aplican
+      // Ingresos = fees cobrados ese mes (con override si lo hay) +
+      // manual revenues que aplican
       const feesCobrados = clients.reduce((s, c) => {
         const p = payments.find((p) => p.clientId === c.id && p.month === ym);
-        return s + (p?.status === "paid" ? c.fee : 0);
+        if (p?.status !== "paid") return s;
+        return s + (p.amountOverride ?? c.fee);
       }, 0);
       const manualImpact = manualRevs.reduce(
         (s, r) => s + revenueMonthlyImpact(r, ym),
