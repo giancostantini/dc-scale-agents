@@ -1338,6 +1338,668 @@ const budgetInput: React.CSSProperties = {
 };
 
 // ============================================================
+// MetricasView — Métricas del negocio (vista comprensiva)
+// ============================================================
+//
+// 4 secciones:
+//   1. Crecimiento: MRR, ARR, growth MoM, runway
+//   2. Cartera: clientes activos, ARPU, concentración, churn
+//   3. Comercial: pipeline, win rate, CAC, LTV, LTV/CAC ratio
+//   4. Operacional: margen bruto/neto, burn rate, cash, días cash
+// ============================================================
+export function MetricasView({
+  clients,
+  expenses,
+  payments,
+  manualRevs,
+  leads,
+  mrr,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
+  leads: Lead[];
+  mrr: number;
+}) {
+  const now = new Date();
+  const curMonth = now.toISOString().slice(0, 7);
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = prevDate.toISOString().slice(0, 7);
+
+  // ===== Cálculos base (cash real) =====
+  function netOfMonth(mk: string) {
+    const feesPaid = clients.reduce((s, c) => {
+      const p = payments.find(
+        (pp) => pp.clientId === c.id && pp.month === mk,
+      );
+      if (p?.status !== "paid") return s;
+      return s + (p.amountOverride ?? c.fee);
+    }, 0);
+    const mImpact = manualRevs.reduce(
+      (s, r) => s + revenueMonthlyImpact(r, mk),
+      0,
+    );
+    const mExpenses = expenses
+      .filter((e) => (e.date ?? "").startsWith(mk))
+      .reduce((s, e) => s + e.amount, 0);
+    return {
+      ingresos: feesPaid + mImpact,
+      egresos: mExpenses,
+      net: feesPaid + mImpact - mExpenses,
+    };
+  }
+
+  // ===== 1. CRECIMIENTO =====
+  const cur = netOfMonth(curMonth);
+  const prev = netOfMonth(prevMonth);
+  const mrrGrowthPct = prev.ingresos > 0
+    ? Math.round(((cur.ingresos - prev.ingresos) / prev.ingresos) * 100)
+    : null;
+  const arr = mrr * 12;
+
+  // Net acumulado últimos 12m
+  let annual = { ingresos: 0, egresos: 0, net: 0 };
+  for (let i = 0; i <= 11; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const v = netOfMonth(mk);
+    annual.ingresos += v.ingresos;
+    annual.egresos += v.egresos;
+    annual.net += v.net;
+  }
+  const grossMarginPct =
+    annual.ingresos > 0 ? Math.round((annual.net / annual.ingresos) * 100) : 0;
+
+  // ===== Burn rate y runway =====
+  // Promedio mensual de egresos últimos 3 meses
+  let burn = 0;
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    burn += netOfMonth(mk).egresos;
+  }
+  const burnRate = Math.round(burn / 3);
+  // Cash actual (aproximado) = lo cobrado total - lo gastado total
+  const cashAprox = annual.ingresos - annual.egresos;
+  const runwayMonths = burnRate > 0 ? cashAprox / burnRate : null;
+
+  // ===== 2. CARTERA =====
+  const clientCount = clients.length;
+  const gpCount = clients.filter((c) => c.type === "gp").length;
+  const devCount = clients.filter((c) => c.type === "dev").length;
+  // ARPU = MRR / clientes activos
+  const arpu = clientCount > 0 ? Math.round(mrr / clientCount) : 0;
+
+  // Concentración: % del top 1 y top 3
+  const sortedByFee = [...clients].sort((a, b) => b.fee - a.fee);
+  const top1Pct =
+    sortedByFee[0] && mrr > 0
+      ? Math.round((sortedByFee[0].fee / mrr) * 100)
+      : 0;
+  const top3Sum = sortedByFee.slice(0, 3).reduce((s, c) => s + c.fee, 0);
+  const top3Pct = mrr > 0 ? Math.round((top3Sum / mrr) * 100) : 0;
+
+  // Churn (proxy): clientes que aparecían en payments del mes anterior
+  // pero NO tienen payment en el mes actual. No es perfecto sin
+  // tracking real de start/end de contrato pero da una señal.
+  const activeIdsThisMonth = new Set(
+    payments.filter((p) => p.month === curMonth).map((p) => p.clientId),
+  );
+  const activeIdsPrevMonth = new Set(
+    payments.filter((p) => p.month === prevMonth).map((p) => p.clientId),
+  );
+  const churnedThisMonth = [...activeIdsPrevMonth].filter(
+    (id) => !activeIdsThisMonth.has(id),
+  ).length;
+  const monthlyChurnPct =
+    activeIdsPrevMonth.size > 0
+      ? (churnedThisMonth / activeIdsPrevMonth.size) * 100
+      : 0;
+
+  // ===== 3. COMERCIAL =====
+  const totalLeads = leads.length;
+  const closedLeads = leads.filter((l) => l.stage === "cerrado").length;
+  const activeLeads = leads.filter((l) => l.stage !== "cerrado");
+  const winRate =
+    totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0;
+  const pipelineValue = activeLeads.reduce((s, l) => s + l.value, 0);
+  const avgDeal = totalLeads > 0
+    ? Math.round(leads.reduce((s, l) => s + l.value, 0) / totalLeads)
+    : 0;
+
+  // CAC: egresos de mkt_interno últimos 12m / clientes ganados (cerrados)
+  let mktSpend12m = 0;
+  for (let i = 0; i <= 11; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    mktSpend12m += expenses
+      .filter(
+        (e) =>
+          (e.date ?? "").startsWith(mk) && e.category === "mkt_interno",
+      )
+      .reduce((s, e) => s + e.amount, 0);
+  }
+  const cac = closedLeads > 0 ? Math.round(mktSpend12m / closedLeads) : null;
+
+  // LTV proxy: ARPU / churn rate mensual. Si churn=0, LTV indefinido.
+  // Usamos churn mensual como tasa. Si churn=0 → asumimos 24 meses
+  // por default (conservative) para no inflarlo a infinito.
+  const monthlyChurnDecimal = monthlyChurnPct / 100;
+  const ltv =
+    monthlyChurnDecimal > 0
+      ? Math.round(arpu / monthlyChurnDecimal)
+      : arpu * 24; // fallback 24 meses si no hubo churn aún
+
+  const ltvCacRatio =
+    cac && cac > 0 ? Number((ltv / cac).toFixed(2)) : null;
+
+  // ===== 4. CASH FLOW =====
+  // DSO (days sales outstanding) — proxy: cuántos días en promedio
+  // toma cobrar. Sin fechas reales de cobro vs facturación, usamos
+  // la proporción "cobrado del mes / facturado del mes" como señal.
+  const billedCurMonth = clients.reduce((s, c) => {
+    const p = payments.find(
+      (pp) => pp.clientId === c.id && pp.month === curMonth,
+    );
+    return s + (p?.amountOverride ?? c.fee);
+  }, 0);
+  const collectedCurMonth = clients.reduce((s, c) => {
+    const p = payments.find(
+      (pp) => pp.clientId === c.id && pp.month === curMonth,
+    );
+    if (p?.status !== "paid") return s;
+    return s + (p.amountOverride ?? c.fee);
+  }, 0);
+  const collectionRate =
+    billedCurMonth > 0
+      ? Math.round((collectedCurMonth / billedCurMonth) * 100)
+      : 0;
+  const pendingCash = billedCurMonth - collectedCurMonth;
+
+  // ===== Data para charts =====
+  const last12Months: {
+    mk: string;
+    label: string;
+    ingresos: number;
+    egresos: number;
+    net: number;
+    margen: number;
+  }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const v = netOfMonth(mk);
+    last12Months.push({
+      mk,
+      label: d.toLocaleDateString("es-AR", { month: "short" }),
+      ingresos: v.ingresos,
+      egresos: v.egresos,
+      net: v.net,
+      margen:
+        v.ingresos > 0 ? Math.round((v.net / v.ingresos) * 100) : 0,
+    });
+  }
+
+  return (
+    <>
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          marginBottom: 8,
+        }}
+      >
+        Finanzas · Métricas
+      </div>
+      <h1 style={h1Style}>Métricas del negocio</h1>
+      <p
+        style={{
+          maxWidth: 720,
+          color: "var(--text-muted)",
+          fontSize: 14,
+          lineHeight: 1.6,
+          marginBottom: 32,
+        }}
+      >
+        Indicadores estructurales para decisiones de fondo. Crecimiento, cartera,
+        comercial y cash flow. Calculado sobre data real, no proyecciones.
+      </p>
+
+      {/* ===== 1. CRECIMIENTO ===== */}
+      <SectionTitle>1 · Crecimiento</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="MRR"
+          value={`US$ ${mrr.toLocaleString()}`}
+          sub={`${clientCount} cliente${clientCount === 1 ? "" : "s"}`}
+        />
+        <MetricCell
+          label="ARR"
+          value={`US$ ${arr.toLocaleString()}`}
+          sub="MRR × 12 (proyección anual)"
+        />
+        <MetricCell
+          label="Growth MoM"
+          value={
+            mrrGrowthPct !== null
+              ? `${mrrGrowthPct >= 0 ? "+" : ""}${mrrGrowthPct}%`
+              : "—"
+          }
+          sub={`vs ${prevMonth}`}
+          color={
+            mrrGrowthPct === null
+              ? undefined
+              : mrrGrowthPct >= 0
+                ? "#2f7d4f"
+                : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Runway"
+          value={
+            runwayMonths !== null && Number.isFinite(runwayMonths)
+              ? `${runwayMonths.toFixed(1)}m`
+              : "∞"
+          }
+          sub={`Cash US$ ${cashAprox.toLocaleString()} · burn US$ ${burnRate.toLocaleString()}/m`}
+          color={
+            runwayMonths !== null && runwayMonths < 6
+              ? "#b04b3a"
+              : runwayMonths !== null && runwayMonths < 12
+                ? "#C9A14A"
+                : "#2f7d4f"
+          }
+        />
+      </div>
+
+      {/* Chart: net mensual últimos 12m */}
+      <ChartCardLocal
+        title="Resultado neto últimos 12 meses"
+        subtitle="Cash real · ingresos cobrados menos egresos"
+      >
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart
+            data={last12Months}
+            margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+          >
+            <XAxis
+              dataKey="label"
+              fontSize={10}
+              tickLine={false}
+              axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+            />
+            <YAxis
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) =>
+                v >= 1000
+                  ? `${(v / 1000).toFixed(0)}k`
+                  : v <= -1000
+                    ? `-${(-v / 1000).toFixed(0)}k`
+                    : String(v)
+              }
+            />
+            <Tooltip
+              formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+              cursor={{ fill: "rgba(196,168,130,0.1)" }}
+            />
+            <Bar dataKey="net" radius={[3, 3, 0, 0]}>
+              {last12Months.map((m) => (
+                <Cell
+                  key={m.mk}
+                  fill={m.net >= 0 ? "#2f7d4f" : "#b04b3a"}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCardLocal>
+
+      {/* ===== 2. CARTERA ===== */}
+      <SectionTitle>2 · Cartera de clientes</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="Clientes activos"
+          value={String(clientCount)}
+          sub={`${gpCount} GP · ${devCount} Dev`}
+        />
+        <MetricCell
+          label="ARPU"
+          value={`US$ ${arpu.toLocaleString()}`}
+          sub="Average revenue per user/mes"
+        />
+        <MetricCell
+          label="Top 1 concentración"
+          value={`${top1Pct}%`}
+          sub={
+            sortedByFee[0]
+              ? sortedByFee[0].name
+              : "Sin clientes"
+          }
+          color={top1Pct > 40 ? "#b04b3a" : top1Pct > 25 ? "#C9A14A" : "#2f7d4f"}
+        />
+        <MetricCell
+          label="Top 3 concentración"
+          value={`${top3Pct}%`}
+          sub="Riesgo de dependencia"
+          color={top3Pct > 70 ? "#b04b3a" : top3Pct > 50 ? "#C9A14A" : "#2f7d4f"}
+        />
+      </div>
+
+      <div className={styles.kpis} style={{ marginTop: 16 }}>
+        <MetricCell
+          label="Churn mensual"
+          value={`${monthlyChurnPct.toFixed(1)}%`}
+          sub={`${churnedThisMonth} dejaron en ${curMonth}`}
+          color={
+            monthlyChurnPct > 5
+              ? "#b04b3a"
+              : monthlyChurnPct > 2
+                ? "#C9A14A"
+                : "#2f7d4f"
+          }
+        />
+        <MetricCell
+          label="LTV"
+          value={`US$ ${ltv.toLocaleString()}`}
+          sub={
+            monthlyChurnDecimal > 0
+              ? `ARPU / churn = US$ ${arpu.toLocaleString()} / ${monthlyChurnPct.toFixed(1)}%`
+              : "Sin churn — fallback 24m × ARPU"
+          }
+        />
+        <MetricCell
+          label="GP / Dev split"
+          value={
+            clientCount > 0
+              ? `${Math.round((gpCount / clientCount) * 100)}% / ${Math.round((devCount / clientCount) * 100)}%`
+              : "—"
+          }
+          sub="Mix por tipo de cliente"
+        />
+        <MetricCell
+          label="Anual ingresos cobrados"
+          value={`US$ ${annual.ingresos.toLocaleString()}`}
+          sub="Últimos 12m · cash"
+        />
+      </div>
+
+      {/* ===== 3. COMERCIAL ===== */}
+      <SectionTitle>3 · Comercial / sales</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="Pipeline activo"
+          value={`US$ ${pipelineValue.toLocaleString()}`}
+          sub={`${activeLeads.length} deals abiertos`}
+        />
+        <MetricCell
+          label="Win rate"
+          value={`${winRate}%`}
+          sub={`${closedLeads} / ${totalLeads} leads cerrados`}
+          color={winRate > 30 ? "#2f7d4f" : winRate > 15 ? "#C9A14A" : "#b04b3a"}
+        />
+        <MetricCell
+          label="Avg deal size"
+          value={`US$ ${avgDeal.toLocaleString()}`}
+          sub="MRR esperado por deal"
+        />
+        <MetricCell
+          label="Pipeline coverage"
+          value={
+            mrr > 0
+              ? `${(pipelineValue / mrr).toFixed(1)}×`
+              : "—"
+          }
+          sub="Pipeline / MRR (target 3-5×)"
+          color={
+            mrr > 0
+              ? pipelineValue / mrr > 3
+                ? "#2f7d4f"
+                : pipelineValue / mrr > 1.5
+                  ? "#C9A14A"
+                  : "#b04b3a"
+              : undefined
+          }
+        />
+      </div>
+
+      <div className={styles.kpis} style={{ marginTop: 16 }}>
+        <MetricCell
+          label="CAC"
+          value={
+            cac !== null
+              ? `US$ ${cac.toLocaleString()}`
+              : "—"
+          }
+          sub={`Mkt interno 12m US$ ${mktSpend12m.toLocaleString()} / ${closedLeads} ganados`}
+        />
+        <MetricCell
+          label="LTV / CAC"
+          value={
+            ltvCacRatio !== null
+              ? `${ltvCacRatio}×`
+              : "—"
+          }
+          sub="Salud unit economics (target ≥3×)"
+          color={
+            ltvCacRatio === null
+              ? undefined
+              : ltvCacRatio >= 3
+                ? "#2f7d4f"
+                : ltvCacRatio >= 1.5
+                  ? "#C9A14A"
+                  : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Payback CAC"
+          value={
+            cac !== null && arpu > 0
+              ? `${Math.round((cac / arpu) * 10) / 10}m`
+              : "—"
+          }
+          sub="Meses para recuperar adquisición"
+        />
+        <MetricCell
+          label="MKT spend (12m)"
+          value={`US$ ${mktSpend12m.toLocaleString()}`}
+          sub={`${((mktSpend12m / Math.max(annual.ingresos, 1)) * 100).toFixed(1)}% de revenue`}
+        />
+      </div>
+
+      {/* ===== 4. OPERACIONAL / CASH ===== */}
+      <SectionTitle>4 · Operacional + cash flow</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="Margen neto 12m"
+          value={`${grossMarginPct}%`}
+          sub={`Net US$ ${annual.net.toLocaleString()} · objetivo 60%`}
+          color={
+            grossMarginPct >= 60
+              ? "#2f7d4f"
+              : grossMarginPct >= 40
+                ? "#C9A14A"
+                : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Burn rate"
+          value={`US$ ${burnRate.toLocaleString()}/m`}
+          sub="Promedio egresos 3m"
+        />
+        <MetricCell
+          label="Cobranza del mes"
+          value={`${collectionRate}%`}
+          sub={`US$ ${collectedCurMonth.toLocaleString()} / US$ ${billedCurMonth.toLocaleString()}`}
+          color={
+            collectionRate >= 80
+              ? "#2f7d4f"
+              : collectionRate >= 50
+                ? "#C9A14A"
+                : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Cobranza pendiente"
+          value={`US$ ${pendingCash.toLocaleString()}`}
+          sub={`Cuentas por cobrar · ${curMonth}`}
+        />
+      </div>
+
+      {/* Chart: margen mensual % últimos 12m */}
+      <ChartCardLocal
+        title="Margen neto % últimos 12 meses"
+        subtitle="Net / ingresos cobrados por mes"
+      >
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart
+            data={last12Months}
+            margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+          >
+            <XAxis
+              dataKey="label"
+              fontSize={10}
+              tickLine={false}
+              axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+            />
+            <YAxis
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => `${v}%`}
+            />
+            <Tooltip
+              formatter={(v: number) => `${v}%`}
+              cursor={{ fill: "rgba(196,168,130,0.1)" }}
+            />
+            <Bar dataKey="margen" radius={[3, 3, 0, 0]}>
+              {last12Months.map((m) => (
+                <Cell
+                  key={m.mk}
+                  fill={
+                    m.margen >= 60
+                      ? "#2f7d4f"
+                      : m.margen >= 40
+                        ? "#C9A14A"
+                        : "#b04b3a"
+                  }
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCardLocal>
+    </>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      style={{
+        fontSize: 14,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color: "var(--sand-dark)",
+        fontWeight: 700,
+        marginTop: 32,
+        marginBottom: 14,
+        paddingBottom: 10,
+        borderBottom: "1px solid rgba(10,26,12,0.08)",
+      }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  color?: string;
+}) {
+  return (
+    <div className={styles.kpi}>
+      <div className={styles.kLabel}>{label}</div>
+      <div
+        className={styles.kValue}
+        style={color ? { color } : undefined}
+      >
+        {value}
+      </div>
+      {sub && <div className={styles.kSub}>{sub}</div>}
+    </div>
+  );
+}
+
+function ChartCardLocal({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: "var(--r-lg)",
+        boxShadow: "var(--shadow-card)",
+        padding: 20,
+        marginTop: 20,
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 14,
+          paddingBottom: 10,
+          borderBottom: "1px solid rgba(10,26,12,0.06)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--deep-green)",
+          }}
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--sand-dark)",
+              marginTop: 3,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ============================================================
 // DividendosView — distribución del net profit a mes vencido
 // ============================================================
 //

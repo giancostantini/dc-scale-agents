@@ -36,6 +36,7 @@ import {
   DividendosView,
   EstadosView,
   ManualRevenuesPanel,
+  MetricasView,
   MktClientesView,
   TeamCostView,
 } from "./FinanzasViews";
@@ -48,6 +49,7 @@ import styles from "./finanzas.module.css";
 
 type FinPage =
   | "dashboard"
+  | "metricas"
   | "ingresos"
   | "egresos"
   | "equipo"
@@ -146,6 +148,7 @@ export default function FinanzasPage() {
       label: "Finanzas",
       items: [
         { key: "dashboard", icon: "◈", label: "Panel principal" },
+        { key: "metricas", icon: "▲", label: "Métricas del negocio" },
         { key: "ingresos", icon: "↑", label: "Ingresos" },
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
@@ -297,6 +300,16 @@ export default function FinanzasPage() {
                 clients={clients}
                 expenses={expenses}
                 onRefresh={refresh}
+              />
+            )}
+            {page === "metricas" && (
+              <MetricasView
+                clients={clients}
+                expenses={expenses}
+                payments={payments}
+                manualRevs={manualRevs}
+                leads={leads}
+                mrr={mrr}
               />
             )}
           </main>
