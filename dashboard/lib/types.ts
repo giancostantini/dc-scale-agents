@@ -363,6 +363,18 @@ export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
 /** Tipo de recurrencia del egreso. */
 export type ExpenseRecurrence = "one_time" | "monthly_fixed";
 
+/** Métodos de pago compartidos con manual_revenues. */
+export type ExpensePaymentMethod =
+  | "efectivo"
+  | "transferencia"
+  | "tarjeta"
+  | "cheque"
+  | "mp"
+  | "crypto"
+  | "otro";
+
+export type ExpenseStatus = "paid" | "pending" | "cancelled";
+
 export interface Expense {
   id: string;
   date: string;               // YYYY-MM-DD
@@ -378,6 +390,16 @@ export interface Expense {
   /** Si el egreso se carga contra el presupuesto MKT de un cliente,
    *  acá va el clientId. NULL = corporativo / no asignado a MKT. */
   mktBudgetClientId?: string | null;
+  /** Nombre del proveedor (texto libre por ahora). */
+  providerName?: string | null;
+  /** Método de pago. */
+  paymentMethod?: ExpensePaymentMethod | null;
+  /** % de IVA (default 22% UY). */
+  ivaPct?: number;
+  /** URL a la factura adjunta. */
+  invoiceUrl?: string | null;
+  /** Estado del egreso. */
+  status?: ExpenseStatus;
 }
 
 /** Entry del calendario de pago variable de un cliente. Define el

@@ -682,6 +682,11 @@ interface ExpenseRow {
   recurrence: "one_time" | "monthly_fixed" | null;
   recurrence_end_date: string | null;
   mkt_budget_client_id: string | null;
+  provider_name: string | null;
+  payment_method: string | null;
+  iva_pct: number | string | null;
+  invoice_url: string | null;
+  status: string | null;
 }
 
 function expenseFromRow(r: ExpenseRow): Expense {
@@ -695,6 +700,25 @@ function expenseFromRow(r: ExpenseRow): Expense {
     recurrence: r.recurrence ?? "one_time",
     recurrenceEndDate: r.recurrence_end_date ?? null,
     mktBudgetClientId: r.mkt_budget_client_id ?? null,
+    providerName: r.provider_name ?? null,
+    paymentMethod:
+      (r.payment_method as
+        | "efectivo"
+        | "transferencia"
+        | "tarjeta"
+        | "cheque"
+        | "mp"
+        | "crypto"
+        | "otro"
+        | null) ?? null,
+    ivaPct:
+      r.iva_pct == null
+        ? 22
+        : typeof r.iva_pct === "string"
+          ? parseFloat(r.iva_pct)
+          : r.iva_pct,
+    invoiceUrl: r.invoice_url ?? null,
+    status: (r.status as "paid" | "pending" | "cancelled" | null) ?? "paid",
   };
 }
 
@@ -721,11 +745,51 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
       recurrence: data.recurrence ?? "one_time",
       recurrence_end_date: data.recurrenceEndDate ?? null,
       mkt_budget_client_id: data.mktBudgetClientId ?? null,
+      provider_name: data.providerName ?? null,
+      payment_method: data.paymentMethod ?? null,
+      iva_pct: data.ivaPct ?? 22,
+      invoice_url: data.invoiceUrl ?? null,
+      status: data.status ?? "paid",
     })
     .select()
     .single();
   if (error) throw error;
   return expenseFromRow(inserted as ExpenseRow);
+}
+
+/** Update parcial de un expense. */
+export async function updateExpense(
+  id: string,
+  patch: Partial<Omit<Expense, "id">>,
+): Promise<Expense> {
+  const supabase = getSupabase();
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.date !== undefined) dbPatch.date = patch.date;
+  if (patch.concept !== undefined) dbPatch.concept = patch.concept;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
+  if (patch.amount !== undefined) dbPatch.amount = patch.amount;
+  if (patch.recurrence !== undefined) dbPatch.recurrence = patch.recurrence;
+  if (patch.recurrenceEndDate !== undefined)
+    dbPatch.recurrence_end_date = patch.recurrenceEndDate;
+  if (patch.mktBudgetClientId !== undefined)
+    dbPatch.mkt_budget_client_id = patch.mktBudgetClientId;
+  if (patch.providerName !== undefined)
+    dbPatch.provider_name = patch.providerName;
+  if (patch.paymentMethod !== undefined)
+    dbPatch.payment_method = patch.paymentMethod;
+  if (patch.ivaPct !== undefined) dbPatch.iva_pct = patch.ivaPct;
+  if (patch.invoiceUrl !== undefined) dbPatch.invoice_url = patch.invoiceUrl;
+  if (patch.status !== undefined) dbPatch.status = patch.status;
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .update(dbPatch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return expenseFromRow(data as ExpenseRow);
 }
 
 export async function deleteExpense(id: string): Promise<void> {

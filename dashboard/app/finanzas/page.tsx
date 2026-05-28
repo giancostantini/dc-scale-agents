@@ -44,6 +44,9 @@ import {
   MktClientesView,
   TeamCostView,
 } from "./FinanzasViews";
+import { PremiumDashboard } from "./PremiumDashboard";
+import { PremiumIngresos } from "./PremiumIngresos";
+import { PremiumEgresos } from "./PremiumEgresos";
 import {
   listManualRevenues,
   revenueMonthlyImpact,
@@ -202,47 +205,8 @@ export default function FinanzasPage() {
           </aside>
 
           <main className={styles.main}>
-            {page === "dashboard" && (
-              <DashboardView
-                clients={clients}
-                expenses={expenses}
-                payments={payments}
-                manualRevs={manualRevs}
-                leads={leads}
-                mrr={mrr}
-                totalExpenses={totalExpenses}
-                netResult={netResult}
-                marginPct={marginPct}
-                pipelineValue={pipelineValue}
-              />
-            )}
-            {page === "ingresos" && (
-              <>
-                <IngresosView
-                  clients={clients}
-                  payments={payments}
-                  onTogglePaid={async (clientId, month) => {
-                    const existing = payments.find(
-                      (p) => p.clientId === clientId && p.month === month,
-                    );
-                    const next =
-                      existing?.status === "paid" ? "pending" : "paid";
-                    await setPaymentStatus(clientId, month, next);
-                    refresh();
-                  }}
-                  onSetAmount={async (clientId, month, amount, note) => {
-                    await setPaymentAmount(clientId, month, amount, note);
-                    refresh();
-                  }}
-                  onDeletePayment={async (clientId, month) => {
-                    await deletePayment(clientId, month);
-                    refresh();
-                  }}
-                  mrr={mrr}
-                />
-                <ManualRevenuesPanel clients={clients} />
-              </>
-            )}
+            {page === "dashboard" && <PremiumDashboard />}
+            {page === "ingresos" && <PremiumIngresos clients={clients} />}
             {page === "equipo" && <TeamCostView />}
             {page === "dividendos" && (
               <DividendosView
@@ -266,22 +230,7 @@ export default function FinanzasPage() {
                 monthYYYYMM={monthYYYYMM}
               />
             )}
-            {page === "egresos" && (
-              <EgresosView
-                expenses={expenses}
-                totalExpenses={totalExpenses}
-                onAdd={() => setExpenseModal(true)}
-                onDelete={async (id) => {
-                  if (confirm("¿Eliminar este egreso?")) {
-                    await deleteExpense(id);
-                    refresh();
-                  }
-                }}
-                isDirector={isDirector}
-                month={MONTH_ISO()}
-                onRefresh={refresh}
-              />
-            )}
+            {page === "egresos" && <PremiumEgresos />}
             {page === "clientes" && (
               <ClientesView
                 clients={clients}

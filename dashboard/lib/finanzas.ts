@@ -10,6 +10,19 @@ import { getSupabase } from "./supabase/client";
 
 export type ManualRevenueKind = "fijo" | "one_time";
 
+/** Métodos de pago soportados. */
+export type PaymentMethod =
+  | "efectivo"
+  | "transferencia"
+  | "tarjeta"
+  | "cheque"
+  | "mp"
+  | "crypto"
+  | "otro";
+
+/** Estado del ingreso (cobrado / pendiente / cancelado). */
+export type RevenueStatus = "paid" | "pending" | "cancelled";
+
 export interface ManualRevenue {
   id: string;
   kind: ManualRevenueKind;
@@ -21,9 +34,16 @@ export interface ManualRevenue {
   date: string | null;          // para one-time
   category: string | null;
   notes: string | null;
-  /** Cliente al que se asigna este ingreso. NULL = ingreso corporativo
-   *  (alquiler de cowork, premio, etc). */
+  /** Cliente al que se asigna este ingreso. NULL = ingreso corporativo. */
   client_id: string | null;
+  /** Método de pago (migración 036). */
+  payment_method: PaymentMethod | null;
+  /** % de IVA del ingreso (default 22% UY). */
+  iva_pct: number;
+  /** URL al comprobante adjunto en Storage. */
+  comprobante_url: string | null;
+  /** Estado del ingreso. */
+  status: RevenueStatus;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -41,6 +61,10 @@ export interface CreateManualRevenueInput {
   notes?: string | null;
   /** Asignar este ingreso a un cliente. NULL/undefined = corporativo. */
   client_id?: string | null;
+  payment_method?: PaymentMethod | null;
+  iva_pct?: number;
+  comprobante_url?: string | null;
+  status?: RevenueStatus;
 }
 
 export async function listManualRevenues(): Promise<ManualRevenue[]> {
@@ -77,6 +101,10 @@ export async function createManualRevenue(
       category: input.category ?? null,
       notes: input.notes ?? null,
       client_id: input.client_id ?? null,
+      payment_method: input.payment_method ?? null,
+      iva_pct: input.iva_pct ?? 22,
+      comprobante_url: input.comprobante_url ?? null,
+      status: input.status ?? "paid",
       created_by: user?.id ?? null,
     })
     .select("*")
