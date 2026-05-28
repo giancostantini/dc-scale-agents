@@ -23,6 +23,10 @@ export interface Profile {
   payment_amount?: number | null;
   payment_currency?: string | null;
   payment_type?: "fijo" | "por_proyecto" | "por_hora" | "mixto" | null;
+  /** Día del mes (1-31) en que se le paga al funcional. NULL = sin
+   *  día configurado. Usado en Finanzas/Funcionales para calcular
+   *  próximos pagos. */
+  payment_day?: number | null;
   start_date?: string | null;
   phone?: string | null;
   notes?: string | null;
@@ -132,7 +136,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions, reports_to_id",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id",
     )
     .eq("id", user.id)
     .single();

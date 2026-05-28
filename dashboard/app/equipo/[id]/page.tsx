@@ -54,6 +54,8 @@ export default function EquipoDetailPage({
   const [editPaymentType, setEditPaymentType] = useState<
     "fijo" | "por_proyecto" | "por_hora" | "mixto"
   >("fijo");
+  /** Día del mes (1-31) en que se le paga al funcional. "" = sin día. */
+  const [editPaymentDay, setEditPaymentDay] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -100,6 +102,7 @@ export default function EquipoDetailPage({
         );
         setEditPaymentCurrency(p.payment_currency ?? "USD");
         setEditPaymentType(p.payment_type ?? "fijo");
+        setEditPaymentDay(p.payment_day != null ? String(p.payment_day) : "");
         setEditStartDate(p.start_date ?? "");
         setEditPhone(p.phone ?? "");
         setEditNotes(p.notes ?? "");
@@ -158,6 +161,11 @@ export default function EquipoDetailPage({
             : null,
         payment_currency: isClientRole ? null : editPaymentCurrency || null,
         payment_type: isClientRole ? null : editPaymentType,
+        payment_day: isClientRole
+          ? null
+          : editPaymentDay
+            ? Math.max(1, Math.min(31, Number(editPaymentDay))) || null
+            : null,
         start_date: isClientRole ? null : editStartDate || null,
         phone: editPhone || null,
         notes: editNotes || null,
@@ -390,6 +398,26 @@ export default function EquipoDetailPage({
                 options={["USD", "UYU", "ARS", "EUR"]}
                 disabled={!canEdit}
               />
+            </div>
+            {/* Día del mes en que se le paga al funcional */}
+            <div style={{ marginTop: 14 }}>
+              <Field
+                label="Día del mes de cobro (1-31)"
+                type="number"
+                value={editPaymentDay}
+                setValue={setEditPaymentDay}
+                disabled={!canEdit}
+              />
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 4,
+                }}
+              >
+                Ej: 5 = se le paga el día 5 de cada mes. Se usa en
+                Finanzas/Funcionales para mostrar los próximos cobros.
+              </div>
             </div>
           </Section>
         )}

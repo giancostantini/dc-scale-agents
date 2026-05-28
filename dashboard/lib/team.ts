@@ -12,7 +12,7 @@ import type {
 } from "./supabase/auth";
 
 const PROFILE_COLS =
-  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions, reports_to_id";
+  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id";
 
 // ============ PROFILES ============
 
@@ -47,6 +47,8 @@ export interface UpdateProfileInput {
   payment_amount?: number | null;
   payment_currency?: string | null;
   payment_type?: Profile["payment_type"];
+  /** Día del mes 1-31 en que se le paga al funcional. NULL = sin día. */
+  payment_day?: number | null;
   start_date?: string | null;
   phone?: string | null;
   notes?: string | null;

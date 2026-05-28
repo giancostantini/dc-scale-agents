@@ -26,7 +26,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { listProfiles } from "@/lib/team";
+import { listAllAssignments, listProfiles } from "@/lib/team";
 import {
   listClientMktBudgets,
   setClientMktBudget,
@@ -723,15 +723,38 @@ function EmptyStateInline({
 }
 
 // ============================================================
-// TeamCostView — costo del equipo
+// TeamCostView — costo del equipo + clientes asignados + cobros
+// ============================================================
+//
+// Vista detallada por miembro:
+//   - Para cada funcional muestra sus client_assignments activos
+//     (cliente + role_in_client + since)
+//   - Su payment_amount + payment_type
+//   - Su payment_day (día del mes en que se le paga) y los días que
+//     faltan hasta el próximo pago
+//   - KPIs globales: total mensual, próximos a cobrar, sin día
+//     configurado
 // ============================================================
 export function TeamCostView() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [assignments, setAssignments] = useState<
+    Array<{
+      client_id: string;
+      user_id: string;
+      role_in_client: string;
+      since: string;
+      until?: string | null;
+    }>
+  >([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listProfiles().then((list) => {
-      // Solo team (excluye clients y los que no tengan pago seteado).
+    Promise.all([
+      listProfiles(),
+      listAllAssignments(),
+      getClientsForFinanzas(),
+    ]).then(([list, asg, cls]) => {
       setProfiles(
         list.filter(
           (p) =>
@@ -740,26 +763,48 @@ export function TeamCostView() {
             Number(p.payment_amount) > 0,
         ),
       );
+      setAssignments(asg);
+      setClients(cls);
       setLoading(false);
     });
   }, []);
 
-  // Agrupar por posición
-  const byPosition = new Map<string, { profiles: Profile[]; total: number }>();
-  for (const p of profiles) {
-    const pos = p.position ?? "Sin posición";
-    const cur = byPosition.get(pos) ?? { profiles: [], total: 0 };
-    cur.profiles.push(p);
-    cur.total += Number(p.payment_amount ?? 0);
-    byPosition.set(pos, cur);
+  const today = new Date();
+  const todayDay = today.getDate();
+  const daysInMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0,
+  ).getDate();
+
+  /** Para un payment_day, calcula días hasta el próximo cobro. */
+  function daysUntilPayment(payDay: number | null | undefined): number | null {
+    if (!payDay) return null;
+    if (payDay >= todayDay) return payDay - todayDay;
+    // Próximo cobro es el mes que viene
+    return daysInMonth - todayDay + payDay;
   }
-  const grouped = Array.from(byPosition.entries()).sort(
-    (a, b) => b[1].total - a[1].total,
-  );
+
+  /** Para una persona, lista sus clients asignados (sin filtrar por until
+   *  pendiente de implementar — por ahora muestra todos los assignments
+   *  con until=null o futuro). */
+  function assignmentsFor(userId: string) {
+    return assignments.filter((a) => {
+      if (a.user_id !== userId) return false;
+      if (!a.until) return true;
+      return a.until >= today.toISOString().slice(0, 10);
+    });
+  }
+
   const grandTotal = profiles.reduce(
     (s, p) => s + Number(p.payment_amount ?? 0),
     0,
   );
+  const withPayDay = profiles.filter((p) => p.payment_day != null);
+  const upcomingSoon = profiles.filter((p) => {
+    const d = daysUntilPayment(p.payment_day);
+    return d !== null && d <= 7;
+  });
 
   return (
     <>
@@ -778,15 +823,16 @@ export function TeamCostView() {
       <h1 style={h1Style}>Funcionales</h1>
       <p
         style={{
-          maxWidth: 700,
+          maxWidth: 720,
           color: "var(--text-muted)",
           fontSize: 14,
           lineHeight: 1.6,
           marginBottom: 28,
         }}
       >
-        Suma de los pagos definidos en /equipo, agrupada por posición.
-        Para cambiar montos, andá al detail de cada persona desde{" "}
+        Costo del equipo, clientes asignados y fechas de cobro. Para
+        cambiar montos, fechas o agregar clientes, andá al detail de
+        cada persona desde{" "}
         <Link href="/equipo" style={{ color: "var(--sand-dark)" }}>
           /equipo
         </Link>
@@ -813,96 +859,296 @@ export function TeamCostView() {
 
       {!loading && profiles.length > 0 && (
         <>
+          {/* KPIs */}
           <div className={styles.kpis}>
             <div className={styles.kpi}>
               <div className={styles.kLabel}>Total mensual</div>
               <div className={styles.kValue}>
                 US$ {grandTotal.toLocaleString()}
               </div>
+              <div className={styles.kSub}>{profiles.length} personas</div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kLabel}>Personas con pago</div>
-              <div className={styles.kValue}>{profiles.length}</div>
+              <div className={styles.kLabel}>Próximos 7 días</div>
+              <div
+                className={styles.kValue}
+                style={{
+                  color: upcomingSoon.length > 0 ? "#C9A14A" : undefined,
+                }}
+              >
+                {upcomingSoon.length}
+              </div>
+              <div className={styles.kSub}>
+                US${" "}
+                {upcomingSoon
+                  .reduce((s, p) => s + Number(p.payment_amount ?? 0), 0)
+                  .toLocaleString()}{" "}
+                a pagar
+              </div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kLabel}>Posiciones</div>
-              <div className={styles.kValue}>{grouped.length}</div>
+              <div className={styles.kLabel}>Sin fecha de cobro</div>
+              <div
+                className={styles.kValue}
+                style={{
+                  color:
+                    profiles.length - withPayDay.length > 0
+                      ? "#b04b3a"
+                      : undefined,
+                }}
+              >
+                {profiles.length - withPayDay.length}
+              </div>
+              <div className={styles.kSub}>Faltan configurar payment_day</div>
             </div>
             <div className={styles.kpi}>
               <div className={styles.kLabel}>Promedio/persona</div>
               <div className={styles.kValue}>
                 US${" "}
-                {profiles.length > 0
-                  ? Math.round(grandTotal / profiles.length).toLocaleString()
-                  : 0}
+                {Math.round(grandTotal / profiles.length).toLocaleString()}
               </div>
+              <div className={styles.kSub}>Costo mensual medio</div>
             </div>
           </div>
 
+          {/* Detalle por miembro */}
           <div className={styles.table}>
-            <h3>Desglose por posición</h3>
-            <div
-              className={`${styles.row} ${styles.rowHead}`}
-              style={{ gridTemplateColumns: "2fr 1fr 1fr" }}
+            <h3>Detalle por miembro</h3>
+            <p
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginBottom: 14,
+              }}
             >
-              <div>Posición</div>
-              <div>Personas</div>
-              <div>Costo mensual</div>
-            </div>
-            {grouped.map(([pos, info]) => (
-              <details key={pos}>
-                <summary
-                  className={styles.row}
-                  style={{
-                    gridTemplateColumns: "2fr 1fr 1fr",
-                    cursor: "pointer",
-                    listStyle: "none",
-                  }}
-                >
-                  <div>
-                    <strong>{pos}</strong>
-                  </div>
-                  <div className={styles.num}>{info.profiles.length}</div>
-                  <div className={`${styles.num} ${styles.pos}`}>
-                    US$ {info.total.toLocaleString()}
-                  </div>
-                </summary>
-                <div
-                  style={{
-                    padding: "8px 16px",
-                    background: "var(--off-white)",
-                  }}
-                >
-                  {info.profiles.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/equipo/${p.id}`}
+              Cada fila muestra el costo + clientes activos + tareas
+              asignadas + día de cobro.
+            </p>
+
+            {[...profiles]
+              .sort((a, b) => {
+                // Próximos a cobrar primero, después por nombre
+                const aDays = daysUntilPayment(a.payment_day) ?? 999;
+                const bDays = daysUntilPayment(b.payment_day) ?? 999;
+                if (aDays !== bDays) return aDays - bDays;
+                return a.name.localeCompare(b.name);
+              })
+              .map((p) => {
+                const userAsgs = assignmentsFor(p.id);
+                const daysToPay = daysUntilPayment(p.payment_day);
+                const payColor =
+                  daysToPay === null
+                    ? "var(--text-muted)"
+                    : daysToPay === 0
+                      ? "#b04b3a"
+                      : daysToPay <= 3
+                        ? "#C9A14A"
+                        : daysToPay <= 7
+                          ? "#9B8259"
+                          : "var(--text-muted)";
+
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      padding: "16px 0",
+                      borderBottom: "1px solid rgba(10,26,12,0.06)",
+                    }}
+                  >
+                    {/* Header de la fila */}
+                    <div
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        padding: "6px 0",
-                        fontSize: 12,
-                        textDecoration: "none",
-                        color: "inherit",
-                        borderBottom: "1px solid rgba(10,26,12,0.05)",
+                        display: "grid",
+                        gridTemplateColumns: "2fr 1.2fr 1.2fr 0.8fr",
+                        gap: 12,
+                        alignItems: "baseline",
                       }}
                     >
-                      <span>{p.name}</span>
-                      <span style={{ color: "var(--text-muted)" }}>
-                        {p.payment_currency ?? "USD"}{" "}
-                        {Number(p.payment_amount).toLocaleString()} (
-                        {p.payment_type ?? "fijo"})
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </details>
-            ))}
+                      <div>
+                        <Link
+                          href={`/equipo/${p.id}`}
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: "var(--deep-green)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {p.name}
+                        </Link>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {p.position ?? "Sin posición"} · {p.role}
+                        </div>
+                      </div>
+                      <div className={styles.num}>
+                        <strong>
+                          {p.payment_currency ?? "USD"}{" "}
+                          {Number(p.payment_amount).toLocaleString()}
+                        </strong>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.1em",
+                            marginTop: 2,
+                          }}
+                        >
+                          {p.payment_type ?? "fijo"}
+                        </div>
+                      </div>
+                      <div>
+                        {p.payment_day ? (
+                          <>
+                            <strong style={{ color: payColor }}>
+                              Día {p.payment_day}
+                            </strong>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: payColor,
+                                marginTop: 2,
+                              }}
+                            >
+                              {daysToPay === 0
+                                ? "Hoy"
+                                : daysToPay === 1
+                                  ? "Mañana"
+                                  : `En ${daysToPay} día${daysToPay === 1 ? "" : "s"}`}
+                            </div>
+                          </>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--red-warn)",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Sin día configurado
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <Link
+                          href={`/equipo/${p.id}`}
+                          style={{
+                            fontSize: 11,
+                            color: "var(--sand-dark)",
+                            textDecoration: "none",
+                            border: "1px solid rgba(10,26,12,0.15)",
+                            padding: "4px 10px",
+                            borderRadius: "var(--r-sm)",
+                          }}
+                        >
+                          Editar →
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Clientes asignados */}
+                    {userAsgs.length > 0 ? (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px dashed rgba(10,26,12,0.08)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: "0.18em",
+                            textTransform: "uppercase",
+                            color: "var(--sand-dark)",
+                            fontWeight: 700,
+                            marginBottom: 6,
+                          }}
+                        >
+                          Clientes activos ({userAsgs.length})
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {userAsgs.map((a, i) => {
+                            const cli = clients.find(
+                              (c) => c.id === a.client_id,
+                            );
+                            return (
+                              <div
+                                key={`${a.client_id}-${i}`}
+                                style={{
+                                  padding: "6px 10px",
+                                  background: "var(--off-white)",
+                                  fontSize: 11,
+                                  borderLeft: "2px solid var(--sand-dark)",
+                                  borderRadius: "var(--r-sm)",
+                                }}
+                              >
+                                <strong style={{ color: "var(--deep-green)" }}>
+                                  {cli?.name ?? a.client_id}
+                                </strong>
+                                <span
+                                  style={{
+                                    color: "var(--text-muted)",
+                                    marginLeft: 6,
+                                  }}
+                                >
+                                  · {a.role_in_client}
+                                </span>
+                                <span
+                                  style={{
+                                    color: "var(--text-muted)",
+                                    marginLeft: 6,
+                                    fontSize: 10,
+                                  }}
+                                >
+                                  desde {a.since}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px dashed rgba(10,26,12,0.08)",
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Sin clientes asignados.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </>
       )}
     </>
   );
+}
+
+// Helper: getClients re-export from /lib/storage (la importación
+// circular es OK porque solo se llama en runtime, no en módulo).
+async function getClientsForFinanzas(): Promise<Client[]> {
+  const { getClients } = await import("@/lib/storage");
+  return getClients();
 }
 
 // ============================================================
