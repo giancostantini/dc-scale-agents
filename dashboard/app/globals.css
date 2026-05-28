@@ -1,3 +1,44 @@
+/* ============================================================
+   Tailwind (rediseño premium 2026) — coexiste con CSS modules
+   ============================================================ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-feature-settings: "ss01", "cv11", "tnum";
+  }
+}
+
+@layer utilities {
+  .card-premium {
+    @apply bg-white border border-rule rounded-premium shadow-premium-sm;
+  }
+  .card-premium-hover {
+    @apply transition-shadow hover:shadow-premium-md;
+  }
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(10, 26, 12, 0.04) 0%,
+      rgba(10, 26, 12, 0.08) 50%,
+      rgba(10, 26, 12, 0.04) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded-premium-sm;
+  }
+  .eyebrow {
+    @apply text-2xs uppercase tracking-[0.18em] font-semibold text-ink-300;
+  }
+  .stat-num {
+    @apply text-3xl font-semibold tracking-tight tabular-nums text-ink;
+  }
+  .pill-premium {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold rounded-full;
+  }
+}
+
 :root {
   /* ============ BRAND COLORS ============ */
   --deep-green: #0A1A0C;
