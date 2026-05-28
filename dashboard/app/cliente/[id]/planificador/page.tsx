@@ -118,6 +118,8 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     month_notes_count: number;
     strategy_version: number;
   } | null>(null);
+  /** Modal del Asistente Creativo. */
+  const [creativeOpen, setCreativeOpen] = useState(false);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
@@ -432,6 +434,15 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               onClick={() => setFreqModal(true)}
             >
               ⚑ Frecuencia + mix
+            </button>
+          )}
+          {isDirector && (
+            <button
+              className={ui.btnGhost}
+              onClick={() => setCreativeOpen(true)}
+              title="Chat con el Asistente Creativo para armar el calendario"
+            >
+              ✨ Asistente creativo
             </button>
           )}
           {isDirector && (
@@ -1055,6 +1066,18 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         }}
       />
 
+      {/* Modal del Asistente Creativo */}
+      {creativeOpen && (
+        <CreativeAssistantModal
+          clientId={id}
+          onClose={() => setCreativeOpen(false)}
+          onSaved={() => {
+            setCreativeOpen(false);
+            refresh();
+          }}
+        />
+      )}
+
       {/* Modal de "Poblar desde estrategia" */}
       {seedModal && (
         <div
@@ -1649,3 +1672,440 @@ const inputS: React.CSSProperties = {
   outline: "none",
   borderRadius: "var(--r-md)",
 };
+
+// ============================================================
+// CreativeAssistantModal — chat + propose + traspolar al roadmap
+// ============================================================
+interface ProposedPiece {
+  date: string;
+  time: string;
+  network: string;
+  format: string;
+  type?: string;
+  idea: string;
+  copy: string;
+  brief: string;
+}
+interface ChatMsg {
+  role: "user" | "assistant";
+  content: string;
+}
+
+function CreativeAssistantModal({
+  clientId,
+  onClose,
+  onSaved,
+}: {
+  clientId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [proposed, setProposed] = useState<{
+    intro: string;
+    pieces: ProposedPiece[];
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function sendChat(mode: "chat" | "propose") {
+    if (!input.trim() || thinking) return;
+    const userMsg: ChatMsg = { role: "user", content: input.trim() };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setThinking(true);
+    setProposed(null);
+
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sin sesión");
+      const res = await fetch(`/api/clients/${clientId}/creative-assistant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          mode,
+          messages: [...messages, userMsg],
+          constraints: mode === "propose" ? { count: 7 } : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error([data?.error, data?.detail].filter(Boolean).join(" — "));
+      }
+      const reply = data.reply ?? "";
+      if (mode === "propose") {
+        try {
+          const cleaned = reply
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```\s*$/i, "")
+            .trim();
+          const parsed = JSON.parse(cleaned);
+          if (parsed.pieces && Array.isArray(parsed.pieces)) {
+            setProposed(parsed);
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content:
+                  parsed.intro ??
+                  `Te propongo ${parsed.pieces.length} piezas. Revisalas y aprobá para traspolarlas al roadmap.`,
+              },
+            ]);
+            return;
+          }
+        } catch {
+          // fallthrough
+        }
+      }
+      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+    } catch (err) {
+      const e = err as Error;
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `⚠ Error: ${e.message}` },
+      ]);
+    } finally {
+      setThinking(false);
+    }
+  }
+
+  async function approveAndTransplant() {
+    if (!proposed) return;
+    setSaving(true);
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sin sesión");
+      const res = await fetch(`/api/clients/${clientId}/creative-bulk-save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          pieces: proposed.pieces.map((p) => ({
+            date: p.date,
+            time: p.time,
+            network: p.network,
+            format: p.format,
+            brief: `[${p.type ?? "—"}] ${p.idea}\n\n${p.copy}\n\n— BRIEF —\n${p.brief}`,
+            status: "draft",
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error([data?.error, data?.detail].filter(Boolean).join(" — "));
+      }
+      alert(
+        `✓ ${data.created} piezas agregadas al roadmap y al menú Contenido.${data.skipped > 0 ? ` (${data.skipped} descartadas)` : ""}`,
+      );
+      onSaved();
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudieron guardar:\n${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving && !thinking) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(10,26,12,0.6)",
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 40,
+        backdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        style={{
+          background: "var(--white)",
+          maxWidth: 720,
+          width: "100%",
+          maxHeight: "92vh",
+          overflowY: "auto",
+          padding: 28,
+          borderRadius: "var(--r-lg)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 600,
+            marginBottom: 6,
+          }}
+        >
+          Roadmap · Asistente creativo
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+          ✨ Diseñá el calendario con IA
+        </h2>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--text-muted)",
+            marginBottom: 18,
+            lineHeight: 1.5,
+          }}
+        >
+          Conversá con el agente: contale qué estrategia tenés en mente,
+          cuántos días querés cargar, qué redes y formatos priorizar.
+          Conoce el contexto del cliente (branding, estrategia aprobada,
+          frecuencia, mix). Cuando te convenza, traspolá al calendario.
+        </p>
+
+        {/* Mensajes */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            maxHeight: 380,
+            marginBottom: 12,
+            padding: 4,
+          }}
+        >
+          {messages.length === 0 && !proposed && (
+            <div
+              style={{
+                padding: 16,
+                background: "var(--ivory)",
+                fontSize: 12,
+                color: "var(--text-muted)",
+                lineHeight: 1.6,
+                borderRadius: "var(--r-sm)",
+                fontStyle: "italic",
+              }}
+            >
+              Ej:{" "}
+              <strong>"armame 7 piezas para la próxima semana enfocadas en awareness"</strong>
+              ,{" "}
+              <strong>"qué ideas para Mother's Day?"</strong>, o usá ✨ Generar batch.
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              style={{
+                marginBottom: 10,
+                padding: 10,
+                background: m.role === "user" ? "var(--off-white)" : "var(--ivory)",
+                borderLeft: `3px solid ${m.role === "user" ? "var(--sand-dark)" : "var(--deep-green)"}`,
+                fontSize: 12,
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                borderRadius: "0 var(--r-sm) var(--r-sm) 0",
+              }}
+            >
+              {m.content}
+            </div>
+          ))}
+          {thinking && (
+            <div
+              style={{
+                padding: 10,
+                color: "var(--text-muted)",
+                fontStyle: "italic",
+                fontSize: 12,
+              }}
+            >
+              Pensando…
+            </div>
+          )}
+        </div>
+
+        {/* Piezas propuestas */}
+        {proposed && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 12,
+              background: "rgba(196,168,130,0.08)",
+              border: "1px solid rgba(196,168,130,0.3)",
+              borderRadius: "var(--r-sm)",
+              maxHeight: 280,
+              overflowY: "auto",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--sand-dark)",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                marginBottom: 8,
+              }}
+            >
+              {proposed.pieces.length} piezas propuestas
+            </div>
+            {proposed.pieces.map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "8px 10px",
+                  background: "var(--white)",
+                  marginBottom: 6,
+                  fontSize: 11,
+                  borderLeft: "2px solid var(--sand-dark)",
+                  borderRadius: "var(--r-sm)",
+                }}
+              >
+                <strong>{p.date} {p.time}</strong> · {p.network} {p.format}
+                {p.type && (
+                  <span style={{ marginLeft: 4, color: "var(--sand-dark)", fontWeight: 700 }}>
+                    · {p.type}
+                  </span>
+                )}
+                <div style={{ marginTop: 4 }}>{p.idea}</div>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <button
+                onClick={approveAndTransplant}
+                disabled={saving}
+                style={{
+                  flex: 1,
+                  padding: "10px 12px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  border: "none",
+                  cursor: saving ? "default" : "pointer",
+                  fontFamily: "inherit",
+                  borderRadius: "var(--r-sm)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  opacity: saving ? 0.5 : 1,
+                }}
+              >
+                {saving
+                  ? "Guardando…"
+                  : "✓ Aprobar y traspolar al roadmap"}
+              </button>
+              <button
+                onClick={() => setProposed(null)}
+                style={{
+                  padding: "10px 12px",
+                  fontSize: 11,
+                  background: "transparent",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  color: "var(--deep-green)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  borderRadius: "var(--r-sm)",
+                }}
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Input */}
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Contale al asistente qué calendario querés armar…"
+          rows={3}
+          disabled={thinking}
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            border: "1px solid rgba(10,26,12,0.15)",
+            background: "var(--white)",
+            color: "var(--deep-green)",
+            fontFamily: "inherit",
+            fontSize: 12,
+            resize: "vertical",
+            borderRadius: "var(--r-sm)",
+            outline: "none",
+            marginBottom: 8,
+          }}
+        />
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            onClick={() => sendChat("chat")}
+            disabled={thinking || !input.trim()}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              cursor: thinking ? "default" : "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: thinking || !input.trim() ? 0.5 : 1,
+            }}
+          >
+            ↑ Preguntar
+          </button>
+          <button
+            onClick={() => sendChat("propose")}
+            disabled={thinking || !input.trim()}
+            style={{
+              padding: "10px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "transparent",
+              border: "1px solid var(--sand-dark)",
+              color: "var(--sand-dark)",
+              cursor: thinking ? "default" : "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: thinking || !input.trim() ? 0.5 : 1,
+            }}
+          >
+            ✨ Generar batch
+          </button>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            style={{
+              padding: "10px 12px",
+              fontSize: 11,
+              background: "transparent",
+              border: "1px solid rgba(10,26,12,0.15)",
+              color: "var(--deep-green)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+            }}
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
