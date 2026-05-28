@@ -1970,6 +1970,13 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     margin-bottom: 24px;
     box-shadow: var(--shadow-md);
     border: 2px solid var(--sand);
+    overflow: hidden;
+  }
+  .partner-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   .partner-name {
@@ -4371,22 +4378,23 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       </div>
     </div>
 
-    <!-- Caso 3: NDA -->
+    <!-- Caso 3: Mundiplast -->
     <div class="case">
-      <div class="case-logo-wrap nda">
-        <span class="case-logo-text">Cliente bajo NDA</span>
+      <div class="case-logo-wrap has-logo">
+        <img src="logos/mundiplast.svg" alt="Mundiplast UY">
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 02 · IA</div>
-        <div class="case-metric">60%</div>
-        <div class="case-metric-label">Consultas resueltas por un agente IA sin intervención humana.</div>
+        <div class="case-metric">+30%</div>
+        <div class="case-metric-label">Objetivo de ventas con seguimiento por vendedor + agente IA en WhatsApp.</div>
       </div>
       <div class="case-body">
         <p class="case-desc">
-          Operación con 40 pedidos diarios automatizada con un agente IA a medida. Integrado a WhatsApp y al sistema interno — diagnóstico, diseño e implementación en tiempo real, sin SaaS de terceros.
+          Operación de packaging con visibilidad cero del progreso por vendedor. Diseñamos e implementamos dashboards para la dirección y uno por vendedor con su pipeline real, más un agente conversacional en WhatsApp para consultas sobre clientes, stock y precios — sobre el sistema interno, sin SaaS de terceros.
         </p>
         <div class="case-quote">
-          Cliente bajo NDA · referencia disponible en segunda reunión, firmando acuerdo de confidencialidad.
+          Cliente activo · proyecto en implementación 2026
+          <div class="case-author">— Mundiplast UY</div>
         </div>
       </div>
     </div>
@@ -4446,14 +4454,14 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   <div class="cupo-intro">
     <div>
       <div class="label">Cupos disponibles</div>
-      <h2>8 clientes totales.<br><span class="accent">2 cupos</span> abiertos.</h2>
+      <h2>5 clientes totales.<br><span class="accent">2 cupos</span> abiertos.</h2>
       <a href="#agendar" class="scope-pill" onclick="openCalendly(event)" style="background: var(--emerald-soft); border-color: rgba(196, 168, 130,0.4); margin-top: 16px;">
         <span class="sp-dot"></span>
         <span>Solo <strong style="color: var(--ink-900);">2 cupos disponibles</strong></span>
       </a>
     </div>
     <p class="lead">
-      La firma opera con <strong>8 cuentas activas como máximo</strong> — es la única forma de garantizar que los socios estén involucrados en cada una. Cuando se completan los cupos, cerramos inscripciones hasta que un cliente termina su ciclo.
+      La firma opera con <strong>5 cuentas activas como máximo</strong> — es la única forma de garantizar que los socios estén involucrados en cada una. Cuando se completan los cupos, cerramos inscripciones hasta que un cliente termina su ciclo.
     </p>
   </div>
 
@@ -4465,17 +4473,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       <div class="slot occupied has-logo" data-tooltip="Wiz Trip">
         <img src="logos/wiztrip.svg" alt="Wiz Trip">
       </div>
-      <div class="slot occupied nda" data-tooltip="Cliente bajo NDA · Camino 02">
-        <span class="slot-mark">NDA</span>
-      </div>
-      <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
-        <span class="slot-mark">NDA</span>
-      </div>
-      <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
-        <span class="slot-mark">NDA</span>
-      </div>
-      <div class="slot occupied nda" data-tooltip="Cliente bajo NDA">
-        <span class="slot-mark">NDA</span>
+      <div class="slot occupied has-logo" data-tooltip="Mundiplast UY · Camino 02">
+        <img src="logos/mundiplast.svg" alt="Mundiplast UY">
       </div>
       <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
         <span class="slot-mark">+</span>
@@ -4668,7 +4667,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   <div class="partners reveal-stagger">
     <div class="partner">
       <div class="partner-header-row">
-        <div class="partner-avatar">FD</div>
+        <div class="partner-avatar"><img src="photos/federico.jpg" alt="Federico Dearmas"></div>
         <a href="https://www.linkedin.com/in/federico-dearmas" target="_blank" rel="noopener" class="partner-linkedin" aria-label="LinkedIn de Federico Dearmas">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.03-1.85-3.03-1.85 0-2.13 1.45-2.13 2.94v5.66H9.37V9h3.41v1.56h.04c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.47v6.27zM5.34 7.43a2.06 2.06 0 110-4.12 2.06 2.06 0 010 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"></path>
@@ -4683,7 +4682,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     </div>
     <div class="partner">
       <div class="partner-header-row">
-        <div class="partner-avatar">GC</div>
+        <div class="partner-avatar"><img src="photos/gianluca.jpg" alt="Gianluca Costantini"></div>
         <a href="https://www.linkedin.com/in/gianluca-costantini" target="_blank" rel="noopener" class="partner-linkedin" aria-label="LinkedIn de Gianluca Costantini">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.03-1.85-3.03-1.85 0-2.13 1.45-2.13 2.94v5.66H9.37V9h3.41v1.56h.04c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.47v6.27zM5.34 7.43a2.06 2.06 0 110-4.12 2.06 2.06 0 010 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"></path>
