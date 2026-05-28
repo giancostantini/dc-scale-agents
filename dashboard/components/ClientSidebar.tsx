@@ -13,11 +13,12 @@ import {
   BookOpen,
   Inbox,
   Target,
-  Bot,
   PenLine,
   Mail,
   Trash2,
   ArrowLeft,
+  Sparkles,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
@@ -86,29 +87,31 @@ export default function ClientSidebar({ client }: { client: Client }) {
 
   const base = `/cliente/${client.id}`;
 
+  // Menú UNIFICADO (sin split nav/gestión). Orden por flujo de uso:
+  // dashboard → estrategia → ejecución → análisis → soporte.
   const navGP: NavItem[] = [
-    { href: base,                  icon: LayoutDashboard, label: "Dashboard" },
-    { href: `${base}/fases`,        icon: Layers,         label: "Fases del negocio" },
-    { href: `${base}/planificador`, icon: Map,            label: "Roadmap" },
-    { href: `${base}/campanas`,     icon: Clapperboard,   label: "Producciones" },
-    { href: `${base}/tareas`,       icon: ListChecks,     label: "Tareas" },
-    { href: `${base}/analitica`,    icon: TrendingUp,     label: "Analítica" },
+    { href: base,                   icon: LayoutDashboard, label: "Dashboard" },
+    { href: `${base}/fases`,         icon: Layers,         label: "Fases del negocio" },
+    { href: `${base}/objetivos`,     icon: Target,         label: "Objetivos", directorOnly: true },
+    { href: `${base}/planificador`,  icon: Map,            label: "Roadmap" },
+    { href: `${base}/contenido`,     icon: Sparkles,       label: "Contenido" },
+    { href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
+    { href: `${base}/campanas`,      icon: Clapperboard,   label: "Producciones" },
+    { href: `${base}/analitica`,     icon: TrendingUp,     label: "Analítica" },
+    { href: `${base}/reporting`,     icon: FileText,       label: "Reporting" },
+    { href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
+    { href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
+    { href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
   ];
 
   const navDev: NavItem[] = [
-    { href: base,                  icon: LayoutDashboard, label: "Dashboard" },
-    { href: `${base}/sprints`,      icon: ListChecks,     label: "Sprints" },
-    { href: `${base}/nueva-tarea`,  icon: Plus,           label: "Nueva tarea" },
-  ];
-
-  const gestion: NavItem[] = [
-    { href: `${base}/biblioteca`,    icon: BookOpen, label: "Biblioteca" },
-    { href: `${base}/solicitudes`,   icon: Inbox,    label: "Solicitudes del cliente" },
-    { href: `${base}/objetivos`,     icon: Target,   label: "Setear objetivos", directorOnly: true },
-    ...(client.type === "gp"
-      ? [{ href: `${base}/agentes`, icon: Bot, label: "Agentes IA" }]
-      : []),
-    { href: `${base}/notas`,         icon: PenLine, label: "Notas internas" },
+    { href: base,                    icon: LayoutDashboard, label: "Dashboard" },
+    { href: `${base}/sprints`,       icon: ListChecks,     label: "Sprints" },
+    { href: `${base}/nueva-tarea`,   icon: Plus,           label: "Nueva tarea" },
+    { href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
+    { href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
+    { href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
+    { href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
   ];
 
   const nav = client.type === "gp" ? navGP : navDev;
@@ -143,13 +146,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
       </div>
 
       <div className={styles.section}>
-        <div className={styles.label}>Navegación</div>
         {nav.map(renderItem)}
-      </div>
-
-      <div className={styles.section}>
-        <div className={styles.label}>Gestión</div>
-        {gestion.map(renderItem)}
       </div>
 
       {isDirector && (
