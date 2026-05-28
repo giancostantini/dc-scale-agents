@@ -2,19 +2,35 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import Topbar from "@/components/Topbar";
 import NewExpenseModal from "@/components/NewExpenseModal";
-import PayrollGenerateButton from "@/components/PayrollGenerateButton";
 import {
   getClients,
   getExpenses,
   getPayments,
   setPaymentStatus,
+  setPaymentAmount,
+  deletePayment,
   deleteExpense,
   getLeads,
 } from "@/lib/storage";
 import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
-import type { Client, Expense, InvoicePayment, Lead } from "@/lib/types";
+import {
+  EXPENSE_CATEGORY_LABEL,
+  type Client,
+  type Expense,
+  type ExpenseCategory,
+  type InvoicePayment,
+  type Lead,
+} from "@/lib/types";
 import {
   DashboardView,
   DividendosView,
@@ -203,6 +219,14 @@ export default function FinanzasPage() {
                     await setPaymentStatus(clientId, month, next);
                     refresh();
                   }}
+                  onSetAmount={async (clientId, month, amount, note) => {
+                    await setPaymentAmount(clientId, month, amount, note);
+                    refresh();
+                  }}
+                  onDeletePayment={async (clientId, month) => {
+                    await deletePayment(clientId, month);
+                    refresh();
+                  }}
                   mrr={mrr}
                 />
                 <ManualRevenuesPanel clients={clients} />
@@ -225,6 +249,8 @@ export default function FinanzasPage() {
                   clientId: p.clientId,
                   month: p.month,
                   status: p.status,
+                  amountOverride: p.amountOverride,
+                  note: p.note,
                 }))}
                 monthYYYYMM={monthYYYYMM}
               />
@@ -327,53 +353,247 @@ function EmptyState({ icon, title, desc, action }: { icon: string; title: string
   );
 }
 
-function IngresosView({ clients, payments, onTogglePaid, mrr }: {
-  clients: Client[]; payments: InvoicePayment[];
-  onTogglePaid: (clientId: string, month: string) => void; mrr: number;
+function IngresosView({
+  clients,
+  payments,
+  onTogglePaid,
+  onSetAmount,
+  onDeletePayment,
+  mrr,
+}: {
+  clients: Client[];
+  payments: InvoicePayment[];
+  onTogglePaid: (clientId: string, month: string) => void;
+  onSetAmount: (
+    clientId: string,
+    month: string,
+    amount: number | null,
+    note: string | null,
+  ) => void;
+  onDeletePayment: (clientId: string, month: string) => void;
+  mrr: number;
 }) {
   const month = MONTH_ISO();
-  function status(clientId: string) {
-    return payments.find((p) => p.clientId === clientId && p.month === month)?.status || "pending";
+  // ID del cliente cuyo importe se está editando inline
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editNote, setEditNote] = useState("");
+
+  function paymentFor(clientId: string) {
+    return payments.find((p) => p.clientId === clientId && p.month === month);
+  }
+
+  function startEdit(c: Client) {
+    const p = paymentFor(c.id);
+    setEditingClientId(c.id);
+    setEditAmount(
+      p?.amountOverride != null ? String(p.amountOverride) : String(c.fee),
+    );
+    setEditNote(p?.note ?? "");
+  }
+  function cancelEdit() {
+    setEditingClientId(null);
+    setEditAmount("");
+    setEditNote("");
+  }
+  function saveEdit(c: Client) {
+    const n = Number(editAmount);
+    if (Number.isNaN(n) || n < 0) {
+      alert("Importe inválido.");
+      return;
+    }
+    // Si el monto es exactamente el del fee, no guardamos override (sirve
+    // como "limpiar override")
+    const override = n === c.fee ? null : n;
+    onSetAmount(c.id, month, override, editNote.trim() || null);
+    cancelEdit();
   }
 
   return (
     <>
-      <Header eyebrow="Finanzas · Ingresos" title="Ingresos del mes" rightLabel="MRR total" rightValue={`US$ ${mrr.toLocaleString()}`} />
+      <Header
+        eyebrow="Finanzas · Ingresos"
+        title="Ingresos del mes"
+        rightLabel="MRR total"
+        rightValue={`US$ ${mrr.toLocaleString()}`}
+      />
 
       {clients.length === 0 ? (
-        <EmptyState icon="↑" title="No hay ingresos todavía" desc="Los ingresos se calculan automáticamente a partir de los fees de tus clientes." />
+        <EmptyState
+          icon="↑"
+          title="No hay ingresos todavía"
+          desc="Los ingresos se calculan automáticamente a partir de los fees de tus clientes."
+        />
       ) : (
         <div className={styles.table}>
           <h3>Cobros por cliente</h3>
-          <div className={`${styles.row} ${styles.rowHead}`} style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}>
+          <div
+            className={`${styles.row} ${styles.rowHead}`}
+            style={{ gridTemplateColumns: "2fr 1.2fr 1fr 2fr" }}
+          >
             <div>Cliente</div>
-            <div>Fee mensual</div>
+            <div>Importe a cobrar</div>
             <div>Estado</div>
-            <div>Acción</div>
+            <div>Acciones</div>
           </div>
           {clients.map((c) => {
-            const st = status(c.id);
+            const p = paymentFor(c.id);
+            const st = p?.status ?? "pending";
+            const amount = p?.amountOverride ?? c.fee;
+            const hasOverride = p?.amountOverride != null;
+            const isEditingThis = editingClientId === c.id;
+
             return (
-              <div key={c.id} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}>
-                <div className={styles.num}>{c.name}</div>
-                <div className={`${styles.num} ${styles.pos}`}>US$ {c.fee.toLocaleString()}</div>
+              <div
+                key={c.id}
+                className={styles.row}
+                style={{
+                  gridTemplateColumns: "2fr 1.2fr 1fr 2fr",
+                  background: isEditingThis
+                    ? "rgba(196, 168, 130, 0.08)"
+                    : undefined,
+                }}
+              >
+                <div className={styles.num}>
+                  {c.name}
+                  {p?.note && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {p.note}
+                    </div>
+                  )}
+                </div>
+
+                {isEditingThis ? (
+                  <div>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      autoFocus
+                      style={{
+                        padding: "6px 8px",
+                        border: "1px solid rgba(10,26,12,0.15)",
+                        background: "var(--white)",
+                        color: "var(--deep-green)",
+                        fontFamily: "inherit",
+                        fontSize: 13,
+                        width: "100%",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Nota (opcional)"
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      style={{
+                        marginTop: 4,
+                        padding: "4px 8px",
+                        border: "1px solid rgba(10,26,12,0.15)",
+                        background: "var(--white)",
+                        color: "var(--deep-green)",
+                        fontFamily: "inherit",
+                        fontSize: 11,
+                        width: "100%",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className={`${styles.num} ${styles.pos}`}>
+                    US$ {amount.toLocaleString()}
+                    {hasOverride && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 9,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          color: "var(--sand-dark)",
+                          fontWeight: 700,
+                        }}
+                        title={`Fee de contrato: US$ ${c.fee.toLocaleString()}`}
+                      >
+                        · OVERRIDE
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div>
-                  <span className={`${styles.pill} ${st === "paid" ? styles.pillPaid : st === "late" ? styles.pillLate : styles.pillPending}`}>
-                    {st === "paid" ? "Pagado" : st === "late" ? "Vencido" : "Pendiente"}
+                  <span
+                    className={`${styles.pill} ${
+                      st === "paid"
+                        ? styles.pillPaid
+                        : st === "late"
+                          ? styles.pillLate
+                          : styles.pillPending
+                    }`}
+                  >
+                    {st === "paid"
+                      ? "Pagado"
+                      : st === "late"
+                        ? "Vencido"
+                        : "Pendiente"}
                   </span>
                 </div>
-                <div>
-                  <button
-                    onClick={() => onTogglePaid(c.id, month)}
-                    style={{
-                      padding: "6px 12px", fontSize: 10, letterSpacing: "0.08em",
-                      color: "var(--off-white)", border: "1px solid rgba(196,168,130,0.3)",
-                      background: "transparent", cursor: "pointer", fontFamily: "inherit",
-                      textTransform: "uppercase", fontWeight: 500,
-                    }}
-                  >
-                    {st === "paid" ? "Marcar pendiente" : "Marcar pagado"}
-                  </button>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {isEditingThis ? (
+                    <>
+                      <button
+                        onClick={() => saveEdit(c)}
+                        style={actionBtnSolid}
+                      >
+                        Guardar
+                      </button>
+                      <button onClick={cancelEdit} style={actionBtnGhost}>
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onTogglePaid(c.id, month)}
+                        style={actionBtnGhost}
+                      >
+                        {st === "paid" ? "↶ Pendiente" : "✓ Pagado"}
+                      </button>
+                      <button
+                        onClick={() => startEdit(c)}
+                        style={actionBtnGhost}
+                        title="Cambiar el importe a cobrar para este mes"
+                      >
+                        ✎ Editar
+                      </button>
+                      {p && (
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `¿Borrar el cobro de ${c.name} de este mes?\n\nVuelve a estado "pendiente" y se elimina cualquier override de importe.`,
+                              )
+                            )
+                              onDeletePayment(c.id, month);
+                          }}
+                          style={{
+                            ...actionBtnGhost,
+                            color: "var(--red-warn)",
+                            borderColor: "rgba(176, 75, 58, 0.3)",
+                          }}
+                          title="Borrar este cobro"
+                        >
+                          × Borrar
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -384,14 +604,37 @@ function IngresosView({ clients, payments, onTogglePaid, mrr }: {
   );
 }
 
+const actionBtnGhost: React.CSSProperties = {
+  padding: "5px 10px",
+  fontSize: 11,
+  letterSpacing: "0.04em",
+  color: "var(--deep-green)",
+  border: "1px solid rgba(10,26,12,0.15)",
+  background: "transparent",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontWeight: 500,
+  borderRadius: "var(--r-sm)",
+};
+
+const actionBtnSolid: React.CSSProperties = {
+  padding: "5px 10px",
+  fontSize: 11,
+  letterSpacing: "0.04em",
+  color: "var(--off-white)",
+  border: "none",
+  background: "var(--deep-green)",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontWeight: 600,
+  borderRadius: "var(--r-sm)",
+};
+
 function EgresosView({
   expenses,
   totalExpenses,
   onAdd,
   onDelete,
-  isDirector,
-  month,
-  onRefresh,
 }: {
   expenses: Expense[];
   totalExpenses: number;
@@ -401,10 +644,14 @@ function EgresosView({
   month: string;
   onRefresh: () => void;
 }) {
-  const byCategory = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
-    return acc;
-  }, {} as Record<string, number>);
+  // Mes actual para el donut
+  const monthIso = MONTH_ISO();
+  const byCategoryMonth = expenses
+    .filter((e) => (e.date ?? "").startsWith(monthIso))
+    .reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
 
   return (
     <>
@@ -412,39 +659,19 @@ function EgresosView({
         eyebrow="Finanzas · Egresos"
         title="Egresos"
         action={
-          <div style={{ display: "flex", gap: 10 }}>
-            {isDirector && (
-              <PayrollGenerateButton
-                className={styles.btnPrimary}
-                month={month}
-                onCreated={onRefresh}
-              />
-            )}
-            <button className={styles.btnPrimary} onClick={onAdd}>
-              + Registrar egreso
-            </button>
-          </div>
+          <button className={styles.btnPrimary} onClick={onAdd}>
+            + Registrar egreso
+          </button>
         }
       />
 
-      <div className={styles.kpis}>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Total</div>
-          <div className={styles.kValue}>US$ {totalExpenses.toLocaleString()}</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Equipo</div>
-          <div className={styles.kValue}>US$ {(byCategory.equipo || 0).toLocaleString()}</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Tools + IA</div>
-          <div className={styles.kValue}>US$ {((byCategory.tools || 0) + (byCategory.ia || 0)).toLocaleString()}</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Producción</div>
-          <div className={styles.kValue}>US$ {(byCategory.produccion || 0).toLocaleString()}</div>
-        </div>
-      </div>
+      {/* Donut + KPIs */}
+      <ExpenseBreakdown
+        byCategory={byCategoryMonth}
+        totalMonth={Object.values(byCategoryMonth).reduce((a, b) => a + b, 0)}
+        totalAll={totalExpenses}
+        monthLabel={monthIso}
+      />
 
       {expenses.length === 0 ? (
         <EmptyState
@@ -463,7 +690,9 @@ function EgresosView({
             <div key={e.id} className={styles.row} style={{ gridTemplateColumns: "1fr 2.5fr 1fr 1fr 1fr 40px" }}>
               <div style={{ color: "var(--sand)", fontSize: 11 }}>{e.date}</div>
               <div className={styles.num}>{e.concept}</div>
-              <div style={{ color: "rgba(232,228,220,0.6)", fontSize: 12 }}>{e.category}</div>
+              <div style={{ color: "rgba(232,228,220,0.6)", fontSize: 12 }}>
+                {EXPENSE_CATEGORY_LABEL[e.category as ExpenseCategory] ?? e.category}
+              </div>
               <div style={{ color: "rgba(232,228,220,0.5)", fontSize: 12 }}>{e.assignedTo}</div>
               <div className={`${styles.num} ${styles.neg}`}>-US$ {e.amount.toLocaleString()}</div>
               <div>
@@ -584,3 +813,217 @@ const btnMini: React.CSSProperties = {
 };
 
 // KPIsView movido a FinanzasViews.tsx (versión completa con gráficas).
+
+// ============================================================
+// ExpenseBreakdown — donut de pacing + KPIs por categoría
+// ============================================================
+const EXPENSE_CAT_COLORS: Record<ExpenseCategory, string> = {
+  equipo: "#0A1A0C",
+  tools: "#C4A882",
+  ia: "#9B8259",
+  produccion: "#2d5036",
+  impuestos: "#b04b3a",
+  mkt_interno: "#3A8B5C",
+  otros: "#7A8A7E",
+};
+
+function ExpenseBreakdown({
+  byCategory,
+  totalMonth,
+  totalAll,
+  monthLabel,
+}: {
+  byCategory: Record<string, number>;
+  totalMonth: number;
+  totalAll: number;
+  monthLabel: string;
+}) {
+  // Datos para el donut: solo categorías con valor > 0, ordenadas
+  // de mayor a menor.
+  const donutData = (
+    Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]
+  )
+    .map((k) => ({
+      key: k,
+      name: EXPENSE_CATEGORY_LABEL[k],
+      value: byCategory[k] ?? 0,
+      color: EXPENSE_CAT_COLORS[k],
+    }))
+    .filter((d) => d.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1.2fr 1fr",
+        gap: 20,
+        marginBottom: 24,
+      }}
+    >
+      {/* KPIs por categoría */}
+      <div
+        style={{
+          background: "var(--white)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          borderRadius: "var(--r-lg)",
+          padding: 20,
+        }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 4,
+            }}
+          >
+            Egresos · {monthLabel}
+          </div>
+          <div
+            style={{
+              fontSize: 32,
+              fontWeight: 700,
+              letterSpacing: "-0.025em",
+              color: "var(--deep-green)",
+            }}
+          >
+            US$ {totalMonth.toLocaleString()}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+            Total histórico: US$ {totalAll.toLocaleString()}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map(
+            (k) => {
+              const v = byCategory[k] ?? 0;
+              const pct =
+                totalMonth > 0 ? Math.round((v / totalMonth) * 100) : 0;
+              return (
+                <div
+                  key={k}
+                  style={{
+                    padding: "10px 12px",
+                    background: "var(--off-white)",
+                    borderLeft: `3px solid ${EXPENSE_CAT_COLORS[k]}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 700,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {EXPENSE_CATEGORY_LABEL[k]}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "var(--deep-green)",
+                    }}
+                  >
+                    US$ {v.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                    {pct}%
+                  </div>
+                </div>
+              );
+            },
+          )}
+        </div>
+      </div>
+
+      {/* Donut */}
+      <div
+        style={{
+          background: "var(--white)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          borderRadius: "var(--r-lg)",
+          padding: 20,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 12,
+          }}
+        >
+          Pacing por categoría
+        </div>
+        {donutData.length === 0 ? (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--text-muted)",
+              fontSize: 12,
+              fontStyle: "italic",
+            }}
+          >
+            Sin egresos cargados en {monthLabel}
+          </div>
+        ) : (
+          <div style={{ flex: 1, minHeight: 260 }}>
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={donutData}
+                  dataKey="value"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={95}
+                  paddingAngle={2}
+                  label={(props) => {
+                    const { percent } = props as { percent?: number };
+                    return percent && percent > 0.05
+                      ? `${Math.round(percent * 100)}%`
+                      : "";
+                  }}
+                  labelLine={false}
+                >
+                  {donutData.map((d) => (
+                    <Cell key={d.key} fill={d.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 11 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

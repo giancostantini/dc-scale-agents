@@ -796,14 +796,23 @@ export async function getPayments(): Promise<InvoicePayment[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from("payments").select("*");
   if (error) return [];
-  return (data as Array<{ client_id: string; month: string; status: InvoicePayment["status"]; paid_date: string | null }>).map(
-    (r) => ({
-      clientId: r.client_id,
-      month: r.month,
-      status: r.status,
-      paidDate: r.paid_date ?? undefined,
-    }),
-  );
+  return (
+    data as Array<{
+      client_id: string;
+      month: string;
+      status: InvoicePayment["status"];
+      paid_date: string | null;
+      amount_override: number | null;
+      note: string | null;
+    }>
+  ).map((r) => ({
+    clientId: r.client_id,
+    month: r.month,
+    status: r.status,
+    paidDate: r.paid_date ?? undefined,
+    amountOverride: r.amount_override ?? null,
+    note: r.note ?? null,
+  }));
 }
 
 export async function setPaymentStatus(
@@ -817,6 +826,59 @@ export async function setPaymentStatus(
     { client_id: clientId, month, status, paid_date },
     { onConflict: "client_id,month" },
   );
+}
+
+/**
+ * Actualiza el importe del cobro de un mes (override del fee del
+ * contrato) y/o la nota libre. Si pasás amountOverride=null se elimina
+ * el override y se vuelve a usar el client.fee.
+ *
+ * Idempotente: si no existe el row del payment todavía, lo crea con
+ * status='pending'.
+ */
+export async function setPaymentAmount(
+  clientId: string,
+  month: string,
+  amountOverride: number | null,
+  note?: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  // Leer status actual para no resetearlo
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("status, paid_date")
+    .eq("client_id", clientId)
+    .eq("month", month)
+    .maybeSingle();
+  await supabase.from("payments").upsert(
+    {
+      client_id: clientId,
+      month,
+      status: existing?.status ?? "pending",
+      paid_date: existing?.paid_date ?? null,
+      amount_override: amountOverride,
+      note: note ?? null,
+    },
+    { onConflict: "client_id,month" },
+  );
+}
+
+/**
+ * Elimina por completo el registro de payment de un cliente para un
+ * mes específico. Vuelve a estado "sin registro" (= 'pending' por
+ * default cuando se calculan KPIs). Útil cuando el director quiere
+ * "borrar" un cobro mal cargado.
+ */
+export async function deletePayment(
+  clientId: string,
+  month: string,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase
+    .from("payments")
+    .delete()
+    .eq("client_id", clientId)
+    .eq("month", month);
 }
 
 // ==================== OBJECTIVES ====================

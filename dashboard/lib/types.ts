@@ -340,7 +340,25 @@ export interface CalEvent {
 
 // ==================== FINANZAS ====================
 
-export type ExpenseCategory = "equipo" | "tools" | "ia" | "produccion" | "otros";
+export type ExpenseCategory =
+  | "equipo"        // funcionales (sueldos / contractors)
+  | "tools"         // SaaS, software
+  | "ia"            // créditos / suscripciones de IA
+  | "produccion"    // contenido, creatives de ads, eventos
+  | "impuestos"     // impuestos pagados
+  | "mkt_interno"   // ads para D&C, branding propio
+  | "otros";
+
+/** Labels canónicos para mostrar en UI. */
+export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  equipo: "Funcionales",
+  tools: "Tools",
+  ia: "IA",
+  produccion: "Producción",
+  impuestos: "Impuestos",
+  mkt_interno: "Mkt interno",
+  otros: "Varios",
+};
 
 export interface Expense {
   id: string;
@@ -356,6 +374,12 @@ export interface InvoicePayment {
   month: string;              // YYYY-MM
   status: "paid" | "pending" | "late";
   paidDate?: string;
+  /** Importe del cobro de este mes. Si está, sobreescribe el
+   *  client.fee — sirve para descuentos puntuales, ajustes o extras
+   *  cuando el director cobra distinto al contrato. */
+  amountOverride?: number | null;
+  /** Nota libre del director (motivo del override / extras / etc). */
+  note?: string | null;
 }
 
 // ==================== OBJETIVOS DEL CLIENTE ====================

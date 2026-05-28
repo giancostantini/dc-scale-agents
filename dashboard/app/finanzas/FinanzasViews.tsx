@@ -1641,11 +1641,21 @@ export function EstadosView({
 }: {
   clients: Client[];
   expenses: Expense[];
-  payments: { clientId: string; month: string; status: string }[];
+  /** Payments completos (con amount_override si tiene). Hacemos cast
+   *  porque page.tsx pasa solo { clientId, month, status } pero
+   *  nosotros necesitamos también amountOverride / note. */
+  payments: Array<{
+    clientId: string;
+    month: string;
+    status: string;
+    amountOverride?: number | null;
+    note?: string | null;
+  }>;
   monthYYYYMM: string;
 }) {
   const [revenues, setRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     listManualRevenues().then((r) => {
@@ -1654,63 +1664,263 @@ export function EstadosView({
     });
   }, []);
 
-  // Estado de Resultados (Income Statement) — del mes seleccionado.
-  const feesBilled = clients.reduce((s, c) => s + c.fee, 0);
+  // ===== Cálculos del mes (devengado) =====
+  function effectiveFeeFor(clientId: string, mk: string, baseFee: number): number {
+    const p = payments.find((pp) => pp.clientId === clientId && pp.month === mk);
+    return p?.amountOverride != null ? p.amountOverride : baseFee;
+  }
+
+  const feesBilled = clients.reduce(
+    (s, c) => s + effectiveFeeFor(c.id, monthYYYYMM, c.fee),
+    0,
+  );
   const feesPaid = clients.reduce((s, c) => {
     const p = payments.find(
       (p) => p.clientId === c.id && p.month === monthYYYYMM,
     );
-    return s + (p?.status === "paid" ? c.fee : 0);
+    if (p?.status !== "paid") return s;
+    return s + effectiveFeeFor(c.id, monthYYYYMM, c.fee);
   }, 0);
   const manualRevImpact = revenues.reduce(
     (s, r) => s + revenueMonthlyImpact(r, monthYYYYMM),
     0,
   );
-  const totalIngresos = feesBilled + manualRevImpact; // base devengado
+  const totalIngresos = feesBilled + manualRevImpact;
   const monthExpenses = expenses
     .filter((e) => (e.date ?? "").startsWith(monthYYYYMM))
     .reduce((s, e) => s + e.amount, 0);
   const netResult = totalIngresos - monthExpenses;
-
-  // Estado de Situación Financiera — simplificado.
-  // Activos = cobrado del mes + facturado pendiente (cuentas por cobrar)
-  // Sin pasivos modelados aún (próxima iteración).
   const cuentasPorCobrar = feesBilled - feesPaid;
+
+  // ===== Libro Mayor: TODOS los movimientos =====
+  // Cada movimiento tiene: fecha · tipo · concepto · cliente · categoría · monto
+  type LedgerRow = {
+    fecha: string;
+    tipo: "ingreso" | "egreso";
+    concepto: string;
+    cliente: string;
+    categoria: string;
+    monto: number;
+    estado: string;
+    nota: string;
+  };
+
+  const ledger: LedgerRow[] = (() => {
+    const rows: LedgerRow[] = [];
+
+    // 1. Cobros de fees mensuales — uno por (cliente, mes) que tenga payment registrado
+    for (const p of payments) {
+      const c = clients.find((cc) => cc.id === p.clientId);
+      if (!c) continue;
+      const fee = p.amountOverride ?? c.fee;
+      rows.push({
+        fecha: `${p.month}-01`,
+        tipo: "ingreso",
+        concepto:
+          p.amountOverride != null
+            ? `Fee mensual ${c.name} (override)`
+            : `Fee mensual ${c.name}`,
+        cliente: c.name,
+        categoria: "Fee recurrente",
+        monto: fee,
+        estado: p.status,
+        nota: p.note ?? "",
+      });
+    }
+
+    // 2. Manual revenues — uno por (rev, mes) que aplique.
+    //    Para fijos: aplica en cada mes entre start_date y end_date (o vigente).
+    //    Para one-time: aplica solo en el mes de su `date`.
+    for (const r of revenues) {
+      if (r.kind === "one_time" && r.date) {
+        rows.push({
+          fecha: r.date,
+          tipo: "ingreso",
+          concepto: r.description,
+          cliente: r.client_id
+            ? clients.find((c) => c.id === r.client_id)?.name ?? r.client_id
+            : "Corporativo",
+          categoria: r.category ?? "One-time",
+          monto: Number(r.amount),
+          estado: "registrado",
+          nota: r.notes ?? "",
+        });
+      } else if (r.kind === "fijo" && r.start_date) {
+        // Generar uno por cada mes en el rango [start_date, end_date or current]
+        const startD = new Date(r.start_date);
+        const endD = r.end_date
+          ? new Date(r.end_date)
+          : new Date(); // hasta ahora
+        const cur = new Date(startD.getFullYear(), startD.getMonth(), 1);
+        while (cur <= endD) {
+          const mk = cur.toISOString().slice(0, 7);
+          rows.push({
+            fecha: `${mk}-01`,
+            tipo: "ingreso",
+            concepto: r.description,
+            cliente: r.client_id
+              ? clients.find((c) => c.id === r.client_id)?.name ?? r.client_id
+              : "Corporativo",
+            categoria: r.category ?? "Fijo recurrente",
+            monto: Number(r.amount),
+            estado: "registrado",
+            nota: r.notes ?? "",
+          });
+          cur.setMonth(cur.getMonth() + 1);
+        }
+      }
+    }
+
+    // 3. Egresos
+    for (const e of expenses) {
+      rows.push({
+        fecha: e.date,
+        tipo: "egreso",
+        concepto: e.concept,
+        cliente: e.assignedTo,
+        categoria: e.category,
+        monto: e.amount,
+        estado: "pagado",
+        nota: "",
+      });
+    }
+
+    // Sort desc por fecha
+    rows.sort((a, b) => b.fecha.localeCompare(a.fecha));
+    return rows;
+  })();
+
+  // Stats del libro mayor (toda la historia)
+  const allIngresos = ledger
+    .filter((r) => r.tipo === "ingreso")
+    .reduce((s, r) => s + r.monto, 0);
+  const allEgresos = ledger
+    .filter((r) => r.tipo === "egreso")
+    .reduce((s, r) => s + r.monto, 0);
+  const allNet = allIngresos - allEgresos;
+
+  function exportCsv() {
+    setExporting(true);
+    try {
+      const header = [
+        "Fecha",
+        "Tipo",
+        "Concepto",
+        "Cliente / Asignado",
+        "Categoría",
+        "Monto USD",
+        "Estado",
+        "Nota",
+      ];
+      // Escape CSV: cualquier campo con coma, comilla o salto de línea va
+      // entre comillas dobles, y las comillas internas se duplican.
+      const esc = (s: string) =>
+        /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      const lines = [
+        header.join(","),
+        ...ledger.map((r) =>
+          [
+            r.fecha,
+            r.tipo === "ingreso" ? "Ingreso" : "Egreso",
+            r.concepto,
+            r.cliente,
+            r.categoria,
+            r.monto.toFixed(2),
+            r.estado,
+            r.nota,
+          ]
+            .map((v) => esc(String(v ?? "")))
+            .join(","),
+        ),
+      ];
+      const csv = lines.join("\n");
+      // BOM para que Excel detecte UTF-8 con acentos
+      const blob = new Blob(["﻿" + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `Estados Financieros D&C ${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo generar el CSV:\n${e.message}`);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <>
       <div
         style={{
-          fontSize: 11,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color: "var(--sand-dark)",
-          fontWeight: 600,
-          marginBottom: 8,
-        }}
-      >
-        Finanzas · Estados
-      </div>
-      <h1 style={h1Style}>Estados financieros</h1>
-      <p
-        style={{
-          maxWidth: 700,
-          color: "var(--text-muted)",
-          fontSize: 14,
-          lineHeight: 1.6,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
           marginBottom: 28,
         }}
       >
-        Mes corriente · {monthYYYYMM}
-      </p>
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 600,
+              marginBottom: 8,
+            }}
+          >
+            Finanzas · Estados
+          </div>
+          <h1 style={h1Style}>Estados financieros</h1>
+          <p
+            style={{
+              maxWidth: 700,
+              color: "var(--text-muted)",
+              fontSize: 14,
+              lineHeight: 1.6,
+              marginTop: 8,
+            }}
+          >
+            Mes corriente: <strong>{monthYYYYMM}</strong> · Libro mayor abajo
+            con todos los movimientos de la historia.
+          </p>
+        </div>
+        <button
+          onClick={exportCsv}
+          disabled={exporting || ledger.length === 0}
+          style={{
+            background: "var(--deep-green)",
+            color: "var(--off-white)",
+            border: "none",
+            padding: "12px 22px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: exporting || ledger.length === 0 ? "default" : "pointer",
+            fontFamily: "inherit",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            opacity: exporting || ledger.length === 0 ? 0.5 : 1,
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          {exporting ? "Generando…" : "↓ Exportar CSV"}
+        </button>
+      </div>
 
       {loading && <div>Cargando…</div>}
 
       {!loading && (
         <>
-          {/* ESTADO DE RESULTADOS */}
+          {/* ESTADO DE RESULTADOS — mes corriente */}
           <div className={styles.table}>
-            <h3>Estado de resultados</h3>
+            <h3>Estado de resultados · {monthYYYYMM}</h3>
             <div
               className={`${styles.row} ${styles.rowHead}`}
               style={{ gridTemplateColumns: "2fr 1fr" }}
@@ -1718,7 +1928,6 @@ export function EstadosView({
               <div>Concepto</div>
               <div>Monto</div>
             </div>
-
             <RowLine label="Fees de clientes facturados" value={feesBilled} kind="ingreso" />
             <RowLine
               label="Ingresos manuales (fijos + one-time)"
@@ -1746,12 +1955,11 @@ export function EstadosView({
 
           {/* ESTADO DE SITUACIÓN FINANCIERA (simplificado) */}
           <div className={styles.table} style={{ marginTop: 24 }}>
-            <h3>Estado de situación financiera</h3>
+            <h3>Estado de situación financiera · {monthYYYYMM}</h3>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
               Vista simplificada. Pasivos y patrimonio requieren modelar
               deudas y capital social — viene en próxima iteración.
             </p>
-
             <div style={{ marginBottom: 16 }}>
               <div
                 style={{
@@ -1782,6 +1990,128 @@ export function EstadosView({
                 bold
               />
             </div>
+          </div>
+
+          {/* LIBRO MAYOR — todos los movimientos */}
+          <div className={styles.table} style={{ marginTop: 24 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                marginBottom: 14,
+                paddingBottom: 14,
+                borderBottom: "1px solid rgba(10,26,12,0.08)",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, padding: 0, border: "none" }}>
+                  Libro mayor — todos los movimientos
+                </h3>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, marginBottom: 0 }}>
+                  {ledger.length} movimiento{ledger.length === 1 ? "" : "s"}
+                  registrado{ledger.length === 1 ? "" : "s"} ·
+                  Ingresos US$ {allIngresos.toLocaleString()} ·
+                  Egresos US$ {allEgresos.toLocaleString()} ·
+                  Net <strong style={{ color: allNet >= 0 ? "#2f7d4f" : "#b04b3a" }}>US$ {allNet.toLocaleString()}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`${styles.row} ${styles.rowHead}`}
+              style={{
+                gridTemplateColumns:
+                  "0.7fr 0.5fr 2fr 1fr 0.9fr 0.9fr 0.7fr",
+              }}
+            >
+              <div>Fecha</div>
+              <div>Tipo</div>
+              <div>Concepto</div>
+              <div>Cliente/Asig.</div>
+              <div>Categoría</div>
+              <div style={{ textAlign: "right" }}>Monto</div>
+              <div>Estado</div>
+            </div>
+
+            {ledger.length === 0 ? (
+              <div
+                style={{
+                  padding: 24,
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                  fontStyle: "italic",
+                }}
+              >
+                Sin movimientos registrados todavía.
+              </div>
+            ) : (
+              // Limitamos render a 200 filas para no congelar el browser.
+              // El CSV tiene todas. Si querés ver más, exportá.
+              ledger.slice(0, 200).map((r, i) => (
+                <div
+                  key={`${r.fecha}-${i}`}
+                  className={styles.row}
+                  style={{
+                    gridTemplateColumns:
+                      "0.7fr 0.5fr 2fr 1fr 0.9fr 0.9fr 0.7fr",
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ color: "var(--text-muted)" }}>{r.fecha}</div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: r.tipo === "ingreso" ? "#2f7d4f" : "#b04b3a",
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      fontSize: 10,
+                    }}
+                  >
+                    {r.tipo === "ingreso" ? "↑ In" : "↓ Out"}
+                  </div>
+                  <div>
+                    {r.concepto}
+                    {r.nota && (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {r.nota}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ color: "var(--text-muted)" }}>{r.cliente}</div>
+                  <div style={{ color: "var(--text-muted)" }}>{r.categoria}</div>
+                  <div
+                    className={`${styles.num} ${r.tipo === "ingreso" ? styles.pos : styles.neg}`}
+                    style={{ textAlign: "right", fontWeight: 600 }}
+                  >
+                    {r.tipo === "ingreso" ? "" : "−"}US$ {r.monto.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "capitalize" }}>
+                    {r.estado}
+                  </div>
+                </div>
+              ))
+            )}
+            {ledger.length > 200 && (
+              <div
+                style={{
+                  padding: 14,
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  textAlign: "center",
+                  borderTop: "1px solid rgba(10,26,12,0.05)",
+                }}
+              >
+                Mostrando los primeros 200 de {ledger.length} movimientos.
+                Descargá el CSV para ver todos.
+              </div>
+            )}
           </div>
         </>
       )}

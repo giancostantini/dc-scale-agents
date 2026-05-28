@@ -97,11 +97,13 @@ export default function NewExpenseModal({
               value={category}
               onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
             >
-              <option value="equipo">Equipo (sueldos)</option>
+              <option value="equipo">Funcionales (sueldos / contractors)</option>
               <option value="tools">Tools / Software</option>
               <option value="ia">IA (Claude, APIs)</option>
               <option value="produccion">Producción (UGC, fotos…)</option>
-              <option value="otros">Otros</option>
+              <option value="impuestos">Impuestos</option>
+              <option value="mkt_interno">Mkt interno (D&C)</option>
+              <option value="otros">Varios</option>
             </select>
           </div>
           <div className={styles.field}>
