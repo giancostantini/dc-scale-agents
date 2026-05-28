@@ -380,6 +380,20 @@ export interface Expense {
   mktBudgetClientId?: string | null;
 }
 
+/** Entry del calendario de pago variable de un cliente. Define el
+ *  fee vigente desde un mes determinado. Si un cliente tiene N entries
+ *  el fee de un mes M es el de la entry con start_month <= M más
+ *  reciente. Si no hay entries, fallback a client.fee. */
+export interface ClientFeeSchedule {
+  id: string;
+  clientId: string;
+  /** YYYY-MM */
+  startMonth: string;
+  amount: number;
+  currency: string;
+  notes?: string | null;
+}
+
 /** Presupuesto mensual de marketing que otorga un cliente GP.
  *  Singleton por cliente — al editar se reemplaza el monto. */
 export interface ClientMktBudget {

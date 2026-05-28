@@ -7,6 +7,7 @@ import { getSupabase } from "./supabase/client";
 import { listProfiles } from "./team";
 import type {
   Client,
+  ClientFeeSchedule,
   ClientMktBudget,
   ClientOnboarding,
   Lead,
@@ -769,6 +770,94 @@ export async function listClientMktBudgets(): Promise<ClientMktBudget[]> {
     return [];
   }
   return (data as MktBudgetRow[]).map(mktBudgetFromRow);
+}
+
+// ==================== CLIENT FEE SCHEDULES ====================
+
+interface FeeScheduleRow {
+  id: string;
+  client_id: string;
+  start_month: string;
+  amount: number | string;
+  currency: string;
+  notes: string | null;
+}
+
+function feeScheduleFromRow(r: FeeScheduleRow): ClientFeeSchedule {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    startMonth: r.start_month,
+    amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
+    currency: r.currency,
+    notes: r.notes,
+  };
+}
+
+export async function listFeeSchedules(): Promise<ClientFeeSchedule[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_fee_schedules")
+    .select("*")
+    .order("start_month", { ascending: true });
+  if (error) {
+    console.error("listFeeSchedules:", error);
+    return [];
+  }
+  return (data as FeeScheduleRow[]).map(feeScheduleFromRow);
+}
+
+export async function listFeeSchedulesForClient(
+  clientId: string,
+): Promise<ClientFeeSchedule[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_fee_schedules")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("start_month", { ascending: true });
+  if (error) return [];
+  return (data as FeeScheduleRow[]).map(feeScheduleFromRow);
+}
+
+/** Upsert por (client_id, start_month). */
+export async function upsertFeeSchedule(
+  clientId: string,
+  startMonth: string,
+  amount: number,
+  currency = "USD",
+  notes: string | null = null,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("client_fee_schedules").upsert(
+    {
+      client_id: clientId,
+      start_month: startMonth,
+      amount,
+      currency,
+      notes,
+    },
+    { onConflict: "client_id,start_month" },
+  );
+}
+
+export async function deleteFeeSchedule(id: string): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("client_fee_schedules").delete().eq("id", id);
+}
+
+/** Calcula el fee efectivo de un cliente para un mes específico
+ *  basado en su calendario de pago. Si no tiene entries, devuelve
+ *  null (el caller usa client.fee como fallback). */
+export function effectiveFeeForMonth(
+  schedules: ClientFeeSchedule[],
+  clientId: string,
+  yyyymm: string,
+): number | null {
+  const own = schedules
+    .filter((s) => s.clientId === clientId && s.startMonth <= yyyymm)
+    .sort((a, b) => b.startMonth.localeCompare(a.startMonth));
+  return own.length > 0 ? own[0].amount : null;
 }
 
 /** Upsert: si existe el budget de ese cliente lo reemplaza con el

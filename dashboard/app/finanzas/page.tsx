@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 import Topbar from "@/components/Topbar";
+import FeeScheduleModal from "@/components/FeeScheduleModal";
 import NewExpenseModal from "@/components/NewExpenseModal";
 import {
   getClients,
@@ -21,11 +22,14 @@ import {
   deletePayment,
   deleteExpense,
   getLeads,
+  listFeeSchedules,
+  effectiveFeeForMonth,
 } from "@/lib/storage";
 import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
 import {
   EXPENSE_CATEGORY_LABEL,
   type Client,
+  type ClientFeeSchedule,
   type Expense,
   type ExpenseCategory,
   type InvoicePayment,
@@ -72,6 +76,9 @@ export default function FinanzasPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [expenseModal, setExpenseModal] = useState(false);
   const [manualRevs, setManualRevs] = useState<ManualRevenue[]>([]);
+  const [feeSchedules, setFeeSchedules] = useState<ClientFeeSchedule[]>([]);
+  /** Si != null, el FeeScheduleModal está abierto editando ese cliente. */
+  const [feeScheduleClient, setFeeScheduleClient] = useState<Client | null>(null);
 
   const refresh = useCallback(() => {
     getClients().then(setClients);
@@ -79,6 +86,7 @@ export default function FinanzasPage() {
     getPayments().then(setPayments);
     getLeads().then(setLeads);
     listManualRevenues().then(setManualRevs);
+    listFeeSchedules().then(setFeeSchedules);
   }, []);
 
   useEffect(() => {
@@ -285,6 +293,7 @@ export default function FinanzasPage() {
               <FacturacionView
                 clients={clients}
                 payments={payments}
+                feeSchedules={feeSchedules}
                 onSetStatus={async (clientId, month, status) => {
                   await setPaymentStatus(clientId, month, status);
                   refresh();
@@ -297,6 +306,7 @@ export default function FinanzasPage() {
                   await deletePayment(clientId, month);
                   refresh();
                 }}
+                onEditSchedule={(c) => setFeeScheduleClient(c)}
               />
             )}
             {page === "mkt_clientes" && (
@@ -324,6 +334,13 @@ export default function FinanzasPage() {
         open={expenseModal}
         onClose={() => setExpenseModal(false)}
         onCreated={refresh}
+      />
+
+      <FeeScheduleModal
+        open={feeScheduleClient !== null}
+        client={feeScheduleClient}
+        onClose={() => setFeeScheduleClient(null)}
+        onSaved={refresh}
       />
     </>
   );
@@ -855,15 +872,19 @@ function ClientesView({
 function FacturacionView({
   clients,
   payments,
+  feeSchedules,
   onSetStatus,
   onSetAmount,
   onDeletePayment,
+  onEditSchedule,
 }: {
   clients: Client[];
   payments: InvoicePayment[];
+  feeSchedules: ClientFeeSchedule[];
   onSetStatus: (clientId: string, month: string, status: "paid" | "pending" | "late") => void;
   onSetAmount: (clientId: string, month: string, amount: number | null, note: string | null) => void;
   onDeletePayment: (clientId: string, month: string) => void;
+  onEditSchedule: (client: Client) => void;
 }) {
   const month = MONTH_ISO();
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
@@ -873,12 +894,22 @@ function FacturacionView({
   function paymentFor(clientId: string) {
     return payments.find((p) => p.clientId === clientId && p.month === month);
   }
+  /** Fee BASE para este mes según el calendario (sin payment override). */
+  function scheduledFee(c: Client): number {
+    return effectiveFeeForMonth(feeSchedules, c.id, month) ?? c.fee;
+  }
+  /** Fee EFECTIVO a cobrar: override del payment > scheduled fee > contrato. */
   function effectiveAmount(c: Client): number {
     const p = paymentFor(c.id);
-    return p?.amountOverride ?? c.fee;
+    if (p?.amountOverride != null) return p.amountOverride;
+    return scheduledFee(c);
   }
   function status(clientId: string) {
     return paymentFor(clientId)?.status || "pending";
+  }
+  /** ¿Hay calendario activo para este cliente? */
+  function hasSchedule(c: Client): boolean {
+    return feeSchedules.some((s) => s.clientId === c.id);
   }
 
   // Totales con override real
@@ -894,7 +925,7 @@ function FacturacionView({
   function startEdit(c: Client) {
     const p = paymentFor(c.id);
     setEditingClientId(c.id);
-    setEditAmount(p?.amountOverride != null ? String(p.amountOverride) : String(c.fee));
+    setEditAmount(p?.amountOverride != null ? String(p.amountOverride) : String(scheduledFee(c)));
     setEditNote(p?.note ?? "");
   }
   function cancelEdit() {
@@ -908,7 +939,8 @@ function FacturacionView({
       alert("Importe inválido.");
       return;
     }
-    const override = n === c.fee ? null : n;
+    // Si el monto coincide con el scheduled fee → no es override
+    const override = n === scheduledFee(c) ? null : n;
     onSetAmount(c.id, month, override, editNote.trim() || null);
     cancelEdit();
   }
@@ -985,6 +1017,21 @@ function FacturacionView({
               >
                 <div className={styles.num}>
                   {c.name}
+                  {hasSchedule(c) && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 9,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                      }}
+                      title="Tiene calendario de pago configurado"
+                    >
+                      📅 Plan
+                    </span>
+                  )}
                   {p?.note && (
                     <div
                       style={{
@@ -1047,7 +1094,7 @@ function FacturacionView({
                           color: "var(--sand-dark)",
                           fontWeight: 700,
                         }}
-                        title={`Fee de contrato: US$ ${c.fee.toLocaleString()}`}
+                        title={`Fee scheduled: US$ ${scheduledFee(c).toLocaleString()}`}
                       >
                         · OVERRIDE
                       </span>
@@ -1115,6 +1162,21 @@ function FacturacionView({
                         title="Cambiar importe / nota"
                       >
                         ✎
+                      </button>
+                      <button
+                        onClick={() => onEditSchedule(c)}
+                        style={
+                          hasSchedule(c)
+                            ? {
+                                ...actionBtnGhost,
+                                color: "var(--sand-dark)",
+                                borderColor: "var(--sand-dark)",
+                              }
+                            : actionBtnGhost
+                        }
+                        title="Calendario de pago (tramos por mes)"
+                      >
+                        📅 Calendario
                       </button>
                       {p && (
                         <button
