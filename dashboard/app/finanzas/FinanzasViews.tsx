@@ -336,6 +336,76 @@ export function DividendosView({
     monthOptions.unshift({ value: cur, label: `${curLabel} (en curso)` });
   }
 
+  /** Historial de los últimos 12 meses cerrados con su distribución
+   *  recalculada con la config actual. Para meses anteriores al inicio
+   *  de operación (sin egresos ni ingresos) el net da 0 — los igual
+   *  los listamos para que se vea el rango temporal completo.
+   *
+   *  Nota: usamos la config actual para todos los meses. Si en el
+   *  futuro la config cambia (ej: 25/25/50), los acumulados pasados
+   *  se RECALCULAN — no es un libro de actas inmutable, es la
+   *  proyección "qué hubiese sido con la config de hoy". */
+  const history = (() => {
+    if (!config) return [] as Array<{
+      monthKey: string;
+      label: string;
+      net: number;
+      partnerA: number;
+      partnerB: number;
+      inversiones: number;
+      back: number;
+    }>;
+    const now = new Date();
+    const rows: Array<{
+      monthKey: string;
+      label: string;
+      net: number;
+      partnerA: number;
+      partnerB: number;
+      inversiones: number;
+      back: number;
+    }> = [];
+    for (let i = 1; i <= 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mk = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString("es-AR", {
+        month: "long",
+        year: "numeric",
+      });
+      const mImpact = manualRevs.reduce(
+        (s, r) => s + revenueMonthlyImpact(r, mk),
+        0,
+      );
+      const mExpenses = expenses
+        .filter((e) => (e.date ?? "").startsWith(mk))
+        .reduce((s, e) => s + e.amount, 0);
+      const net = mrrBase + mImpact - mExpenses;
+      const d2 = distributeDividends(net, config);
+      rows.push({
+        monthKey: mk,
+        label,
+        net,
+        partnerA: d2.partnerA,
+        partnerB: d2.partnerB,
+        inversiones: d2.inversiones,
+        back: d2.back,
+      });
+    }
+    return rows;
+  })();
+
+  /** Acumulados de los últimos 12 meses. */
+  const accumulated = history.reduce(
+    (acc, r) => ({
+      net: acc.net + r.net,
+      partnerA: acc.partnerA + r.partnerA,
+      partnerB: acc.partnerB + r.partnerB,
+      inversiones: acc.inversiones + r.inversiones,
+      back: acc.back + r.back,
+    }),
+    { net: 0, partnerA: 0, partnerB: 0, inversiones: 0, back: 0 },
+  );
+
   async function save() {
     const total =
       editForm.partner_a_pct +
@@ -557,8 +627,199 @@ export function DividendosView({
         </div>
       )}
 
+      {/* Historial de los últimos 12 meses + acumulados */}
+      <div className={styles.table} style={{ marginTop: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginBottom: 18,
+            paddingBottom: 14,
+            borderBottom: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0, padding: 0, border: "none" }}>
+              Historial de dividendos
+            </h3>
+            <p
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginTop: 6,
+                marginBottom: 0,
+              }}
+            >
+              Últimos 12 meses cerrados. Los valores se recalculan con la
+              config actual ({config.partner_a_pct}/{config.partner_b_pct}/
+              {config.inversiones_pct}
+              {Number(config.back_pct) > 0 ? `/${config.back_pct}` : ""}).
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={`${styles.row} ${styles.rowHead}`}
+          style={{
+            gridTemplateColumns:
+              Number(config.back_pct) > 0
+                ? "1.4fr 1fr 1fr 1fr 1fr 1fr"
+                : "1.4fr 1fr 1fr 1fr 1fr",
+          }}
+        >
+          <div>Mes</div>
+          <div style={{ textAlign: "right" }}>Neto</div>
+          <div style={{ textAlign: "right" }}>{config.partner_a_name.split(" ")[0]}</div>
+          <div style={{ textAlign: "right" }}>{config.partner_b_name.split(" ")[0]}</div>
+          <div style={{ textAlign: "right" }}>Inversión</div>
+          {Number(config.back_pct) > 0 && (
+            <div style={{ textAlign: "right" }}>Back</div>
+          )}
+        </div>
+
+        {history.length === 0 ? (
+          <div style={{ padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
+            Sin historial todavía.
+          </div>
+        ) : (
+          history.map((r) => {
+            const isSelected = r.monthKey === selectedMonth;
+            return (
+              <div
+                key={r.monthKey}
+                className={styles.row}
+                style={{
+                  gridTemplateColumns:
+                    Number(config.back_pct) > 0
+                      ? "1.4fr 1fr 1fr 1fr 1fr 1fr"
+                      : "1.4fr 1fr 1fr 1fr 1fr",
+                  background: isSelected
+                    ? "rgba(196, 168, 130, 0.10)"
+                    : undefined,
+                  cursor: "pointer",
+                }}
+                onClick={() => setSelectedMonth(r.monthKey)}
+                title="Ver este mes arriba"
+              >
+                <div style={{ textTransform: "capitalize" }}>
+                  {r.label}
+                  {isSelected && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 9,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      · ACTUAL
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={styles.num}
+                  style={{
+                    textAlign: "right",
+                    color:
+                      r.net < 0 ? "var(--red-warn)" : "var(--deep-green)",
+                  }}
+                >
+                  US$ {r.net.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ textAlign: "right" }}>
+                  US$ {r.partnerA.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ textAlign: "right" }}>
+                  US$ {r.partnerB.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ textAlign: "right" }}>
+                  US$ {r.inversiones.toLocaleString()}
+                </div>
+                {Number(config.back_pct) > 0 && (
+                  <div className={styles.num} style={{ textAlign: "right" }}>
+                    US$ {r.back.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+
+        {/* Fila de acumulados */}
+        {history.length > 0 && (
+          <div
+            className={styles.row}
+            style={{
+              gridTemplateColumns:
+                Number(config.back_pct) > 0
+                  ? "1.4fr 1fr 1fr 1fr 1fr 1fr"
+                  : "1.4fr 1fr 1fr 1fr 1fr",
+              borderTop: "2px solid rgba(10,26,12,0.15)",
+              borderBottom: "none",
+              fontWeight: 700,
+              background: "var(--off-white)",
+              paddingTop: 12,
+              paddingBottom: 12,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+              }}
+            >
+              Acumulado 12m
+            </div>
+            <div
+              className={styles.num}
+              style={{
+                textAlign: "right",
+                color:
+                  accumulated.net < 0
+                    ? "var(--red-warn)"
+                    : "var(--deep-green)",
+                fontWeight: 700,
+              }}
+            >
+              US$ {accumulated.net.toLocaleString()}
+            </div>
+            <div
+              className={styles.num}
+              style={{ textAlign: "right", fontWeight: 700 }}
+            >
+              US$ {accumulated.partnerA.toLocaleString()}
+            </div>
+            <div
+              className={styles.num}
+              style={{ textAlign: "right", fontWeight: 700 }}
+            >
+              US$ {accumulated.partnerB.toLocaleString()}
+            </div>
+            <div
+              className={styles.num}
+              style={{ textAlign: "right", fontWeight: 700 }}
+            >
+              US$ {accumulated.inversiones.toLocaleString()}
+            </div>
+            {Number(config.back_pct) > 0 && (
+              <div
+                className={styles.num}
+                style={{ textAlign: "right", fontWeight: 700 }}
+              >
+                US$ {accumulated.back.toLocaleString()}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Edit form */}
-      <div className={styles.table}>
+      <div className={styles.table} style={{ marginTop: 24 }}>
         <h3>Configuración actual</h3>
         {!editing && (
           <>
