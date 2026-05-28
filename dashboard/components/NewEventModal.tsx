@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addEvent } from "@/lib/storage";
+import { addEvent, updateEvent } from "@/lib/storage";
 import { getClients } from "@/lib/storage";
-import type { EventType, Client } from "@/lib/types";
+import type { EventType, Client, CalEvent } from "@/lib/types";
 import styles from "./NewClientModal.module.css";
 
 interface NewEventModalProps {
@@ -13,6 +13,11 @@ interface NewEventModalProps {
    *  oculta el selector. Útil cuando se abre desde la página de un
    *  cliente específico. */
   initialClientId?: string;
+  /** Modo edición: si se pasa, el modal abre con todos los campos
+   *  pre-cargados del evento existente y al guardar hace UPDATE en
+   *  vez de INSERT. Para entrar en modo edición pasar este prop;
+   *  null/undefined → modo creación normal. */
+  editEvent?: CalEvent | null;
   googleConnected?: boolean;
   onClose: () => void;
   onCreated?: () => void;
@@ -28,6 +33,7 @@ export default function NewEventModal({
   open,
   initialDate,
   initialClientId,
+  editEvent,
   googleConnected = true,
   onClose,
   onCreated,
@@ -45,16 +51,42 @@ export default function NewEventModal({
   const [notes, setNotes] = useState("");
   const [generateMeet, setGenerateMeet] = useState(true);
   const [syncGoogle, setSyncGoogle] = useState(googleConnected);
+  const [saving, setSaving] = useState(false);
+
+  const isEditMode = !!editEvent;
 
   useEffect(() => {
     if (open) {
       getClients().then(setClients);
-      setDate(initialDate || new Date().toISOString().slice(0, 10));
-      setEndDate("");
-      setSyncGoogle(googleConnected);
-      if (initialClientId) setClientId(initialClientId);
+      if (editEvent) {
+        // Modo edición: pre-cargar todo del evento existente
+        setTitle(editEvent.title);
+        setType(editEvent.type);
+        setDate(editEvent.date);
+        setEndDate(editEvent.end_date ?? "");
+        setTime(editEvent.time);
+        setDuration(String(editEvent.duration));
+        setClientId(editEvent.clientId ?? "");
+        setParticipants(editEvent.participants ?? "");
+        setNotes(editEvent.notes ?? "");
+        setSyncGoogle(editEvent.synced ?? false);
+        setGenerateMeet(!!editEvent.meetLink);
+      } else {
+        // Modo creación: defaults
+        setTitle("");
+        setType("reunion");
+        setDate(initialDate || new Date().toISOString().slice(0, 10));
+        setEndDate("");
+        setTime("10:00");
+        setDuration("60");
+        setParticipants("");
+        setNotes("");
+        setSyncGoogle(googleConnected);
+        setGenerateMeet(true);
+        if (initialClientId) setClientId(initialClientId);
+      }
     }
-  }, [open, initialDate, googleConnected, initialClientId]);
+  }, [open, initialDate, googleConnected, initialClientId, editEvent]);
 
   if (!open) return null;
 
@@ -63,35 +95,62 @@ export default function NewEventModal({
   const canSubmit = title.trim() !== "" && date !== "" && !endDateInvalid;
 
   async function handleSubmit() {
-    if (!canSubmit) return;
-    const client = clients.find((c) => c.id === clientId);
-    // Solo guardamos end_date si es != date (evitar ruido)
-    const effectiveEndDate =
-      endDate && endDate !== date ? endDate : null;
-    await addEvent({
-      title: title.trim(),
-      type,
-      date,
-      end_date: effectiveEndDate,
-      time,
-      duration: Number(duration),
-      clientId: clientId || undefined,
-      clientLabel: client?.name || (clientId === "prospect" ? "Prospecto" : clientId === "interno" ? "Interno" : "Sin cliente"),
-      participants: participants.trim() || undefined,
-      notes: notes.trim() || undefined,
-      meetLink:
-        generateMeet && (type === "reunion" || type === "dev")
-          ? `meet.google.com/${randomMeetSlug()}`
-          : undefined,
-      synced: syncGoogle,
-    });
+    if (!canSubmit || saving) return;
+    setSaving(true);
+    try {
+      const client = clients.find((c) => c.id === clientId);
+      const effectiveEndDate =
+        endDate && endDate !== date ? endDate : null;
+      const clientLabel =
+        client?.name ||
+        (clientId === "prospect"
+          ? "Prospecto"
+          : clientId === "interno"
+            ? "Interno"
+            : editEvent?.clientLabel || "Sin cliente");
 
-    setTitle("");
-    setNotes("");
-    setParticipants("");
-    setEndDate("");
-    onClose();
-    onCreated?.();
+      if (isEditMode && editEvent) {
+        await updateEvent(editEvent.id, {
+          title: title.trim(),
+          type,
+          date,
+          end_date: effectiveEndDate,
+          time,
+          duration: Number(duration),
+          clientId: clientId || undefined,
+          clientLabel,
+          participants: participants.trim() || undefined,
+          notes: notes.trim() || undefined,
+          synced: syncGoogle,
+        });
+      } else {
+        await addEvent({
+          title: title.trim(),
+          type,
+          date,
+          end_date: effectiveEndDate,
+          time,
+          duration: Number(duration),
+          clientId: clientId || undefined,
+          clientLabel,
+          participants: participants.trim() || undefined,
+          notes: notes.trim() || undefined,
+          meetLink:
+            generateMeet && (type === "reunion" || type === "dev")
+              ? `meet.google.com/${randomMeetSlug()}`
+              : undefined,
+          synced: syncGoogle,
+        });
+      }
+
+      onClose();
+      onCreated?.();
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo guardar:\n${e.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -104,8 +163,12 @@ export default function NewEventModal({
           ×
         </button>
 
-        <div className={styles.eyebrow}>Calendario · Nuevo evento</div>
-        <h2 className={styles.title}>Agendar evento</h2>
+        <div className={styles.eyebrow}>
+          Calendario · {isEditMode ? "Editar evento" : "Nuevo evento"}
+        </div>
+        <h2 className={styles.title}>
+          {isEditMode ? "Editar evento" : "Agendar evento"}
+        </h2>
         <p className={styles.sub}>
           {googleConnected
             ? "Si activás la sincronización, el evento aparece también en tu Google Calendar."
@@ -323,15 +386,23 @@ export default function NewEventModal({
         </label>
 
         <div className={styles.actions}>
-          <button className={styles.btnGhost} onClick={onClose}>
+          <button
+            className={styles.btnGhost}
+            onClick={onClose}
+            disabled={saving}
+          >
             Cancelar
           </button>
           <button
             className={styles.btnSolid}
             onClick={handleSubmit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || saving}
           >
-            Agendar →
+            {saving
+              ? "Guardando…"
+              : isEditMode
+                ? "Guardar cambios"
+                : "Agendar →"}
           </button>
         </div>
       </div>

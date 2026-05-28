@@ -632,6 +632,42 @@ export async function deleteEvent(id: string): Promise<void> {
   await supabase.from("cal_events").delete().eq("id", id);
 }
 
+/**
+ * Actualiza un evento existente. Pasa solo los campos que querés
+ * cambiar; los demás quedan como están.
+ */
+export async function updateEvent(
+  id: string,
+  patch: Partial<Omit<CalEvent, "id">>,
+): Promise<CalEvent> {
+  const supabase = getSupabase();
+  // Mapeo camelCase → snake_case para los campos que difieren
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.title !== undefined) dbPatch.title = patch.title;
+  if (patch.type !== undefined) dbPatch.type = patch.type;
+  if (patch.date !== undefined) dbPatch.date = patch.date;
+  if (patch.end_date !== undefined) dbPatch.end_date = patch.end_date;
+  if (patch.time !== undefined) dbPatch.time = patch.time;
+  if (patch.duration !== undefined) dbPatch.duration = patch.duration;
+  if (patch.clientId !== undefined) dbPatch.client_id = patch.clientId ?? null;
+  if (patch.clientLabel !== undefined) dbPatch.client_label = patch.clientLabel;
+  if (patch.participants !== undefined)
+    dbPatch.participants = patch.participants ?? null;
+  if (patch.notes !== undefined) dbPatch.notes = patch.notes ?? null;
+  if (patch.meetLink !== undefined)
+    dbPatch.meet_link = patch.meetLink ?? null;
+  if (patch.synced !== undefined) dbPatch.synced = patch.synced;
+
+  const { data, error } = await supabase
+    .from("cal_events")
+    .update(dbPatch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return eventFromRow(data as EventRow);
+}
+
 // ==================== EXPENSES ====================
 
 interface ExpenseRow {
