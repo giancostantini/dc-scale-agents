@@ -22,7 +22,13 @@ export interface Profile {
   position?: string | null;
   payment_amount?: number | null;
   payment_currency?: string | null;
-  payment_type?: "fijo" | "por_proyecto" | "por_hora" | "mixto" | null;
+  payment_type?:
+    | "fijo"
+    | "por_proyecto"
+    | "por_hora"
+    | "por_cliente"
+    | "mixto"
+    | null;
   /** Día del mes (1-31) en que se le paga al funcional. NULL = sin
    *  día configurado. Usado en Finanzas/Funcionales para calcular
    *  próximos pagos. */

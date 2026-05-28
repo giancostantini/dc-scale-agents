@@ -52,7 +52,7 @@ export default function EquipoDetailPage({
   const [editPaymentAmount, setEditPaymentAmount] = useState("");
   const [editPaymentCurrency, setEditPaymentCurrency] = useState("USD");
   const [editPaymentType, setEditPaymentType] = useState<
-    "fijo" | "por_proyecto" | "por_hora" | "mixto"
+    "fijo" | "por_proyecto" | "por_hora" | "por_cliente" | "mixto"
   >("fijo");
   /** Día del mes (1-31) en que se le paga al funcional. "" = sin día. */
   const [editPaymentDay, setEditPaymentDay] = useState("");
@@ -378,10 +378,21 @@ export default function EquipoDetailPage({
                 value={editPaymentType}
                 setValue={(v) =>
                   setEditPaymentType(
-                    v as "fijo" | "por_proyecto" | "por_hora" | "mixto",
+                    v as
+                      | "fijo"
+                      | "por_proyecto"
+                      | "por_hora"
+                      | "por_cliente"
+                      | "mixto",
                   )
                 }
-                options={["fijo", "por_proyecto", "por_hora", "mixto"]}
+                options={[
+                  "fijo",
+                  "por_proyecto",
+                  "por_hora",
+                  "por_cliente",
+                  "mixto",
+                ]}
                 disabled={!canEdit}
               />
               <Field
@@ -791,6 +802,15 @@ function Field({
   );
 }
 
+/** Labels humanas para los tipos de pago. */
+const PAYMENT_TYPE_LABEL: Record<string, string> = {
+  fijo: "Fijo (mensual)",
+  por_proyecto: "Por proyecto",
+  por_hora: "Por hora",
+  por_cliente: "Por cliente (× cantidad asignados)",
+  mixto: "Mixto (fijo + variable)",
+};
+
 function SelectField({
   label,
   value,
@@ -814,7 +834,7 @@ function SelectField({
       >
         {options.map((o) => (
           <option key={o} value={o}>
-            {o || "—"}
+            {PAYMENT_TYPE_LABEL[o] ?? o ?? "—"}
           </option>
         ))}
       </select>

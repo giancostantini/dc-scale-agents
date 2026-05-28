@@ -796,8 +796,26 @@ export function TeamCostView() {
     });
   }
 
+  /**
+   * Costo mensual EFECTIVO de un miembro según su payment_type.
+   *
+   * - fijo / por_proyecto / por_hora / mixto → payment_amount tal cual
+   *   (no tenemos tracking de proyectos ni horas todavía, así que el
+   *   amount cargado se trata como el costo base mensual).
+   * - por_cliente → payment_amount × cantidad de clientes activos
+   *   asignados. Si gana USD 200 por cliente y tiene 3 → USD 600/mes.
+   */
+  function effectiveMonthlyCost(p: Profile): number {
+    const base = Number(p.payment_amount ?? 0);
+    if (p.payment_type === "por_cliente") {
+      const clientCount = assignmentsFor(p.id).length;
+      return base * clientCount;
+    }
+    return base;
+  }
+
   const grandTotal = profiles.reduce(
-    (s, p) => s + Number(p.payment_amount ?? 0),
+    (s, p) => s + effectiveMonthlyCost(p),
     0,
   );
   const withPayDay = profiles.filter((p) => p.payment_day != null);
@@ -881,7 +899,7 @@ export function TeamCostView() {
               <div className={styles.kSub}>
                 US${" "}
                 {upcomingSoon
-                  .reduce((s, p) => s + Number(p.payment_amount ?? 0), 0)
+                  .reduce((s, p) => s + effectiveMonthlyCost(p), 0)
                   .toLocaleString()}{" "}
                 a pagar
               </div>
@@ -987,21 +1005,64 @@ export function TeamCostView() {
                         </div>
                       </div>
                       <div className={styles.num}>
-                        <strong>
-                          {p.payment_currency ?? "USD"}{" "}
-                          {Number(p.payment_amount).toLocaleString()}
-                        </strong>
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "var(--text-muted)",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.1em",
-                            marginTop: 2,
-                          }}
-                        >
-                          {p.payment_type ?? "fijo"}
-                        </div>
+                        {/* Caso por_cliente: monto unitario + cantidad
+                            de clientes + multiplicación → costo final */}
+                        {p.payment_type === "por_cliente" ? (
+                          (() => {
+                            const unit = Number(p.payment_amount ?? 0);
+                            const cnt = assignmentsFor(p.id).length;
+                            const total = unit * cnt;
+                            return (
+                              <>
+                                <strong style={{ fontSize: 15 }}>
+                                  {p.payment_currency ?? "USD"}{" "}
+                                  {total.toLocaleString()}
+                                </strong>
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    color: "var(--text-muted)",
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {p.payment_currency ?? "USD"}{" "}
+                                  {unit.toLocaleString()} × {cnt}{" "}
+                                  {cnt === 1 ? "cliente" : "clientes"}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 9,
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    color: "#2f7d4f",
+                                    fontWeight: 700,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  POR CLIENTE
+                                </div>
+                              </>
+                            );
+                          })()
+                        ) : (
+                          <>
+                            <strong>
+                              {p.payment_currency ?? "USD"}{" "}
+                              {Number(p.payment_amount).toLocaleString()}
+                            </strong>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                color: "var(--text-muted)",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.1em",
+                                marginTop: 2,
+                              }}
+                            >
+                              {p.payment_type ?? "fijo"}
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div>
                         {p.payment_day ? (

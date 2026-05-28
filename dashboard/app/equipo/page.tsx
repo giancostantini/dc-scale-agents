@@ -127,7 +127,31 @@ export default function EquipoPage() {
                 </div>
                 <div className={styles.payment}>
                   {p.payment_amount != null && isDirector
-                    ? `${p.payment_currency ?? "USD"} ${Number(p.payment_amount).toLocaleString()}`
+                    ? (() => {
+                        const base = Number(p.payment_amount);
+                        const cnt = countByUser[p.id] ?? 0;
+                        // Si es por_cliente, mostrar el total efectivo
+                        // (monto unitario × clientes asignados).
+                        if (p.payment_type === "por_cliente") {
+                          const total = base * cnt;
+                          return (
+                            <>
+                              {p.payment_currency ?? "USD"}{" "}
+                              {total.toLocaleString()}
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  color: "var(--text-muted)",
+                                  marginLeft: 6,
+                                }}
+                              >
+                                ({base.toLocaleString()} × {cnt})
+                              </span>
+                            </>
+                          );
+                        }
+                        return `${p.payment_currency ?? "USD"} ${base.toLocaleString()}`;
+                      })()
                     : isDirector
                     ? "—"
                     : ""}
