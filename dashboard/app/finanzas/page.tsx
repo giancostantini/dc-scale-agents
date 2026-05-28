@@ -16,6 +16,7 @@ import {
 import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
 import type { Client, Expense, InvoicePayment, Lead } from "@/lib/types";
 import {
+  DashboardView,
   DividendosView,
   EstadosView,
   KPIsViewV2,
@@ -177,6 +178,10 @@ export default function FinanzasPage() {
             {page === "dashboard" && (
               <DashboardView
                 clients={clients}
+                expenses={expenses}
+                payments={payments}
+                manualRevs={manualRevs}
+                leads={leads}
                 mrr={mrr}
                 totalExpenses={totalExpenses}
                 netResult={netResult}
@@ -319,82 +324,6 @@ function EmptyState({ icon, title, desc, action }: { icon: string; title: string
       <div className={styles.emptyDesc}>{desc}</div>
       {action}
     </div>
-  );
-}
-
-function DashboardView({
-  clients, mrr, totalExpenses, netResult, marginPct, pipelineValue,
-}: {
-  clients: Client[]; mrr: number; totalExpenses: number;
-  netResult: number; marginPct: number; pipelineValue: number;
-}) {
-  const gpRevenue = clients.filter((c) => c.type === "gp").reduce((s, c) => s + c.fee, 0);
-  const devRevenue = clients.filter((c) => c.type === "dev").reduce((s, c) => s + c.fee, 0);
-  const gpPct = mrr > 0 ? Math.round((gpRevenue / mrr) * 100) : 0;
-  const devPct = mrr > 0 ? Math.round((devRevenue / mrr) * 100) : 0;
-
-  return (
-    <>
-      <Header
-        eyebrow="Panel empresarial"
-        title="Finanzas"
-        rightLabel="Resultado neto"
-        rightValue={`US$ ${netResult.toLocaleString()}`}
-      />
-
-      <div className={styles.kpis}>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Ingresos (MRR)</div>
-          <div className={styles.kValue}>US$ {mrr.toLocaleString()}</div>
-          <div className={styles.kSub}>{clients.length} cliente{clients.length === 1 ? "" : "s"} activo{clients.length === 1 ? "" : "s"}</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Egresos</div>
-          <div className={styles.kValue}>US$ {totalExpenses.toLocaleString()}</div>
-          <div className={styles.kSub}>Equipo + tools + producción</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Margen neto</div>
-          <div className={styles.kValue}>{marginPct}%</div>
-          <div className={styles.kSub}>Objetivo: 60%</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Pipeline</div>
-          <div className={styles.kValue}>US$ {pipelineValue.toLocaleString()}</div>
-          <div className={styles.kSub}>Valor de prospectos abiertos</div>
-        </div>
-      </div>
-
-      {clients.length === 0 ? (
-        <EmptyState
-          icon="◌"
-          title="Todavía no hay datos financieros"
-          desc="Creá clientes en el Hub y registrá egresos para empezar a ver tu panel financiero con datos reales."
-        />
-      ) : (
-        <div className={styles.table}>
-          <h3>Distribución de ingresos</h3>
-          <div style={{ padding: "14px 0", borderBottom: "1px solid rgba(196,168,130,0.08)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 500 }}>Growth Partner</span>
-              <span style={{ color: "var(--sand)", fontWeight: 700 }}>US$ {gpRevenue.toLocaleString()} · {gpPct}%</span>
-            </div>
-            <div className={styles.marginBar}>
-              <div className={styles.marginFill} style={{ width: `${gpPct}%` }} />
-            </div>
-          </div>
-          <div style={{ padding: "14px 0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 500 }}>Desarrollo</span>
-              <span style={{ color: "var(--sand)", fontWeight: 700 }}>US$ {devRevenue.toLocaleString()} · {devPct}%</span>
-            </div>
-            <div className={styles.marginBar}>
-              <div className={styles.marginFill} style={{ width: `${devPct}%`, background: "var(--forest-2)" }} />
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
 

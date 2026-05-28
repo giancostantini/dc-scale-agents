@@ -51,6 +51,612 @@ import type {
 import styles from "./finanzas.module.css";
 
 // ============================================================
+// DashboardView — Panel principal con KPIs + gráficos
+// ============================================================
+//
+// Layout (tipo dashboard ejecutivo):
+//   Row 1: 4 KPI cards con delta vs mes anterior
+//     MRR · Egresos del mes · Resultado neto · Pipeline
+//   Row 2: 3 cards de gráficos
+//     Donut "Distribución MRR" (GP vs Dev)
+//     Bar "Ingresos por mes" (últimos 6 meses)
+//     Bar "Resultado neto por mes" (últimos 6 meses, verde/rojo)
+//   Row 3: 2 cards
+//     Donut "Egresos por categoría"
+//     Bar horizontal "Top 5 clientes por fee"
+// ============================================================
+
+const DASH_COLORS = {
+  green:   "#2f7d4f",
+  red:     "#b04b3a",
+  deepGreen: "#0A1A0C",
+  forest:  "#1E3A28",
+  forest2: "#2d5036",
+  sand:    "#C4A882",
+  sandDark:"#9B8259",
+  blue:    "#3A8B5C",
+  yellow:  "#C9A14A",
+  textMuted: "#7A8A7E",
+};
+
+const PIE_PALETTE = [
+  DASH_COLORS.deepGreen,
+  DASH_COLORS.sand,
+  DASH_COLORS.sandDark,
+  DASH_COLORS.forest2,
+  DASH_COLORS.blue,
+  DASH_COLORS.yellow,
+  DASH_COLORS.red,
+];
+
+const EXPENSE_CATEGORY_LABEL: Record<string, string> = {
+  equipo: "Equipo",
+  tools: "Tools",
+  ia: "IA",
+  produccion: "Producción",
+  otros: "Otros",
+};
+
+const MONTHS_SHORT_ES = [
+  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+];
+
+export function DashboardView({
+  clients,
+  expenses,
+  payments,
+  manualRevs,
+  leads,
+  mrr,
+  totalExpenses,
+  netResult,
+  marginPct,
+  pipelineValue,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
+  leads: Lead[];
+  mrr: number;
+  totalExpenses: number;
+  netResult: number;
+  marginPct: number;
+  pipelineValue: number;
+}) {
+  // Mes actual + mes anterior (para deltas)
+  const now = new Date();
+  const curMonth = now.toISOString().slice(0, 7);
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = prevDate.toISOString().slice(0, 7);
+
+  // Calcular ingresos / egresos / net del mes actual y anterior
+  function netOfMonth(mk: string): {
+    ingresos: number;
+    egresos: number;
+    net: number;
+  } {
+    const mImpact = manualRevs.reduce(
+      (s, r) => s + revenueMonthlyImpact(r, mk),
+      0,
+    );
+    const mExpenses = expenses
+      .filter((e) => (e.date ?? "").startsWith(mk))
+      .reduce((s, e) => s + e.amount, 0);
+    const ingresos = mrr + mImpact;
+    return { ingresos, egresos: mExpenses, net: ingresos - mExpenses };
+  }
+  const cur = netOfMonth(curMonth);
+  const prev = netOfMonth(prevMonth);
+  const ingresoDelta = pctChange(cur.ingresos, prev.ingresos);
+  const egresoDelta = pctChange(cur.egresos, prev.egresos);
+  const netDelta = pctChange(cur.net, prev.net);
+
+  // Histórico últimos 6 meses
+  const last6: { mk: string; label: string; ingresos: number; egresos: number; net: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const label = MONTHS_SHORT_ES[d.getMonth()];
+    const v = netOfMonth(mk);
+    last6.push({ mk, label, ingresos: v.ingresos, egresos: v.egresos, net: v.net });
+  }
+
+  // Distribución MRR por tipo de cliente (GP vs Dev)
+  const gpRevenue = clients.filter((c) => c.type === "gp").reduce((s, c) => s + c.fee, 0);
+  const devRevenue = clients.filter((c) => c.type === "dev").reduce((s, c) => s + c.fee, 0);
+  const mrrSplit = [
+    { name: "Growth Partner", value: gpRevenue, color: DASH_COLORS.deepGreen },
+    { name: "Desarrollo",     value: devRevenue, color: DASH_COLORS.sand },
+  ].filter((s) => s.value > 0);
+
+  // Egresos por categoría — del mes actual
+  const expensesByCat = expenses
+    .filter((e) => (e.date ?? "").startsWith(curMonth))
+    .reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
+  const expenseCatData = Object.entries(expensesByCat)
+    .map(([k, v], i) => ({
+      name: EXPENSE_CATEGORY_LABEL[k] ?? k,
+      value: v,
+      color: PIE_PALETTE[i % PIE_PALETTE.length],
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Top 5 clientes por fee
+  const topClients = [...clients]
+    .sort((a, b) => b.fee - a.fee)
+    .slice(0, 5)
+    .map((c) => ({ name: c.name, value: c.fee }));
+
+  // Payments status del mes (para subtítulo de KPI MRR)
+  const paidCount = payments.filter((p) => p.month === curMonth && p.status === "paid").length;
+  const pendingCount = clients.length - paidCount;
+
+  // Leads en pipeline (para subtítulo)
+  const activeLeads = leads.length;
+
+  return (
+    <>
+      {/* Header inline (no usamos <Header> de page.tsx para no acoplar
+          archivos — replicamos el mismo layout de finanzas.module.css). */}
+      <div className={styles.head}>
+        <div>
+          <div className={styles.eyebrow}>Panel empresarial</div>
+          <h1>Finanzas</h1>
+        </div>
+        <div className={styles.metaLabel}>
+          Resultado neto (anual)
+          <span className={styles.metaStrong}>
+            US$ {netResult.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Row 1 — 4 KPI cards con deltas */}
+      <div className={styles.kpis}>
+        <KpiCard
+          label="Ingresos del mes"
+          value={`US$ ${cur.ingresos.toLocaleString()}`}
+          sub={`${paidCount} pagado${paidCount === 1 ? "" : "s"} · ${pendingCount} pendiente${pendingCount === 1 ? "" : "s"}`}
+          delta={ingresoDelta}
+          positiveIsGood
+        />
+        <KpiCard
+          label="Egresos del mes"
+          value={`US$ ${cur.egresos.toLocaleString()}`}
+          sub={`Anual: US$ ${totalExpenses.toLocaleString()}`}
+          delta={egresoDelta}
+          positiveIsGood={false}
+        />
+        <KpiCard
+          label="Resultado neto"
+          value={`US$ ${cur.net.toLocaleString()}`}
+          sub={`Margen anual ${marginPct}% · objetivo 60%`}
+          delta={netDelta}
+          positiveIsGood
+          highlight={cur.net < 0 ? "danger" : "ok"}
+        />
+        <KpiCard
+          label="Pipeline"
+          value={`US$ ${pipelineValue.toLocaleString()}`}
+          sub={`${activeLeads} prospecto${activeLeads === 1 ? "" : "s"} activo${activeLeads === 1 ? "" : "s"}`}
+        />
+      </div>
+
+      {clients.length === 0 ? (
+        <EmptyStateInline
+          icon="◌"
+          title="Todavía no hay datos financieros"
+          desc="Creá clientes en el Hub y registrá egresos para empezar a ver tu panel financiero con datos reales."
+        />
+      ) : (
+        <>
+          {/* Row 2 — gráficos principales */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1.5fr 1.5fr",
+              gap: 20,
+              marginBottom: 24,
+            }}
+          >
+            <ChartCard title="Distribución MRR" subtitle="Por tipo de cliente">
+              {mrrSplit.length === 0 ? (
+                <ChartEmpty />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={mrrSplit}
+                      dataKey="value"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      label={(props) => {
+                        const { percent } = props as { percent?: number };
+                        return percent ? `${Math.round(percent * 100)}%` : "";
+                      }}
+                      labelLine={false}
+                    >
+                      {mrrSplit.map((s) => (
+                        <Cell key={s.name} fill={s.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Ingresos por mes"
+              subtitle="Últimos 6 meses"
+            >
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={last6} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                  <XAxis
+                    dataKey="label"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+                  />
+                  <YAxis
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                    }
+                  />
+                  <Tooltip
+                    formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    cursor={{ fill: "rgba(196,168,130,0.1)" }}
+                  />
+                  <Bar
+                    dataKey="ingresos"
+                    fill={DASH_COLORS.sand}
+                    radius={[3, 3, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard
+              title="Resultado neto por mes"
+              subtitle="Últimos 6 meses"
+            >
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={last6} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                  <XAxis
+                    dataKey="label"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+                  />
+                  <YAxis
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v <= -1000 ? `-${(-v / 1000).toFixed(0)}k` : String(v)
+                    }
+                  />
+                  <Tooltip
+                    formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    cursor={{ fill: "rgba(196,168,130,0.1)" }}
+                  />
+                  <Bar dataKey="net" radius={[3, 3, 0, 0]}>
+                    {last6.map((m) => (
+                      <Cell
+                        key={m.mk}
+                        fill={m.net >= 0 ? DASH_COLORS.green : DASH_COLORS.red}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* Row 3 — egresos por categoría + top clientes */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 2fr",
+              gap: 20,
+              marginBottom: 24,
+            }}
+          >
+            <ChartCard
+              title="Egresos por categoría"
+              subtitle={`${MONTHS_SHORT_ES[now.getMonth()]} ${now.getFullYear()}`}
+            >
+              {expenseCatData.length === 0 ? (
+                <ChartEmpty />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={expenseCatData}
+                      dataKey="value"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      label={(props) => {
+                        const { percent } = props as { percent?: number };
+                        return percent && percent > 0.05
+                          ? `${Math.round(percent * 100)}%`
+                          : "";
+                      }}
+                      labelLine={false}
+                    >
+                      {expenseCatData.map((s) => (
+                        <Cell key={s.name} fill={s.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Top 5 clientes por fee"
+              subtitle="Concentración de MRR"
+            >
+              {topClients.length === 0 ? (
+                <ChartEmpty />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart
+                    data={topClients}
+                    layout="vertical"
+                    margin={{ top: 8, right: 16, left: 16, bottom: 0 }}
+                  >
+                    <XAxis
+                      type="number"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) =>
+                        v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                      }
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={120}
+                    />
+                    <Tooltip
+                      formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                      cursor={{ fill: "rgba(196,168,130,0.1)" }}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill={DASH_COLORS.forest2}
+                      radius={[0, 3, 3, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/** % de cambio entre 2 valores. Devuelve null si el anterior es 0
+ *  (no se puede calcular cambio relativo desde cero). */
+function pctChange(curr: number, prev: number): number | null {
+  if (prev === 0) return null;
+  return Math.round(((curr - prev) / Math.abs(prev)) * 100);
+}
+
+/** KPI card con delta opcional vs mes anterior. */
+function KpiCard({
+  label,
+  value,
+  sub,
+  delta,
+  positiveIsGood = true,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  delta?: number | null;
+  positiveIsGood?: boolean;
+  highlight?: "ok" | "danger";
+}) {
+  // Color del delta: por default verde si positivo, rojo si negativo.
+  // Si positiveIsGood=false (ej: egresos), invertimos: subir es malo.
+  let deltaColor: string | undefined;
+  if (delta !== undefined && delta !== null) {
+    const isGood = positiveIsGood ? delta >= 0 : delta <= 0;
+    deltaColor = isGood ? DASH_COLORS.green : DASH_COLORS.red;
+  }
+  const valueColor =
+    highlight === "danger"
+      ? DASH_COLORS.red
+      : highlight === "ok"
+        ? DASH_COLORS.deepGreen
+        : undefined;
+
+  return (
+    <div className={styles.kpi}>
+      <div className={styles.kLabel}>{label}</div>
+      <div
+        className={styles.kValue}
+        style={valueColor ? { color: valueColor } : undefined}
+      >
+        {value}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+        {sub && <div className={styles.kSub}>{sub}</div>}
+        {delta !== undefined && delta !== null && (
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: deltaColor,
+              padding: "2px 6px",
+              background:
+                deltaColor === DASH_COLORS.green
+                  ? "rgba(47,125,79,0.10)"
+                  : "rgba(176,75,58,0.10)",
+              borderRadius: 3,
+            }}
+          >
+            {delta >= 0 ? "↑" : "↓"} {Math.abs(delta)}%
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Card que envuelve un gráfico con título + subtítulo. */
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: "var(--r-lg)",
+        boxShadow: "var(--shadow-card)",
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 14,
+          paddingBottom: 10,
+          borderBottom: "1px solid rgba(10,26,12,0.06)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--deep-green)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--sand-dark)",
+              marginTop: 3,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ChartEmpty() {
+  return (
+    <div
+      style={{
+        height: 220,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--text-muted)",
+        fontSize: 12,
+        fontStyle: "italic",
+      }}
+    >
+      Sin datos para mostrar
+    </div>
+  );
+}
+
+function EmptyStateInline({
+  icon,
+  title,
+  desc,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: 60,
+        textAlign: "center",
+        border: "1px dashed rgba(10,26,12,0.15)",
+        background: "var(--off-white)",
+        marginTop: 32,
+      }}
+    >
+      <div style={{ fontSize: 40, color: "var(--sand-dark)", opacity: 0.6, marginBottom: 20 }}>
+        {icon}
+      </div>
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 600,
+          color: "var(--deep-green)",
+          marginBottom: 10,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 440, margin: "0 auto" }}>
+        {desc}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // TeamCostView — costo del equipo
 // ============================================================
 export function TeamCostView() {
