@@ -28,6 +28,8 @@ import {
 } from "recharts";
 import { listAllAssignments, listProfiles } from "@/lib/team";
 import {
+  computeMonthlyMrr,
+  effectiveFeeForMonth,
   listClientMktBudgets,
   setClientMktBudget,
 } from "@/lib/storage";
@@ -48,6 +50,7 @@ import {
 } from "@/lib/finanzas";
 import type {
   Client,
+  ClientFeeSchedule,
   ClientMktBudget,
   Expense,
   InvoicePayment,
@@ -2013,19 +2016,24 @@ export function MetricasView({
   payments,
   manualRevs,
   leads,
-  mrr,
+  feeSchedules,
 }: {
   clients: Client[];
   expenses: Expense[];
   payments: InvoicePayment[];
   manualRevs: ManualRevenue[];
   leads: Lead[];
-  mrr: number;
+  feeSchedules: ClientFeeSchedule[];
 }) {
   const now = new Date();
   const curMonth = now.toISOString().slice(0, 7);
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const prevMonth = prevDate.toISOString().slice(0, 7);
+
+  /** MRR EFECTIVO del mes — respeta calendario de tramos.
+   *  Si un cliente tiene tramo activo para curMonth, usa ese monto.
+   *  Si no, usa el client.fee del contrato. */
+  const mrr = computeMonthlyMrr(clients, feeSchedules, curMonth);
 
   // ===== Cálculos base (cash real) =====
   function netOfMonth(mk: string) {
@@ -2034,7 +2042,9 @@ export function MetricasView({
         (pp) => pp.clientId === c.id && pp.month === mk,
       );
       if (p?.status !== "paid") return s;
-      return s + (p.amountOverride ?? c.fee);
+      // Override del payment > scheduled fee > contract fee
+      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+      return s + (p.amountOverride ?? scheduled ?? c.fee);
     }, 0);
     const mImpact = manualRevs.reduce(
       (s, r) => s + revenueMonthlyImpact(r, mk),

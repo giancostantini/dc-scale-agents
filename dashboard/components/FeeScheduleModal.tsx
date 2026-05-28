@@ -40,6 +40,8 @@ export default function FeeScheduleModal({
   const [saving, setSaving] = useState(false);
   // Form
   const [newMonth, setNewMonth] = useState("");
+  /** Mes de fin del tramo. Vacío = sin cierre (vigente). */
+  const [newEndMonth, setNewEndMonth] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newCurrency, setNewCurrency] = useState("USD");
   const [newNotes, setNewNotes] = useState("");
@@ -63,12 +65,22 @@ export default function FeeScheduleModal({
   async function addEntry() {
     if (!client) return;
     if (!newMonth || !newAmount) {
-      alert("Mes y monto son obligatorios.");
+      alert("Mes desde y monto son obligatorios.");
       return;
     }
     if (!/^\d{4}-\d{2}$/.test(newMonth)) {
-      alert("Mes inválido. Formato YYYY-MM (ej: 2026-05).");
+      alert("Mes desde inválido. Formato YYYY-MM (ej: 2026-05).");
       return;
+    }
+    if (newEndMonth) {
+      if (!/^\d{4}-\d{2}$/.test(newEndMonth)) {
+        alert("Mes hasta inválido. Formato YYYY-MM (ej: 2026-12).");
+        return;
+      }
+      if (newEndMonth < newMonth) {
+        alert("El mes 'hasta' debe ser igual o posterior al 'desde'.");
+        return;
+      }
     }
     const amt = Number(newAmount);
     if (Number.isNaN(amt) || amt < 0) {
@@ -83,10 +95,12 @@ export default function FeeScheduleModal({
         amt,
         newCurrency,
         newNotes.trim() || null,
+        newEndMonth || null,
       );
       const fresh = await listFeeSchedulesForClient(client.id);
       setSchedules(fresh);
       setNewMonth("");
+      setNewEndMonth("");
       setNewAmount("");
       setNewNotes("");
       onSaved?.();
@@ -220,7 +234,7 @@ export default function FeeScheduleModal({
                     gap: 8,
                   }}
                 >
-                  <div>Desde mes</div>
+                  <div>Período</div>
                   <div>Monto</div>
                   <div>Notas</div>
                   <div></div>
@@ -230,7 +244,7 @@ export default function FeeScheduleModal({
                     key={s.id}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1.5fr 2fr 40px",
+                      gridTemplateColumns: "1.4fr 1.2fr 1.8fr 40px",
                       padding: "10px 12px",
                       borderTop: "1px solid rgba(10,26,12,0.05)",
                       fontSize: 13,
@@ -240,6 +254,18 @@ export default function FeeScheduleModal({
                   >
                     <div>
                       <strong>{s.startMonth}</strong>
+                      <span
+                        style={{
+                          color: "var(--text-muted)",
+                          fontWeight: 400,
+                          margin: "0 4px",
+                        }}
+                      >
+                        →
+                      </span>
+                      <strong style={{ color: s.endMonth ? "var(--deep-green)" : "var(--sand-dark)" }}>
+                        {s.endMonth ?? "vigente"}
+                      </strong>
                     </div>
                     <div style={{ color: "var(--deep-green)", fontWeight: 600 }}>
                       {s.currency} {s.amount.toLocaleString()}
@@ -289,14 +315,50 @@ export default function FeeScheduleModal({
           >
             Agregar tramo
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr", gap: 8 }}>
-            <input
-              type="month"
-              value={newMonth}
-              onChange={(e) => setNewMonth(e.target.value)}
-              placeholder="2026-05"
-              style={inputSm}
-            />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 1fr", gap: 8 }}>
+            <div>
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 4,
+                }}
+              >
+                Desde
+              </div>
+              <input
+                type="month"
+                value={newMonth}
+                onChange={(e) => setNewMonth(e.target.value)}
+                placeholder="2026-05"
+                style={inputSm}
+              />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 4,
+                }}
+              >
+                Hasta (opcional)
+              </div>
+              <input
+                type="month"
+                value={newEndMonth}
+                min={newMonth}
+                onChange={(e) => setNewEndMonth(e.target.value)}
+                placeholder="vigente"
+                style={inputSm}
+              />
+            </div>
             <input
               type="number"
               min={0}

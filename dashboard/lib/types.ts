@@ -402,15 +402,23 @@ export interface Expense {
   status?: ExpenseStatus;
 }
 
-/** Entry del calendario de pago variable de un cliente. Define el
- *  fee vigente desde un mes determinado. Si un cliente tiene N entries
- *  el fee de un mes M es el de la entry con start_month <= M más
- *  reciente. Si no hay entries, fallback a client.fee. */
+/** Entry del calendario de pago variable de un cliente.
+ *
+ *  Define un TRAMO con monto vigente entre startMonth y endMonth
+ *  (ambos inclusive). Si endMonth es null, vigente sin cierre.
+ *
+ *  Resolución del fee de un mes M (ver effectiveFeeForMonth):
+ *    - busca el tramo donde M está dentro del rango [start, end]
+ *    - si hay varios, gana el de startMonth más reciente
+ *    - si no hay ninguno aplicable → fallback a client.fee
+ */
 export interface ClientFeeSchedule {
   id: string;
   clientId: string;
-  /** YYYY-MM */
+  /** YYYY-MM — inicio del tramo (inclusive). */
   startMonth: string;
+  /** YYYY-MM — fin del tramo (inclusive). NULL = sin cierre. */
+  endMonth?: string | null;
   amount: number;
   currency: string;
   notes?: string | null;

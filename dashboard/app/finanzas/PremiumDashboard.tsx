@@ -41,10 +41,12 @@ import {
   CardDescription,
 } from "@/components/premium/Card";
 import {
+  effectiveFeeForMonth,
   getExpenses,
   getPayments,
   getClients,
   getLeads,
+  listFeeSchedules,
 } from "@/lib/storage";
 import {
   listManualRevenues,
@@ -54,6 +56,7 @@ import {
 import { EXPENSE_CATEGORY_LABEL } from "@/lib/types";
 import type {
   Client,
+  ClientFeeSchedule,
   Expense,
   ExpenseCategory,
   InvoicePayment,
@@ -91,6 +94,7 @@ export function PremiumDashboard() {
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [manualRevs, setManualRevs] = useState<ManualRevenue[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [feeSchedules, setFeeSchedules] = useState<ClientFeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -100,12 +104,14 @@ export function PremiumDashboard() {
       getPayments(),
       listManualRevenues(),
       getLeads(),
-    ]).then(([c, e, p, m, l]) => {
+      listFeeSchedules(),
+    ]).then(([c, e, p, m, l, fs]) => {
       setClients(c);
       setExpenses(e);
       setPayments(p);
       setManualRevs(m);
       setLeads(l);
+      setFeeSchedules(fs);
       setLoading(false);
     });
   }, []);
@@ -122,7 +128,9 @@ export function PremiumDashboard() {
         (pp) => pp.clientId === c.id && pp.month === mk,
       );
       if (p?.status !== "paid") return s;
-      return s + (p.amountOverride ?? c.fee);
+      // Precedencia: amountOverride del payment > tramo del calendario > fee del contrato.
+      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+      return s + (p.amountOverride ?? scheduled ?? c.fee);
     }, 0);
     const mImpact = manualRevs.reduce(
       (s, r) => s + revenueMonthlyImpact(r, mk),

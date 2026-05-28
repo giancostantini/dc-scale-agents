@@ -842,6 +842,7 @@ interface FeeScheduleRow {
   id: string;
   client_id: string;
   start_month: string;
+  end_month: string | null;
   amount: number | string;
   currency: string;
   notes: string | null;
@@ -852,6 +853,7 @@ function feeScheduleFromRow(r: FeeScheduleRow): ClientFeeSchedule {
     id: r.id,
     clientId: r.client_id,
     startMonth: r.start_month,
+    endMonth: r.end_month,
     amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
     currency: r.currency,
     notes: r.notes,
@@ -884,19 +886,23 @@ export async function listFeeSchedulesForClient(
   return (data as FeeScheduleRow[]).map(feeScheduleFromRow);
 }
 
-/** Upsert por (client_id, start_month). */
+/** Upsert por (client_id, start_month).
+ *  endMonth nullable: si está, el tramo se cierra ese mes; si no,
+ *  vigente sin cierre. */
 export async function upsertFeeSchedule(
   clientId: string,
   startMonth: string,
   amount: number,
   currency = "USD",
   notes: string | null = null,
+  endMonth: string | null = null,
 ): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("client_fee_schedules").upsert(
     {
       client_id: clientId,
       start_month: startMonth,
+      end_month: endMonth,
       amount,
       currency,
       notes,
@@ -911,17 +917,42 @@ export async function deleteFeeSchedule(id: string): Promise<void> {
 }
 
 /** Calcula el fee efectivo de un cliente para un mes específico
- *  basado en su calendario de pago. Si no tiene entries, devuelve
- *  null (el caller usa client.fee como fallback). */
+ *  basado en su calendario de pago acotado.
+ *
+ *  Algoritmo:
+ *   - Filtra tramos del cliente donde startMonth <= yyyymm y
+ *     (endMonth IS NULL OR endMonth >= yyyymm) — sea contiene M.
+ *   - De los aplicables, gana el de startMonth más reciente.
+ *   - Si ninguno aplica → null (caller usa client.fee como fallback).
+ */
 export function effectiveFeeForMonth(
   schedules: ClientFeeSchedule[],
   clientId: string,
   yyyymm: string,
 ): number | null {
-  const own = schedules
-    .filter((s) => s.clientId === clientId && s.startMonth <= yyyymm)
+  const applicable = schedules
+    .filter(
+      (s) =>
+        s.clientId === clientId &&
+        s.startMonth <= yyyymm &&
+        (!s.endMonth || s.endMonth >= yyyymm),
+    )
     .sort((a, b) => b.startMonth.localeCompare(a.startMonth));
-  return own.length > 0 ? own[0].amount : null;
+  return applicable.length > 0 ? applicable[0].amount : null;
+}
+
+/** MRR efectivo del mes pasado por argumento.
+ *  Suma sobre todos los clientes el effective fee de ese mes.
+ *  Si no hay schedule para un cliente, usa client.fee del contrato. */
+export function computeMonthlyMrr(
+  clients: Client[],
+  schedules: ClientFeeSchedule[],
+  yyyymm: string,
+): number {
+  return clients.reduce((sum, c) => {
+    const scheduled = effectiveFeeForMonth(schedules, c.id, yyyymm);
+    return sum + (scheduled ?? c.fee);
+  }, 0);
 }
 
 /** Upsert: si existe el budget de ese cliente lo reemplaza con el

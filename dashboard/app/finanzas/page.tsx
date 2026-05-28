@@ -111,10 +111,16 @@ export default function FinanzasPage() {
   }, [router, refresh]);
 
   // ====== Cálculos ======
-  const mrr = useMemo(
-    () => clients.reduce((s, c) => s + c.fee, 0),
-    [clients],
-  );
+  // MRR EFECTIVO del mes en curso — respeta calendario de tramos
+  // (client_fee_schedules) si el cliente tiene definido. Si no,
+  // cae al client.fee del contrato.
+  const mrr = useMemo(() => {
+    const curMonth = new Date().toISOString().slice(0, 7);
+    return clients.reduce((s, c) => {
+      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, curMonth);
+      return s + (scheduled ?? c.fee);
+    }, 0);
+  }, [clients, feeSchedules]);
   const totalExpenses = useMemo(
     () => expenses.reduce((s, e) => s + e.amount, 0),
     [expenses],
@@ -272,7 +278,7 @@ export default function FinanzasPage() {
                 payments={payments}
                 manualRevs={manualRevs}
                 leads={leads}
-                mrr={mrr}
+                feeSchedules={feeSchedules}
               />
             )}
           </main>
