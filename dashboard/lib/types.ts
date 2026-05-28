@@ -360,6 +360,9 @@ export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   otros: "Varios",
 };
 
+/** Tipo de recurrencia del egreso. */
+export type ExpenseRecurrence = "one_time" | "monthly_fixed";
+
 export interface Expense {
   id: string;
   date: string;               // YYYY-MM-DD
@@ -367,6 +370,26 @@ export interface Expense {
   category: ExpenseCategory;
   assignedTo: string;         // "Interno" o clientId o nombre miembro
   amount: number;             // positivo; se trata como egreso
+  /** Si el egreso es único (default) o se repite cada mes. */
+  recurrence: ExpenseRecurrence;
+  /** Solo aplica si recurrence='monthly_fixed'. Hasta qué mes corre.
+   *  NULL = vigente sin fin. */
+  recurrenceEndDate?: string | null;
+  /** Si el egreso se carga contra el presupuesto MKT de un cliente,
+   *  acá va el clientId. NULL = corporativo / no asignado a MKT. */
+  mktBudgetClientId?: string | null;
+}
+
+/** Presupuesto mensual de marketing que otorga un cliente GP.
+ *  Singleton por cliente — al editar se reemplaza el monto. */
+export interface ClientMktBudget {
+  clientId: string;
+  monthlyAmount: number;
+  currency: string;
+  startDate: string;          // YYYY-MM-DD
+  endDate?: string | null;    // null = vigente
+  notes?: string | null;
+  updatedAt: string;
 }
 
 export interface InvoicePayment {

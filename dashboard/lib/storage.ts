@@ -7,6 +7,7 @@ import { getSupabase } from "./supabase/client";
 import { listProfiles } from "./team";
 import type {
   Client,
+  ClientMktBudget,
   ClientOnboarding,
   Lead,
   ProspectCampaign,
@@ -677,6 +678,9 @@ interface ExpenseRow {
   category: ExpenseCategory;
   assigned_to: string;
   amount: number | string;
+  recurrence: "one_time" | "monthly_fixed" | null;
+  recurrence_end_date: string | null;
+  mkt_budget_client_id: string | null;
 }
 
 function expenseFromRow(r: ExpenseRow): Expense {
@@ -687,6 +691,9 @@ function expenseFromRow(r: ExpenseRow): Expense {
     category: r.category,
     assignedTo: r.assigned_to,
     amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
+    recurrence: r.recurrence ?? "one_time",
+    recurrenceEndDate: r.recurrence_end_date ?? null,
+    mktBudgetClientId: r.mkt_budget_client_id ?? null,
   };
 }
 
@@ -710,6 +717,9 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
       category: data.category,
       assigned_to: data.assignedTo,
       amount: data.amount,
+      recurrence: data.recurrence ?? "one_time",
+      recurrence_end_date: data.recurrenceEndDate ?? null,
+      mkt_budget_client_id: data.mktBudgetClientId ?? null,
     })
     .select()
     .single();
@@ -720,6 +730,73 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
 export async function deleteExpense(id: string): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("expenses").delete().eq("id", id);
+}
+
+// ==================== CLIENT MKT BUDGETS ====================
+
+interface MktBudgetRow {
+  client_id: string;
+  monthly_amount: number | string;
+  currency: string;
+  start_date: string;
+  end_date: string | null;
+  notes: string | null;
+  updated_at: string;
+}
+
+function mktBudgetFromRow(r: MktBudgetRow): ClientMktBudget {
+  return {
+    clientId: r.client_id,
+    monthlyAmount:
+      typeof r.monthly_amount === "string"
+        ? parseFloat(r.monthly_amount)
+        : r.monthly_amount,
+    currency: r.currency,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    notes: r.notes,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function listClientMktBudgets(): Promise<ClientMktBudget[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_mkt_budgets")
+    .select("*");
+  if (error) {
+    console.error("listClientMktBudgets:", error);
+    return [];
+  }
+  return (data as MktBudgetRow[]).map(mktBudgetFromRow);
+}
+
+/** Upsert: si existe el budget de ese cliente lo reemplaza con el
+ *  nuevo monto. Si pasás monthlyAmount=0 (o negativo) lo eliminamos. */
+export async function setClientMktBudget(
+  clientId: string,
+  monthlyAmount: number,
+  currency = "USD",
+  startDate?: string,
+  endDate?: string | null,
+  notes?: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  if (monthlyAmount <= 0) {
+    await supabase.from("client_mkt_budgets").delete().eq("client_id", clientId);
+    return;
+  }
+  await supabase.from("client_mkt_budgets").upsert(
+    {
+      client_id: clientId,
+      monthly_amount: monthlyAmount,
+      currency,
+      start_date: startDate ?? new Date().toISOString().slice(0, 10),
+      end_date: endDate ?? null,
+      notes: notes ?? null,
+    },
+    { onConflict: "client_id" },
+  );
 }
 
 // Genera expenses (categoría=equipo) para todos los miembros del equipo
@@ -783,6 +860,9 @@ export async function generateTeamPayroll(monthYYYYMM: string): Promise<{
       category: "equipo",
       assignedTo: "Interno",
       amount: p.payment_amount as number,
+      recurrence: "monthly_fixed",
+      recurrenceEndDate: null,
+      mktBudgetClientId: null,
     });
     created++;
   }

@@ -27,6 +27,10 @@ import {
   YAxis,
 } from "recharts";
 import { listProfiles } from "@/lib/team";
+import {
+  listClientMktBudgets,
+  setClientMktBudget,
+} from "@/lib/storage";
 import type { Profile } from "@/lib/supabase/auth";
 import {
   createManualRevenue,
@@ -44,6 +48,7 @@ import {
 } from "@/lib/finanzas";
 import type {
   Client,
+  ClientMktBudget,
   Expense,
   InvoicePayment,
   Lead,
@@ -348,7 +353,7 @@ export function DashboardView({
             </ChartCard>
 
             <ChartCard
-              title="Ingresos cobrados por mes"
+              title="Ingresos vs Egresos por mes"
               subtitle="Últimos 6 meses · cash real"
             >
               <ResponsiveContainer width="100%" height={220}>
@@ -371,9 +376,20 @@ export function DashboardView({
                     formatter={(v: number) => `US$ ${v.toLocaleString()}`}
                     cursor={{ fill: "rgba(196,168,130,0.1)" }}
                   />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                  />
                   <Bar
+                    name="Ingresos"
                     dataKey="ingresos"
                     fill={DASH_COLORS.sand}
+                    radius={[3, 3, 0, 0]}
+                  />
+                  <Bar
+                    name="Egresos"
+                    dataKey="egresos"
+                    fill={DASH_COLORS.red}
                     radius={[3, 3, 0, 0]}
                   />
                 </BarChart>
@@ -886,6 +902,438 @@ export function TeamCostView() {
 }
 
 // ============================================================
+// MktClientesView — presupuesto de marketing de cada cliente GP
+// ============================================================
+//
+// Para cada cliente GP muestra:
+//   - Presupuesto MENSUAL otorgado (editable)
+//   - Gastado del mes (= sum de expenses con mkt_budget_client_id=c.id
+//     y fecha en el mes actual)
+//   - Barra de progreso con % usado
+//   - Click en "Editar presupuesto" abre input para cambiarlo
+// ============================================================
+export function MktClientesView({
+  clients,
+  expenses,
+  onRefresh,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  onRefresh: () => void;
+}) {
+  const [budgets, setBudgets] = useState<ClientMktBudget[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const monthIso = new Date().toISOString().slice(0, 7);
+
+  async function refresh() {
+    setLoading(true);
+    setBudgets(await listClientMktBudgets());
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const gpClients = clients.filter((c) => c.type === "gp");
+
+  function startEdit(clientId: string) {
+    const b = budgets.find((bb) => bb.clientId === clientId);
+    setEditingClientId(clientId);
+    setEditAmount(b ? String(b.monthlyAmount) : "");
+    setEditNotes(b?.notes ?? "");
+  }
+  function cancelEdit() {
+    setEditingClientId(null);
+    setEditAmount("");
+    setEditNotes("");
+  }
+  async function saveEdit() {
+    if (!editingClientId) return;
+    const amt = Number(editAmount);
+    if (Number.isNaN(amt) || amt < 0) {
+      alert("Importe inválido.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setClientMktBudget(
+        editingClientId,
+        amt,
+        "USD",
+        undefined,
+        null,
+        editNotes.trim() || null,
+      );
+      cancelEdit();
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      alert(`Error: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /** Gastado del mes actual contra el presupuesto MKT del cliente. */
+  function spentThisMonth(clientId: string): number {
+    return expenses
+      .filter(
+        (e) =>
+          e.mktBudgetClientId === clientId &&
+          (e.date ?? "").startsWith(monthIso),
+      )
+      .reduce((s, e) => s + e.amount, 0);
+  }
+
+  /** Stats del mes para todos los presupuestos (totales). */
+  const totalBudget = budgets.reduce((s, b) => s + b.monthlyAmount, 0);
+  const totalSpent = budgets.reduce(
+    (s, b) => s + spentThisMonth(b.clientId),
+    0,
+  );
+
+  return (
+    <>
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          marginBottom: 8,
+        }}
+      >
+        Finanzas · Marketing por cliente
+      </div>
+      <h1 style={h1Style}>Mkt Clientes</h1>
+      <p
+        style={{
+          maxWidth: 720,
+          color: "var(--text-muted)",
+          fontSize: 14,
+          lineHeight: 1.6,
+          marginBottom: 24,
+        }}
+      >
+        Cada cliente Growth Partner otorga un presupuesto mensual de
+        marketing. Acá registrás el monto y ves cuánto se gastó. Los
+        egresos que tienen "Imputar al presupuesto MKT" descuentan
+        automáticamente de acá.
+      </p>
+
+      {/* KPIs globales */}
+      <div className={styles.kpis}>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Presupuesto MKT total</div>
+          <div className={styles.kValue}>
+            US$ {totalBudget.toLocaleString()}
+          </div>
+          <div className={styles.kSub}>
+            {budgets.length} cliente{budgets.length === 1 ? "" : "s"} con
+            presupuesto
+          </div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Gastado en {monthIso}</div>
+          <div
+            className={styles.kValue}
+            style={{
+              color: totalSpent > totalBudget ? "#b04b3a" : "#2f7d4f",
+            }}
+          >
+            US$ {totalSpent.toLocaleString()}
+          </div>
+          <div className={styles.kSub}>
+            {totalBudget > 0
+              ? `${Math.round((totalSpent / totalBudget) * 100)}% del total`
+              : "Sin presupuesto cargado"}
+          </div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Disponible</div>
+          <div className={styles.kValue}>
+            US$ {Math.max(0, totalBudget - totalSpent).toLocaleString()}
+          </div>
+          <div className={styles.kSub}>Lo que queda del mes</div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div>Cargando…</div>
+      ) : gpClients.length === 0 ? (
+        <EmptyStateInlineCard
+          icon="◐"
+          title="Sin clientes GP todavía"
+          desc="Esta vista lista solo clientes type='gp'. Creá uno en el Hub para empezar."
+        />
+      ) : (
+        <div className={styles.table}>
+          <h3>Presupuesto por cliente · {monthIso}</h3>
+
+          {gpClients.map((c) => {
+            const budget = budgets.find((b) => b.clientId === c.id);
+            const monthly = budget?.monthlyAmount ?? 0;
+            const spent = spentThisMonth(c.id);
+            const remaining = Math.max(0, monthly - spent);
+            const pct = monthly > 0 ? Math.min(100, Math.round((spent / monthly) * 100)) : 0;
+            const overspent = spent > monthly && monthly > 0;
+            const isEditingThis = editingClientId === c.id;
+
+            return (
+              <div
+                key={c.id}
+                style={{
+                  padding: "16px 0",
+                  borderBottom: "1px solid rgba(10,26,12,0.06)",
+                  background: isEditingThis
+                    ? "rgba(196, 168, 130, 0.06)"
+                    : undefined,
+                }}
+              >
+                {/* Header de la fila: nombre + monto + acciones */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    gap: 16,
+                    marginBottom: 8,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 15 }}>{c.name}</strong>
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 10,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {c.sector}
+                    </span>
+                    {budget?.notes && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {budget.notes}
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingThis ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        flexDirection: "column",
+                        minWidth: 240,
+                      }}
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        autoFocus
+                        placeholder="Monto mensual USD"
+                        style={budgetInput}
+                      />
+                      <input
+                        type="text"
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        placeholder="Notas (opcional)"
+                        style={{ ...budgetInput, fontSize: 11 }}
+                      />
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          onClick={saveEdit}
+                          disabled={saving}
+                          style={solidBtn}
+                        >
+                          {saving ? "Guardando…" : "Guardar"}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={saving}
+                          style={ghostBtn}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color: "var(--deep-green)",
+                          }}
+                        >
+                          US$ {monthly.toLocaleString()}
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text-muted)",
+                              fontWeight: 400,
+                              marginLeft: 4,
+                            }}
+                          >
+                            /mes
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: overspent ? "#b04b3a" : "var(--text-muted)",
+                          }}
+                        >
+                          Gastado:{" "}
+                          <strong>US$ {spent.toLocaleString()}</strong> ·
+                          Queda:{" "}
+                          <strong>US$ {remaining.toLocaleString()}</strong>
+                          {overspent && " ⚠ excedido"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => startEdit(c.id)}
+                        style={ghostBtn}
+                      >
+                        ✎ Editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de progreso */}
+                {monthly > 0 && !isEditingThis && (
+                  <div
+                    style={{
+                      height: 10,
+                      background: "rgba(10,26,12,0.06)",
+                      borderRadius: 5,
+                      overflow: "hidden",
+                      position: "relative",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${Math.min(100, pct)}%`,
+                        background: overspent
+                          ? "#b04b3a"
+                          : pct > 80
+                            ? "#C9A14A"
+                            : "#2f7d4f",
+                        transition: "width 0.3s",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 6,
+                        top: -2,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: pct > 50 ? "#fff" : "var(--deep-green)",
+                        mixBlendMode: pct > 50 ? "difference" : "normal",
+                      }}
+                    >
+                      {pct}%
+                    </div>
+                  </div>
+                )}
+                {monthly === 0 && !isEditingThis && (
+                  <div
+                    style={{
+                      padding: 10,
+                      background: "var(--ivory)",
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontStyle: "italic",
+                      borderRadius: "var(--r-sm)",
+                    }}
+                  >
+                    Sin presupuesto cargado. Click en "Editar" para
+                    definirlo.
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+function EmptyStateInlineCard({
+  icon,
+  title,
+  desc,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: 60,
+        textAlign: "center",
+        border: "1px dashed rgba(10,26,12,0.15)",
+        background: "var(--off-white)",
+      }}
+    >
+      <div style={{ fontSize: 40, color: "var(--sand-dark)", opacity: 0.6, marginBottom: 20 }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: "var(--deep-green)", marginBottom: 10 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 440, margin: "0 auto" }}>
+        {desc}
+      </div>
+    </div>
+  );
+}
+
+const budgetInput: React.CSSProperties = {
+  padding: "8px 12px",
+  border: "1px solid rgba(10,26,12,0.15)",
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  fontFamily: "inherit",
+  fontSize: 13,
+  outline: "none",
+  width: "100%",
+  borderRadius: "var(--r-sm)",
+};
+
+// ============================================================
 // DividendosView — distribución del net profit a mes vencido
 // ============================================================
 //
@@ -949,13 +1397,20 @@ export function DividendosView({
     refresh();
   }, []);
 
-  // Calcular net del mes seleccionado (base devengada):
-  //   ingresos = fees mensuales + impacto de ingresos manuales en ese mes
+  // Calcular net REAL del mes seleccionado — cash cobrado:
+  //   ingresos = fees de clientes con payment paid + manual revenues
   //   egresos = todos los gastos del mes
-  //   net = ingresos − egresos
-  // Esto matchea el cálculo de page.tsx pero parametrizado por mes,
-  // así el director puede ver dividendos de meses anteriores.
-  const mrrBase = clients.reduce((s, c) => s + c.fee, 0);
+  //   net = ingresos - egresos
+  //
+  // No usamos MRR actual (sería proyección, no realidad).
+  const feesPaidSelected = clients.reduce((s, c) => {
+    const p = payments.find(
+      (pp) => pp.clientId === c.id && pp.month === selectedMonth,
+    );
+    if (p?.status !== "paid") return s;
+    const amt = p.amountOverride ?? c.fee;
+    return s + amt;
+  }, 0);
   const manualRevImpact = manualRevs.reduce(
     (s, r) => s + revenueMonthlyImpact(r, selectedMonth),
     0,
@@ -963,7 +1418,7 @@ export function DividendosView({
   const monthExpenses = expenses
     .filter((e) => (e.date ?? "").startsWith(selectedMonth))
     .reduce((s, e) => s + e.amount, 0);
-  const monthlyNet = mrrBase + manualRevImpact - monthExpenses;
+  const monthlyNet = feesPaidSelected + manualRevImpact - monthExpenses;
 
   // Generamos opciones de mes para el selector: últimos 12 meses
   // empezando por el mes anterior cerrado.
@@ -988,15 +1443,18 @@ export function DividendosView({
     monthOptions.unshift({ value: cur, label: `${curLabel} (en curso)` });
   }
 
-  /** Historial de los últimos 12 meses cerrados con su distribución
-   *  recalculada con la config actual. Para meses anteriores al inicio
-   *  de operación (sin egresos ni ingresos) el net da 0 — los igual
-   *  los listamos para que se vea el rango temporal completo.
+  /** Historial: solo meses con actividad real.
    *
-   *  Nota: usamos la config actual para todos los meses. Si en el
-   *  futuro la config cambia (ej: 25/25/50), los acumulados pasados
-   *  se RECALCULAN — no es un libro de actas inmutable, es la
-   *  proyección "qué hubiese sido con la config de hoy". */
+   *  Un mes "tiene actividad" si tiene al menos uno de:
+   *  - 1 payment registrado (status paid o no)
+   *  - 1 expense con fecha de ese mes
+   *  - 1 manual revenue con impacto > 0 en ese mes
+   *
+   *  Esto evita mostrar 12 meses de "fantasmas" cuando el negocio
+   *  arrancó hace 1-2 meses. El director ve solo lo que pasó de verdad.
+   *
+   *  Usamos solo cash real cobrado (payments con status='paid') para
+   *  calcular el net, igual que el resto del dashboard. */
   const history = (() => {
     if (!config) return [] as Array<{
       monthKey: string;
@@ -1017,30 +1475,53 @@ export function DividendosView({
       inversiones: number;
       back: number;
     }> = [];
-    for (let i = 1; i <= 12; i++) {
+    // Buscamos hasta 24 meses hacia atrás pero solo agregamos los que
+    // tienen actividad — así si el negocio arrancó hace 3 meses, solo
+    // muestra esos 3.
+    for (let i = 1; i <= 24; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const mk = d.toISOString().slice(0, 7);
-      const label = d.toLocaleDateString("es-AR", {
-        month: "long",
-        year: "numeric",
-      });
+
+      // Detectar actividad
+      const hasPayment = payments.some((p) => p.month === mk);
+      const hasExpense = expenses.some((e) =>
+        (e.date ?? "").startsWith(mk),
+      );
       const mImpact = manualRevs.reduce(
         (s, r) => s + revenueMonthlyImpact(r, mk),
         0,
       );
+      const hasRevenue = mImpact > 0;
+
+      if (!hasPayment && !hasExpense && !hasRevenue) continue;
+
+      // Net real: solo fees de clientes con payment paid
+      const feesPaid = clients.reduce((s, c) => {
+        const p = payments.find(
+          (pp) => pp.clientId === c.id && pp.month === mk,
+        );
+        if (p?.status !== "paid") return s;
+        const amt = p.amountOverride ?? c.fee;
+        return s + amt;
+      }, 0);
       const mExpenses = expenses
         .filter((e) => (e.date ?? "").startsWith(mk))
         .reduce((s, e) => s + e.amount, 0);
-      const net = mrrBase + mImpact - mExpenses;
-      const d2 = distributeDividends(net, config);
+      const net = feesPaid + mImpact - mExpenses;
+
+      const label = d.toLocaleDateString("es-AR", {
+        month: "long",
+        year: "numeric",
+      });
+      const dist = distributeDividends(net, config);
       rows.push({
         monthKey: mk,
         label,
         net,
-        partnerA: d2.partnerA,
-        partnerB: d2.partnerB,
-        inversiones: d2.inversiones,
-        back: d2.back,
+        partnerA: dist.partnerA,
+        partnerB: dist.partnerB,
+        inversiones: dist.inversiones,
+        back: dist.back,
       });
     }
     return rows;

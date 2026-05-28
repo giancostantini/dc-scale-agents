@@ -35,8 +35,8 @@ import {
   DashboardView,
   DividendosView,
   EstadosView,
-  KPIsViewV2,
   ManualRevenuesPanel,
+  MktClientesView,
   TeamCostView,
 } from "./FinanzasViews";
 import {
@@ -51,11 +51,11 @@ type FinPage =
   | "ingresos"
   | "egresos"
   | "equipo"
+  | "mkt_clientes"
   | "dividendos"
   | "estados"
   | "clientes"
-  | "facturacion"
-  | "kpis";
+  | "facturacion";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
 
@@ -149,11 +149,11 @@ export default function FinanzasPage() {
         { key: "ingresos", icon: "↑", label: "Ingresos" },
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
+        { key: "mkt_clientes", icon: "◐", label: "Mkt Clientes" },
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
         { key: "estados", icon: "▦", label: "Estados financieros" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
-        { key: "kpis", icon: "▲", label: "KPIs anuales" },
       ],
     },
   ];
@@ -282,18 +282,21 @@ export default function FinanzasPage() {
                   await setPaymentStatus(clientId, month, status);
                   refresh();
                 }}
+                onSetAmount={async (clientId, month, amount, note) => {
+                  await setPaymentAmount(clientId, month, amount, note);
+                  refresh();
+                }}
+                onDeletePayment={async (clientId, month) => {
+                  await deletePayment(clientId, month);
+                  refresh();
+                }}
               />
             )}
-            {page === "kpis" && (
-              <KPIsViewV2
-                mrr={mrr}
+            {page === "mkt_clientes" && (
+              <MktClientesView
                 clients={clients}
                 expenses={expenses}
-                payments={payments}
-                manualRevs={manualRevs}
-                marginPct={marginPct}
-                pipelineValue={pipelineValue}
-                leads={leads}
+                onRefresh={refresh}
               />
             )}
           </main>
@@ -747,54 +750,287 @@ function ClientesView({ clients, expenses }: { clients: Client[]; expenses: Expe
   );
 }
 
-function FacturacionView({ clients, payments, onSetStatus }: {
-  clients: Client[]; payments: InvoicePayment[];
+function FacturacionView({
+  clients,
+  payments,
+  onSetStatus,
+  onSetAmount,
+  onDeletePayment,
+}: {
+  clients: Client[];
+  payments: InvoicePayment[];
   onSetStatus: (clientId: string, month: string, status: "paid" | "pending" | "late") => void;
+  onSetAmount: (clientId: string, month: string, amount: number | null, note: string | null) => void;
+  onDeletePayment: (clientId: string, month: string) => void;
 }) {
   const month = MONTH_ISO();
-  const totalBilled = clients.reduce((s, c) => s + c.fee, 0);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editNote, setEditNote] = useState("");
+
+  function paymentFor(clientId: string) {
+    return payments.find((p) => p.clientId === clientId && p.month === month);
+  }
+  function effectiveAmount(c: Client): number {
+    const p = paymentFor(c.id);
+    return p?.amountOverride ?? c.fee;
+  }
+  function status(clientId: string) {
+    return paymentFor(clientId)?.status || "pending";
+  }
+
+  // Totales con override real
+  const totalBilled = clients.reduce((s, c) => s + effectiveAmount(c), 0);
   const paid = clients
-    .filter((c) => payments.find((p) => p.clientId === c.id && p.month === month)?.status === "paid")
-    .reduce((s, c) => s + c.fee, 0);
+    .filter((c) => status(c.id) === "paid")
+    .reduce((s, c) => s + effectiveAmount(c), 0);
   const late = clients
-    .filter((c) => payments.find((p) => p.clientId === c.id && p.month === month)?.status === "late")
-    .reduce((s, c) => s + c.fee, 0);
+    .filter((c) => status(c.id) === "late")
+    .reduce((s, c) => s + effectiveAmount(c), 0);
   const pending = totalBilled - paid - late;
 
-  function status(clientId: string) {
-    return payments.find((p) => p.clientId === clientId && p.month === month)?.status || "pending";
+  function startEdit(c: Client) {
+    const p = paymentFor(c.id);
+    setEditingClientId(c.id);
+    setEditAmount(p?.amountOverride != null ? String(p.amountOverride) : String(c.fee));
+    setEditNote(p?.note ?? "");
+  }
+  function cancelEdit() {
+    setEditingClientId(null);
+    setEditAmount("");
+    setEditNote("");
+  }
+  function saveEdit(c: Client) {
+    const n = Number(editAmount);
+    if (Number.isNaN(n) || n < 0) {
+      alert("Importe inválido.");
+      return;
+    }
+    const override = n === c.fee ? null : n;
+    onSetAmount(c.id, month, override, editNote.trim() || null);
+    cancelEdit();
   }
 
   return (
     <>
-      <Header eyebrow="Finanzas · Cobranza" title="Facturación" rightLabel="Facturado este mes" rightValue={`US$ ${totalBilled.toLocaleString()}`} />
+      <Header
+        eyebrow="Finanzas · Cobranza"
+        title="Facturación"
+        rightLabel="Facturado este mes"
+        rightValue={`US$ ${totalBilled.toLocaleString()}`}
+      />
 
       <div className={styles.kpis}>
-        <div className={styles.kpi}><div className={styles.kLabel}>Facturado</div><div className={styles.kValue}>US$ {totalBilled.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Cobrado</div><div className={styles.kValue} style={{ color: "var(--green-ok)" }}>US$ {paid.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Pendiente</div><div className={styles.kValue} style={{ color: "var(--yellow-warn)" }}>US$ {pending.toLocaleString()}</div></div>
-        <div className={styles.kpi}><div className={styles.kLabel}>Vencido</div><div className={styles.kValue} style={{ color: "var(--red-warn)" }}>US$ {late.toLocaleString()}</div></div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Facturado</div>
+          <div className={styles.kValue}>US$ {totalBilled.toLocaleString()}</div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Cobrado</div>
+          <div className={styles.kValue} style={{ color: "var(--green-ok)" }}>
+            US$ {paid.toLocaleString()}
+          </div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Pendiente</div>
+          <div className={styles.kValue} style={{ color: "var(--yellow-warn)" }}>
+            US$ {pending.toLocaleString()}
+          </div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Vencido</div>
+          <div className={styles.kValue} style={{ color: "var(--red-warn)" }}>
+            US$ {late.toLocaleString()}
+          </div>
+        </div>
       </div>
 
       {clients.length === 0 ? (
-        <EmptyState icon="$" title="Sin clientes todavía" desc="La facturación se arma automáticamente a partir de los fees de tus clientes." />
+        <EmptyState
+          icon="$"
+          title="Sin clientes todavía"
+          desc="La facturación se arma automáticamente a partir de los fees de tus clientes."
+        />
       ) : (
         <div className={styles.table}>
           <h3>Facturas del mes ({month})</h3>
-          <div className={`${styles.row} ${styles.rowHead}`} style={{ gridTemplateColumns: "2fr 1fr 1fr 2fr" }}>
-            <div>Cliente</div><div>Monto</div><div>Estado</div><div>Acciones</div>
+          <div
+            className={`${styles.row} ${styles.rowHead}`}
+            style={{ gridTemplateColumns: "2fr 1.2fr 1fr 2fr" }}
+          >
+            <div>Cliente</div>
+            <div>Monto</div>
+            <div>Estado</div>
+            <div>Acciones</div>
           </div>
           {clients.map((c) => {
+            const p = paymentFor(c.id);
             const st = status(c.id);
+            const amt = effectiveAmount(c);
+            const hasOverride = p?.amountOverride != null;
+            const isEditingThis = editingClientId === c.id;
+
             return (
-              <div key={c.id} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr 1fr 2fr" }}>
-                <div className={styles.num}>{c.name}</div>
-                <div className={`${styles.num} ${styles.pos}`}>US$ {c.fee.toLocaleString()}</div>
-                <div><span className={`${styles.pill} ${st === "paid" ? styles.pillPaid : st === "late" ? styles.pillLate : styles.pillPending}`}>{st === "paid" ? "Pagado" : st === "late" ? "Vencido" : "Pendiente"}</span></div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {st !== "paid" && <button onClick={() => onSetStatus(c.id, month, "paid")} style={btnMini}>Pagado</button>}
-                  {st !== "pending" && <button onClick={() => onSetStatus(c.id, month, "pending")} style={btnMini}>Pendiente</button>}
-                  {st !== "late" && <button onClick={() => onSetStatus(c.id, month, "late")} style={{ ...btnMini, color: "var(--red-warn)" }}>Vencido</button>}
+              <div
+                key={c.id}
+                className={styles.row}
+                style={{
+                  gridTemplateColumns: "2fr 1.2fr 1fr 2fr",
+                  background: isEditingThis
+                    ? "rgba(196,168,130,0.08)"
+                    : undefined,
+                }}
+              >
+                <div className={styles.num}>
+                  {c.name}
+                  {p?.note && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {p.note}
+                    </div>
+                  )}
+                </div>
+
+                {isEditingThis ? (
+                  <div>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      autoFocus
+                      style={{
+                        padding: "6px 8px",
+                        border: "1px solid rgba(10,26,12,0.15)",
+                        background: "var(--white)",
+                        color: "var(--deep-green)",
+                        fontFamily: "inherit",
+                        fontSize: 13,
+                        width: "100%",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Nota (opcional)"
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      style={{
+                        marginTop: 4,
+                        padding: "4px 8px",
+                        border: "1px solid rgba(10,26,12,0.15)",
+                        background: "var(--white)",
+                        color: "var(--deep-green)",
+                        fontFamily: "inherit",
+                        fontSize: 11,
+                        width: "100%",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className={`${styles.num} ${styles.pos}`}>
+                    US$ {amt.toLocaleString()}
+                    {hasOverride && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 9,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          color: "var(--sand-dark)",
+                          fontWeight: 700,
+                        }}
+                        title={`Fee de contrato: US$ ${c.fee.toLocaleString()}`}
+                      >
+                        · OVERRIDE
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <span
+                    className={`${styles.pill} ${
+                      st === "paid"
+                        ? styles.pillPaid
+                        : st === "late"
+                          ? styles.pillLate
+                          : styles.pillPending
+                    }`}
+                  >
+                    {st === "paid"
+                      ? "Pagado"
+                      : st === "late"
+                        ? "Vencido"
+                        : "Pendiente"}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {isEditingThis ? (
+                    <>
+                      <button onClick={() => saveEdit(c)} style={actionBtnSolid}>
+                        Guardar
+                      </button>
+                      <button onClick={cancelEdit} style={actionBtnGhost}>
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {st !== "paid" && (
+                        <button
+                          onClick={() => onSetStatus(c.id, month, "paid")}
+                          style={actionBtnGhost}
+                        >
+                          ✓ Pagado
+                        </button>
+                      )}
+                      {st !== "pending" && (
+                        <button
+                          onClick={() => onSetStatus(c.id, month, "pending")}
+                          style={actionBtnGhost}
+                        >
+                          Pendiente
+                        </button>
+                      )}
+                      {st !== "late" && (
+                        <button
+                          onClick={() => onSetStatus(c.id, month, "late")}
+                          style={{ ...actionBtnGhost, color: "var(--red-warn)" }}
+                        >
+                          Vencido
+                        </button>
+                      )}
+                      <button
+                        onClick={() => startEdit(c)}
+                        style={actionBtnGhost}
+                        title="Cambiar importe / nota"
+                      >
+                        ✎
+                      </button>
+                      {p && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`¿Borrar el cobro de ${c.name}?`))
+                              onDeletePayment(c.id, month);
+                          }}
+                          style={{
+                            ...actionBtnGhost,
+                            color: "var(--red-warn)",
+                            borderColor: "rgba(176,75,58,0.3)",
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );
