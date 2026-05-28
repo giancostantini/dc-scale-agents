@@ -181,6 +181,26 @@ export function DashboardView({
     last6.push({ mk, label, ingresos: v.ingresos, egresos: v.egresos, net: v.net });
   }
 
+  // Totales anuales reales = suma de los últimos 12 meses cerrados +
+  // mes en curso. Esto reemplaza los `mrr / totalExpenses / netResult`
+  // que venían de page.tsx, que estaban mal calculados (MRR actual vs
+  // egresos all-time mezclando años distintos).
+  const annual = (() => {
+    let ingresos = 0;
+    let egresos = 0;
+    for (let i = 0; i <= 11; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mk = d.toISOString().slice(0, 7);
+      const v = netOfMonth(mk);
+      ingresos += v.ingresos;
+      egresos += v.egresos;
+    }
+    const net = ingresos - egresos;
+    const margin =
+      ingresos > 0 ? Math.round((net / ingresos) * 100) : 0;
+    return { ingresos, egresos, net, margin };
+  })();
+
   // Distribución MRR por tipo de cliente (GP vs Dev)
   const gpRevenue = clients.filter((c) => c.type === "gp").reduce((s, c) => s + c.fee, 0);
   const devRevenue = clients.filter((c) => c.type === "dev").reduce((s, c) => s + c.fee, 0);
@@ -227,9 +247,17 @@ export function DashboardView({
           <h1>Finanzas</h1>
         </div>
         <div className={styles.metaLabel}>
-          Resultado neto (anual)
-          <span className={styles.metaStrong}>
-            US$ {netResult.toLocaleString()}
+          Resultado neto (últimos 12m)
+          <span
+            className={styles.metaStrong}
+            style={{
+              color:
+                annual.net < 0
+                  ? DASH_COLORS.red
+                  : DASH_COLORS.deepGreen,
+            }}
+          >
+            US$ {annual.net.toLocaleString()}
           </span>
         </div>
       </div>
@@ -246,14 +274,14 @@ export function DashboardView({
         <KpiCard
           label="Egresos del mes"
           value={`US$ ${cur.egresos.toLocaleString()}`}
-          sub={`Anual: US$ ${totalExpenses.toLocaleString()}`}
+          sub={`Últimos 12m: US$ ${annual.egresos.toLocaleString()}`}
           delta={egresoDelta}
           positiveIsGood={false}
         />
         <KpiCard
           label="Resultado neto"
           value={`US$ ${cur.net.toLocaleString()}`}
-          sub={`Margen anual ${marginPct}% · objetivo 60%`}
+          sub={`Margen 12m ${annual.margin}% · objetivo 60%`}
           delta={netDelta}
           positiveIsGood
           highlight={cur.net < 0 ? "danger" : "ok"}
