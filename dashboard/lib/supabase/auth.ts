@@ -142,7 +142,24 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .single();
 
   if (error || !data) {
-    // Fallback: el trigger debería haber creado el profile, pero por si falla
+    // El SELECT principal falló (típicamente porque una columna nueva
+    // no existe — migración pendiente). En vez de inventar un fallback
+    // como "team" — que oculta menús al director silenciosamente —
+    // hacemos un SELECT mínimo con columnas garantizadas y devolvemos
+    // ese. Si TAMBIÉN falla, recién ahí usamos el fallback team.
+    console.warn(
+      "[getCurrentProfile] SELECT principal falló:",
+      error?.message,
+    );
+    const { data: fallbackData } = await supabase
+      .from("profiles")
+      .select("id, email, name, role, initials")
+      .eq("id", user.id)
+      .single();
+    if (fallbackData) {
+      return fallbackData as Profile;
+    }
+    // Último recurso: profile no existe en absoluto.
     return {
       id: user.id,
       email: user.email ?? "",
