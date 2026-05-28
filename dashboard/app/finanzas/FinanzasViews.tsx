@@ -1177,6 +1177,9 @@ export function MktClientesView({
   const [editAmount, setEditAmount] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  /** Si != null, mostramos el detail expandible con historial mensual
+   *  + form para cargar egresos. Si == null, vista de lista de clientes. */
+  const [detailClientId, setDetailClientId] = useState<string | null>(null);
 
   const monthIso = new Date().toISOString().slice(0, 7);
 
@@ -1358,7 +1361,32 @@ export function MktClientesView({
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <strong style={{ fontSize: 15 }}>{c.name}</strong>
+                    <button
+                      onClick={() =>
+                        setDetailClientId(
+                          detailClientId === c.id ? null : c.id,
+                        )
+                      }
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          fontSize: 15,
+                          color: "var(--deep-green)",
+                          textDecoration: detailClientId === c.id ? "underline" : "none",
+                        }}
+                      >
+                        {detailClientId === c.id ? "▼ " : "▶ "}
+                        {c.name}
+                      </strong>
+                    </button>
                     <span
                       style={{
                         marginLeft: 8,
@@ -1531,12 +1559,337 @@ export function MktClientesView({
                     definirlo.
                   </div>
                 )}
+
+                {/* Detail panel: historial mensual + form para cargar egreso */}
+                {detailClientId === c.id && (
+                  <MktClientDetail
+                    client={c}
+                    expenses={expenses}
+                    monthlyBudget={monthly}
+                    onRefresh={onRefresh}
+                  />
+                )}
               </div>
             );
           })}
         </div>
       )}
     </>
+  );
+}
+
+// ============================================================
+// MktClientDetail — historial mensual + form para cargar egreso
+// ============================================================
+function MktClientDetail({
+  client,
+  expenses,
+  monthlyBudget,
+  onRefresh,
+}: {
+  client: Client;
+  expenses: Expense[];
+  monthlyBudget: number;
+  onRefresh: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [newConcept, setNewConcept] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [newDate, setNewDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saving, setSaving] = useState(false);
+
+  // Egresos imputados al budget MKT de este cliente
+  const clientExpenses = expenses
+    .filter((e) => e.mktBudgetClientId === client.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  // Agrupar por mes para el historial
+  const byMonth = new Map<string, { total: number; items: Expense[] }>();
+  for (const e of clientExpenses) {
+    const mk = (e.date ?? "").slice(0, 7);
+    if (!mk) continue;
+    const cur = byMonth.get(mk) ?? { total: 0, items: [] };
+    cur.total += e.amount;
+    cur.items.push(e);
+    byMonth.set(mk, cur);
+  }
+  const months = Array.from(byMonth.entries()).sort((a, b) =>
+    b[0].localeCompare(a[0]),
+  );
+
+  async function addExpenseToBudget() {
+    if (!newConcept.trim() || !newAmount || Number(newAmount) <= 0) {
+      alert("Concepto y monto son obligatorios.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { addExpense } = await import("@/lib/storage");
+      await addExpense({
+        date: newDate,
+        concept: newConcept.trim(),
+        category: "mkt_interno",
+        assignedTo: client.name,
+        amount: Number(newAmount),
+        recurrence: "one_time",
+        recurrenceEndDate: null,
+        mktBudgetClientId: client.id,
+      });
+      setNewConcept("");
+      setNewAmount("");
+      setShowForm(false);
+      onRefresh();
+    } catch (err) {
+      const e = err as Error;
+      alert(`Error: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeOneExpense(id: string) {
+    if (!confirm("¿Eliminar este egreso?")) return;
+    const { deleteExpense } = await import("@/lib/storage");
+    await deleteExpense(id);
+    onRefresh();
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        padding: 16,
+        background: "rgba(196, 168, 130, 0.05)",
+        border: "1px solid rgba(196, 168, 130, 0.2)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+          }}
+        >
+          Historial de gastos · {client.name}
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            style={{
+              padding: "6px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+            }}
+          >
+            + Cargar egreso
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1fr auto auto",
+            gap: 8,
+            marginBottom: 16,
+            padding: 12,
+            background: "var(--white)",
+            borderRadius: "var(--r-sm)",
+            border: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          <input
+            placeholder="Concepto (ej: Meta Ads · campaña abril)"
+            value={newConcept}
+            onChange={(e) => setNewConcept(e.target.value)}
+            style={budgetInput}
+            autoFocus
+          />
+          <input
+            type="number"
+            placeholder="Monto USD"
+            min={0}
+            step="0.01"
+            value={newAmount}
+            onChange={(e) => setNewAmount(e.target.value)}
+            style={budgetInput}
+          />
+          <input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            style={budgetInput}
+          />
+          <button
+            onClick={addExpenseToBudget}
+            disabled={saving}
+            style={{
+              padding: "6px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              cursor: saving ? "default" : "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+              opacity: saving ? 0.5 : 1,
+            }}
+          >
+            {saving ? "…" : "Guardar"}
+          </button>
+          <button
+            onClick={() => {
+              setShowForm(false);
+              setNewConcept("");
+              setNewAmount("");
+            }}
+            disabled={saving}
+            style={ghostBtn}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {months.length === 0 ? (
+        <div
+          style={{
+            padding: 16,
+            background: "var(--white)",
+            fontSize: 12,
+            color: "var(--text-muted)",
+            fontStyle: "italic",
+            textAlign: "center",
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          Sin egresos imputados al presupuesto MKT todavía.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {months.map(([mk, info]) => {
+            const pct =
+              monthlyBudget > 0
+                ? Math.min(100, Math.round((info.total / monthlyBudget) * 100))
+                : 0;
+            const overspent =
+              monthlyBudget > 0 && info.total > monthlyBudget;
+            const remaining = Math.max(0, monthlyBudget - info.total);
+            return (
+              <div
+                key={mk}
+                style={{
+                  background: "var(--white)",
+                  border: "1px solid rgba(10,26,12,0.08)",
+                  borderRadius: "var(--r-sm)",
+                  padding: 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    marginBottom: 8,
+                  }}
+                >
+                  <strong style={{ fontSize: 13 }}>{mk}</strong>
+                  <div style={{ fontSize: 11, color: overspent ? "#b04b3a" : "var(--text-muted)" }}>
+                    Gastado:{" "}
+                    <strong>US$ {info.total.toLocaleString()}</strong>
+                    {monthlyBudget > 0 && (
+                      <>
+                        {" "}· Queda: <strong>US$ {remaining.toLocaleString()}</strong>
+                        {overspent && " ⚠ excedido"}
+                      </>
+                    )}
+                  </div>
+                </div>
+                {monthlyBudget > 0 && (
+                  <div
+                    style={{
+                      height: 6,
+                      background: "rgba(10,26,12,0.06)",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${pct}%`,
+                        background: overspent
+                          ? "#b04b3a"
+                          : pct > 80
+                            ? "#C9A14A"
+                            : "#2f7d4f",
+                      }}
+                    />
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {info.items.map((e) => (
+                    <div
+                      key={e.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "0.7fr 2fr 1fr 30px",
+                        gap: 8,
+                        padding: "6px 8px",
+                        fontSize: 12,
+                        background: "var(--off-white)",
+                        borderRadius: "var(--r-sm)",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ color: "var(--text-muted)" }}>
+                        {e.date}
+                      </span>
+                      <span>{e.concept}</span>
+                      <span style={{ color: "#b04b3a", textAlign: "right", fontWeight: 600 }}>
+                        −US$ {e.amount.toLocaleString()}
+                      </span>
+                      <button
+                        onClick={() => removeOneExpense(e.id)}
+                        style={{
+                          color: "var(--red-warn)",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 14,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
