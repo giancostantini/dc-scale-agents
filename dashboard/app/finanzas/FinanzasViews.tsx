@@ -131,12 +131,30 @@ export function DashboardView({
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const prevMonth = prevDate.toISOString().slice(0, 7);
 
-  // Calcular ingresos / egresos / net del mes actual y anterior
+  // Calcular ingresos / egresos / net REALES de un mes.
+  //
+  // Antes este cálculo usaba el MRR actual (sum de fees de hoy) para
+  // TODOS los meses históricos — eso pintaba ingresos falsos en meses
+  // donde el cliente todavía no existía o no se había cobrado nada.
+  //
+  // Ahora se usa el principio de "cash real":
+  //   ingresos = Σ fee de cada cliente que tiene payment.status = 'paid'
+  //              en ese mes + impacto de ingresos manuales de ese mes
+  //   egresos = Σ expenses con fecha de ese mes
+  //
+  // Si no hay payments paid ni manual revenues ni egresos → todo 0.
+  // El director ve la verdad del cash, no proyecciones.
   function netOfMonth(mk: string): {
     ingresos: number;
     egresos: number;
     net: number;
   } {
+    const feesPaid = clients.reduce((s, c) => {
+      const p = payments.find(
+        (pp) => pp.clientId === c.id && pp.month === mk,
+      );
+      return p?.status === "paid" ? s + c.fee : s;
+    }, 0);
     const mImpact = manualRevs.reduce(
       (s, r) => s + revenueMonthlyImpact(r, mk),
       0,
@@ -144,7 +162,7 @@ export function DashboardView({
     const mExpenses = expenses
       .filter((e) => (e.date ?? "").startsWith(mk))
       .reduce((s, e) => s + e.amount, 0);
-    const ingresos = mrr + mImpact;
+    const ingresos = feesPaid + mImpact;
     return { ingresos, egresos: mExpenses, net: ingresos - mExpenses };
   }
   const cur = netOfMonth(curMonth);
@@ -219,9 +237,9 @@ export function DashboardView({
       {/* Row 1 — 4 KPI cards con deltas */}
       <div className={styles.kpis}>
         <KpiCard
-          label="Ingresos del mes"
+          label="Ingresos cobrados del mes"
           value={`US$ ${cur.ingresos.toLocaleString()}`}
-          sub={`${paidCount} pagado${paidCount === 1 ? "" : "s"} · ${pendingCount} pendiente${pendingCount === 1 ? "" : "s"}`}
+          sub={`${paidCount} pagado${paidCount === 1 ? "" : "s"} · ${pendingCount} pendiente${pendingCount === 1 ? "" : "s"} · MRR facturable US$ ${mrr.toLocaleString()}`}
           delta={ingresoDelta}
           positiveIsGood
         />
@@ -302,8 +320,8 @@ export function DashboardView({
             </ChartCard>
 
             <ChartCard
-              title="Ingresos por mes"
-              subtitle="Últimos 6 meses"
+              title="Ingresos cobrados por mes"
+              subtitle="Últimos 6 meses · cash real"
             >
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={last6} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
@@ -336,7 +354,7 @@ export function DashboardView({
 
             <ChartCard
               title="Resultado neto por mes"
-              subtitle="Últimos 6 meses"
+              subtitle="Últimos 6 meses · cash real"
             >
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={last6} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
