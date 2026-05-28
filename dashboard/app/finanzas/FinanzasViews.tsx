@@ -36,6 +36,7 @@ import {
   listManualRevenues,
   revenueMonthlyImpact,
   updateDividendConfig,
+  updateManualRevenue,
   type CreateManualRevenueInput,
   type DividendConfig,
   type ManualRevenue,
@@ -797,6 +798,9 @@ export function ManualRevenuesPanel() {
   const [revenues, setRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  /** ID del ingreso que se está editando. Si != null, el form se
+   *  muestra pre-cargado y "Guardar" hace UPDATE en vez de INSERT. */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // form
   const [kind, setKind] = useState<ManualRevenueKind>("fijo");
@@ -809,6 +813,8 @@ export function ManualRevenuesPanel() {
   const [category, setCategory] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const isEditing = editingId !== null;
+
   async function refresh() {
     setLoading(true);
     setRevenues(await listManualRevenues());
@@ -819,7 +825,36 @@ export function ManualRevenuesPanel() {
     refresh();
   }, []);
 
-  async function add() {
+  /** Resetea el form a estado vacío y cierra el panel. */
+  function resetAndClose() {
+    setDescription("");
+    setAmount("");
+    setStart("");
+    setEnd("");
+    setDate("");
+    setCategory("");
+    setKind("fijo");
+    setCurrency("USD");
+    setAdding(false);
+    setEditingId(null);
+  }
+
+  /** Abre el form en modo edición pre-cargando los valores del
+   *  ingreso seleccionado. */
+  function startEdit(r: ManualRevenue) {
+    setEditingId(r.id);
+    setKind(r.kind);
+    setDescription(r.description);
+    setAmount(String(r.amount));
+    setCurrency(r.currency ?? "USD");
+    setStart(r.start_date ?? "");
+    setEnd(r.end_date ?? "");
+    setDate(r.date ?? "");
+    setCategory(r.category ?? "");
+    setAdding(true);
+  }
+
+  async function save() {
     if (!description.trim() || !amount) {
       alert("Descripción y monto son obligatorios.");
       return;
@@ -844,15 +879,12 @@ export function ManualRevenuesPanel() {
         end_date: kind === "fijo" ? end || null : null,
         date: kind === "one_time" ? date : null,
       };
-      await createManualRevenue(input);
-      // Reset form
-      setDescription("");
-      setAmount("");
-      setStart("");
-      setEnd("");
-      setDate("");
-      setCategory("");
-      setAdding(false);
+      if (editingId) {
+        await updateManualRevenue(editingId, input);
+      } else {
+        await createManualRevenue(input);
+      }
+      resetAndClose();
       refresh();
     } catch (err) {
       const e = err as Error;
@@ -866,6 +898,8 @@ export function ManualRevenuesPanel() {
     if (!confirm("¿Eliminar este ingreso?")) return;
     try {
       await deleteManualRevenue(id);
+      // Si estaba editando ese mismo ingreso, cerramos el form.
+      if (editingId === id) resetAndClose();
       refresh();
     } catch (err) {
       const e = err as Error;
@@ -916,7 +950,7 @@ export function ManualRevenuesPanel() {
       {!loading && revenues.length > 0 && (
         <div
           className={`${styles.row} ${styles.rowHead}`}
-          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 50px" }}
+          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 90px" }}
         >
           <div>Descripción</div>
           <div>Tipo</div>
@@ -926,45 +960,73 @@ export function ManualRevenuesPanel() {
         </div>
       )}
       {!loading &&
-        revenues.map((r) => (
-          <div
-            key={r.id}
-            className={styles.row}
-            style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 50px" }}
-          >
-            <div>
-              <strong>{r.description}</strong>
-              {r.category && (
-                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  {r.category}
-                </div>
-              )}
-            </div>
-            <div className={styles.num}>
-              {r.kind === "fijo" ? "Fijo /mes" : "One-time"}
-            </div>
-            <div className={styles.num} style={{ fontSize: 11 }}>
-              {r.kind === "fijo"
-                ? `${r.start_date} → ${r.end_date ?? "vigente"}`
-                : r.date}
-            </div>
-            <div className={`${styles.num} ${styles.pos}`}>
-              {r.currency} {Number(r.amount).toLocaleString()}
-            </div>
-            <button
-              onClick={() => remove(r.id)}
+        revenues.map((r) => {
+          const isEditingThis = editingId === r.id;
+          return (
+            <div
+              key={r.id}
+              className={styles.row}
               style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--red-warn)",
-                fontSize: 18,
-                cursor: "pointer",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr 90px",
+                background: isEditingThis
+                  ? "rgba(196, 168, 130, 0.08)"
+                  : undefined,
               }}
             >
-              ×
-            </button>
-          </div>
-        ))}
+              <div>
+                <strong>{r.description}</strong>
+                {r.category && (
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    {r.category}
+                  </div>
+                )}
+              </div>
+              <div className={styles.num}>
+                {r.kind === "fijo" ? "Fijo /mes" : "One-time"}
+              </div>
+              <div className={styles.num} style={{ fontSize: 11 }}>
+                {r.kind === "fijo"
+                  ? `${r.start_date} → ${r.end_date ?? "vigente"}`
+                  : r.date}
+              </div>
+              <div className={`${styles.num} ${styles.pos}`}>
+                {r.currency} {Number(r.amount).toLocaleString()}
+              </div>
+              <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => startEdit(r)}
+                  disabled={saving}
+                  title="Editar"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.15)",
+                    color: "var(--deep-green)",
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    cursor: saving ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => remove(r.id)}
+                  title="Eliminar"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--red-warn)",
+                    fontSize: 18,
+                    cursor: "pointer",
+                    width: 24,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
       {!loading && revenues.length === 0 && !adding && (
         <div
@@ -986,12 +1048,29 @@ export function ManualRevenuesPanel() {
           style={{
             marginTop: 14,
             padding: 16,
-            background: "var(--ivory)",
+            background: isEditing
+              ? "rgba(196, 168, 130, 0.12)"
+              : "var(--ivory)",
             display: "flex",
             flexDirection: "column",
             gap: 10,
+            borderLeft: isEditing
+              ? "3px solid var(--sand-dark)"
+              : undefined,
           }}
         >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 2,
+            }}
+          >
+            {isEditing ? "Editar ingreso" : "Nuevo ingreso"}
+          </div>
           <div style={{ display: "flex", gap: 8 }}>
             <select
               value={kind}
@@ -1061,10 +1140,14 @@ export function ManualRevenuesPanel() {
             />
           )}
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={add} disabled={saving} style={solidBtn}>
-              {saving ? "Guardando…" : "Guardar"}
+            <button onClick={save} disabled={saving} style={solidBtn}>
+              {saving
+                ? "Guardando…"
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Guardar"}
             </button>
-            <button onClick={() => setAdding(false)} style={ghostBtn}>
+            <button onClick={resetAndClose} disabled={saving} style={ghostBtn}>
               Cancelar
             </button>
           </div>
