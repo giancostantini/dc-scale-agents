@@ -200,12 +200,17 @@ export default function FinanzasPage() {
                   }}
                   mrr={mrr}
                 />
-                <ManualRevenuesPanel />
+                <ManualRevenuesPanel clients={clients} />
               </>
             )}
             {page === "equipo" && <TeamCostView />}
             {page === "dividendos" && (
-              <DividendosView monthlyNet={monthlyNet} />
+              <DividendosView
+                clients={clients}
+                expenses={expenses}
+                payments={payments}
+                manualRevs={manualRevs}
+              />
             )}
             {page === "estados" && (
               <EstadosView

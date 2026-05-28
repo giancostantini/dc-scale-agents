@@ -234,13 +234,28 @@ export function TeamCostView() {
 }
 
 // ============================================================
-// DividendosView — distribución del net profit
+// DividendosView — distribución del net profit a mes vencido
+// ============================================================
+//
+// Los dividendos se calculan sobre el RESULTADO NETO DEL MES VENCIDO
+// (mes anterior cerrado), no el mes en curso. El director elige qué
+// mes quiere ver con el selector — por default abre el mes anterior.
+//
+// Default split: 30% socio A + 30% socio B + 40% inversiones.
+// La fila "back de empresa" queda en 0 (legacy de la migración 025)
+// y solo se muestra si el director la setea explícitamente > 0 en
+// modo edición.
 // ============================================================
 export function DividendosView({
-  monthlyNet,
+  clients,
+  expenses,
+  payments,
+  manualRevs,
 }: {
-  /** Net profit calculado del mes actual: ingresos − egresos. */
-  monthlyNet: number;
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
 }) {
   const [config, setConfig] = useState<DividendConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -248,12 +263,18 @@ export function DividendosView({
   const [editForm, setEditForm] = useState({
     partner_a_pct: 30,
     partner_b_pct: 30,
-    inversiones_pct: 15,
-    back_pct: 25,
+    inversiones_pct: 40,
+    back_pct: 0,
     partner_a_name: "Federico Dearmas",
     partner_b_name: "Gianluca Costantini",
   });
   const [saving, setSaving] = useState(false);
+  /** Mes seleccionado (YYYY-MM). Default = mes anterior cerrado. */
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 7);
+  });
 
   async function refresh() {
     setLoading(true);
@@ -275,6 +296,45 @@ export function DividendosView({
   useEffect(() => {
     refresh();
   }, []);
+
+  // Calcular net del mes seleccionado (base devengada):
+  //   ingresos = fees mensuales + impacto de ingresos manuales en ese mes
+  //   egresos = todos los gastos del mes
+  //   net = ingresos − egresos
+  // Esto matchea el cálculo de page.tsx pero parametrizado por mes,
+  // así el director puede ver dividendos de meses anteriores.
+  const mrrBase = clients.reduce((s, c) => s + c.fee, 0);
+  const manualRevImpact = manualRevs.reduce(
+    (s, r) => s + revenueMonthlyImpact(r, selectedMonth),
+    0,
+  );
+  const monthExpenses = expenses
+    .filter((e) => (e.date ?? "").startsWith(selectedMonth))
+    .reduce((s, e) => s + e.amount, 0);
+  const monthlyNet = mrrBase + manualRevImpact - monthExpenses;
+
+  // Generamos opciones de mes para el selector: últimos 12 meses
+  // empezando por el mes anterior cerrado.
+  const monthOptions: { value: string; label: string }[] = [];
+  {
+    const now = new Date();
+    for (let i = 1; i <= 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString("es-AR", {
+        month: "long",
+        year: "numeric",
+      });
+      monthOptions.push({ value, label });
+    }
+    // Mes actual (en curso) último, marcado como "en curso"
+    const cur = now.toISOString().slice(0, 7);
+    const curLabel = now.toLocaleDateString("es-AR", {
+      month: "long",
+      year: "numeric",
+    });
+    monthOptions.unshift({ value: cur, label: `${curLabel} (en curso)` });
+  }
 
   async function save() {
     const total =
@@ -372,16 +432,55 @@ export function DividendosView({
           color: "var(--text-muted)",
           fontSize: 14,
           lineHeight: 1.6,
-          marginBottom: 28,
+          marginBottom: 20,
         }}
       >
-        Cómo se divide el resultado neto del mes entre socios,
-        reinversiones y back de la empresa.
+        Distribución a <strong style={{ color: "var(--deep-green)" }}>mes vencido</strong>:
+        el resultado neto del mes cerrado se reparte entre los dos socios
+        (30% c/u) y queda 40% para invertir en la empresa. Elegí el mes
+        que querés liquidar.
       </p>
+
+      {/* Selector de mes */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 24,
+          padding: "12px 16px",
+          background: "var(--off-white)",
+          borderLeft: "3px solid var(--sand)",
+          borderRadius: "var(--r-md)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+          }}
+        >
+          Mes a liquidar
+        </div>
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{ ...inputStyle, minWidth: 200, textTransform: "capitalize" }}
+        >
+          {monthOptions.map((m) => (
+            <option key={m.value} value={m.value} style={{ textTransform: "capitalize" }}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className={styles.kpis}>
         <div className={styles.kpi}>
-          <div className={styles.kLabel}>Net profit del mes</div>
+          <div className={styles.kLabel}>Resultado neto del mes</div>
           <div
             className={styles.kValue}
             style={{
@@ -389,6 +488,9 @@ export function DividendosView({
             }}
           >
             US$ {monthlyNet.toLocaleString()}
+          </div>
+          <div className={styles.kSub}>
+            Ingresos − egresos · {selectedMonth}
           </div>
         </div>
         <div className={styles.kpi}>
@@ -406,19 +508,23 @@ export function DividendosView({
           <div className={styles.kLabel}>{config.partner_b_pct}%</div>
         </div>
         <div className={styles.kpi}>
-          <div className={styles.kLabel}>Inversiones</div>
+          <div className={styles.kLabel}>Inversión en la empresa</div>
           <div className={styles.kValue}>
             US$ {dist.inversiones.toLocaleString()}
           </div>
           <div className={styles.kLabel}>{config.inversiones_pct}%</div>
         </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Back de empresa</div>
-          <div className={styles.kValue}>
-            US$ {dist.back.toLocaleString()}
+        {/* Back de empresa solo se muestra si está configurado > 0 —
+            por default está oculto (legacy). */}
+        {Number(config.back_pct) > 0 && (
+          <div className={styles.kpi}>
+            <div className={styles.kLabel}>Back de empresa</div>
+            <div className={styles.kValue}>
+              US$ {dist.back.toLocaleString()}
+            </div>
+            <div className={styles.kLabel}>{config.back_pct}%</div>
           </div>
-          <div className={styles.kLabel}>{config.back_pct}%</div>
-        </div>
+        )}
       </div>
 
       {dist.remainder !== 0 && (
@@ -461,10 +567,14 @@ export function DividendosView({
               <div style={{ textAlign: "right" }}>{config.partner_a_pct}%</div>
               <div>{config.partner_b_name}</div>
               <div style={{ textAlign: "right" }}>{config.partner_b_pct}%</div>
-              <div>Inversiones</div>
+              <div>Inversión en la empresa</div>
               <div style={{ textAlign: "right" }}>{config.inversiones_pct}%</div>
-              <div>Back de empresa</div>
-              <div style={{ textAlign: "right" }}>{config.back_pct}%</div>
+              {Number(config.back_pct) > 0 && (
+                <>
+                  <div>Back de empresa</div>
+                  <div style={{ textAlign: "right" }}>{config.back_pct}%</div>
+                </>
+              )}
             </div>
             <button
               onClick={() => setEditing(true)}
@@ -511,7 +621,7 @@ export function DividendosView({
                 onChange={(v) => setEditForm({ ...editForm, partner_b_pct: v })}
               />
 
-              <div style={{ paddingLeft: 10, fontSize: 13 }}>Inversiones</div>
+              <div style={{ paddingLeft: 10, fontSize: 13 }}>Inversión en la empresa</div>
               <PctInput
                 value={editForm.inversiones_pct}
                 onChange={(v) =>
@@ -519,11 +629,18 @@ export function DividendosView({
                 }
               />
 
-              <div style={{ paddingLeft: 10, fontSize: 13 }}>Back de empresa</div>
-              <PctInput
-                value={editForm.back_pct}
-                onChange={(v) => setEditForm({ ...editForm, back_pct: v })}
-              />
+              {/* Back de empresa solo aparece si ya tenía valor > 0 (legacy).
+                  Para uso nuevo el % de back debería quedar siempre en 0 —
+                  todo lo no repartido va a inversiones. */}
+              {editForm.back_pct > 0 && (
+                <>
+                  <div style={{ paddingLeft: 10, fontSize: 13 }}>Back de empresa</div>
+                  <PctInput
+                    value={editForm.back_pct}
+                    onChange={(v) => setEditForm({ ...editForm, back_pct: v })}
+                  />
+                </>
+              )}
             </div>
             <div
               style={{
@@ -794,7 +911,7 @@ function RowLine({
 // ============================================================
 // ManualRevenuesPanel — se inserta dentro de IngresosView
 // ============================================================
-export function ManualRevenuesPanel() {
+export function ManualRevenuesPanel({ clients }: { clients: Client[] }) {
   const [revenues, setRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -811,6 +928,8 @@ export function ManualRevenuesPanel() {
   const [end, setEnd] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
+  /** clientId asignado al ingreso. "" = corporativo / sin cliente. */
+  const [clientId, setClientId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const isEditing = editingId !== null;
@@ -833,6 +952,7 @@ export function ManualRevenuesPanel() {
     setEnd("");
     setDate("");
     setCategory("");
+    setClientId("");
     setKind("fijo");
     setCurrency("USD");
     setAdding(false);
@@ -851,6 +971,7 @@ export function ManualRevenuesPanel() {
     setEnd(r.end_date ?? "");
     setDate(r.date ?? "");
     setCategory(r.category ?? "");
+    setClientId(r.client_id ?? "");
     setAdding(true);
   }
 
@@ -878,6 +999,7 @@ export function ManualRevenuesPanel() {
         start_date: kind === "fijo" ? start : null,
         end_date: kind === "fijo" ? end || null : null,
         date: kind === "one_time" ? date : null,
+        client_id: clientId || null,
       };
       if (editingId) {
         await updateManualRevenue(editingId, input);
@@ -975,11 +1097,12 @@ export function ManualRevenuesPanel() {
             >
               <div>
                 <strong>{r.description}</strong>
-                {r.category && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {r.category}
-                  </div>
-                )}
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                  {r.client_id
+                    ? clients.find((c) => c.id === r.client_id)?.name ?? r.client_id
+                    : "Corporativo"}
+                  {r.category && <> · {r.category}</>}
+                </div>
               </div>
               <div className={styles.num}>
                 {r.kind === "fijo" ? "Fijo /mes" : "One-time"}
@@ -1087,6 +1210,36 @@ export function ManualRevenuesPanel() {
               onChange={(e) => setCategory(e.target.value)}
               style={{ ...inputStyle, flex: 1 }}
             />
+          </div>
+          {/* Selector de cliente — opcional. Si queda vacío, el ingreso
+              es corporativo (sin cliente asignado). Útil para alquileres,
+              premios o cualquier ingreso no atribuible. */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Asignar a cliente <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "var(--text-muted)" }}>(opcional)</span>
+            </label>
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— Sin cliente (corporativo) —</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <input
             type="text"

@@ -21,6 +21,9 @@ export interface ManualRevenue {
   date: string | null;          // para one-time
   category: string | null;
   notes: string | null;
+  /** Cliente al que se asigna este ingreso. NULL = ingreso corporativo
+   *  (alquiler de cowork, premio, etc). */
+  client_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -36,6 +39,8 @@ export interface CreateManualRevenueInput {
   date?: string | null;
   category?: string | null;
   notes?: string | null;
+  /** Asignar este ingreso a un cliente. NULL/undefined = corporativo. */
+  client_id?: string | null;
 }
 
 export async function listManualRevenues(): Promise<ManualRevenue[]> {
@@ -71,6 +76,7 @@ export async function createManualRevenue(
       date: input.date ?? null,
       category: input.category ?? null,
       notes: input.notes ?? null,
+      client_id: input.client_id ?? null,
       created_by: user?.id ?? null,
     })
     .select("*")
