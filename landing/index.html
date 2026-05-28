@@ -4091,6 +4091,19 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
     .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); }
   }
+
+  /* Hero overlays apagados — fondo plano oscuro (sin aurora/glow/sweep/blobs).
+     La grilla sutil se mantiene como única textura. */
+  .hero-aurora,
+  .hero-pulse,
+  .hero-beam,
+  .hero-glow,
+  .hero-glow-2,
+  .hero-bg-sweep,
+  .hero-bg-sweep-2,
+  .hero-bg-animated {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
