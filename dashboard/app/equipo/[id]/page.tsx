@@ -600,8 +600,152 @@ export default function EquipoDetailPage({
             isDirector={isDirector}
           />
         )}
+
+        {/* Zona crítica: solo director, solo si no es uno mismo. */}
+        {isDirector && !isSelf && profile.role !== "client" && (
+          <DangerZone
+            userId={profile.id}
+            userName={profile.name}
+            onDeleted={() => router.push("/equipo")}
+          />
+        )}
       </main>
     </>
+  );
+}
+
+// ============ Danger Zone ============
+function DangerZone({
+  userId,
+  userName,
+  onDeleted,
+}: {
+  userId: string;
+  userName: string;
+  onDeleted: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (deleting) return;
+    // Doble confirmación
+    if (
+      !confirm(
+        `¿Eliminar al miembro "${userName}"?\n\n` +
+          `Esto borra:\n` +
+          `- Su perfil del equipo\n` +
+          `- Sus asignaciones a clientes\n` +
+          `- Su historial de cargos / sueldos / hitos\n` +
+          `- Sus pedidos pendientes\n` +
+          `- Su acceso al sistema (auth)\n\n` +
+          `NO se puede deshacer.`,
+      )
+    )
+      return;
+    const typed = window.prompt(
+      `Para confirmar, tipeá el nombre exacto:\n\n${userName}`,
+    );
+    if (typed === null) return;
+    if (typed.trim() !== userName) {
+      alert("El nombre no coincide. Eliminación cancelada.");
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const { getSupabase } = await import("@/lib/supabase/client");
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sin sesión");
+
+      const res = await fetch("/api/team/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error ?? `HTTP ${res.status}`);
+      }
+      if (data?.warning) alert(data.warning);
+      onDeleted();
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo eliminar:\n${e.message}`);
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 32,
+        padding: 24,
+        background: "rgba(176, 75, 58, 0.05)",
+        border: "1px solid rgba(176, 75, 58, 0.2)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "#b04b3a",
+          fontWeight: 700,
+          marginBottom: 8,
+        }}
+      >
+        Zona crítica
+      </div>
+      <h3
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: "#b04b3a",
+          marginBottom: 6,
+        }}
+      >
+        Eliminar miembro
+      </h3>
+      <p
+        style={{
+          fontSize: 12,
+          color: "var(--text-soft, #5a6a5e)",
+          lineHeight: 1.5,
+          marginBottom: 14,
+          maxWidth: 600,
+        }}
+      >
+        Borra al miembro permanentemente: perfil, asignaciones, historial,
+        pedidos y acceso al sistema. <strong>No se puede deshacer.</strong>
+      </p>
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        style={{
+          padding: "8px 16px",
+          fontSize: 12,
+          fontWeight: 600,
+          background: "transparent",
+          color: "#b04b3a",
+          border: "1px solid #b04b3a",
+          cursor: deleting ? "default" : "pointer",
+          fontFamily: "inherit",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          borderRadius: "var(--r-sm)",
+          opacity: deleting ? 0.5 : 1,
+        }}
+      >
+        {deleting ? "Eliminando…" : "× Eliminar miembro"}
+      </button>
+    </div>
   );
 }
 

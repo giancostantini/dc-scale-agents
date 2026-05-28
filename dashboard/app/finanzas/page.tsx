@@ -153,10 +153,10 @@ export default function FinanzasPage() {
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
         { key: "mkt_clientes", icon: "◐", label: "Mkt Clientes" },
-        { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
         { key: "estados", icon: "▦", label: "Estados financieros" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
+        { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
       ],
     },
   ];
@@ -275,7 +275,11 @@ export default function FinanzasPage() {
               />
             )}
             {page === "clientes" && (
-              <ClientesView clients={clients} expenses={expenses} />
+              <ClientesView
+                clients={clients}
+                expenses={expenses}
+                payments={payments}
+              />
             )}
             {page === "facturacion" && (
               <FacturacionView
@@ -725,7 +729,39 @@ function EgresosView({
   );
 }
 
-function ClientesView({ clients, expenses }: { clients: Client[]; expenses: Expense[] }) {
+function ClientesView({
+  clients,
+  expenses,
+  payments,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+}) {
+  // Totales históricos por cliente (cash real)
+  function totalCollectedFor(clientId: string): number {
+    return payments
+      .filter((p) => p.clientId === clientId && p.status === "paid")
+      .reduce((s, p) => {
+        const c = clients.find((cc) => cc.id === clientId);
+        const amt = p.amountOverride ?? c?.fee ?? 0;
+        return s + amt;
+      }, 0);
+  }
+  function pendingFor(clientId: string): number {
+    return payments
+      .filter((p) => p.clientId === clientId && p.status !== "paid")
+      .reduce((s, p) => {
+        const c = clients.find((cc) => cc.id === clientId);
+        const amt = p.amountOverride ?? c?.fee ?? 0;
+        return s + amt;
+      }, 0);
+  }
+  function monthsActiveFor(clientId: string): number {
+    return new Set(payments.filter((p) => p.clientId === clientId).map((p) => p.month))
+      .size;
+  }
+
   return (
     <>
       <Header eyebrow="Análisis · Rentabilidad" title="Clientes activos" />
@@ -735,24 +771,77 @@ function ClientesView({ clients, expenses }: { clients: Client[]; expenses: Expe
       ) : (
         <div className={styles.table}>
           <h3>Rentabilidad por cliente</h3>
-          <div className={`${styles.row} ${styles.rowHead}`} style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}>
-            <div>Cliente</div><div>Ingreso</div><div>Costo asignado</div><div>Margen</div><div>Margen %</div>
+          <div
+            className={`${styles.row} ${styles.rowHead}`}
+            style={{ gridTemplateColumns: "1.6fr 0.9fr 0.9fr 1fr 0.9fr 0.9fr 0.8fr" }}
+          >
+            <div>Cliente</div>
+            <div>Fee mensual</div>
+            <div>Ingresos cobrados</div>
+            <div>Pendiente cobrar</div>
+            <div>Costo asignado</div>
+            <div>Margen</div>
+            <div>Margen %</div>
           </div>
           {clients.map((c) => {
             const clientCost = expenses
               .filter((e) => e.assignedTo === c.name)
               .reduce((s, e) => s + e.amount, 0);
-            const margin = c.fee - clientCost;
-            const pct = c.fee > 0 ? Math.round((margin / c.fee) * 100) : 0;
+            const totalCollected = totalCollectedFor(c.id);
+            const pending = pendingFor(c.id);
+            const monthsActive = monthsActiveFor(c.id);
+            // Margen sobre lo cobrado real (no proyección)
+            const margin = totalCollected - clientCost;
+            const pct =
+              totalCollected > 0 ? Math.round((margin / totalCollected) * 100) : 0;
             return (
-              <div key={c.id} className={styles.row} style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}>
-                <div className={styles.num}>{c.name}</div>
-                <div className={`${styles.num} ${styles.pos}`}>US$ {c.fee.toLocaleString()}</div>
-                <div className={`${styles.num} ${styles.neg}`}>US$ {clientCost.toLocaleString()}</div>
-                <div className={styles.num}>US$ {margin.toLocaleString()}</div>
+              <div
+                key={c.id}
+                className={styles.row}
+                style={{ gridTemplateColumns: "1.6fr 0.9fr 0.9fr 1fr 0.9fr 0.9fr 0.8fr" }}
+              >
                 <div>
-                  <div style={{ color: "var(--sand)", fontWeight: 600 }}>{pct}%</div>
-                  <div className={styles.marginBar}><div className={styles.marginFill} style={{ width: `${Math.max(0, Math.min(pct, 100))}%` }} /></div>
+                  <strong>{c.name}</strong>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                    {c.type === "gp" ? "Growth Partner" : "Desarrollo"} ·{" "}
+                    {monthsActive} mes{monthsActive === 1 ? "" : "es"} activo
+                  </div>
+                </div>
+                <div className={styles.num}>US$ {c.fee.toLocaleString()}</div>
+                <div className={`${styles.num} ${styles.pos}`}>
+                  US$ {totalCollected.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ color: pending > 0 ? "#C9A14A" : "var(--text-muted)" }}>
+                  US$ {pending.toLocaleString()}
+                </div>
+                <div className={`${styles.num} ${styles.neg}`}>
+                  US$ {clientCost.toLocaleString()}
+                </div>
+                <div
+                  className={styles.num}
+                  style={{ color: margin >= 0 ? "var(--green-ok)" : "var(--red-warn)" }}
+                >
+                  US$ {margin.toLocaleString()}
+                </div>
+                <div>
+                  <div
+                    style={{
+                      color: pct >= 60 ? "#2f7d4f" : pct >= 30 ? "#C9A14A" : "#b04b3a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {pct}%
+                  </div>
+                  <div className={styles.marginBar}>
+                    <div
+                      className={styles.marginFill}
+                      style={{
+                        width: `${Math.max(0, Math.min(pct, 100))}%`,
+                        background:
+                          pct >= 60 ? "#2f7d4f" : pct >= 30 ? "#C9A14A" : "#b04b3a",
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             );
