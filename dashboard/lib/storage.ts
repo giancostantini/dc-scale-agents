@@ -1115,6 +1115,18 @@ export async function getTasks(clientId: string): Promise<DevTask[]> {
   return (data as TaskRow[]).map(taskFromRow);
 }
 
+/** Trae TODAS las tareas (sin filtrar por cliente). Usado por el
+ *  calendario para mostrar las que tienen dueDate. */
+export async function getAllTasks(): Promise<DevTask[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("dev_tasks")
+    .select("*")
+    .order("due_date", { ascending: true });
+  if (error) return [];
+  return (data as TaskRow[]).map(taskFromRow);
+}
+
 export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<DevTask> {
   const supabase = getSupabase();
   const { data: inserted, error } = await supabase
