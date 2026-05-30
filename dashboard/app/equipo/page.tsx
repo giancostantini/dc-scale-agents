@@ -144,8 +144,22 @@ export default function EquipoPage() {
         body: JSON.stringify({ userId: profile.id }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({} as { error?: string }));
-        throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        const body = await res
+          .json()
+          .catch(() => ({} as { error?: string; detail?: string; cleanupFailures?: unknown[] }));
+        const parts = [
+          body.error ?? `${res.status} ${res.statusText}`,
+          body.detail,
+        ].filter(Boolean);
+        if (body.cleanupFailures && Array.isArray(body.cleanupFailures)) {
+          parts.push(
+            `Tablas con problema: ${(body.cleanupFailures as Array<{ table?: string }>)
+              .map((f) => f.table)
+              .filter(Boolean)
+              .join(", ")}`,
+          );
+        }
+        throw new Error(parts.join(" — "));
       }
       await refresh();
     } catch (err) {
@@ -310,7 +324,13 @@ export default function EquipoPage() {
                 </div>
                 <div
                   className={styles.arrow}
-                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    justifyContent: "flex-end",
+                    minWidth: 0,
+                  }}
                 >
                   {isDirector && !isMe && (
                     <button
@@ -326,10 +346,11 @@ export default function EquipoPage() {
                         border: "1px solid rgba(176,75,58,0.2)",
                         borderRadius: 6,
                         color: "var(--red-warn, #B91C1C)",
-                        fontSize: 12,
+                        fontSize: 11,
                         padding: "4px 10px",
                         cursor: rowBusy ? "not-allowed" : "pointer",
                         fontFamily: "inherit",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       Eliminar
