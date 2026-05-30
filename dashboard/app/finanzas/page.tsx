@@ -44,6 +44,7 @@ import {
   MktClientesView,
   TeamCostView,
 } from "./FinanzasViews";
+import ReportesView from "@/components/finanzas/ReportesView";
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
@@ -170,7 +171,7 @@ export default function FinanzasPage() {
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
         { key: "mkt_clientes", icon: "◐", label: "Mkt Clientes" },
-        { key: "estados", icon: "▦", label: "Estados financieros" },
+        { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
@@ -222,20 +223,7 @@ export default function FinanzasPage() {
                 manualRevs={manualRevs}
               />
             )}
-            {page === "estados" && (
-              <EstadosView
-                clients={clients}
-                expenses={expenses}
-                payments={payments.map((p) => ({
-                  clientId: p.clientId,
-                  month: p.month,
-                  status: p.status,
-                  amountOverride: p.amountOverride,
-                  note: p.note,
-                }))}
-                monthYYYYMM={monthYYYYMM}
-              />
-            )}
+            {page === "estados" && <ReportesView />}
             {page === "egresos" && <PremiumEgresos />}
             {page === "clientes" && (
               <ClientesView
