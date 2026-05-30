@@ -5,16 +5,19 @@
  * del estudio contable (Mercury / Ramp style).
  *
  * Layout:
- *   Header: título "Clientes" + período + "+ Nuevo Cliente"
+ *   Header: título "Clientes" + período (default YTD) + "+ Nuevo Cliente"
  *   Botón "Exportar"
- *   Row 1: 4 KPI cards (Totales / Activos / Nuevos / Facturación
- *          promedio) con delta vs año anterior
+ *   Row 1: 4 KPI cards (Totales / Activos / Nuevos / Cobrado promedio
+ *          YTD) con delta vs ejercicio anterior
  *   Row 2 (1/3 + 1/3 + 1/3):
  *     - Donut "Clientes por Estado" (Activos / Inactivos / Morosos)
- *     - Line chart "Evolución de Clientes" (count por mes)
+ *     - Line chart "Evolución de Facturación" — solo meses con
+ *       factura emitida, corta en el mes actual (sin proyecciones)
  *     - Tabla "Top 5 Clientes por Facturación"
- *   Row 3: tabla principal "Listado de Clientes" con búsqueda,
- *          filtros, paginación y acciones (ver / editar / más).
+ *   Row 3: tabla principal "Listado de Clientes" con columnas
+ *          Cobrado YTD + Saldo Pendiente (sin proyectado anual) +
+ *          búsqueda, filtros, paginación y acciones (ver / editar /
+ *          más).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -85,7 +88,9 @@ export function PremiumClientes() {
   const [feeSchedules, setFeeSchedules] = useState<ClientFeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [periodMode, setPeriodMode] = useState<PeriodMode>("this_year");
+  // Default = YTD (enero → mes corriente). El director pidió que no
+  // haya proyecciones a futuro en la vista de Clientes.
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("ytd");
   const [customFrom, setCustomFrom] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-01`;
@@ -215,8 +220,12 @@ export function PremiumClientes() {
     return mk >= prevFrom && mk <= prevTo;
   }).length;
 
-  // Cobrado (solo pagados en el período), proyectado anual (12 meses
-  // forward desde hoy) + saldo pendiente del período.
+  // Cobrado y saldo pendiente del período (solo basado en facturas
+  // REALES emitidas). Sin proyecciones a futuro.
+  //   - cobrado: suma de facturas con status='paid' en el período.
+  //   - saldoPendiente: suma de facturas en estado pending/late en
+  //     el período. Si nunca se emitió factura del mes, NO suma
+  //     nada — significa que no se facturó ese mes.
   function clientFinances(c: Client) {
     const periodMonths = monthsBetween(period.from, period.to);
     let cobrado = 0;
@@ -225,36 +234,16 @@ export function PremiumClientes() {
       const p = payments.find(
         (pp) => pp.clientId === c.id && pp.month === mk,
       );
+      if (!p) continue; // sin factura emitida → no cuenta
       const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
-      const fee = p?.amountOverride ?? scheduled ?? c.fee;
-      if (p && p.status === "paid") {
+      const fee = p.amountOverride ?? scheduled ?? c.fee;
+      if (p.status === "paid") {
         cobrado += fee;
-      } else if (p && p.status !== "paid") {
+      } else {
         saldoPendiente += fee;
-      } else if (!p) {
-        // sin registro del mes → consideramos pendiente solo si el mes
-        // ya pasó o es el actual (no contabilizamos meses futuros como
-        // saldo pendiente).
-        const now = new Date().toISOString().slice(0, 7);
-        if (mk <= now) {
-          saldoPendiente += fee;
-        }
       }
     }
-    // Proyectado anual: próximos 12 meses desde el mes actual
-    const now = new Date();
-    let proyectadoAnual = 0;
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      const mk = d.toISOString().slice(0, 7);
-      const p = payments.find(
-        (pp) => pp.clientId === c.id && pp.month === mk,
-      );
-      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
-      const fee = p?.amountOverride ?? scheduled ?? c.fee;
-      proyectadoAnual += fee;
-    }
-    return { cobrado, proyectadoAnual, saldoPendiente };
+    return { cobrado, saldoPendiente };
   }
 
   const cobradoPromedio =
@@ -317,19 +306,32 @@ export function PremiumClientes() {
     },
   ];
 
-  // Evolución de clientes: count de clientes con al menos 1 payment del
-  // mes activo (sumamos cumulativo de creados hasta ese mes).
+  // Evolución de facturación: monto total emitido por mes (paid +
+  // pending). Solo cuentan los meses que tengan al menos una
+  // factura registrada — si todavía no hay factura del mes, no
+  // se dibuja punto (el director no quiere ver "venta proyectada").
+  // Se corta en el mes corriente: no se grafican meses futuros.
   const evolutionData = useMemo(() => {
-    const periodMonths = monthsBetween(period.from, period.to);
-    return periodMonths.map((mk) => {
-      const [_, m] = mk.split("-").map(Number);
-      const count = clients.filter((c) => {
-        if (!c.created_at) return true; // si no tiene fecha, asumimos viejo
-        return c.created_at.slice(0, 7) <= mk;
-      }).length;
-      return { mk, label: MONTHS_SHORT_ES[m - 1], count };
-    });
-  }, [clients, period.from, period.to]);
+    const curMonth = new Date().toISOString().slice(0, 7);
+    const periodMonths = monthsBetween(period.from, period.to).filter(
+      (mk) => mk <= curMonth,
+    );
+    return periodMonths
+      .map((mk) => {
+        const [_, m] = mk.split("-").map(Number);
+        const monthlyBilled = clients.reduce((s, c) => {
+          const p = payments.find(
+            (pp) => pp.clientId === c.id && pp.month === mk,
+          );
+          if (!p) return s;
+          const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+          const fee = p.amountOverride ?? scheduled ?? c.fee;
+          return s + fee;
+        }, 0);
+        return { mk, label: MONTHS_SHORT_ES[m - 1], amount: monthlyBilled };
+      })
+      .filter((d) => d.amount > 0);
+  }, [clients, payments, feeSchedules, period.from, period.to]);
 
   // Top 5 clientes por facturación del período (cobrado)
   const topClientes = clients
@@ -379,8 +381,7 @@ export function PremiumClientes() {
       "Email",
       "Teléfono",
       "Estado",
-      "Cobrado",
-      "Proyectado Anual",
+      "Cobrado YTD",
       "Saldo Pendiente",
     ];
     const rows = filteredList.map((row) =>
@@ -391,7 +392,6 @@ export function PremiumClientes() {
         row.c.contact_phone ?? "",
         row.classification,
         row.finances.cobrado.toFixed(0),
-        row.finances.proyectadoAnual.toFixed(0),
         row.finances.saldoPendiente.toFixed(0),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -478,7 +478,7 @@ export function PremiumClientes() {
           loading={loading}
         />
         <KpiCardBig
-          label="Cobrado Promedio"
+          label="Cobrado promedio YTD"
           value={formatMoney(cobradoPromedio)}
           delta={pct(cobradoPromedio, cobradoPromedioPrev)}
           icon={<DollarSign className="w-4 h-4" />}
@@ -549,19 +549,26 @@ export function PremiumClientes() {
           </div>
         </div>
 
-        {/* Line Evolución */}
+        {/* Line Evolución de Facturación */}
         <div className="bg-paper border border-rule rounded-premium shadow-premium-xs">
           <div className="px-5 py-4 border-b border-rule flex items-center justify-between">
             <div className="font-semibold text-ink text-md">
-              Evolución de Clientes
+              Evolución de Facturación
             </div>
             <div className="text-2xs text-ink-300">
-              {periodMode === "this_year" ? "Este año" : period.label}
+              {periodMode === "this_year" || periodMode === "ytd"
+                ? "YTD"
+                : period.label}
             </div>
           </div>
           <div className="p-4">
             {loading ? (
               <div className="h-48 skeleton" />
+            ) : evolutionData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-ink-300 italic text-xs px-6 text-center">
+                Todavía no hay facturas emitidas en el período. Cargá la
+                primera desde Finanzas → Facturación para ver la evolución.
+              </div>
             ) : (
               <ResponsiveContainer width="100%" height={190}>
                 <AreaChart
@@ -586,9 +593,12 @@ export function PremiumClientes() {
                     tickLine={false}
                     axisLine={false}
                     stroke="#7A8A7E"
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                    }
                   />
                   <Tooltip
-                    formatter={(v: number) => `${v} clientes`}
+                    formatter={(v: number) => formatMoney(v)}
                     contentStyle={{
                       background: "#0A1A0C",
                       border: "1px solid rgba(255,255,255,0.1)",
@@ -599,7 +609,7 @@ export function PremiumClientes() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="count"
+                    dataKey="amount"
                     stroke="#3B82F6"
                     strokeWidth={2}
                     fill="url(#cliGrad)"
@@ -701,8 +711,7 @@ export function PremiumClientes() {
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Email</th>
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Teléfono</th>
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Estado</th>
-                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Cobrado</th>
-                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Proyectado Anual</th>
+                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Cobrado YTD</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Saldo Pendiente</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Acciones</th>
               </tr>
@@ -711,14 +720,14 @@ export function PremiumClientes() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-rule-soft">
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="skeleton h-3.5 w-3/4" /></td>
                     ))}
                   </tr>
                 ))
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-ink-300 italic">
+                  <td colSpan={8} className="px-4 py-16 text-center text-ink-300 italic">
                     Sin clientes que matcheen los filtros.
                   </td>
                 </tr>
@@ -734,9 +743,6 @@ export function PremiumClientes() {
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
                       {formatMoney(row.finances.cobrado)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-ink-400">
-                      {formatMoney(row.finances.proyectadoAnual)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
                       {formatMoney(row.finances.saldoPendiente)}
