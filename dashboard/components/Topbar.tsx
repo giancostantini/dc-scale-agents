@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Search, Plus, Target, CalendarDays, Wallet, Users } from "lucide-react";
+import {
+  ISearch,
+  IPlus,
+  IPipeline,
+  ICalendario,
+  IFinanzas,
+  IEquipo,
+} from "./icons/BrandIcons";
 import {
   getCurrentProfile,
   hasPipelineAccess,
@@ -48,7 +55,7 @@ export default function Topbar({
       {/* Cliente no tiene buscador (no busca clientes ni leads) */}
       {!isClient && (
         <div className={styles.search}>
-          <Search className={styles.searchIcon} size={15} strokeWidth={2} />
+          <ISearch className={styles.searchIcon} size={15} strokeWidth={1.8} />
           <input placeholder={searchPlaceholder} />
         </div>
       )}
@@ -61,7 +68,7 @@ export default function Topbar({
             className={`${styles.btn} ${styles.btnPrimary}`}
             onClick={onPrimaryClick}
           >
-            <Plus size={15} strokeWidth={2.2} /> Nuevo cliente
+            <IPlus size={15} strokeWidth={1.8} /> Nuevo cliente
           </button>
         )}
 
@@ -71,7 +78,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/pipeline")}
           >
-            <Target size={15} strokeWidth={2} /> Pipeline
+            <IPipeline size={15} /> Pipeline
           </button>
         )}
 
@@ -81,7 +88,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/calendario")}
           >
-            <CalendarDays size={15} strokeWidth={2} /> Calendario
+            <ICalendario size={15} /> Calendario
           </button>
         )}
 
@@ -91,7 +98,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/finanzas")}
           >
-            <Wallet size={15} strokeWidth={2} /> Finanzas
+            <IFinanzas size={15} /> Finanzas
           </button>
         )}
 
@@ -101,7 +108,7 @@ export default function Topbar({
             className={styles.btn}
             onClick={() => router.push("/equipo")}
           >
-            <Users size={15} strokeWidth={2} /> Equipo
+            <IEquipo size={15} /> Equipo
           </button>
         )}
 

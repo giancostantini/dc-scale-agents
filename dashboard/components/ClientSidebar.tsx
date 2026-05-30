@@ -3,33 +3,36 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  LayoutDashboard,
-  Layers,
-  Map,
-  Clapperboard,
-  TrendingUp,
-  ListChecks,
-  Plus,
-  BookOpen,
-  Inbox,
-  Target,
-  PenLine,
-  ArrowLeft,
-  Sparkles,
-  FileText,
-  Settings,
-  type LucideIcon,
-} from "lucide-react";
+  IDashboard,
+  IFases,
+  ICalendario,
+  IProducciones,
+  IAnalitica,
+  ITareas,
+  IPlus,
+  IBiblioteca,
+  ISolicitudes,
+  IObjetivos,
+  INotas,
+  IArrowLeft,
+  IContenido,
+  IReporting,
+  IConfiguracion,
+  ISprints,
+  type BrandIconProps,
+} from "./icons/BrandIcons";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { listAssignmentsForUser } from "@/lib/team";
 import type { Client } from "@/lib/types";
 import styles from "./ClientSidebar.module.css";
 
+type IconComp = (props: BrandIconProps) => React.JSX.Element;
+
 interface NavItem {
   /** Key estable que matchea lib/client-menus.ts CLIENT_MENUS_*. */
   key: string;
   href: string;
-  icon: LucideIcon;
+  icon: IconComp;
   label: string;
   directorOnly?: boolean;
 }
@@ -84,30 +87,30 @@ export default function ClientSidebar({ client }: { client: Client }) {
   // Menú UNIFICADO (sin split nav/gestión). Orden por flujo de uso:
   // dashboard → estrategia → ejecución → análisis → soporte.
   const navGP: NavItem[] = [
-    { key: "dashboard",   href: base,                   icon: LayoutDashboard, label: "Dashboard" },
-    { key: "fases",       href: `${base}/fases`,         icon: Layers,         label: "Fases del negocio" },
-    { key: "objetivos",   href: `${base}/objetivos`,     icon: Target,         label: "Objetivos", directorOnly: true },
-    { key: "calendario",  href: `${base}/planificador`,  icon: Map,            label: "Calendario" },
-    { key: "contenido",   href: `${base}/contenido`,     icon: Sparkles,       label: "Contenido" },
-    { key: "tareas",      href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
-    { key: "producciones",href: `${base}/campanas`,      icon: Clapperboard,   label: "Producciones" },
-    { key: "analitica",   href: `${base}/analitica`,     icon: TrendingUp,     label: "Analítica" },
-    { key: "reporting",   href: `${base}/reporting`,     icon: FileText,       label: "Reporting" },
-    { key: "biblioteca",  href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
-    { key: "solicitudes", href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
-    { key: "notas",       href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
-    { key: "configuracion", href: `${base}/configuracion`, icon: Settings, label: "Configuración", directorOnly: true },
+    { key: "dashboard",   href: base,                   icon: IDashboard,     label: "Dashboard" },
+    { key: "fases",       href: `${base}/fases`,         icon: IFases,         label: "Fases del negocio" },
+    { key: "objetivos",   href: `${base}/objetivos`,     icon: IObjetivos,     label: "Objetivos", directorOnly: true },
+    { key: "calendario",  href: `${base}/planificador`,  icon: ICalendario,    label: "Calendario" },
+    { key: "contenido",   href: `${base}/contenido`,     icon: IContenido,     label: "Contenido" },
+    { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
+    { key: "producciones",href: `${base}/campanas`,      icon: IProducciones,  label: "Producciones" },
+    { key: "analitica",   href: `${base}/analitica`,     icon: IAnalitica,     label: "Analítica" },
+    { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
+    { key: "biblioteca",  href: `${base}/biblioteca`,    icon: IBiblioteca,    label: "Biblioteca" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes del cliente" },
+    { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
+    { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
 
   const navDev: NavItem[] = [
-    { key: "dashboard",   href: base,                    icon: LayoutDashboard, label: "Dashboard" },
-    { key: "sprints",     href: `${base}/sprints`,       icon: ListChecks,     label: "Sprints" },
-    { key: "nueva-tarea", href: `${base}/nueva-tarea`,   icon: Plus,           label: "Nueva tarea" },
-    { key: "tareas",      href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
-    { key: "biblioteca",  href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
-    { key: "solicitudes", href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
-    { key: "notas",       href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
-    { key: "configuracion", href: `${base}/configuracion`, icon: Settings, label: "Configuración", directorOnly: true },
+    { key: "dashboard",   href: base,                    icon: IDashboard,     label: "Dashboard" },
+    { key: "sprints",     href: `${base}/sprints`,       icon: ISprints,       label: "Sprints" },
+    { key: "nueva-tarea", href: `${base}/nueva-tarea`,   icon: IPlus,          label: "Nueva tarea" },
+    { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
+    { key: "biblioteca",  href: `${base}/biblioteca`,    icon: IBiblioteca,    label: "Biblioteca" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes del cliente" },
+    { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
+    { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
 
   const baseNav = client.type === "gp" ? navGP : navDev;
@@ -130,7 +133,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
         className={`${styles.item} ${active ? styles.active : ""}`}
         onClick={() => router.push(it.href)}
       >
-        <Icon className={styles.icon} size={17} strokeWidth={1.9} />
+        <Icon className={styles.icon} size={17} strokeWidth={1.6} />
         <span className={styles.itemLabel}>{it.label}</span>
         {it.directorOnly && <span className={styles.directorTag}>DIRECTOR</span>}
       </button>
@@ -140,7 +143,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
   return (
     <aside className={styles.sidebar}>
       <button className={styles.back} onClick={() => router.push("/hub")}>
-        <ArrowLeft size={15} strokeWidth={2} /> Volver al hub
+        <IArrowLeft size={15} /> Volver al hub
       </button>
 
       <div className={styles.info}>
