@@ -46,6 +46,7 @@ import {
 } from "./FinanzasViews";
 import ReportesView from "@/components/finanzas/ReportesView";
 import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
+import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
@@ -225,26 +226,7 @@ export default function FinanzasPage() {
             {page === "estados" && <ReportesView />}
             {page === "egresos" && <PremiumEgresos />}
             {page === "clientes" && <PremiumClientes />}
-            {page === "facturacion" && (
-              <FacturacionView
-                clients={clients}
-                payments={payments}
-                feeSchedules={feeSchedules}
-                onSetStatus={async (clientId, month, status) => {
-                  await setPaymentStatus(clientId, month, status);
-                  refresh();
-                }}
-                onSetAmount={async (clientId, month, amount, note) => {
-                  await setPaymentAmount(clientId, month, amount, note);
-                  refresh();
-                }}
-                onDeletePayment={async (clientId, month) => {
-                  await deletePayment(clientId, month);
-                  refresh();
-                }}
-                onEditSchedule={(c) => setFeeScheduleClient(c)}
-              />
-            )}
+            {page === "facturacion" && <PremiumFacturacion />}
             {page === "mkt_clientes" && (
               <MktClientesView
                 clients={clients}
