@@ -37,7 +37,6 @@ import {
 } from "@/lib/types";
 import {
   DashboardView,
-  DividendosView,
   EstadosView,
   ManualRevenuesPanel,
   MetricasView,
@@ -48,6 +47,7 @@ import ReportesView from "@/components/finanzas/ReportesView";
 import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
 import { PremiumDocumentos } from "@/components/finanzas/PremiumDocumentos";
+import { PremiumDividendos } from "@/components/finanzas/PremiumDividendos";
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
@@ -218,7 +218,7 @@ export default function FinanzasPage() {
             {page === "ingresos" && <PremiumIngresos clients={clients} />}
             {page === "equipo" && <TeamCostView />}
             {page === "dividendos" && (
-              <DividendosView
+              <PremiumDividendos
                 clients={clients}
                 expenses={expenses}
                 payments={payments}

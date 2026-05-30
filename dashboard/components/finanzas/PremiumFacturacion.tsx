@@ -38,6 +38,10 @@ import {
   FileText,
   Tag,
   Clock,
+  Pencil,
+  CheckCircle2,
+  Trash2,
+  XCircle,
 } from "lucide-react";
 import {
   Cell,
@@ -52,6 +56,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import {
+  deletePayment,
   effectiveFeeForMonth,
   getClients,
   getPayments,
@@ -165,6 +170,13 @@ export function PremiumFacturacion() {
   const [newAmount, setNewAmount] = useState("");
   const [newNote, setNewNote] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Modales por comprobante
+  const [detailComp, setDetailComp] = useState<Comprobante | null>(null);
+  const [editComp, setEditComp] = useState<Comprobante | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -455,6 +467,78 @@ export function PremiumFacturacion() {
     } catch (err) {
       const e = err as Error;
       toast.error(`Error: ${e.message}`);
+    }
+  }
+
+  async function markAsPending(c: Comprobante) {
+    try {
+      await setPaymentStatus(c.client.id, c.fecha.slice(0, 7), "pending");
+      toast.success(`${c.number} desmarcada como pagada`);
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    }
+  }
+
+  async function handleDelete(c: Comprobante) {
+    if (
+      !confirm(
+        `¿Eliminar el comprobante ${c.number} de ${c.client.name}?\n\n` +
+          `Esto borra el payment registrado para ${c.fecha.slice(0, 7)}. ` +
+          `Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deletePayment(c.client.id, c.fecha.slice(0, 7));
+      toast.success("Comprobante eliminado");
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    }
+  }
+
+  function openEdit(c: Comprobante) {
+    setEditComp(c);
+    setEditAmount(String(c.importe));
+    setEditNote(c.note ?? "");
+  }
+
+  async function saveEdit() {
+    if (!editComp) return;
+    const n = Number(editAmount);
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error("Importe inválido");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const c = editComp;
+      const client = c.client;
+      const scheduled = effectiveFeeForMonth(
+        feeSchedules,
+        client.id,
+        c.fecha.slice(0, 7),
+      );
+      const baseFee = scheduled ?? client.fee;
+      const override = n === baseFee ? null : n;
+      await setPaymentAmount(
+        client.id,
+        c.fecha.slice(0, 7),
+        override,
+        editNote.trim() || null,
+      );
+      toast.success(`${c.number} actualizada`);
+      setEditComp(null);
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -882,25 +966,42 @@ export function PremiumFacturacion() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
                         <button
+                          onClick={() => setDetailComp(c)}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
-                          title="Ver"
+                          title="Ver detalle"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        {c.estado !== "pagada" && (
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        {c.estado !== "pagada" ? (
                           <button
                             onClick={() => markAsPaid(c)}
                             className="p-1.5 rounded-premium-sm text-ink-400 hover:text-success hover:bg-success/10 transition-colors"
                             title="Marcar como pagada"
                           >
-                            <Download className="w-3.5 h-3.5" />
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => markAsPending(c)}
+                            className="p-1.5 rounded-premium-sm text-ink-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                            title="Desmarcar pago"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
-                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
-                          title="Más"
+                          onClick={() => handleDelete(c)}
+                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-danger hover:bg-danger/10 transition-colors"
+                          title="Eliminar"
                         >
-                          <MoreHorizontal className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -964,6 +1065,86 @@ export function PremiumFacturacion() {
           </div>
         </div>
       </div>
+
+      {/* Modal Ver detalle de comprobante */}
+      <Modal
+        open={!!detailComp}
+        onClose={() => setDetailComp(null)}
+        title={detailComp ? `Comprobante ${detailComp.number}` : ""}
+        description={detailComp?.client.name}
+        size="md"
+        footer={
+          <Button variant="ghost" onClick={() => setDetailComp(null)}>
+            Cerrar
+          </Button>
+        }
+      >
+        {detailComp && (
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <DetailRow label="Cliente" value={detailComp.client.name} />
+              <DetailRow label="CUIT/RUT" value={detailComp.client.tax_id ?? "—"} />
+              <DetailRow label="Email" value={detailComp.client.contact_email ?? "—"} />
+              <DetailRow label="Teléfono" value={detailComp.client.contact_phone ?? "—"} />
+              <DetailRow label="Fecha emisión" value={detailComp.fecha} />
+              <DetailRow label="Vencimiento" value={detailComp.vencimiento} />
+              <DetailRow label="Importe" value={formatUsd(detailComp.importe)} highlight />
+              <DetailRow label="Estado" value={detailComp.estado} />
+            </div>
+            <div className="pt-3 border-t border-rule">
+              <div className="text-2xs uppercase tracking-wider text-ink-300 font-semibold mb-1">Concepto</div>
+              <div className="text-ink">{detailComp.concepto}</div>
+              {detailComp.note && (
+                <>
+                  <div className="text-2xs uppercase tracking-wider text-ink-300 font-semibold mb-1 mt-3">Nota</div>
+                  <div className="text-ink-400">{detailComp.note}</div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal Editar comprobante */}
+      <Modal
+        open={!!editComp}
+        onClose={() => !editSaving && setEditComp(null)}
+        title={editComp ? `Editar ${editComp.number}` : ""}
+        description={editComp ? `${editComp.client.name} · ${editComp.concepto}` : ""}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditComp(null)} disabled={editSaving}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={saveEdit} loading={editSaving}>
+              Guardar
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Field
+            label="Importe (USD)"
+            hint="Sobreescribe el fee base/tramo solo para este mes."
+            required
+          >
+            <Input
+              type="number"
+              value={editAmount}
+              onChange={(e) => setEditAmount(e.target.value)}
+              placeholder="0.00"
+            />
+          </Field>
+          <Field label="Nota">
+            <Input
+              value={editNote}
+              onChange={(e) => setEditNote(e.target.value)}
+              placeholder="Concepto extra, ajuste, descuento aplicado…"
+            />
+          </Field>
+        </div>
+      </Modal>
 
       {/* Modal Nueva Factura */}
       <Modal
@@ -1113,6 +1294,32 @@ function SparkKpiCard({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-2xs uppercase tracking-wider text-ink-300 font-semibold">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-0.5",
+          highlight ? "text-ink font-semibold tabular-nums" : "text-ink",
+        )}
+      >
+        {value}
+      </div>
     </div>
   );
 }
