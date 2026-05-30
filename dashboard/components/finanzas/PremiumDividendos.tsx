@@ -6,18 +6,16 @@
  *
  * Layout:
  *   Header: título + período + "+ Nueva Distribución"
- *   Row 1: 4 KPI cards con sparkline:
+ *   Row 1: 3 KPI cards con sparkline:
  *     · Utilidades del Ejercicio (resultado neto acumulado)
  *     · Dividendos Distribuidos (suma a socios)
  *     · Saldo Disponible (reinvertido en empresa)
- *     · Retenciones Aplicadas (estimado IRNR ~ 7% sobre socios)
  *   Row 2 (1/2 + 1/2):
  *     · Donut "Distribución por Socio / Accionista"
  *     · Bar chart mensual de dividendos distribuidos
  *   Row 3: Tabla "Historial de Distribuciones"
- *     Columnas: Fecha · Ejercicio · Importe · Socios · Retenciones ·
- *     Saldo · Estado · Acciones
- *   Footer: banner "Información importante" con normativa
+ *     Columnas: Fecha · Ejercicio · Importe · Socios · Saldo · Estado
+ *     · Acciones
  *
  * Source of truth:
  *   · `dividend_config`: porcentajes y nombres de socios
@@ -39,10 +37,7 @@ import {
   TrendingUp,
   DollarSign,
   Wallet,
-  Percent,
-  ExternalLink,
   Info,
-  Pencil,
 } from "lucide-react";
 import {
   Bar,
@@ -91,10 +86,6 @@ const SOCIO_COLORS = [
   "#A78BFA", // violet-400
   "#CBD5E1", // slate-300 (otros)
 ];
-
-// Retención IRNR aprox sobre dividendos a no-residentes (Uruguay).
-// Configurable conceptualmente, fijo por ahora.
-const RETENCION_PCT = 0.07;
 
 type PeriodMode = "this_year" | "last_year" | "last_12m" | "ytd" | "custom";
 
@@ -276,7 +267,6 @@ export function PremiumDividendos({
     inversiones: number;
     back: number;
     importeDistribuido: number;
-    retenciones: number;
     saldoDisponible: number;
     sociosCount: number;
     estado: "pagada" | "pendiente";
@@ -304,7 +294,6 @@ export function PremiumDividendos({
       const net = monthNet(mk);
       const dist = distributeDividends(net, config);
       const importeDistribuido = dist.partnerA + dist.partnerB;
-      const retenciones = Math.max(0, importeDistribuido * RETENCION_PCT);
       const saldoDisponible = dist.inversiones + dist.back;
       const [yy, mm] = mk.split("-").map(Number);
       const lastDay = new Date(yy, mm, 0).getDate();
@@ -327,20 +316,19 @@ export function PremiumDividendos({
         inversiones: dist.inversiones,
         back: dist.back,
         importeDistribuido,
-        retenciones,
         saldoDisponible,
         sociosCount,
         estado,
       });
     }
     return out.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-  }, [config, period.from, period.to, payments, expenses, manualRevs, clients]);
+  }, [config, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules]);
 
   // ===== KPIs del período =====
   // Utilidades = sum REAL de nets (puede ser negativo si hubo pérdida).
   // No clampeamos a 0: necesitamos ver la realidad. Los dividendos /
-  // saldo / retenciones se calculan SOLO sobre los meses con utilidad
-  // positiva (no podés distribuir si perdiste plata).
+  // saldo se calculan SOLO sobre los meses con utilidad positiva (no
+  // podés distribuir si perdiste plata).
   const utilidadesPeriodo = history.reduce((s, r) => s + r.net, 0);
   const dividendosDistribuidos = history.reduce(
     (s, r) => s + (r.net > 0 ? r.importeDistribuido : 0),
@@ -348,10 +336,6 @@ export function PremiumDividendos({
   );
   const saldoDisponible = history.reduce(
     (s, r) => s + (r.net > 0 ? r.saldoDisponible : 0),
-    0,
-  );
-  const retencionesTotal = history.reduce(
-    (s, r) => s + (r.net > 0 ? r.retenciones : 0),
     0,
   );
 
@@ -372,7 +356,6 @@ export function PremiumDividendos({
       const net = monthNet(mk);
       const dist = distributeDividends(net, config);
       const importeDistribuido = dist.partnerA + dist.partnerB;
-      const retenciones = Math.max(0, importeDistribuido * RETENCION_PCT);
       const saldoDisponible = dist.inversiones + dist.back;
       out.push({
         monthKey: mk,
@@ -384,7 +367,6 @@ export function PremiumDividendos({
         inversiones: dist.inversiones,
         back: dist.back,
         importeDistribuido,
-        retenciones,
         saldoDisponible,
         sociosCount: 0,
         estado: "pagada",
@@ -400,10 +382,6 @@ export function PremiumDividendos({
   );
   const saldoPrev = prevHistory.reduce(
     (s, r) => s + (r.net > 0 ? r.saldoDisponible : 0),
-    0,
-  );
-  const retencionesPrev = prevHistory.reduce(
-    (s, r) => s + (r.net > 0 ? r.retenciones : 0),
     0,
   );
 
@@ -502,7 +480,6 @@ export function PremiumDividendos({
       "Mes",
       "Resultado neto",
       "Importe distribuido",
-      "Retenciones",
       "Saldo disponible",
       "Estado",
     ];
@@ -513,7 +490,6 @@ export function PremiumDividendos({
         r.monthKey,
         r.net.toFixed(2),
         r.importeDistribuido.toFixed(2),
-        r.retenciones.toFixed(2),
         r.saldoDisponible.toFixed(2),
         r.estado,
       ]
@@ -545,7 +521,6 @@ export function PremiumDividendos({
       lines.push(["Back empresa", `${config.back_pct}%`, r.back.toFixed(2)]);
     }
     lines.push(["TOTAL DISTRIBUIDO", "", r.importeDistribuido.toFixed(2)]);
-    lines.push(["Retenciones (IRNR estimado)", `${(RETENCION_PCT * 100).toFixed(1)}%`, r.retenciones.toFixed(2)]);
     lines.push(["Saldo disponible", "", r.saldoDisponible.toFixed(2)]);
     const rows = lines.map((row) =>
       row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
@@ -623,8 +598,8 @@ export function PremiumDividendos({
         </div>
       </div>
 
-      {/* ===== Row 1: 4 KPIs ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ===== Row 1: 3 KPIs ===== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <SparkKpiCard
           label="Utilidades del Ejercicio"
           value={formatUsd(utilidadesPeriodo, { compact: true })}
@@ -651,15 +626,6 @@ export function PremiumDividendos({
           icon={<Wallet className="w-4 h-4" />}
           spark={sparkData}
           sparkColor="#16C75A"
-        />
-        <SparkKpiCard
-          label="Retenciones Aplicadas"
-          value={formatUsd(retencionesTotal, { compact: true })}
-          delta={pct(retencionesTotal, retencionesPrev)}
-          subLabel="vs. ejercicio anterior"
-          icon={<Percent className="w-4 h-4" />}
-          spark={sparkData}
-          sparkColor="#A78BFA"
         />
       </div>
 
@@ -816,7 +782,6 @@ export function PremiumDividendos({
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Ejercicio</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Importe Distribuido</th>
                 <th className="text-center px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Socios / Accionistas</th>
-                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Retenciones</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Saldo Disponible</th>
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Estado</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Acciones</th>
@@ -825,7 +790,7 @@ export function PremiumDividendos({
             <tbody>
               {history.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center text-ink-300 italic">
+                  <td colSpan={7} className="px-4 py-16 text-center text-ink-300 italic">
                     Sin distribuciones registradas en este período.
                   </td>
                 </tr>
@@ -838,7 +803,6 @@ export function PremiumDividendos({
                       {formatUsd(r.importeDistribuido)}
                     </td>
                     <td className="px-4 py-3 text-center text-ink-400 tabular-nums">{r.sociosCount}</td>
-                    <td className="px-4 py-3 text-right text-ink-400 tabular-nums">{formatUsd(r.retenciones)}</td>
                     <td className="px-4 py-3 text-right text-ink tabular-nums">{formatUsd(r.saldoDisponible)}</td>
                     <td className="px-4 py-3">
                       <EstadoPill estado={r.estado} />
@@ -877,28 +841,6 @@ export function PremiumDividendos({
         <div className="px-5 py-3 border-t border-rule text-xs text-ink-300">
           Mostrando {history.length} {history.length === 1 ? "distribución" : "distribuciones"} del período.
         </div>
-      </div>
-
-      {/* ===== Footer: Info banner ===== */}
-      <div className="bg-blue-50/80 border border-blue-100 rounded-premium p-4 flex items-start gap-3">
-        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-          <Info className="w-4 h-4" />
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-ink text-sm">Información importante</div>
-          <div className="text-xs text-ink-400 mt-0.5">
-            Las distribuciones de dividendos están sujetas a retenciones de IRNR ({(RETENCION_PCT * 100).toFixed(0)}% estimado) según la normativa vigente.
-          </div>
-        </div>
-        <a
-          href="https://www.impo.com.uy/bases/decretos/150-2007"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium text-ink-500 bg-paper border border-rule rounded-premium-sm hover:border-rule-strong transition-colors"
-        >
-          Ver Normativa
-          <ExternalLink className="w-3 h-3" />
-        </a>
       </div>
 
       {/* Modal Config */}
@@ -1042,9 +984,9 @@ export function PremiumDividendos({
                     </tr>
                   )}
                   <tr className="border-t border-rule bg-paper-100/40 font-semibold">
-                    <td className="px-3 py-2 text-ink">Retenciones IRNR (estim.)</td>
-                    <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{(RETENCION_PCT * 100).toFixed(0)}%</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.retenciones)}</td>
+                    <td className="px-3 py-2 text-ink">Saldo disponible</td>
+                    <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{Number(config.inversiones_pct) + Number(config.back_pct)}%</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.saldoDisponible)}</td>
                   </tr>
                 </tbody>
               </table>
