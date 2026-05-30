@@ -229,6 +229,10 @@ export interface Client {
   tax_id?: string | null;
   /** Fecha de creación (ISO) del cliente. */
   created_at?: string | null;
+  /** Cuenta bancaria default donde se acreditan los pagos del cliente
+   *  (migración 044). Cuando se marca un payment como 'paid', se
+   *  crea un movimiento de entrada automáticamente. */
+  default_cuenta_id?: string | null;
 }
 
 // ==================== PIPELINE / CRM ====================
@@ -471,7 +475,7 @@ export interface ClientMktBudget {
 export interface InvoicePayment {
   clientId: string;
   month: string;              // YYYY-MM
-  status: "paid" | "pending" | "late";
+  status: "paid" | "pending" | "late" | "cancelled";
   paidDate?: string;
   /** Importe del cobro de este mes. Si está, sobreescribe el
    *  client.fee — sirve para descuentos puntuales, ajustes o extras

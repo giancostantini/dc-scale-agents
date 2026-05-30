@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addClient } from "@/lib/storage";
+import {
+  listCuentas,
+  type CuentaBancaria,
+} from "@/lib/cuentas-bancarias";
 import { deleteFile, makeWizardSessionId } from "@/lib/upload";
 import Dropzone from "./Dropzone";
 import type {
@@ -113,6 +117,8 @@ export default function NewClientModal({
 
   // Step 3 — contrato + fees
   const [fee, setFee] = useState("");
+  const [defaultCuentaId, setDefaultCuentaId] = useState<string>("");
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [method, setMethod] = useState("Método completo");
   const [isBrandLaunch, setIsBrandLaunch] = useState(false);
   const [contractDuration, setContractDuration] = useState<string>("12");
@@ -152,6 +158,13 @@ export default function NewClientModal({
   // Confirm
   const [saving, setSaving] = useState(false);
 
+  // Cargar cuentas bancarias al abrir el modal
+  useEffect(() => {
+    if (open) {
+      listCuentas().then(setCuentas);
+    }
+  }, [open]);
+
   if (!open) return null;
 
   // ============ Helpers ============
@@ -166,6 +179,7 @@ export default function NewClientModal({
     setContactEmail("");
     setContactPhone("");
     setFee("");
+    setDefaultCuentaId("");
     setMethod("Método completo");
     setIsBrandLaunch(false);
     setContractDuration("12");
@@ -277,6 +291,7 @@ export default function NewClientModal({
         feeVariable: feeVariableSummary,
         modules: type === "gp" ? modules : undefined,
         onboarding,
+        defaultCuentaId: defaultCuentaId || null,
       });
 
       // Fire-and-forget: scaffold del vault folder en background.
@@ -562,6 +577,45 @@ export default function NewClientModal({
                 <option>Generación de leads</option>
                 <option>Personalizado</option>
               </select>
+            </div>
+
+            {/* Medio de pago: la cuenta bancaria donde acreditamos los
+                cobros de este cliente. Cuando marquemos una factura
+                como pagada en Finanzas → Facturación, se crea
+                automáticamente un movimiento de ingreso en esta cuenta. */}
+            <div className={styles.field}>
+              <label>Medio de pago</label>
+              <select
+                value={defaultCuentaId}
+                onChange={(e) => setDefaultCuentaId(e.target.value)}
+              >
+                <option value="">— Sin cuenta default (cargar manual) —</option>
+                {cuentas.length === 0 ? (
+                  <option value="" disabled>
+                    No hay cuentas cargadas. Cargá una en Finanzas → Cuentas
+                    Bancarias.
+                  </option>
+                ) : (
+                  cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.bank_name} ····{c.last4} ({c.currency})
+                    </option>
+                  ))
+                )}
+              </select>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 6,
+                  lineHeight: 1.5,
+                }}
+              >
+                Cuando una factura de este cliente se marca como
+                <strong> Pagada</strong>, se registra automáticamente un
+                ingreso en esta cuenta — sin tener que cargarlo a mano
+                desde Cuentas Bancarias.
+              </div>
             </div>
 
             {/* Tipo de cliente: lanzamiento de marca vs negocio operando.

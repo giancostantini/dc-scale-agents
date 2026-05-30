@@ -249,10 +249,44 @@ export function PremiumFacturacion() {
   function statusToEstado(p: InvoicePayment): EstadoFactura {
     const now = new Date().toISOString().slice(0, 7);
     if (p.status === "paid") return "pagada";
+    if (p.status === "cancelled") return "anulada";
     if (p.status === "late") return "vencida";
     // pending: si el mes ya pasó → vencida; si no → pendiente
     if (p.month < now) return "vencida";
     return "pendiente";
+  }
+
+  /** Mapeo inverso: dropdown del usuario → status real en DB.
+   *  El UI solo muestra 3 opciones (pagado/pendiente/anulado).
+   *  El estado "vencida" se DERIVA desde pending + mes pasado, no se
+   *  setea manualmente. */
+  async function changeEstado(
+    c: Comprobante,
+    newEstado: "pagada" | "pendiente" | "anulada",
+  ) {
+    const statusMap: Record<typeof newEstado, InvoicePayment["status"]> = {
+      pagada: "paid",
+      pendiente: "pending",
+      anulada: "cancelled",
+    };
+    try {
+      await setPaymentStatus(c.client.id, c.fecha.slice(0, 7), statusMap[newEstado]);
+      if (newEstado === "pagada") {
+        toast.success(
+          c.client.default_cuenta_id
+            ? `${c.number} pagada. Movimiento creado en la cuenta del cliente.`
+            : `${c.number} pagada. ⚠️ El cliente no tiene cuenta bancaria default — el movimiento NO se creó automáticamente.`,
+        );
+      } else if (newEstado === "anulada") {
+        toast.success(`${c.number} anulada`);
+      } else {
+        toast.success(`${c.number} marcada como pendiente`);
+      }
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    }
   }
 
   // Generar number "FAC 0001-{sequential}"
@@ -960,9 +994,24 @@ export function PremiumFacturacion() {
                       {formatUsd(c.importe)}
                     </td>
                     <td className="px-4 py-3">
-                      <EstadoPill estado={c.estado} />
+                      <EstadoSelect
+                        estado={c.estado}
+                        onChange={(v) => changeEstado(c, v)}
+                      />
                     </td>
-                    <td className="px-4 py-3 text-ink-400 tabular-nums">{c.vencimiento}</td>
+                    <td
+                      className={cn(
+                        "px-4 py-3 tabular-nums font-medium",
+                        c.estado === "vencida"
+                          ? "text-rose-600"
+                          : c.estado === "pagada" ||
+                              c.estado === "pendiente"
+                            ? "text-emerald-700"
+                            : "text-ink-400",
+                      )}
+                    >
+                      {c.vencimiento}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
                         <button
@@ -1341,6 +1390,55 @@ function EstadoPill({ estado }: { estado: EstadoFactura }) {
     >
       {c.label}
     </span>
+  );
+}
+
+/**
+ * Dropdown editable de estado. Solo expone los 3 estados que el
+ * director puede setear manualmente: pagada / pendiente / anulada.
+ * "vencida" se deriva automáticamente desde pending + mes pasado y
+ * NO aparece como opción seleccionable (queda como pill visual
+ * cuando aplica).
+ */
+function EstadoSelect({
+  estado,
+  onChange,
+}: {
+  estado: EstadoFactura;
+  onChange: (v: "pagada" | "pendiente" | "anulada") => void;
+}) {
+  // El value de la select refleja el estado "manual" del payment:
+  // si es vencida, internamente es pending → el select muestra "Pendiente".
+  const currentValue: "pagada" | "pendiente" | "anulada" =
+    estado === "pagada"
+      ? "pagada"
+      : estado === "anulada"
+        ? "anulada"
+        : "pendiente";
+  const visualClasses: Record<EstadoFactura, string> = {
+    pagada: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    pendiente: "border-amber-200 bg-amber-50 text-amber-700",
+    vencida: "border-rose-200 bg-rose-50 text-rose-700",
+    anulada: "border-slate-200 bg-slate-100 text-slate-600",
+  };
+  return (
+    <select
+      value={currentValue}
+      onChange={(e) => onChange(e.target.value as "pagada" | "pendiente" | "anulada")}
+      className={cn(
+        "inline-flex items-center px-2.5 h-7 text-2xs font-semibold rounded-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-ink-300 border transition-colors",
+        visualClasses[estado],
+      )}
+      title={
+        estado === "vencida"
+          ? "Vencida — el mes ya pasó y la factura sigue pendiente. Cambiá a Pagada o Anulada."
+          : `Estado actual: ${estado}`
+      }
+    >
+      <option value="pagada">Pagado</option>
+      <option value="pendiente">Pendiente</option>
+      <option value="anulada">Anulado</option>
+    </select>
   );
 }
 

@@ -86,6 +86,7 @@ interface ClientRow {
   roadmap_month_notes: Client["roadmap_month_notes"] | null;
   tax_id?: string | null;
   created_at?: string | null;
+  default_cuenta_id?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -115,6 +116,7 @@ function clientFromRow(r: ClientRow): Client {
     country: r.country,
     tax_id: r.tax_id ?? null,
     created_at: r.created_at ?? null,
+    default_cuenta_id: r.default_cuenta_id ?? null,
   };
 }
 
@@ -159,6 +161,10 @@ export interface AddClientInput {
   feeVariable?: string;
   modules?: Partial<Client["modules"]>;
   onboarding?: ClientOnboarding;
+  /** Cuenta bancaria donde se acreditan los pagos (default).
+   *  Cuando se marca una factura como pagada, se crea un movimiento
+   *  ingreso automáticamente en esta cuenta. */
+  defaultCuentaId?: string | null;
 }
 
 export async function addClient(data: AddClientInput): Promise<Client> {
@@ -217,6 +223,7 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     contact_phone: data.contactPhone ?? null,
     country: data.country,
     onboarding: data.onboarding ?? {},
+    default_cuenta_id: data.defaultCuentaId ?? null,
   };
 
   const { data: inserted, error } = await supabase
@@ -249,6 +256,22 @@ export async function updateClientFee(
   const { error } = await supabase
     .from("clients")
     .update({ fee })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Cuenta bancaria default donde se acreditan los pagos del cliente.
+ * Pasar null para limpiar.
+ */
+export async function updateClientDefaultCuenta(
+  clientId: string,
+  cuentaId: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ default_cuenta_id: cuentaId })
     .eq("id", clientId);
   if (error) throw error;
 }
@@ -1241,6 +1264,91 @@ export async function setPaymentStatus(
     { client_id: clientId, month, status, paid_date },
     { onConflict: "client_id,month" },
   );
+  // Si el pago cambia a 'paid' y el cliente tiene cuenta default,
+  // creamos el movimiento de ingreso automáticamente (si no existía
+  // uno previo para este payment).
+  if (status === "paid") {
+    try {
+      await autoCreatePaymentMovement(clientId, month);
+    } catch (err) {
+      // No queremos romper el setPaymentStatus si la creación
+      // del movimiento falla — el director puede cargar a mano.
+      console.error("autoCreatePaymentMovement:", err);
+    }
+  }
+}
+
+/**
+ * Cuando una factura se marca como pagada, crea un movimiento de
+ * ingreso en la cuenta bancaria default del cliente (si tiene una
+ * configurada). Idempotente — usa una descripción canónica para
+ * evitar duplicar el movimiento si se marca pagada / no-pagada /
+ * pagada nuevamente.
+ *
+ * No-op si:
+ *   · El cliente no tiene default_cuenta_id configurado.
+ *   · Ya existe un movimiento con la descripción canónica.
+ */
+async function autoCreatePaymentMovement(
+  clientId: string,
+  month: string,
+): Promise<void> {
+  const supabase = getSupabase();
+
+  // 1. Datos del cliente: cuenta default + nombre
+  const { data: client, error: cliErr } = await supabase
+    .from("clients")
+    .select("name, default_cuenta_id, fee")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (cliErr || !client) return;
+  const cuentaId = (client as { default_cuenta_id?: string | null }).default_cuenta_id;
+  if (!cuentaId) return;
+
+  // 2. Importe del payment (override > schedule > fee base)
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("amount_override")
+    .eq("client_id", clientId)
+    .eq("month", month)
+    .maybeSingle();
+  const override = (payment as { amount_override?: number | string | null } | null)?.amount_override;
+  // Fee schedule efectivo para el mes
+  const schedules = await listFeeSchedulesForClient(clientId);
+  const scheduled = effectiveFeeForMonth(schedules, clientId, month);
+  const fee =
+    (override == null
+      ? null
+      : typeof override === "string"
+        ? parseFloat(override)
+        : Number(override)) ??
+    scheduled ??
+    (typeof client.fee === "string" ? parseFloat(client.fee) : Number(client.fee));
+  if (!fee || fee <= 0) return;
+
+  // 3. Descripción canónica + chequeo de existencia (idempotente)
+  const description = `Cobro factura ${month} · ${client.name}`;
+  const { data: existing } = await supabase
+    .from("cuenta_movimientos")
+    .select("id")
+    .eq("cuenta_id", cuentaId)
+    .eq("description", description)
+    .maybeSingle();
+  if (existing) return;
+
+  // 4. Crear el movimiento
+  const today = new Date().toISOString().slice(0, 10);
+  const { error: movErr } = await supabase.from("cuenta_movimientos").insert({
+    cuenta_id: cuentaId,
+    fecha: today,
+    description,
+    category: "ingreso",
+    entry_amount: fee,
+    exit_amount: 0,
+  });
+  if (movErr) {
+    console.error("autoCreatePaymentMovement insert:", movErr);
+  }
 }
 
 /**
