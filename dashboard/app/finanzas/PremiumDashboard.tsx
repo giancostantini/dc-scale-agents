@@ -20,7 +20,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
-  Bar as BarIcon,
   Calendar,
   DollarSign,
   Percent,
