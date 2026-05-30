@@ -217,8 +217,21 @@ export async function POST(
     }
   }
   if (!client) {
+    // Listar IDs disponibles para ayudar a diagnosticar el mismatch
+    const { data: allClients } = await admin
+      .from("clients")
+      .select("id, name")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const sample =
+      allClients && allClients.length > 0
+        ? allClients.map((c) => `${c.id} (${c.name})`).join(", ")
+        : "no hay clientes cargados";
     return Response.json(
-      { error: "Cliente no encontrado.", detail: `id=${clientId}` },
+      {
+        error: "Cliente no encontrado.",
+        detail: `Estoy buscando id="${clientId}" pero no existe en clients. IDs disponibles (últimos 10): ${sample}`,
+      },
       { status: 404 },
     );
   }
