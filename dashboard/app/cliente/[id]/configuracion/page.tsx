@@ -11,7 +11,7 @@
  * Director only. Team/client → redirect al dashboard del cliente.
  */
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getClient,
@@ -24,7 +24,9 @@ import {
   type ClientContactInput,
 } from "@/lib/storage";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { uploadFile } from "@/lib/upload";
 import type { Client, ClientContact } from "@/lib/types";
+import InviteUserModal from "@/components/InviteUserModal";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ConfiguracionPage({
@@ -39,8 +41,12 @@ export default function ConfiguracionPage({
   const [contacts, setContacts] = useState<ClientContact[]>([]);
 
   // Logo
-  const [logoDraft, setLogoDraft] = useState("");
   const [savingLogo, setSavingLogo] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Invitar al portal
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Nuevo contacto
   const [showAddContact, setShowAddContact] = useState(false);
@@ -77,7 +83,6 @@ export default function ConfiguracionPage({
     setClient(c ?? null);
     setIsDirector(prof?.role === "director");
     setContacts(ct);
-    if (c?.logo_url) setLogoDraft(c.logo_url);
   }
 
   useEffect(() => {
@@ -95,25 +100,43 @@ export default function ConfiguracionPage({
   if (!isDirector) return null;
 
   // ============ Logo ============
-  async function saveLogo() {
-    setSavingLogo(true);
+  async function handleLogoFileChange(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Validación rápida de tipo
+    if (!file.type.startsWith("image/")) {
+      alert("El archivo tiene que ser una imagen (PNG, JPG, SVG, etc).");
+      e.target.value = "";
+      return;
+    }
+    // Validación de tamaño (~5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("La imagen pesa más de 5MB. Bajá el peso e intentá de nuevo.");
+      e.target.value = "";
+      return;
+    }
+    setUploadingLogo(true);
     try {
-      await updateClientLogo(id, logoDraft.trim() || null);
+      // Path: logos/{clientId}/{timestamp}_{filename}
+      const uploaded = await uploadFile(file, `logos/${id}`);
+      await updateClientLogo(id, uploaded.url ?? null);
       await refresh();
-      alert("Logo actualizado.");
     } catch (err) {
       const e = err as Error;
-      alert(`No se pudo guardar: ${e.message}`);
+      alert(`No se pudo subir el logo: ${e.message}`);
     } finally {
-      setSavingLogo(false);
+      setUploadingLogo(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
+
   async function clearLogo() {
-    if (!confirm("¿Quitar el logo? Se va a mostrar el fallback (Clearbit o iniciales).")) return;
+    if (!confirm("¿Quitar el logo? Se va a mostrar el fallback de iniciales.")) return;
     setSavingLogo(true);
     try {
       await updateClientLogo(id, null);
-      setLogoDraft("");
       await refresh();
     } catch (err) {
       const e = err as Error;
@@ -230,48 +253,46 @@ export default function ConfiguracionPage({
         <div className={ui.panelHead}>
           <div className={ui.panelTitle}>Logo del cliente</div>
         </div>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
-          Pegá la URL de una imagen pública (PNG/JPG/SVG). Si no lo seteás, el
-          sistema intenta resolverlo automáticamente desde Clearbit (basado
-          en el dominio del email principal) y si no, cae a iniciales.
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+          Subí el logo del cliente (PNG, JPG o SVG, hasta 5MB). Se guarda en
+          el storage del sistema. Si no cargás ninguno, se muestran las
+          iniciales como fallback.
         </p>
         <div
           style={{
             display: "flex",
             gap: 18,
             alignItems: "center",
-            marginBottom: 14,
+            marginBottom: 16,
           }}
         >
           <div
             style={{
-              width: 90,
-              height: 90,
+              width: 110,
+              height: 110,
               background: "var(--ivory)",
-              borderRadius: 10,
+              borderRadius: 12,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               color: "var(--deep-green)",
-              fontSize: 26,
+              fontSize: 32,
               fontWeight: 800,
               overflow: "hidden",
               border: "1px solid rgba(10,26,12,0.08)",
+              flexShrink: 0,
             }}
           >
-            {logoDraft ? (
+            {client.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={logoDraft}
-                alt="preview"
+                src={client.logo_url}
+                alt={`Logo ${client.name}`}
                 style={{
                   width: "100%",
                   height: "100%",
                   objectFit: "contain",
                   background: "white",
-                }}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = "0.3";
                 }}
               />
             ) : (
@@ -279,71 +300,111 @@ export default function ConfiguracionPage({
             )}
           </div>
           <div style={{ flex: 1 }}>
-            <label
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+              onChange={handleLogoFileChange}
+              style={{ display: "none" }}
+            />
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingLogo || savingLogo}
+                style={{
+                  padding: "10px 18px",
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: uploadingLogo ? "wait" : "pointer",
+                  fontFamily: "inherit",
+                  opacity: uploadingLogo ? 0.5 : 1,
+                }}
+              >
+                {uploadingLogo
+                  ? "Subiendo…"
+                  : client.logo_url
+                    ? "Reemplazar logo"
+                    : "Subir logo"}
+              </button>
+              {client.logo_url && (
+                <button
+                  onClick={clearLogo}
+                  disabled={savingLogo || uploadingLogo}
+                  style={{
+                    padding: "10px 14px",
+                    background: "transparent",
+                    border: "1px solid rgba(176,75,58,0.2)",
+                    borderRadius: 6,
+                    color: "#B91C1C",
+                    fontSize: 12,
+                    cursor: savingLogo ? "wait" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Quitar logo
+                </button>
+              )}
+            </div>
+            <div
               style={{
-                display: "block",
                 fontSize: 11,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 600,
-                marginBottom: 6,
+                color: "var(--text-muted)",
+                marginTop: 8,
+                lineHeight: 1.5,
               }}
             >
-              URL del logo
-            </label>
-            <input
-              value={logoDraft}
-              onChange={(e) => setLogoDraft(e.target.value)}
-              placeholder="https://logos.example.com/cliente.png"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                fontSize: 13,
-                border: "1px solid rgba(10,26,12,0.15)",
-                borderRadius: 6,
-                fontFamily: "inherit",
-              }}
-            />
+              Recomendado: PNG transparente cuadrado 512x512 o SVG.
+              {client.logo_url && (
+                <>
+                  <br />
+                  <strong>Logo actual:</strong>{" "}
+                  <a
+                    href={client.logo_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "var(--deep-green)" }}
+                  >
+                    abrir archivo
+                  </a>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          {client.logo_url && (
-            <button
-              onClick={clearLogo}
-              disabled={savingLogo}
-              style={{
-                padding: "8px 14px",
-                background: "transparent",
-                border: "1px solid rgba(176,75,58,0.2)",
-                borderRadius: 6,
-                color: "#B91C1C",
-                fontSize: 12,
-                cursor: savingLogo ? "wait" : "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Quitar logo
-            </button>
-          )}
-          <button
-            onClick={saveLogo}
-            disabled={savingLogo}
-            style={{
-              padding: "8px 14px",
-              background: "var(--deep-green)",
-              color: "var(--off-white)",
-              border: "none",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: savingLogo ? "wait" : "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            {savingLogo ? "Guardando…" : "Guardar logo"}
-          </button>
+      </div>
+
+      {/* ============== ACCESO DEL CLIENTE AL PORTAL ============== */}
+      <div className={ui.panel} style={{ marginBottom: 24 }}>
+        <div className={ui.panelHead}>
+          <div className={ui.panelTitle}>Acceso al portal del cliente</div>
         </div>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
+          Invitá al cliente al portal de solo lectura. Va a poder ver
+          reportes, calendario de contenido, KPIs y mandar solicitudes.
+        </p>
+        <button
+          onClick={() => setInviteOpen(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 18px",
+            background: "var(--deep-green)",
+            color: "var(--off-white)",
+            border: "none",
+            borderRadius: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          ✉ Invitar al portal
+        </button>
       </div>
 
       {/* ============== CONTACTOS ============== */}
@@ -549,6 +610,14 @@ export default function ConfiguracionPage({
           {deletingClient ? "Eliminando…" : "Eliminar cliente"}
         </button>
       </div>
+
+      {/* Modal: invitar al portal */}
+      <InviteUserModal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        initialUserType="client"
+        initialClientId={id}
+      />
     </>
   );
 }
