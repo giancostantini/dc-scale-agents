@@ -75,6 +75,107 @@ function inferType(doc: FinanzasDocument): string {
   return "otro";
 }
 
+/**
+ * Heurística para clasificar automáticamente un archivo según su
+ * nombre. Se evalúa cuando el director elige un archivo en el modal
+ * de subida — el dropdown queda preseleccionado en la carpeta
+ * detectada y se puede cambiar manualmente si la detección falla.
+ *
+ * Reglas (más específicas primero):
+ *   - "factura_venta", "fac_venta", "fv-", "fact_emit" → facturas_venta
+ *   - "factura_compra", "fc-", "proveedor", "compra" → facturas_compra
+ *   - "factura", "fac", "comp"                        → facturas_venta (default)
+ *   - "recibo", "rec_", "remito"                      → recibos
+ *   - "contrato", "contract", "agreement", "acuerdo"  → contratos
+ *   - "balance", "estado_financiero", "ebitda"        → balances
+ *   - "liquidacion", "sueldo", "haber", "nomina"      → liquidaciones
+ *   - "iva", "iibb", "ganancias", "impuesto", "afip", "dgi", "bps", "irpf" → impuestos
+ *   - resto → otros
+ */
+export function detectFolderFromFilename(name: string): DocumentFolder {
+  const n = name.toLowerCase();
+  // facturas_venta (más específico antes que "factura")
+  if (
+    n.includes("factura_venta") ||
+    n.includes("factura-venta") ||
+    n.includes("fac_venta") ||
+    n.includes("fv-") ||
+    n.includes("fv_") ||
+    n.includes("fact_emit") ||
+    n.includes("emitida")
+  )
+    return "facturas_venta";
+  // facturas_compra
+  if (
+    n.includes("factura_compra") ||
+    n.includes("factura-compra") ||
+    n.includes("fac_compra") ||
+    n.includes("fc-") ||
+    n.includes("fc_") ||
+    n.includes("proveedor") ||
+    n.includes("/compra") ||
+    n.includes("compra_")
+  )
+    return "facturas_compra";
+  // factura genérica → venta (lo más común para una agencia)
+  if (n.includes("factura") || n.startsWith("fac") || n.includes("invoice")) {
+    return "facturas_venta";
+  }
+  // recibos
+  if (n.includes("recibo") || n.includes("rec_") || n.includes("remito") || n.includes("receipt")) {
+    return "recibos";
+  }
+  // contratos
+  if (
+    n.includes("contrato") ||
+    n.includes("contract") ||
+    n.includes("agreement") ||
+    n.includes("acuerdo") ||
+    n.includes("nda") ||
+    n.includes("propuesta")
+  )
+    return "contratos";
+  // balances / estados
+  if (
+    n.includes("balance") ||
+    n.includes("estado_financiero") ||
+    n.includes("estado-financiero") ||
+    n.includes("ebitda") ||
+    n.includes("pyl") ||
+    n.includes("p&l") ||
+    n.includes("cashflow") ||
+    n.includes("cierre_anual")
+  )
+    return "balances";
+  // liquidaciones (sueldos)
+  if (
+    n.includes("liquidacion") ||
+    n.includes("liquidación") ||
+    n.includes("sueldo") ||
+    n.includes("haber") ||
+    n.includes("nomina") ||
+    n.includes("nómina") ||
+    n.includes("payroll") ||
+    n.includes("salario")
+  )
+    return "liquidaciones";
+  // impuestos
+  if (
+    n.includes("iva") ||
+    n.includes("iibb") ||
+    n.includes("ganancia") ||
+    n.includes("impuesto") ||
+    n.includes("afip") ||
+    n.includes("dgi") ||
+    n.includes("bps") ||
+    n.includes("irpf") ||
+    n.includes("tax") ||
+    n.includes("monotrib")
+  )
+    return "impuestos";
+  return "otros";
+}
+
 function formatDateShort(iso: string): string {
   const d = new Date(iso);
   const dd = String(d.getDate()).padStart(2, "0");
@@ -655,11 +756,27 @@ export function PremiumDocumentos() {
                 id="docfile"
                 type="file"
                 className="hidden"
-                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setUploadFile(f);
+                  if (f) {
+                    // Auto-detectar carpeta a partir del filename
+                    const detected = detectFolderFromFilename(f.name);
+                    setUploadFolder(detected);
+                  }
+                }}
               />
             </label>
           </Field>
-          <Field label="Carpeta" required>
+          <Field
+            label="Carpeta"
+            hint={
+              uploadFile
+                ? "Detectada automáticamente desde el nombre del archivo. Cambialá si la clasificación no es correcta."
+                : "Se completa automáticamente al elegir el archivo."
+            }
+            required
+          >
             <Select
               value={uploadFolder}
               onChange={(e) => setUploadFolder(e.target.value as DocumentFolder)}

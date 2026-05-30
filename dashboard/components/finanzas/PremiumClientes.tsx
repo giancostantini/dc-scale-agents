@@ -46,6 +46,8 @@ import {
   getClients,
   getPayments,
   listFeeSchedules,
+  updateClientFee,
+  upsertFeeSchedule,
 } from "@/lib/storage";
 import type {
   Client,
@@ -53,8 +55,11 @@ import type {
   InvoicePayment,
 } from "@/lib/types";
 import { Button } from "@/components/premium/Button";
+import { Modal } from "@/components/premium/Modal";
+import { Field, Input } from "@/components/premium/Field";
 import NewClientModal from "@/components/NewClientModal";
 import { cn } from "@/lib/cn";
+import { toast } from "sonner";
 
 const MONTHS_SHORT_ES = [
   "Ene", "Feb", "Mar", "Abr", "May", "Jun",
@@ -94,6 +99,10 @@ export function PremiumClientes() {
   const [page, setPage] = useState(0);
   const pageSize = 10;
   const [newClientModal, setNewClientModal] = useState(false);
+
+  // Modales de acuerdo anual
+  const [viewAgreementClient, setViewAgreementClient] = useState<Client | null>(null);
+  const [editAgreementClient, setEditAgreementClient] = useState<Client | null>(null);
 
   function refresh() {
     setLoading(true);
@@ -734,26 +743,27 @@ export function PremiumClientes() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
-                        <Link
-                          href={`/cliente/${row.c.id}`}
+                        <button
+                          onClick={() => setViewAgreementClient(row.c)}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
-                          title="Ver"
+                          title="Ver acuerdo anual"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                        </Link>
+                        </button>
+                        <button
+                          onClick={() => setEditAgreementClient(row.c)}
+                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
+                          title="Editar acuerdo anual"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <Link
                           href={`/cliente/${row.c.id}`}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
-                          title="Editar"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Link>
-                        <button
-                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
-                          title="Más"
+                          title="Abrir ficha del cliente"
                         >
                           <MoreHorizontal className="w-3.5 h-3.5" />
-                        </button>
+                        </Link>
                       </div>
                     </td>
                   </tr>
@@ -825,7 +835,342 @@ export function PremiumClientes() {
           refresh();
         }}
       />
+
+      {/* Modal: Ver acuerdo anual */}
+      <AgreementViewModal
+        client={viewAgreementClient}
+        onClose={() => setViewAgreementClient(null)}
+        feeSchedules={feeSchedules}
+        payments={payments}
+      />
+
+      {/* Modal: Editar acuerdo anual */}
+      <AgreementEditModal
+        client={editAgreementClient}
+        onClose={() => setEditAgreementClient(null)}
+        feeSchedules={feeSchedules}
+        onSaved={() => {
+          setEditAgreementClient(null);
+          refresh();
+        }}
+      />
     </div>
+  );
+}
+
+// ============================================================
+// Modal: Ver Acuerdo Anual
+// ============================================================
+function AgreementViewModal({
+  client,
+  onClose,
+  feeSchedules,
+  payments,
+}: {
+  client: Client | null;
+  onClose: () => void;
+  feeSchedules: ClientFeeSchedule[];
+  payments: InvoicePayment[];
+}) {
+  if (!client) return null;
+
+  const now = new Date();
+  const months: { mk: string; label: string; fee: number; status: string }[] = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const [_, m] = mk.split("-").map(Number);
+    const p = payments.find((pp) => pp.clientId === client.id && pp.month === mk);
+    const scheduled = effectiveFeeForMonth(feeSchedules, client.id, mk);
+    const fee = p?.amountOverride ?? scheduled ?? client.fee;
+    const status = p ? p.status : "—";
+    months.push({
+      mk,
+      label: `${MONTHS_SHORT_ES[m - 1]} ${String(d.getFullYear()).slice(-2)}`,
+      fee,
+      status,
+    });
+  }
+  const totalProyectado = months.reduce((s, m) => s + m.fee, 0);
+  const tramos = feeSchedules
+    .filter((s) => s.clientId === client.id)
+    .sort((a, b) => a.startMonth.localeCompare(b.startMonth));
+
+  return (
+    <Modal
+      open={!!client}
+      onClose={onClose}
+      title={`Acuerdo anual — ${client.name}`}
+      description="Resumen del fee mensual proyectado para los próximos 12 meses."
+      size="lg"
+    >
+      <div className="space-y-5">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-paper-100/60 border border-rule rounded-premium-sm p-3">
+            <div className="text-2xs text-ink-300 uppercase tracking-wider font-semibold">Fee base</div>
+            <div className="text-lg font-semibold text-ink mt-1 tabular-nums">
+              {formatMoney(client.fee)}
+            </div>
+            <div className="text-2xs text-ink-300 mt-0.5">por mes</div>
+          </div>
+          <div className="bg-paper-100/60 border border-rule rounded-premium-sm p-3">
+            <div className="text-2xs text-ink-300 uppercase tracking-wider font-semibold">Proyectado 12m</div>
+            <div className="text-lg font-semibold text-ink mt-1 tabular-nums">
+              {formatMoney(totalProyectado)}
+            </div>
+            <div className="text-2xs text-ink-300 mt-0.5">próximos 12 meses</div>
+          </div>
+          <div className="bg-paper-100/60 border border-rule rounded-premium-sm p-3">
+            <div className="text-2xs text-ink-300 uppercase tracking-wider font-semibold">Tramos vigentes</div>
+            <div className="text-lg font-semibold text-ink mt-1 tabular-nums">
+              {tramos.length}
+            </div>
+            <div className="text-2xs text-ink-300 mt-0.5">cambios de fee</div>
+          </div>
+        </div>
+
+        {tramos.length > 0 && (
+          <div>
+            <div className="text-2xs uppercase tracking-wider text-ink-300 font-semibold mb-2">
+              Tramos de fee
+            </div>
+            <div className="border border-rule rounded-premium-sm overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-paper-100/60 border-b border-rule">
+                    <th className="text-left px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Desde</th>
+                    <th className="text-left px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Hasta</th>
+                    <th className="text-right px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Importe</th>
+                    <th className="text-left px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tramos.map((t) => (
+                    <tr key={t.id} className="border-t border-rule-soft">
+                      <td className="px-3 py-2 text-ink tabular-nums">{t.startMonth}</td>
+                      <td className="px-3 py-2 text-ink-400 tabular-nums">{t.endMonth ?? "—"}</td>
+                      <td className="px-3 py-2 text-right text-ink tabular-nums">{formatMoney(t.amount)}</td>
+                      <td className="px-3 py-2 text-ink-400 truncate max-w-xs">{t.notes ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="text-2xs uppercase tracking-wider text-ink-300 font-semibold mb-2">
+            Próximos 12 meses
+          </div>
+          <div className="border border-rule rounded-premium-sm overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-paper-100/60 border-b border-rule">
+                  <th className="text-left px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Mes</th>
+                  <th className="text-right px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Fee efectivo</th>
+                  <th className="text-left px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {months.map((m) => (
+                  <tr key={m.mk} className="border-t border-rule-soft">
+                    <td className="px-3 py-2 text-ink">{m.label}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatMoney(m.fee)}</td>
+                    <td className="px-3 py-2 text-ink-400 capitalize">{m.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================
+// Modal: Editar Acuerdo Anual
+// ============================================================
+function AgreementEditModal({
+  client,
+  onClose,
+  feeSchedules,
+  onSaved,
+}: {
+  client: Client | null;
+  onClose: () => void;
+  feeSchedules: ClientFeeSchedule[];
+  onSaved: () => void;
+}) {
+  const [mode, setMode] = useState<"base" | "tramo">("base");
+  const [baseFee, setBaseFee] = useState("");
+  const [tramoStart, setTramoStart] = useState(() => new Date().toISOString().slice(0, 7));
+  const [tramoEnd, setTramoEnd] = useState("");
+  const [tramoAmount, setTramoAmount] = useState("");
+  const [tramoNotes, setTramoNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (client) {
+      setBaseFee(String(client.fee));
+      setMode("base");
+      setTramoStart(new Date().toISOString().slice(0, 7));
+      setTramoEnd("");
+      setTramoAmount(String(client.fee));
+      setTramoNotes("");
+    }
+  }, [client]);
+
+  if (!client) return null;
+
+  async function save() {
+    if (!client) return;
+    setSaving(true);
+    try {
+      if (mode === "base") {
+        const n = Number(baseFee);
+        if (!Number.isFinite(n) || n < 0) {
+          toast.error("Importe inválido");
+          return;
+        }
+        await updateClientFee(client.id, n);
+        toast.success("Fee base actualizado");
+      } else {
+        const n = Number(tramoAmount);
+        if (!Number.isFinite(n) || n < 0) {
+          toast.error("Importe inválido");
+          return;
+        }
+        if (!tramoStart) {
+          toast.error("Falta el mes de inicio");
+          return;
+        }
+        await upsertFeeSchedule(
+          client.id,
+          tramoStart,
+          n,
+          "USD",
+          tramoNotes.trim() || null,
+          tramoEnd.trim() ? tramoEnd : null,
+        );
+        toast.success("Tramo guardado");
+      }
+      onSaved();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const tramos = feeSchedules
+    .filter((s) => s.clientId === client.id)
+    .sort((a, b) => a.startMonth.localeCompare(b.startMonth));
+
+  return (
+    <Modal
+      open={!!client}
+      onClose={() => !saving && onClose()}
+      title={`Editar acuerdo — ${client.name}`}
+      description="Cambiá el fee base o agregá un tramo con vigencia."
+      size="md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={save} loading={saving}>
+            Guardar
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex border border-rule rounded-premium-sm overflow-hidden text-xs">
+          <button
+            onClick={() => setMode("base")}
+            className={cn(
+              "flex-1 px-3 py-2 transition-colors",
+              mode === "base"
+                ? "bg-ink text-paper font-semibold"
+                : "text-ink-400 hover:bg-paper-100",
+            )}
+          >
+            Fee base
+          </button>
+          <button
+            onClick={() => setMode("tramo")}
+            className={cn(
+              "flex-1 px-3 py-2 transition-colors",
+              mode === "tramo"
+                ? "bg-ink text-paper font-semibold"
+                : "text-ink-400 hover:bg-paper-100",
+            )}
+          >
+            Tramo
+          </button>
+        </div>
+
+        {mode === "base" ? (
+          <>
+            <Field
+              label="Fee base mensual (USD)"
+              hint="Es el fallback que se usa cuando ningún tramo cubre el mes."
+              required
+            >
+              <Input
+                type="number"
+                value={baseFee}
+                onChange={(e) => setBaseFee(e.target.value)}
+                placeholder="0"
+              />
+            </Field>
+            {tramos.length > 0 && (
+              <div className="text-2xs text-ink-300 bg-paper-100/60 border border-rule rounded-premium-sm p-2.5">
+                Este cliente tiene <strong>{tramos.length}</strong> tramo(s) que
+                pueden sobreescribir el fee base en meses específicos.
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mes inicio" required>
+                <Input
+                  type="month"
+                  value={tramoStart}
+                  onChange={(e) => setTramoStart(e.target.value)}
+                />
+              </Field>
+              <Field label="Mes fin (opcional)" hint="Vacío = vigente sin cierre.">
+                <Input
+                  type="month"
+                  value={tramoEnd}
+                  onChange={(e) => setTramoEnd(e.target.value)}
+                />
+              </Field>
+            </div>
+            <Field label="Importe (USD)" required>
+              <Input
+                type="number"
+                value={tramoAmount}
+                onChange={(e) => setTramoAmount(e.target.value)}
+                placeholder="0"
+              />
+            </Field>
+            <Field label="Notas (opcional)">
+              <Input
+                value={tramoNotes}
+                onChange={(e) => setTramoNotes(e.target.value)}
+                placeholder='Ej: "Upgrade a plan Premium"'
+              />
+            </Field>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
 

@@ -478,6 +478,84 @@ export function PremiumFacturacion() {
     toast.success("CSV descargado");
   }
 
+  /**
+   * Desglose del MES CORRIENTE listo para el contador.
+   * Incluye datos fiscales del cliente (CUIT, email, teléfono) para
+   * que el contador emita las facturas reales. Una fila por cada
+   * comprobante del mes actual.
+   */
+  function exportContadorBreakdown() {
+    const mesActual = curMonth;
+    const [yy, mm] = mesActual.split("-").map(Number);
+    const mesLabel = `${MONTHS_LONG_ES[mm - 1]} ${yy}`;
+    const delMes = comprobantes.filter((c) => c.fecha.slice(0, 7) === mesActual);
+    if (delMes.length === 0) {
+      toast.error(`No hay facturas para ${mesLabel}`);
+      return;
+    }
+    const header = [
+      "Comprobante",
+      "Fecha emisión",
+      "Vencimiento",
+      "Cliente",
+      "CUIT/RUT",
+      "Email",
+      "Teléfono",
+      "País",
+      "Concepto",
+      "Importe USD",
+      "Estado actual",
+    ];
+    const rows = delMes.map((c) =>
+      [
+        c.number,
+        c.fecha,
+        c.vencimiento,
+        c.client.name,
+        c.client.tax_id ?? "",
+        c.client.contact_email ?? "",
+        c.client.contact_phone ?? "",
+        c.client.country ?? "",
+        c.concepto,
+        c.importe.toFixed(2),
+        c.estado,
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const totalDelMes = delMes.reduce((s, c) => s + c.importe, 0);
+    const totalRow = [
+      `"TOTAL ${mesLabel}"`,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      `"${delMes.length} comprobante(s)"`,
+      `"${totalDelMes.toFixed(2)}"`,
+      "",
+    ].join(",");
+    const csv = "﻿" + [
+      `"Desglose de facturación — ${mesLabel}"`,
+      "",
+      header.join(","),
+      ...rows,
+      totalRow,
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `desglose-facturas-${mesActual}-contador.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Desglose de ${mesLabel} descargado`);
+  }
+
   return (
     <div className="space-y-6">
       {/* ===== Header ===== */}
@@ -502,6 +580,10 @@ export function PremiumFacturacion() {
             }}
             label={period.label}
           />
+          <Button variant="secondary" size="md" onClick={exportContadorBreakdown}>
+            <Download className="w-4 h-4" />
+            Desglose del mes
+          </Button>
           <Button variant="primary" size="md" onClick={() => setNewModal(true)}>
             <Plus className="w-4 h-4" />
             Nueva Factura

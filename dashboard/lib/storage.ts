@@ -236,6 +236,24 @@ export async function deleteClient(id: string): Promise<void> {
 }
 
 /**
+ * Actualiza el fee de contrato (base) del cliente. Este fee es el
+ * fallback cuando ningún tramo (client_fee_schedules) cubre el mes
+ * consultado. Se usa desde el modal "Editar acuerdo anual" en
+ * Finanzas → Clientes.
+ */
+export async function updateClientFee(
+  clientId: string,
+  fee: number,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ fee })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
  * Actualiza la frecuencia semanal de contenido por red social.
  * Reemplaza el JSONB entero (no es merge — el director define todas
  * las redes que usa en una sola pasada).
