@@ -7,6 +7,8 @@ import {
   listCuentas,
   type CuentaBancaria,
 } from "@/lib/cuentas-bancarias";
+import { addAssignment, listProfiles } from "@/lib/team";
+import type { Profile } from "@/lib/supabase/auth";
 import { deleteFile, makeWizardSessionId } from "@/lib/upload";
 import Dropzone from "./Dropzone";
 import type {
@@ -155,13 +157,25 @@ export default function NewClientModal({
   const [modules, setModules] = useState<ModulesState>(DEFAULT_MODULES);
   const [devProjectType, setDevProjectType] = useState<string>("");
 
+  // Step 3/4/5 — dev específico
+  const [devProductionCost, setDevProductionCost] = useState("");
+  const [devMaintenanceCost, setDevMaintenanceCost] = useState("");
+  const [devProjectFile, setDevProjectFile] = useState<OnboardingFile | null>(null);
+  const [devDeliveryDate, setDevDeliveryDate] = useState("");
+  const [devAssignedUserIds, setDevAssignedUserIds] = useState<string[]>([]);
+  const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
+
   // Confirm
   const [saving, setSaving] = useState(false);
 
-  // Cargar cuentas bancarias al abrir el modal
+  // Cargar cuentas bancarias + miembros del equipo al abrir el modal
   useEffect(() => {
     if (open) {
       listCuentas().then(setCuentas);
+      listProfiles().then((profs) => {
+        // Solo director + team — los clients no aplican como asignados
+        setTeamMembers(profs.filter((p) => p.role !== "client"));
+      });
     }
   }, [open]);
 
@@ -202,6 +216,11 @@ export default function NewClientModal({
     setBrandbookPdfProgress(null);
     setModules(DEFAULT_MODULES);
     setDevProjectType("");
+    setDevProductionCost("");
+    setDevMaintenanceCost("");
+    setDevProjectFile(null);
+    setDevDeliveryDate("");
+    setDevAssignedUserIds([]);
   }
 
   function updateTier(idx: number, value: string) {
@@ -224,7 +243,16 @@ export default function NewClientModal({
   function canAdvance(): boolean {
     if (step === 1) return !!type;
     if (step === 2) return name.trim().length > 0 && sector.trim().length > 0;
-    if (step === 3) return fee.trim() !== "" && Number(fee) > 0;
+    if (step === 3) {
+      // Dev: precio producción + mantenimiento.  Solo requerimos que al
+      // menos uno tenga valor (mantenimiento será el `fee` recurrente).
+      if (type === "dev") {
+        const prod = Number(devProductionCost) || 0;
+        const mant = Number(devMaintenanceCost) || 0;
+        return prod > 0 || mant > 0;
+      }
+      return fee.trim() !== "" && Number(fee) > 0;
+    }
     return true;
   }
 
@@ -243,6 +271,7 @@ export default function NewClientModal({
   function handleClose() {
     const orphanPaths: string[] = [];
     if (kickoffFile?.path) orphanPaths.push(kickoffFile.path);
+    if (devProjectFile?.path) orphanPaths.push(devProjectFile.path);
     for (const f of brandingFiles) orphanPaths.push(f.path);
     if (orphanPaths.length > 0) {
       Promise.allSettled(orphanPaths.map((p) => deleteFile(p))).catch(() => {});
@@ -262,28 +291,61 @@ export default function NewClientModal({
         feeVariableTiers: hasVariable
           ? variableTiers.map((t) => t.trim()).filter(Boolean)
           : undefined,
-        kickoffFile: kickoffFile ?? undefined,
-        brandingFiles: brandingFiles.length ? brandingFiles : undefined,
-        budgetMarketing: makeBudgetTier(budgetMarketingFixed, budgetMarketingPct),
-        budgetProduccion: makeBudgetTier(budgetProduccionFixed, budgetProduccionPct),
+        // Para GP: kickoff + branding.  Para dev: solo el PDF del proyecto.
+        kickoffFile: type === "gp" ? (kickoffFile ?? undefined) : undefined,
+        brandingFiles:
+          type === "gp" && brandingFiles.length ? brandingFiles : undefined,
+        budgetMarketing:
+          type === "gp"
+            ? makeBudgetTier(budgetMarketingFixed, budgetMarketingPct)
+            : undefined,
+        budgetProduccion:
+          type === "gp"
+            ? makeBudgetTier(budgetProduccionFixed, budgetProduccionPct)
+            : undefined,
         devProjectType:
           type === "dev" && devProjectType ? devProjectType : undefined,
+        devProductionCost:
+          type === "dev" && devProductionCost
+            ? Number(devProductionCost)
+            : undefined,
+        devMaintenanceCost:
+          type === "dev" && devMaintenanceCost
+            ? Number(devMaintenanceCost)
+            : undefined,
+        devProjectFile:
+          type === "dev" ? (devProjectFile ?? undefined) : undefined,
+        devDeliveryDate:
+          type === "dev" && devDeliveryDate ? devDeliveryDate : undefined,
+        devAssignedUserIds:
+          type === "dev" && devAssignedUserIds.length > 0
+            ? devAssignedUserIds
+            : undefined,
         isBrandLaunch: isBrandLaunch || undefined,
       };
 
-      const feeVariableSummary = hasVariable
-        ? variableTiers
-            .map((t) => t.trim())
-            .filter(Boolean)
-            .join(" · ") || undefined
-        : undefined;
+      const feeVariableSummary =
+        type === "gp" && hasVariable
+          ? variableTiers
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .join(" · ") || undefined
+          : undefined;
+
+      // El `fee` recurrente mensual:
+      //   GP → fee del contrato (input "Fee mensual")
+      //   Dev → mantenimiento mensual (devMaintenanceCost)
+      const recurringFee =
+        type === "dev"
+          ? Number(devMaintenanceCost) || 0
+          : Number(fee);
 
       const newClient = await addClient({
         name: name.trim(),
         sector: sector.trim(),
         country,
         type,
-        fee: Number(fee),
+        fee: recurringFee,
         method,
         contactName,
         contactEmail,
@@ -293,6 +355,21 @@ export default function NewClientModal({
         onboarding,
         defaultCuentaId: defaultCuentaId || null,
       });
+
+      // Si el cliente es de tipo dev y se asignaron personas, creamos
+      // las filas en client_assignments. No bloqueamos si falla — el
+      // director puede asignar después desde la ficha del cliente.
+      if (type === "dev" && devAssignedUserIds.length > 0) {
+        await Promise.allSettled(
+          devAssignedUserIds.map((userId) =>
+            addAssignment({
+              client_id: newClient.id,
+              user_id: userId,
+              role_in_client: "Desarrollo",
+            }),
+          ),
+        );
+      }
 
       // Fire-and-forget: scaffold del vault folder en background.
       fetch("/api/clients/bootstrap", {
@@ -538,46 +615,106 @@ export default function NewClientModal({
         {/* ===== STEP 3 — CONTRATO + FEES ===== */}
         {step === 3 && (
           <>
-            <div className={styles.sectionLabel}>Fee mensual fijo</div>
-            <div className={styles.fieldGrid2}>
-              <div className={styles.field}>
-                <label>Fee mensual (USD)</label>
-                <input
-                  type="number"
-                  value={fee}
-                  onChange={(e) => setFee(e.target.value)}
-                  placeholder="3500"
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Duración del contrato</label>
-                <select
-                  value={contractDuration}
-                  onChange={(e) => setContractDuration(e.target.value)}
+            {type === "dev" ? (
+              // ===== DEV: precio de producción + mantenimiento mensual =====
+              <>
+                <div className={styles.sectionLabel}>
+                  Precio del desarrollo
+                </div>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: -8,
+                    marginBottom: 14,
+                  }}
                 >
-                  <option value="6">6 meses</option>
-                  <option value="12">12 meses</option>
-                  <option value="18">18 meses</option>
-                  <option value="24">24 meses</option>
-                  <option value="open">Sin plazo fijo</option>
-                </select>
-              </div>
-            </div>
+                  El precio se desglosa en producción (one-time, cobrado al
+                  arranque) + mantenimiento mensual recurrente. El
+                  mantenimiento alimenta el MRR.
+                </p>
+                <div className={styles.fieldGrid2}>
+                  <div className={styles.field}>
+                    <label>Precio producción (USD · one-time)</label>
+                    <input
+                      type="number"
+                      value={devProductionCost}
+                      onChange={(e) => setDevProductionCost(e.target.value)}
+                      placeholder="12000"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Mantenimiento mensual (USD)</label>
+                    <input
+                      type="number"
+                      value={devMaintenanceCost}
+                      onChange={(e) => setDevMaintenanceCost(e.target.value)}
+                      placeholder="500"
+                    />
+                  </div>
+                </div>
 
-            <div className={styles.field}>
-              <label>Método / modalidad</label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-              >
-                <option>Método completo</option>
-                <option>Solo Ads</option>
-                <option>eCommerce full</option>
-                <option>Contenido + SEO</option>
-                <option>Generación de leads</option>
-                <option>Personalizado</option>
-              </select>
-            </div>
+                <div className={styles.fieldGrid2}>
+                  <div className={styles.field}>
+                    <label>Duración del contrato de mantenimiento</label>
+                    <select
+                      value={contractDuration}
+                      onChange={(e) => setContractDuration(e.target.value)}
+                    >
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                      <option value="18">18 meses</option>
+                      <option value="24">24 meses</option>
+                      <option value="open">Sin plazo fijo</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // ===== GP: fee mensual + método =====
+              <>
+                <div className={styles.sectionLabel}>Fee mensual fijo</div>
+                <div className={styles.fieldGrid2}>
+                  <div className={styles.field}>
+                    <label>Fee mensual (USD)</label>
+                    <input
+                      type="number"
+                      value={fee}
+                      onChange={(e) => setFee(e.target.value)}
+                      placeholder="3500"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Duración del contrato</label>
+                    <select
+                      value={contractDuration}
+                      onChange={(e) => setContractDuration(e.target.value)}
+                    >
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                      <option value="18">18 meses</option>
+                      <option value="24">24 meses</option>
+                      <option value="open">Sin plazo fijo</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label>Método / modalidad</label>
+                  <select
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value)}
+                  >
+                    <option>Método completo</option>
+                    <option>Solo Ads</option>
+                    <option>eCommerce full</option>
+                    <option>Contenido + SEO</option>
+                    <option>Generación de leads</option>
+                    <option>Personalizado</option>
+                  </select>
+                </div>
+              </>
+            )}
 
             {/* Medio de pago: la cuenta bancaria donde acreditamos los
                 cobros de este cliente. Cuando marquemos una factura
@@ -619,47 +756,51 @@ export default function NewClientModal({
             </div>
 
             {/* Tipo de cliente: lanzamiento de marca vs negocio operando.
+                Solo aplica a GP — para dev no tiene sentido.
                 Cuando es lanzamiento, el reporte de Diagnóstico se adapta
                 (sin Estado de canales, sin Oportunidades de crecimiento,
                 sin Roadmap a 90 días — esos no aplican). */}
-            <div
-              style={{
-                marginBottom: 24,
-                padding: 18,
-                background: "var(--off-white)",
-                borderLeft: "3px solid var(--sand-dark)",
-              }}
-            >
-              <label
+            {type === "gp" && (
+              <div
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  cursor: "pointer",
-                  fontSize: 13,
+                  marginBottom: 24,
+                  padding: 18,
+                  background: "var(--off-white)",
+                  borderLeft: "3px solid var(--sand-dark)",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={isBrandLaunch}
-                  onChange={(e) => setIsBrandLaunch(e.target.checked)}
-                  style={{ width: "auto", marginTop: 3 }}
-                />
-                <span>
-                  <strong>Es un lanzamiento de marca</strong>
-                  <br />
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    Negocio nuevo que recién arranca. Aún no tiene canales
-                    digitales activos, ventas históricas ni performance que
-                    medir. El reporte de Diagnóstico se adapta: omite
-                    Estado de canales, Oportunidades de crecimiento y
-                    Roadmap a 90 días (no aplican antes de lanzar).
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isBrandLaunch}
+                    onChange={(e) => setIsBrandLaunch(e.target.checked)}
+                    style={{ width: "auto", marginTop: 3 }}
+                  />
+                  <span>
+                    <strong>Es un lanzamiento de marca</strong>
+                    <br />
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Negocio nuevo que recién arranca. Aún no tiene canales
+                      digitales activos, ventas históricas ni performance que
+                      medir. El reporte de Diagnóstico se adapta: omite
+                      Estado de canales, Oportunidades de crecimiento y
+                      Roadmap a 90 días (no aplican antes de lanzar).
+                    </span>
                   </span>
-                </span>
-              </label>
-            </div>
+                </label>
+              </div>
+            )}
 
-            {/* Fee variable por tramos escalonados */}
+            {/* Fee variable por tramos escalonados — solo GP */}
+            {type === "gp" && (
             <div
               style={{
                 marginTop: 4,
@@ -800,6 +941,7 @@ export default function NewClientModal({
                 </div>
               )}
             </div>
+            )}
 
             <div className={styles.sectionLabel}>Fechas de vigencia</div>
             <div className={styles.fieldGrid2}>
@@ -880,43 +1022,49 @@ export default function NewClientModal({
               )}
             </div>
 
-            {/* Presupuestos (movidos del step 4 — son contractuales) */}
-            <div className={styles.sectionLabel}>
-              Presupuestos default del cliente
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                marginBottom: 16,
-                lineHeight: 1.5,
-              }}
-            >
-              Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
-              Si el negocio escala, el presupuesto crece automáticamente con el
-              revenue manteniendo el mínimo garantizado.
-            </div>
+            {/* Presupuestos default — solo GP. Dev no necesita
+                budget marketing/producción. */}
+            {type === "gp" && (
+              <>
+                <div className={styles.sectionLabel}>
+                  Presupuestos default del cliente
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginBottom: 16,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
+                  Si el negocio escala, el presupuesto crece automáticamente con el
+                  revenue manteniendo el mínimo garantizado.
+                </div>
 
-            <BudgetField
-              label="Presupuesto marketing (ads mensual)"
-              fixed={budgetMarketingFixed}
-              setFixed={setBudgetMarketingFixed}
-              pct={budgetMarketingPct}
-              setPct={setBudgetMarketingPct}
-              fixedPlaceholder="5000"
-              pctPlaceholder="10"
-            />
+                <BudgetField
+                  label="Presupuesto marketing (ads mensual)"
+                  fixed={budgetMarketingFixed}
+                  setFixed={setBudgetMarketingFixed}
+                  pct={budgetMarketingPct}
+                  setPct={setBudgetMarketingPct}
+                  fixedPlaceholder="5000"
+                  pctPlaceholder="10"
+                />
 
-            <BudgetField
-              label="Presupuesto producción/campañas"
-              fixed={budgetProduccionFixed}
-              setFixed={setBudgetProduccionFixed}
-              pct={budgetProduccionPct}
-              setPct={setBudgetProduccionPct}
-              fixedPlaceholder="1500"
-              pctPlaceholder="3"
-            />
+                <BudgetField
+                  label="Presupuesto producción/campañas"
+                  fixed={budgetProduccionFixed}
+                  setFixed={setBudgetProduccionFixed}
+                  pct={budgetProduccionPct}
+                  setPct={setBudgetProduccionPct}
+                  fixedPlaceholder="1500"
+                  pctPlaceholder="3"
+                />
+              </>
+            )}
 
+            {/* Resumen total — adapta el monto según el tipo */}
             <div
               style={{
                 marginTop: 20,
@@ -940,11 +1088,23 @@ export default function NewClientModal({
                     textTransform: "uppercase",
                   }}
                 >
-                  Total MRR esperado
+                  {type === "dev"
+                    ? "Resumen del proyecto"
+                    : "Total MRR esperado"}
                 </div>
                 <div style={{ fontSize: 14 }}>
-                  Fee fijo: <strong>${fee || 0}</strong>
-                  {hasVariable ? " + variable estimado" : ""}
+                  {type === "dev" ? (
+                    <>
+                      Producción: <strong>${devProductionCost || 0}</strong>
+                      {" "}+ Mantenimiento mensual:{" "}
+                      <strong>${devMaintenanceCost || 0}</strong>
+                    </>
+                  ) : (
+                    <>
+                      Fee fijo: <strong>${fee || 0}</strong>
+                      {hasVariable ? " + variable estimado" : ""}
+                    </>
+                  )}
                 </div>
               </div>
               <div
@@ -954,14 +1114,74 @@ export default function NewClientModal({
                   color: "var(--sand)",
                 }}
               >
-                ${(parseFloat(fee) || 0).toLocaleString()}/mes
+                {type === "dev"
+                  ? `$${(parseFloat(devMaintenanceCost) || 0).toLocaleString()}/mes`
+                  : `$${(parseFloat(fee) || 0).toLocaleString()}/mes`}
               </div>
             </div>
           </>
         )}
 
-        {/* ===== STEP 4 — KICKOFF + BRANDING ===== */}
-        {step === 4 && (
+        {/* ===== STEP 4 — KICKOFF + BRANDING (GP) / PROYECTO DEV ===== */}
+        {step === 4 && type === "dev" && (
+          <>
+            <div
+              style={{
+                background: "var(--deep-green)",
+                color: "var(--off-white)",
+                padding: 24,
+                marginBottom: 24,
+                borderLeft: "3px solid var(--sand)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "var(--sand)",
+                  fontWeight: 600,
+                  marginBottom: 10,
+                }}
+              >
+                ⚑ Proyecto de desarrollo · Documento maestro
+              </div>
+              <div
+                style={{
+                  fontSize: 15,
+                  lineHeight: 1.6,
+                  color: "rgba(232,228,220,0.9)",
+                }}
+              >
+                Subí el PDF con el alcance del desarrollo: arquitectura,
+                features, stack, integraciones, criterios de aceptación. Es la
+                fuente de verdad del proyecto — los desarrolladores
+                asignados van a referenciarla durante todo el sprint.
+              </div>
+            </div>
+
+            <div className={styles.sectionLabel}>
+              Proyecto de desarrollo (PDF)
+            </div>
+            <Dropzone
+              folder={`${wizardId}/dev-project`}
+              accept=".pdf,.doc,.docx"
+              icon="▢"
+              emptyTitle="Arrastrá el PDF con el proyecto o hacé click"
+              emptyHint="Alcance funcional · arquitectura · features · stack"
+              files={devProjectFile ? [devProjectFile] : []}
+              onAdd={(uploaded) => setDevProjectFile(uploaded[0] ?? null)}
+              onRemove={() => {
+                if (devProjectFile?.path) {
+                  deleteFile(devProjectFile.path).catch(() => {});
+                }
+                setDevProjectFile(null);
+              }}
+            />
+          </>
+        )}
+
+        {step === 4 && type === "gp" && (
           <>
             <div
               style={{
@@ -1318,42 +1538,198 @@ export default function NewClientModal({
                 </div>
               </>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 12,
-                }}
-              >
-                {DEV_PROJECT_TYPES.map((t) => {
-                  const selected = devProjectType === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setDevProjectType(t)}
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 12,
+                  }}
+                >
+                  {DEV_PROJECT_TYPES.map((t) => {
+                    const selected = devProjectType === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setDevProjectType(t)}
+                        style={{
+                          padding: 20,
+                          border: `2px solid ${
+                            selected ? "var(--sand)" : "rgba(10,26,12,0.1)"
+                          }`,
+                          background: selected
+                            ? "var(--off-white)"
+                            : "var(--white)",
+                          cursor: "pointer",
+                          textAlign: "center",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          fontFamily: "inherit",
+                          color: "var(--deep-green)",
+                        }}
+                      >
+                        {selected ? "✓ " : ""}
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Fecha objetivo de entrega del producto */}
+                <div style={{ marginTop: 24 }}>
+                  <div className={styles.sectionLabel}>
+                    Fecha objetivo de entrega
+                  </div>
+                  <div className={styles.field}>
+                    <label>
+                      ¿Cuándo deberíamos tener listo el producto?
+                    </label>
+                    <input
+                      type="date"
+                      value={devDeliveryDate}
+                      onChange={(e) => setDevDeliveryDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Asignación de personas al proyecto */}
+                <div style={{ marginTop: 24 }}>
+                  <div className={styles.sectionLabel}>
+                    Asignar personas al proyecto
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginBottom: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Seleccioná los miembros del equipo que van a trabajar en
+                    este desarrollo. Quedan registrados como asignados al
+                    cliente y aparecen en el detalle del proyecto.
+                  </div>
+                  {teamMembers.length === 0 ? (
+                    <div
                       style={{
-                        padding: 20,
-                        border: `2px solid ${
-                          selected ? "var(--sand)" : "rgba(10,26,12,0.1)"
-                        }`,
-                        background: selected
-                          ? "var(--off-white)"
-                          : "var(--white)",
-                        cursor: "pointer",
-                        textAlign: "center",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        fontFamily: "inherit",
-                        color: "var(--deep-green)",
+                        padding: 16,
+                        background: "var(--off-white)",
+                        borderLeft: "3px solid var(--sand)",
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        fontStyle: "italic",
                       }}
                     >
-                      {selected ? "✓ " : ""}
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
+                      No hay miembros del equipo cargados. Invitá personas
+                      desde <strong>/equipo</strong>.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, 1fr)",
+                        gap: 8,
+                      }}
+                    >
+                      {teamMembers.map((m) => {
+                        const selected = devAssignedUserIds.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setDevAssignedUserIds((prev) =>
+                                prev.includes(m.id)
+                                  ? prev.filter((x) => x !== m.id)
+                                  : [...prev, m.id],
+                              );
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: 12,
+                              border: `2px solid ${
+                                selected ? "var(--sand)" : "rgba(10,26,12,0.1)"
+                              }`,
+                              background: selected
+                                ? "var(--off-white)"
+                                : "var(--white)",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontFamily: "inherit",
+                              borderRadius: 6,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                background: selected
+                                  ? "var(--sand)"
+                                  : "var(--off-white)",
+                                color: "var(--deep-green)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: "50%",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {m.initials || m.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: "var(--deep-green)",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {selected ? "✓ " : ""}
+                                {m.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  color: "var(--text-muted)",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                {m.role === "director" ? "Director" : "Equipo"}
+                                {m.position ? ` · ${m.position}` : ""}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {devAssignedUserIds.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        fontSize: 11,
+                        color: "var(--deep-green)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {devAssignedUserIds.length}{" "}
+                      {devAssignedUserIds.length === 1
+                        ? "persona asignada"
+                        : "personas asignadas"}{" "}
+                      al proyecto.
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </>
         )}

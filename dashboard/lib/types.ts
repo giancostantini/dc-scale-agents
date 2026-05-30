@@ -99,6 +99,20 @@ export interface ClientOnboarding {
 
   // Dev
   devProjectType?: string;
+  /** Costo one-time de producción de la herramienta (USD). */
+  devProductionCost?: number;
+  /** Mantenimiento mensual recurrente (USD). Se usa como `fee`
+   *  cuando el cliente es de tipo dev — alimenta el MRR. */
+  devMaintenanceCost?: number;
+  /** PDF con el documento del proyecto de desarrollo. Separado del
+   *  kickoffFile (que se usa solo para GP). */
+  devProjectFile?: OnboardingFile | string;
+  /** Fecha objetivo de entrega del producto (YYYY-MM-DD). */
+  devDeliveryDate?: string;
+  /** IDs (auth.users.id) de los miembros del equipo asignados al
+   *  proyecto de desarrollo. Al crear el cliente se inserta una
+   *  fila por usuario en client_assignments. */
+  devAssignedUserIds?: string[];
 
   // Si true, es un lanzamiento de marca (negocio nuevo sin canales
   // activos). El reporte de Diagnóstico se adapta: 9 secciones en
