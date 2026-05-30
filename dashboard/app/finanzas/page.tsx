@@ -48,6 +48,7 @@ import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
 import { PremiumDocumentos } from "@/components/finanzas/PremiumDocumentos";
 import { PremiumDividendos } from "@/components/finanzas/PremiumDividendos";
+import { PremiumCuentasBancarias } from "@/components/finanzas/PremiumCuentasBancarias";
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
@@ -69,7 +70,8 @@ type FinPage =
   | "estados"
   | "clientes"
   | "facturacion"
-  | "documentos";
+  | "documentos"
+  | "cuentas";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
 
@@ -173,6 +175,7 @@ export default function FinanzasPage() {
         { key: "facturacion", icon: "$", label: "Facturación" },
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
+        { key: "cuentas", icon: "◫", label: "Cuentas bancarias" },
         { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "documentos", icon: "▤", label: "Documentos" },
@@ -230,6 +233,7 @@ export default function FinanzasPage() {
             {page === "clientes" && <PremiumClientes />}
             {page === "facturacion" && <PremiumFacturacion />}
             {page === "documentos" && <PremiumDocumentos />}
+            {page === "cuentas" && <PremiumCuentasBancarias />}
             {page === "mkt_clientes" && (
               <MktClientesView
                 clients={clients}
