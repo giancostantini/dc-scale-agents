@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Sparkles,
   FileText,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
@@ -139,6 +140,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { key: "biblioteca",  href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
     { key: "solicitudes", href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
     { key: "notas",       href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
+    { key: "configuracion", href: `${base}/configuracion`, icon: Settings, label: "Configuración", directorOnly: true },
   ];
 
   const navDev: NavItem[] = [
@@ -149,6 +151,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { key: "biblioteca",  href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
     { key: "solicitudes", href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
     { key: "notas",       href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
+    { key: "configuracion", href: `${base}/configuracion`, icon: Settings, label: "Configuración", directorOnly: true },
   ];
 
   const baseNav = client.type === "gp" ? navGP : navDev;

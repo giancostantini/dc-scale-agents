@@ -291,6 +291,85 @@ export async function updateClientLogo(
   if (error) throw error;
 }
 
+// ==================== CLIENT CONTACTS (migración 049) ====================
+
+/** Lista todos los contactos de un cliente. */
+export async function listClientContacts(
+  clientId: string,
+): Promise<import("./types").ClientContact[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_contacts")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("listClientContacts:", error);
+    return [];
+  }
+  return (data ?? []) as import("./types").ClientContact[];
+}
+
+export interface ClientContactInput {
+  name: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  is_primary?: boolean;
+}
+
+export async function addClientContact(
+  clientId: string,
+  input: ClientContactInput,
+): Promise<import("./types").ClientContact> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_contacts")
+    .insert({
+      client_id: clientId,
+      name: input.name.trim(),
+      role: input.role?.trim() || null,
+      email: input.email?.trim() || null,
+      phone: input.phone?.trim() || null,
+      notes: input.notes?.trim() || null,
+      is_primary: input.is_primary ?? false,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(`Error agregando contacto: ${error.message}`);
+  return data as import("./types").ClientContact;
+}
+
+export async function updateClientContact(
+  id: string,
+  patch: ClientContactInput,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_contacts")
+    .update({
+      name: patch.name.trim(),
+      role: patch.role?.trim() || null,
+      email: patch.email?.trim() || null,
+      phone: patch.phone?.trim() || null,
+      notes: patch.notes?.trim() || null,
+      is_primary: patch.is_primary ?? false,
+    })
+    .eq("id", id);
+  if (error) throw new Error(`Error actualizando contacto: ${error.message}`);
+}
+
+export async function deleteClientContact(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_contacts")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(`Error eliminando contacto: ${error.message}`);
+}
+
 /**
  * Actualiza la frecuencia semanal de contenido por red social.
  * Reemplaza el JSONB entero (no es merge — el director define todas

@@ -37,6 +37,7 @@ export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "biblioteca",  segment: "biblioteca",     label: "Biblioteca" },
   { key: "solicitudes", segment: "solicitudes",    label: "Solicitudes del cliente" },
   { key: "notas",       segment: "notas",          label: "Notas internas" },
+  { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
 
 /** Menús del sidebar para clientes Desarrollo. */
@@ -48,6 +49,7 @@ export const CLIENT_MENUS_DEV: ClientMenuItem[] = [
   { key: "biblioteca",  segment: "biblioteca",  label: "Biblioteca" },
   { key: "solicitudes", segment: "solicitudes", label: "Solicitudes del cliente" },
   { key: "notas",       segment: "notas",       label: "Notas internas" },
+  { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
 
 /**

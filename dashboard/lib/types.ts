@@ -252,6 +252,20 @@ export interface Client {
   logo_url?: string | null;
 }
 
+/** Contacto del cliente (migración 049 — uno-a-muchos). */
+export interface ClientContact {
+  id: string;
+  client_id: string;
+  name: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ==================== PIPELINE / CRM ====================
 
 export type PipelineStage =
