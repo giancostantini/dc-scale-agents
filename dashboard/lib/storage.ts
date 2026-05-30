@@ -1275,6 +1275,16 @@ export async function setPaymentStatus(
       // del movimiento falla — el director puede cargar a mano.
       console.error("autoCreatePaymentMovement:", err);
     }
+    // Fire-and-forget: notif al director por mail (si tiene la pref)
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "payment_received",
+        clientId,
+        month,
+      }),
+    }).catch((err) => console.warn("[setPaymentStatus] notify failed:", err));
   }
 }
 
@@ -1590,7 +1600,32 @@ export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<
     .select()
     .single();
   if (error) throw error;
-  return taskFromRow(inserted as TaskRow);
+  const task = taskFromRow(inserted as TaskRow);
+  // Fire-and-forget: notif por email al assignee si está habilitado.
+  // El campo "assignee" es texto libre — el endpoint trata de resolver
+  // el user_id buscando matching name/email en profiles.
+  if (task.assignee) {
+    // Resolver assignee → profile.id
+    supabase
+      .from("profiles")
+      .select("id")
+      .or(`name.eq.${task.assignee},email.eq.${task.assignee}`)
+      .maybeSingle()
+      .then(({ data: prof }) => {
+        const userId = (prof as { id?: string } | null)?.id;
+        if (!userId) return;
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "task_assigned",
+            taskId: task.id,
+            assigneeUserId: userId,
+          }),
+        }).catch((err) => console.warn("[addTask] notify failed:", err));
+      });
+  }
+  return task;
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus): Promise<void> {

@@ -41,6 +41,15 @@ export interface Profile {
   permissions?: ProfilePermissions | null;
   // Migration 024: jerarquía organizacional
   reports_to_id?: string | null;
+  // Migración 047: preferencias granulares de email
+  email_on_new_request?: boolean;
+  email_on_task_assigned?: boolean;
+  email_on_client_assigned?: boolean;
+  email_on_payment_received?: boolean;
+  email_on_content_approved?: boolean;
+  // Migración 047: integración Outlook
+  outlook_email?: string | null;
+  outlook_connected_at?: string | null;
 }
 
 export type TeamPosition =

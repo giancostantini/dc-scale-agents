@@ -293,6 +293,165 @@ export async function emailPhaseApprovedToClient(input: {
 }
 
 // ============================================================
+// Templates extra — eventos internos del equipo (migración 047)
+// ============================================================
+
+/** Asignaron una tarea a alguien. */
+export async function emailTaskAssigned(input: {
+  assigneeEmail: string;
+  assigneeName: string;
+  taskTitle: string;
+  taskDescription?: string | null;
+  clientName?: string | null;
+  dueDate?: string | null;
+  priority?: string | null;
+  clientId?: string | null;
+}): Promise<{ id: string }> {
+  const ctaUrl = input.clientId
+    ? `${PORTAL_URL}/cliente/${input.clientId}/tareas`
+    : `${PORTAL_URL}/hub`;
+  const meta: string[] = [];
+  if (input.clientName) meta.push(`<strong>Cliente:</strong> ${escapeHtml(input.clientName)}`);
+  if (input.dueDate) meta.push(`<strong>Vence:</strong> ${escapeHtml(input.dueDate)}`);
+  if (input.priority) meta.push(`<strong>Prioridad:</strong> ${escapeHtml(input.priority)}`);
+  const html = baseLayout(
+    `
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        Nueva tarea asignada
+      </h1>
+      <p style="margin:0 0 16px;font-size:14px;">
+        Hola ${escapeHtml(input.assigneeName.split(" ")[0])}, te asignaron una tarea nueva en el sistema:
+      </p>
+      <div style="padding:16px;background:#f5f1e9;border-left:3px solid #c4a882;margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">
+          ${escapeHtml(input.taskTitle)}
+        </div>
+        ${
+          input.taskDescription
+            ? `<div style="font-size:13px;color:#5a5a5a;white-space:pre-wrap;">${escapeHtml(input.taskDescription)}</div>`
+            : ""
+        }
+        ${meta.length > 0 ? `<div style="font-size:12px;color:#5a5a5a;margin-top:10px;">${meta.join(" · ")}</div>` : ""}
+      </div>
+    `,
+    ctaUrl,
+    "Ver tarea",
+  );
+  return sendEmail({
+    to: input.assigneeEmail,
+    subject: `Tarea: ${input.taskTitle}`,
+    html,
+  });
+}
+
+/** Te asignaron como funcional de un cliente. */
+export async function emailClientAssigned(input: {
+  assigneeEmail: string;
+  assigneeName: string;
+  clientName: string;
+  clientId: string;
+  roleInClient: string;
+}): Promise<{ id: string }> {
+  const html = baseLayout(
+    `
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        Te asignaron a un cliente
+      </h1>
+      <p style="margin:0 0 16px;font-size:14px;">
+        Hola ${escapeHtml(input.assigneeName.split(" ")[0])}, ahora trabajás con un cliente nuevo:
+      </p>
+      <div style="padding:16px;background:#f5f1e9;border-left:3px solid #c4a882;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px;">
+          ${escapeHtml(input.clientName)}
+        </div>
+        <div style="font-size:12px;color:#5a5a5a;text-transform:uppercase;letter-spacing:0.06em;">
+          Tu rol: ${escapeHtml(input.roleInClient)}
+        </div>
+      </div>
+      <p style="margin:0;font-size:13px;color:#5a5a5a;">
+        Ya podés acceder al cliente desde tu hub para ver tareas, contenido y solicitudes.
+      </p>
+    `,
+    `${PORTAL_URL}/cliente/${input.clientId}`,
+    "Abrir cliente",
+  );
+  return sendEmail({
+    to: input.assigneeEmail,
+    subject: `Te asignaron como ${input.roleInClient} de ${input.clientName}`,
+    html,
+  });
+}
+
+/** Una factura se marcó como pagada (notif al director). */
+export async function emailPaymentReceived(input: {
+  directorEmail: string;
+  directorName: string;
+  clientName: string;
+  amount: string;
+  month: string;
+  cuentaName?: string | null;
+}): Promise<{ id: string }> {
+  const html = baseLayout(
+    `
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        ✓ Factura cobrada
+      </h1>
+      <p style="margin:0 0 16px;font-size:14px;">
+        Hola ${escapeHtml(input.directorName.split(" ")[0])}, se registró un cobro:
+      </p>
+      <div style="padding:16px;background:#ecfdf5;border-left:3px solid #16a34a;margin-bottom:16px;">
+        <div style="font-size:18px;font-weight:700;color:#15803d;margin-bottom:6px;">
+          ${escapeHtml(input.amount)}
+        </div>
+        <div style="font-size:13px;color:#5a5a5a;">
+          <strong>${escapeHtml(input.clientName)}</strong> · Factura ${escapeHtml(input.month)}
+        </div>
+        ${
+          input.cuentaName
+            ? `<div style="font-size:12px;color:#5a5a5a;margin-top:6px;">Acreditado en: ${escapeHtml(input.cuentaName)}</div>`
+            : ""
+        }
+      </div>
+    `,
+    `${PORTAL_URL}/finanzas`,
+    "Ver en Facturación",
+  );
+  return sendEmail({
+    to: input.directorEmail,
+    subject: `Cobro: ${input.clientName} — ${input.amount}`,
+    html,
+  });
+}
+
+/** Genérico para eventos importantes — soft fallback. */
+export async function emailGenericEvent(input: {
+  to: string;
+  subject: string;
+  title: string;
+  body: string;
+  ctaUrl?: string;
+  ctaLabel?: string;
+}): Promise<{ id: string }> {
+  const html = baseLayout(
+    `
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        ${escapeHtml(input.title)}
+      </h1>
+      <div style="margin:0;font-size:14px;white-space:pre-wrap;">
+        ${escapeHtml(input.body)}
+      </div>
+    `,
+    input.ctaUrl,
+    input.ctaLabel,
+  );
+  return sendEmail({
+    to: input.to,
+    subject: input.subject,
+    html,
+  });
+}
+
+// ============================================================
 // Helpers internos
 // ============================================================
 

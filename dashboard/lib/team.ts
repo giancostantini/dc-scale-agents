@@ -12,7 +12,7 @@ import type {
 } from "./supabase/auth";
 
 const PROFILE_COLS =
-  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id";
+  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, email_on_new_request, email_on_task_assigned, email_on_client_assigned, email_on_payment_received, email_on_content_approved, outlook_email, outlook_connected_at";
 
 // ============ PROFILES ============
 
@@ -58,6 +58,12 @@ export interface UpdateProfileInput {
   client_id?: string | null;
   /** Manager directo (FK a profiles.id). NULL = sin jefe directo. */
   reports_to_id?: string | null;
+  // Migración 047
+  email_on_new_request?: boolean;
+  email_on_task_assigned?: boolean;
+  email_on_client_assigned?: boolean;
+  email_on_payment_received?: boolean;
+  email_on_content_approved?: boolean;
 }
 
 export async function updateProfile(
@@ -134,6 +140,17 @@ export async function addAssignment(input: AssignmentInput): Promise<void> {
     visible_menus: input.visible_menus ?? null,
   });
   if (error) throw error;
+  // Fire-and-forget: notif al assignee
+  fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "client_assigned",
+      clientId: input.client_id,
+      userId: input.user_id,
+      roleInClient: input.role_in_client,
+    }),
+  }).catch((err) => console.warn("[addAssignment] notify failed:", err));
 }
 
 /**
