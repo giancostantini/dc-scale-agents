@@ -240,7 +240,15 @@ export type PipelineStage =
   | "negociacion"
   | "cerrado";
 
-export type LeadSource = "linkedin" | "email" | "manual" | "referido";
+export type LeadSource =
+  | "linkedin"
+  | "email"
+  | "manual"
+  | "referido"
+  | "sitio_web"
+  | "redes_sociales"
+  | "eventos"
+  | "otro";
 
 export interface Lead {
   id: string;
@@ -248,12 +256,20 @@ export interface Lead {
   company: string;
   sector: string;
   type: ClientType;
-  value: number;              // USD/mes
+  /** USD/mes — 0 cuando el lead está en prospección/contactado
+   *  (no se cotiza hasta tener claro el alcance). */
+  value: number;
   stage: PipelineStage;
   source: LeadSource;
   note?: string;
   createdAt: string;          // ISO
   meetingBooked?: boolean;
+  /** Cuándo entró a la etapa actual — para alertas por tiempo */
+  stageChangedAt?: string;
+  /** Si el lead se descartó: fecha + razón + etapa de descarte */
+  lostAt?: string | null;
+  lostReason?: string | null;
+  lostFromStage?: PipelineStage | null;
 }
 
 // Seniority alineado con Apollo.io

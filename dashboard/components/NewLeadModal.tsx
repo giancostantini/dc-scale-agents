@@ -29,7 +29,11 @@ export default function NewLeadModal({
 
   if (!open) return null;
 
-  const canSubmit = name.trim() && company.trim() && Number(value) > 0;
+  // En prospección y contactado el valor todavía no se cotiza —
+  // recién en "propuesta" se define el monto.
+  const valueRequired = stage === "propuesta" || stage === "negociacion" || stage === "cerrado";
+  const canSubmit =
+    name.trim() && company.trim() && (!valueRequired || Number(value) > 0);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -39,7 +43,7 @@ export default function NewLeadModal({
       company: company.trim(),
       sector: sector.trim() || "—",
       type,
-      value: Number(value),
+      value: valueRequired ? Number(value) : 0,
       source,
       note: note.trim() || undefined,
       stage,
@@ -100,7 +104,7 @@ export default function NewLeadModal({
           </div>
         </div>
 
-        <div className={styles.fieldGrid3}>
+        <div className={valueRequired ? styles.fieldGrid3 : styles.fieldGrid2}>
           <div className={styles.field}>
             <label>Tipo</label>
             <select
@@ -111,28 +115,51 @@ export default function NewLeadModal({
               <option value="dev">Desarrollo</option>
             </select>
           </div>
-          <div className={styles.field}>
-            <label>Valor (USD/mes)</label>
-            <input
-              type="number"
-              placeholder="3500"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-            />
-          </div>
+          {valueRequired && (
+            <div className={styles.field}>
+              <label>Valor (USD/mes)</label>
+              <input
+                type="number"
+                placeholder="3500"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </div>
+          )}
           <div className={styles.field}>
             <label>Fuente</label>
             <select
               value={source}
               onChange={(e) => setSource(e.target.value as LeadSource)}
             >
-              <option value="manual">Manual</option>
+              <option value="referido">Referido</option>
+              <option value="sitio_web">Sitio web</option>
+              <option value="redes_sociales">Redes sociales</option>
+              <option value="eventos">Eventos</option>
               <option value="linkedin">LinkedIn</option>
               <option value="email">Email</option>
-              <option value="referido">Referido</option>
+              <option value="manual">Manual</option>
+              <option value="otro">Otro</option>
             </select>
           </div>
         </div>
+        {!valueRequired && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text-muted)",
+              marginTop: -6,
+              marginBottom: 16,
+              padding: "8px 12px",
+              background: "rgba(59,130,246,0.06)",
+              borderLeft: "2px solid #3B82F6",
+              borderRadius: 4,
+            }}
+          >
+            En esta etapa no se carga cotización todavía. El valor se
+            define cuando el lead llega a <strong>Propuesta</strong>.
+          </div>
+        )}
 
         <div className={styles.field}>
           <label>Etapa inicial</label>

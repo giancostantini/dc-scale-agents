@@ -369,6 +369,11 @@ interface LeadRow {
   note: string | null;
   meeting_booked: boolean | null;
   created_at: string;
+  // Migración 042
+  stage_changed_at?: string | null;
+  lost_at?: string | null;
+  lost_reason?: string | null;
+  lost_from_stage?: PipelineStage | null;
 }
 
 function leadFromRow(r: LeadRow): Lead {
@@ -384,15 +389,44 @@ function leadFromRow(r: LeadRow): Lead {
     note: r.note ?? undefined,
     meetingBooked: r.meeting_booked ?? undefined,
     createdAt: r.created_at,
+    stageChangedAt: r.stage_changed_at ?? r.created_at,
+    lostAt: r.lost_at ?? null,
+    lostReason: r.lost_reason ?? null,
+    lostFromStage: r.lost_from_stage ?? null,
   };
 }
 
+/** Leads activos (no descartados). */
 export async function getLeads(): Promise<Lead[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("leads")
     .select("*")
+    .is("lost_at", null)
     .order("created_at", { ascending: false });
+  if (error) {
+    // Fallback si la migración 042 no se aplicó aún
+    if (`${error.message ?? ""}`.toLowerCase().includes("lost_at")) {
+      const fallback = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (fallback.error) return [];
+      return (fallback.data as LeadRow[]).map(leadFromRow);
+    }
+    return [];
+  }
+  return (data as LeadRow[]).map(leadFromRow);
+}
+
+/** Leads marcados como perdidos. */
+export async function getLostLeads(): Promise<Lead[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("leads")
+    .select("*")
+    .not("lost_at", "is", null)
+    .order("lost_at", { ascending: false });
   if (error) return [];
   return (data as LeadRow[]).map(leadFromRow);
 }
@@ -406,7 +440,7 @@ export async function addLead(data: Omit<Lead, "id" | "createdAt">): Promise<Lea
       company: data.company,
       sector: data.sector,
       type: data.type,
-      value: data.value,
+      value: data.value ?? 0,
       stage: data.stage,
       source: data.source,
       note: data.note ?? null,
@@ -420,7 +454,44 @@ export async function addLead(data: Omit<Lead, "id" | "createdAt">): Promise<Lea
 
 export async function updateLeadStage(id: string, stage: PipelineStage): Promise<void> {
   const supabase = getSupabase();
+  // El trigger de DB ya actualiza stage_changed_at. Si la migración
+  // no está aplicada, lo dejamos pasar igual.
   await supabase.from("leads").update({ stage }).eq("id", id);
+}
+
+/** Actualizar el valor (cotización) del lead. */
+export async function updateLeadValue(id: string, value: number): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("leads").update({ value }).eq("id", id);
+}
+
+/**
+ * Marca un lead como "perdido" en lugar de borrarlo. Queda
+ * archivado para verlo en el reporte de oportunidades descartadas.
+ */
+export async function markLeadLost(
+  id: string,
+  reason: string | null,
+  fromStage: PipelineStage,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase
+    .from("leads")
+    .update({
+      lost_at: new Date().toISOString(),
+      lost_reason: reason ?? null,
+      lost_from_stage: fromStage,
+    })
+    .eq("id", id);
+}
+
+/** Restaurar lead (sacarlo de "perdido"). */
+export async function restoreLead(id: string): Promise<void> {
+  const supabase = getSupabase();
+  await supabase
+    .from("leads")
+    .update({ lost_at: null, lost_reason: null, lost_from_stage: null })
+    .eq("id", id);
 }
 
 export async function deleteLead(id: string): Promise<void> {

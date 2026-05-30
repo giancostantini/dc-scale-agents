@@ -3,16 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bar,
-  BarChart,
   Cell,
-  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
-  XAxis,
-  YAxis,
 } from "recharts";
 import Topbar from "@/components/Topbar";
 import NewLeadModal from "@/components/NewLeadModal";
@@ -20,8 +15,12 @@ import NewCampaignModal from "@/components/NewCampaignModal";
 import MessagePreviewModal from "@/components/MessagePreviewModal";
 import {
   getLeads,
+  getLostLeads,
   getCampaigns,
   updateLeadStage,
+  updateLeadValue,
+  markLeadLost,
+  restoreLead,
   deleteLead,
   deleteCampaign,
 } from "@/lib/storage";
@@ -53,28 +52,47 @@ const SOURCE_LABEL: Record<LeadSource, string> = {
   linkedin: "LinkedIn",
   email: "Email",
   manual: "Manual",
-  referido: "Referido",
+  referido: "Referidos",
+  sitio_web: "Sitio Web",
+  redes_sociales: "Redes Sociales",
+  eventos: "Eventos",
+  otro: "Otros",
 };
 
+// Paleta navy/blue alineada al mockup contable
 const STAGE_COLORS = [
-  "#9B8259", // prospecto - sand-dark
-  "#C4A882", // contacto - sand
-  "#3A8B5C", // propuesta - blue/green
-  "#2d5036", // negociacion - forest-2
-  "#0A1A0C", // cerrado - deep-green
+  "#1E3A8A", // prospecto - navy
+  "#3B82F6", // contacto - blue-500
+  "#60A5FA", // propuesta - blue-400
+  "#93C5FD", // negociacion - blue-300
+  "#10B981", // cerrado - emerald (ganado)
 ];
 
 const SOURCE_COLORS: Record<LeadSource, string> = {
+  referido: "#1E3A8A",        // navy
+  sitio_web: "#3B82F6",        // blue
+  redes_sociales: "#A78BFA",   // violet
+  eventos: "#60A5FA",          // sky
+  otro: "#CBD5E1",             // slate light
   linkedin: "#0A66C2",
   email: "#9B8259",
   manual: "#7A8A7E",
-  referido: "#2f7d4f",
 };
+
+/** Días en la etapa actual. Si no hay stage_changed_at usa createdAt. */
+function daysInStage(lead: Lead): number {
+  const ref = lead.stageChangedAt ?? lead.createdAt;
+  const ms = Date.now() - new Date(ref).getTime();
+  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+
+const STAGE_ALERT_THRESHOLD = 7; // días
 
 export default function PipelinePage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [lostLeads, setLostLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<ProspectCampaign[]>([]);
   const [leadModal, setLeadModal] = useState<{
     open: boolean;
@@ -86,8 +104,20 @@ export default function PipelinePage() {
   const [campaignModal, setCampaignModal] = useState(false);
   const [previewCampaign, setPreviewCampaign] = useState<ProspectCampaign | null>(null);
 
+  // Modal: marcar lead como perdido
+  const [lostModal, setLostModal] = useState<Lead | null>(null);
+  const [lostReason, setLostReason] = useState("");
+
+  // Modal: editar valor de cotización (cuando pasa a propuesta)
+  const [valueModal, setValueModal] = useState<Lead | null>(null);
+  const [valueInput, setValueInput] = useState("");
+
+  // Toggle: ver perdidos
+  const [showLostPanel, setShowLostPanel] = useState(false);
+
   const refresh = useCallback(() => {
     getLeads().then(setLeads);
+    getLostLeads().then(setLostLeads);
     getCampaigns().then(setCampaigns);
   }, []);
 
@@ -114,13 +144,53 @@ export default function PipelinePage() {
     const idx = STAGES.findIndex((s) => s.key === lead.stage);
     const next = idx + direction;
     if (next < 0 || next >= STAGES.length) return;
-    await updateLeadStage(lead.id, STAGES[next].key);
+    const nextStage = STAGES[next].key;
+    await updateLeadStage(lead.id, nextStage);
+    // Cuando entra a "propuesta", abrir modal para definir el valor
+    // si todavía no fue cotizado.
+    if (direction === 1 && nextStage === "propuesta" && (!lead.value || lead.value === 0)) {
+      setValueModal({ ...lead, stage: nextStage });
+      setValueInput("");
+    }
     refresh();
   }
 
-  async function removeLead(id: string) {
-    if (!confirm("¿Eliminar este lead?")) return;
+  function openLostModal(lead: Lead) {
+    setLostModal(lead);
+    setLostReason("");
+  }
+
+  async function confirmLostLead() {
+    if (!lostModal) return;
+    await markLeadLost(
+      lostModal.id,
+      lostReason.trim() || null,
+      lostModal.stage,
+    );
+    setLostModal(null);
+    setLostReason("");
+    refresh();
+  }
+
+  async function handleRestoreLead(id: string) {
+    if (!confirm("¿Restaurar este lead al pipeline?")) return;
+    await restoreLead(id);
+    refresh();
+  }
+
+  async function handleDeleteLostLead(id: string) {
+    if (!confirm("¿Eliminar definitivamente? Esta acción no se puede deshacer.")) return;
     await deleteLead(id);
+    refresh();
+  }
+
+  async function saveLeadValue() {
+    if (!valueModal) return;
+    const n = Number(valueInput);
+    if (!Number.isFinite(n) || n < 0) return;
+    await updateLeadValue(valueModal.id, n);
+    setValueModal(null);
+    setValueInput("");
     refresh();
   }
 
@@ -166,13 +236,46 @@ export default function PipelinePage() {
 
                 {stageLeads.map((lead) => {
                   const idx = STAGES.findIndex((s) => s.key === lead.stage);
+                  const ageDays = daysInStage(lead);
+                  const stale = ageDays >= STAGE_ALERT_THRESHOLD;
+                  // El value solo se muestra en propuesta/negociacion/cerrado
+                  const showValue =
+                    lead.stage === "propuesta" ||
+                    lead.stage === "negociacion" ||
+                    lead.stage === "cerrado";
                   return (
                     <div
                       key={lead.id}
                       className={`${styles.kanbanCard} ${
                         lead.type === "dev" ? styles.kanbanCardDev : ""
                       }`}
+                      style={{
+                        position: "relative",
+                        borderLeft: stale
+                          ? "3px solid #F87171"
+                          : undefined,
+                      }}
                     >
+                      {stale && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            fontSize: 9,
+                            fontWeight: 700,
+                            background: "rgba(248,113,113,0.12)",
+                            color: "#B91C1C",
+                            padding: "2px 6px",
+                            borderRadius: 999,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                          }}
+                          title={`Lleva ${ageDays} días en ${STAGE_LABEL[lead.stage]} — pasó el umbral de ${STAGE_ALERT_THRESHOLD} días.`}
+                        >
+                          ● {ageDays}d
+                        </div>
+                      )}
                       <div className={styles.kType}>
                         {lead.type === "gp" ? "Growth Partner" : "Desarrollo"}
                         {lead.source === "linkedin" ? " · in" : ""}
@@ -182,9 +285,38 @@ export default function PipelinePage() {
                       <div className={styles.kSector}>
                         {lead.company} · {lead.sector}
                       </div>
-                      <div className={styles.kValue}>
-                        US$ {lead.value.toLocaleString()}/mes
-                      </div>
+                      {showValue ? (
+                        <div className={styles.kValue}>
+                          {lead.value > 0
+                            ? `US$ ${lead.value.toLocaleString()}/mes`
+                            : "Sin cotizar"}
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            marginTop: 6,
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          Cotización pendiente
+                        </div>
+                      )}
+                      {!stale && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            marginTop: 4,
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          {ageDays === 0
+                            ? "Recién entró a esta etapa"
+                            : `${ageDays}d en ${STAGE_LABEL[lead.stage]}`}
+                        </div>
+                      )}
                       {lead.note && (
                         <div
                           style={{
@@ -211,17 +343,18 @@ export default function PipelinePage() {
                           <button
                             className={styles.kBtn}
                             onClick={() => moveLead(lead, 1)}
-                            title="Avanzar"
+                            title="Avanzar etapa"
                           >
                             →
                           </button>
                         )}
                         <button
                           className={styles.kBtn}
-                          onClick={() => removeLead(lead.id)}
-                          style={{ color: "var(--red-warn)" }}
+                          onClick={() => openLostModal(lead)}
+                          title="Marcar como perdido"
+                          style={{ color: "#B91C1C" }}
                         >
-                          ×
+                          ⊘
                         </button>
                       </div>
                     </div>
@@ -240,6 +373,15 @@ export default function PipelinePage() {
             );
           })}
         </div>
+
+        {/* ============ OPORTUNIDADES PERDIDAS ============ */}
+        <LostLeadsPanel
+          lostLeads={lostLeads}
+          showLostPanel={showLostPanel}
+          onToggle={() => setShowLostPanel(!showLostPanel)}
+          onRestore={handleRestoreLead}
+          onDelete={handleDeleteLostLead}
+        />
 
         {/* ============ CAMPAIGNS (debajo del pipeline) ============ */}
         <div className={styles.campaignsPanel} style={{ marginTop: 40 }}>
@@ -453,9 +595,463 @@ export default function PipelinePage() {
         campaign={previewCampaign}
         onClose={() => setPreviewCampaign(null)}
       />
+
+      {/* Modal: marcar como perdido */}
+      {lostModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.5)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setLostModal(null)}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              borderRadius: 12,
+              padding: 28,
+              maxWidth: 500,
+              width: "100%",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "#B91C1C",
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              Marcar como perdido
+            </div>
+            <h3
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                color: "var(--deep-green)",
+                margin: "0 0 8px 0",
+              }}
+            >
+              {lostModal.name}
+            </h3>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
+              {lostModal.company} · {STAGE_LABEL[lostModal.stage]} ·{" "}
+              {daysInStage(lostModal)} días en etapa
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  color: "var(--sand-dark)",
+                  marginBottom: 6,
+                }}
+              >
+                Razón (opcional)
+              </label>
+              <textarea
+                rows={3}
+                value={lostReason}
+                onChange={(e) => setLostReason(e.target.value)}
+                placeholder='Ej: "no responden", "no es el momento", "presupuesto", "competencia"…'
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 6,
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 20 }}>
+              El lead se archiva en el reporte de oportunidades descartadas.
+              Lo podés restaurar al pipeline en cualquier momento.
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setLostModal(null)}
+                style={{
+                  padding: "10px 18px",
+                  background: "transparent",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmLostLead}
+                style={{
+                  padding: "10px 18px",
+                  background: "#B91C1C",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Marcar como perdido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: definir cotización al pasar a propuesta */}
+      {valueModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.5)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setValueModal(null)}
+        >
+          <div
+            style={{
+              background: "var(--white)",
+              borderRadius: 12,
+              padding: 28,
+              maxWidth: 460,
+              width: "100%",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              Propuesta · Cotización
+            </div>
+            <h3
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                color: "var(--deep-green)",
+                margin: "0 0 8px 0",
+              }}
+            >
+              Cotizar {valueModal.name}
+            </h3>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
+              Ya tenemos contexto del cliente. Definí el valor mensual de la
+              propuesta para empezar a trabajarla.
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  color: "var(--sand-dark)",
+                  marginBottom: 6,
+                }}
+              >
+                Valor (USD/mes)
+              </label>
+              <input
+                type="number"
+                value={valueInput}
+                onChange={(e) => setValueInput(e.target.value)}
+                placeholder="3500"
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 6,
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setValueModal(null)}
+                style={{
+                  padding: "10px 18px",
+                  background: "transparent",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Más tarde
+              </button>
+              <button
+                onClick={saveLeadValue}
+                disabled={!valueInput || Number(valueInput) <= 0}
+                style={{
+                  padding: "10px 18px",
+                  background: "var(--deep-green)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor:
+                    !valueInput || Number(valueInput) <= 0 ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                  opacity: !valueInput || Number(valueInput) <= 0 ? 0.5 : 1,
+                }}
+              >
+                Guardar cotización
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
+
+// ============================================================
+// LostLeadsPanel — reporte de oportunidades descartadas
+// ============================================================
+function LostLeadsPanel({
+  lostLeads,
+  showLostPanel,
+  onToggle,
+  onRestore,
+  onDelete,
+}: {
+  lostLeads: Lead[];
+  showLostPanel: boolean;
+  onToggle: () => void;
+  onRestore: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (lostLeads.length === 0 && !showLostPanel) {
+    return null;
+  }
+  return (
+    <div
+      style={{
+        marginTop: 36,
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderLeft: "3px solid #B91C1C",
+        borderRadius: "var(--r-lg)",
+        boxShadow: "var(--shadow-card)",
+        padding: 28,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: showLostPanel ? 20 : 0,
+          paddingBottom: showLostPanel ? 16 : 0,
+          borderBottom: showLostPanel
+            ? "1px solid rgba(10,26,12,0.08)"
+            : "none",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--deep-green)" }}>
+            Oportunidades descartadas
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text-muted)",
+              marginTop: 4,
+            }}
+          >
+            {lostLeads.length === 0
+              ? "Sin oportunidades descartadas — todo lo que cargues va al pipeline."
+              : `${lostLeads.length} ${lostLeads.length === 1 ? "lead descartado" : "leads descartados"} · podés restaurar al pipeline`}
+          </div>
+        </div>
+        <button
+          onClick={onToggle}
+          style={{
+            padding: "8px 14px",
+            background: "transparent",
+            border: "1px solid rgba(10,26,12,0.15)",
+            borderRadius: 6,
+            fontSize: 11,
+            letterSpacing: "0.05em",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontWeight: 500,
+            color: "var(--deep-green)",
+          }}
+        >
+          {showLostPanel ? "Ocultar" : "Ver reporte"} →
+        </button>
+      </div>
+      {showLostPanel && (
+        <div style={{ overflowX: "auto" }}>
+          {lostLeads.length === 0 ? (
+            <div
+              style={{
+                padding: 24,
+                textAlign: "center",
+                color: "var(--text-muted)",
+                fontSize: 13,
+                fontStyle: "italic",
+              }}
+            >
+              Sin oportunidades descartadas todavía.
+            </div>
+          ) : (
+            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(10,26,12,0.08)" }}>
+                  <th style={lostThStyle}>Lead</th>
+                  <th style={lostThStyle}>Empresa</th>
+                  <th style={lostThStyle}>Etapa perdida</th>
+                  <th style={lostThStyle}>Razón</th>
+                  <th style={lostThStyle}>Fecha</th>
+                  <th style={{ ...lostThStyle, textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lostLeads.map((l) => (
+                  <tr key={l.id} style={{ borderBottom: "1px solid rgba(10,26,12,0.05)" }}>
+                    <td style={lostTdStyle}>
+                      <div style={{ fontWeight: 600, color: "var(--deep-green)" }}>{l.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        {SOURCE_LABEL[l.source]} · {l.type === "gp" ? "GP" : "Dev"}
+                      </div>
+                    </td>
+                    <td style={lostTdStyle}>
+                      <div>{l.company}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        {l.sector}
+                      </div>
+                    </td>
+                    <td style={lostTdStyle}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          background: "rgba(248,113,113,0.12)",
+                          color: "#B91C1C",
+                        }}
+                      >
+                        {l.lostFromStage ? STAGE_LABEL[l.lostFromStage] : "—"}
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        ...lostTdStyle,
+                        color: "var(--text-muted)",
+                        fontStyle: l.lostReason ? "normal" : "italic",
+                      }}
+                    >
+                      {l.lostReason || "Sin razón registrada"}
+                    </td>
+                    <td style={{ ...lostTdStyle, color: "var(--text-muted)", fontSize: 12 }}>
+                      {l.lostAt
+                        ? new Date(l.lostAt).toLocaleDateString("es-AR", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </td>
+                    <td style={{ ...lostTdStyle, textAlign: "right" }}>
+                      <button
+                        onClick={() => onRestore(l.id)}
+                        style={{
+                          padding: "4px 10px",
+                          background: "transparent",
+                          border: "1px solid rgba(10,26,12,0.12)",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          color: "var(--deep-green)",
+                          marginRight: 6,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        Restaurar
+                      </button>
+                      <button
+                        onClick={() => onDelete(l.id)}
+                        style={{
+                          padding: "4px 10px",
+                          background: "transparent",
+                          border: "1px solid rgba(176,75,58,0.2)",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          color: "#B91C1C",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        Borrar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const lostThStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: "10px 12px",
+  fontSize: 10,
+  fontWeight: 600,
+  color: "var(--text-muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+const lostTdStyle: React.CSSProperties = {
+  padding: "12px",
+  fontSize: 13,
+  color: "var(--deep-green)",
+  verticalAlign: "top",
+};
 
 // ============================================================
 // PipelineStats — KPIs y gráficos del pipeline
@@ -492,9 +1088,18 @@ function PipelineStats({ leads }: { leads: Lead[] }) {
       color: STAGE_COLORS[i],
     }));
 
-    // Leads por fuente
+    // Leads por fuente — orden alineado al mockup
     const bySource = (
-      ["linkedin", "email", "manual", "referido"] as LeadSource[]
+      [
+        "referido",
+        "sitio_web",
+        "redes_sociales",
+        "eventos",
+        "linkedin",
+        "email",
+        "manual",
+        "otro",
+      ] as LeadSource[]
     )
       .map((src) => ({
         source: src,
@@ -663,155 +1268,143 @@ function PipelineStats({ leads }: { leads: Lead[] }) {
         />
       </div>
 
-      {/* Row 3: gráficos */}
+      {/* Row 3: Conversión del Pipeline (funnel horizontal) + Fuentes de Prospectos (donut) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.5fr 1fr",
+          gridTemplateColumns: "1.4fr 1fr",
           gap: 16,
         }}
       >
-        {/* Funnel: leads por etapa */}
+        {/* ===== Conversión del Pipeline ===== */}
         <div
           style={{
             background: "var(--white)",
             border: "1px solid rgba(10,26,12,0.08)",
             borderRadius: "var(--r-md)",
-            padding: 16,
+            padding: 20,
             boxShadow: "var(--shadow-sm)",
           }}
         >
           <div
             style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "var(--deep-green)",
-              marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 14,
             }}
           >
-            Funnel del pipeline
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--sand-dark)",
-              marginBottom: 12,
-              fontWeight: 600,
-            }}
-          >
-            Leads por etapa · cantidad y valor
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart
-              data={stats.byStage}
-              margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--deep-green)" }}>
+              Conversión del Pipeline
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                padding: "4px 10px",
+                background: "var(--off-white)",
+                border: "1px solid rgba(10,26,12,0.08)",
+                borderRadius: 6,
+                color: "var(--text-muted)",
+              }}
             >
-              <XAxis
-                dataKey="label"
-                fontSize={10}
-                tickLine={false}
-                axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
-              />
-              <YAxis
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip
-                formatter={(v: number, key: string) =>
-                  key === "value"
-                    ? `US$ ${v.toLocaleString()}`
-                    : `${v} ${v === 1 ? "lead" : "leads"}`
-                }
-                cursor={{ fill: "rgba(196,168,130,0.1)" }}
-              />
-              <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-                {stats.byStage.map((s) => (
-                  <Cell key={s.stage} fill={s.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          {/* Tabla con value por etapa */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: 1,
-              marginTop: 12,
-              fontSize: 10,
-              background: "rgba(10,26,12,0.06)",
-            }}
-          >
-            {stats.byStage.map((s) => (
-              <div
-                key={s.stage}
-                style={{
-                  background: "var(--white)",
-                  padding: "8px 10px",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 9,
-                    letterSpacing: "0.1em",
-                    color: "var(--sand-dark)",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    marginBottom: 2,
-                  }}
-                >
-                  {s.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "var(--deep-green)",
-                  }}
-                >
-                  US$ {s.value.toLocaleString()}
-                </div>
-              </div>
-            ))}
+              Este mes ▾
+            </div>
           </div>
+          {(() => {
+            const maxCount = Math.max(...stats.byStage.map((s) => s.count), 1);
+            const firstCount = stats.byStage[0]?.count ?? 0;
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {stats.byStage.map((s) => {
+                  const widthPct = (s.count / maxCount) * 100;
+                  const convPct =
+                    firstCount > 0
+                      ? Math.round((s.count / firstCount) * 100)
+                      : 0;
+                  return (
+                    <div
+                      key={s.stage}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "120px 1fr 130px",
+                        gap: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--deep-green)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {s.label}
+                      </div>
+                      <div
+                        style={{
+                          height: 28,
+                          background: "var(--off-white)",
+                          borderRadius: 4,
+                          overflow: "hidden",
+                          position: "relative",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${widthPct}%`,
+                            height: "100%",
+                            background: `linear-gradient(90deg, ${s.color}DD, ${s.color})`,
+                            display: "flex",
+                            alignItems: "center",
+                            paddingLeft: 12,
+                            transition: "width 0.5s ease",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "white",
+                              letterSpacing: "0.02em",
+                            }}
+                          >
+                            {s.count}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--text-muted)",
+                          textAlign: "right",
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        <strong style={{ color: "var(--deep-green)" }}>
+                          {convPct}%
+                        </strong>{" "}
+                        conversión
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
-        {/* Donut: leads por fuente */}
+        {/* ===== Fuentes de Prospectos (donut con leyenda) ===== */}
         <div
           style={{
             background: "var(--white)",
             border: "1px solid rgba(10,26,12,0.08)",
             borderRadius: "var(--r-md)",
-            padding: 16,
+            padding: 20,
             boxShadow: "var(--shadow-sm)",
           }}
         >
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "var(--deep-green)",
-              marginBottom: 4,
-            }}
-          >
-            Origen de leads
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--sand-dark)",
-              marginBottom: 12,
-              fontWeight: 600,
-            }}
-          >
-            Por canal
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--deep-green)", marginBottom: 14 }}>
+            Fuentes de Prospectos
           </div>
           {stats.bySource.length === 0 ? (
             <div
@@ -826,41 +1419,109 @@ function PipelineStats({ leads }: { leads: Lead[] }) {
               Sin datos
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={stats.bySource}
-                  dataKey="count"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={85}
-                  paddingAngle={2}
-                  label={(props) => {
-                    const { percent } = props as { percent?: number };
-                    return percent && percent > 0.05
-                      ? `${Math.round(percent * 100)}%`
-                      : "";
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <ResponsiveContainer width={180} height={180}>
+                  <PieChart>
+                    <Pie
+                      data={stats.bySource}
+                      dataKey="count"
+                      nameKey="label"
+                      innerRadius={56}
+                      outerRadius={82}
+                      paddingAngle={1.5}
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      {stats.bySource.map((s) => (
+                        <Cell key={s.source} fill={s.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) =>
+                        `${v} ${v === 1 ? "lead" : "leads"}`
+                      }
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
                   }}
-                  labelLine={false}
                 >
-                  {stats.bySource.map((s) => (
-                    <Cell key={s.source} fill={s.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v: number) =>
-                    `${v} ${v === 1 ? "lead" : "leads"}`
-                  }
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 11 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                  <div
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 700,
+                      color: "var(--deep-green)",
+                      fontVariantNumeric: "tabular-nums",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {stats.total}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                      marginTop: 4,
+                    }}
+                  >
+                    Total
+                  </div>
+                </div>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                {stats.bySource.map((s) => {
+                  const pct = stats.total > 0
+                    ? Math.round((s.count / stats.total) * 100)
+                    : 0;
+                  return (
+                    <div
+                      key={s.source}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        fontSize: 12,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: s.color,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ color: "var(--deep-green)" }}>{s.label}</span>
+                      </div>
+                      <div
+                        style={{
+                          color: "var(--text-muted)",
+                          fontVariantNumeric: "tabular-nums",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {pct}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
