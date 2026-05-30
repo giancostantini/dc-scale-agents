@@ -94,12 +94,12 @@ interface PeriodRange {
 
 function formatUsd(n: number, opts?: { compact?: boolean }) {
   if (opts?.compact && Math.abs(n) >= 1_000_000) {
-    return `$ ${(n / 1_000_000).toFixed(1)}M`;
+    return `USD ${(n / 1_000_000).toFixed(1)}M`;
   }
   if (opts?.compact && Math.abs(n) >= 1_000) {
-    return `$ ${(n / 1_000).toFixed(0)}K`;
+    return `USD ${(n / 1_000).toFixed(0)}K`;
   }
-  return `$ ${Math.round(n).toLocaleString("es-AR")}`;
+  return `USD ${Math.round(n).toLocaleString("es-AR")}`;
 }
 
 export function PremiumDashboard() {

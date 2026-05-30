@@ -77,7 +77,10 @@ export default function HubPage() {
 
   return (
     <>
-      <Topbar onPrimaryClick={() => setModalOpen(true)} />
+      {/* showPrimary={false}: los clientes ahora se crean desde
+          Finanzas → Clientes Activos. El Topbar no muestra "+ Nuevo
+          cliente" en el hub. */}
+      <Topbar showPrimary={false} />
 
       <main className={styles.wrap}>
         <WelcomeBanner
@@ -283,15 +286,15 @@ export default function HubPage() {
               <div className={styles.emptyIcon}><Users size={40} strokeWidth={1.3} /></div>
               <div className={styles.emptyTitle}>Todavía no hay clientes</div>
               <p className={styles.emptyDesc}>
-                Empezá creando tu primer cliente. El kickoff, la estrategia y
-                los reportes se arman a partir de ahí.
+                Empezá creando tu primer cliente desde Finanzas →
+                Clientes Activos.
               </p>
               {isDirector(profile) && (
                 <button
                   className={styles.emptyBtn}
-                  onClick={() => setModalOpen(true)}
+                  onClick={() => router.push("/finanzas")}
                 >
-                  + Crear primer cliente
+                  Ir a Finanzas →
                 </button>
               )}
             </div>

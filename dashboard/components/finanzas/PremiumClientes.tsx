@@ -53,6 +53,7 @@ import type {
   InvoicePayment,
 } from "@/lib/types";
 import { Button } from "@/components/premium/Button";
+import NewClientModal from "@/components/NewClientModal";
 import { cn } from "@/lib/cn";
 
 const MONTHS_SHORT_ES = [
@@ -70,7 +71,7 @@ const STATE_COLORS = {
 type PeriodMode = "this_year" | "last_year" | "last_12m" | "ytd" | "custom";
 
 function formatMoney(n: number) {
-  return `$ ${Math.round(n).toLocaleString("es-AR")}`;
+  return `USD ${Math.round(n).toLocaleString("es-AR")}`;
 }
 
 export function PremiumClientes() {
@@ -92,8 +93,10 @@ export function PremiumClientes() {
   const [statusFilter, setStatusFilter] = useState<"all" | "activo" | "inactivo" | "moroso">("all");
   const [page, setPage] = useState(0);
   const pageSize = 10;
+  const [newClientModal, setNewClientModal] = useState(false);
 
-  useEffect(() => {
+  function refresh() {
+    setLoading(true);
     Promise.all([getClients(), getPayments(), listFeeSchedules()]).then(
       ([c, p, fs]) => {
         setClients(c);
@@ -102,6 +105,10 @@ export function PremiumClientes() {
         setLoading(false);
       },
     );
+  }
+
+  useEffect(() => {
+    refresh();
   }, []);
 
   // ===== Período actual + comparativo =====
@@ -396,7 +403,11 @@ export function PremiumClientes() {
             }}
             label={period.label}
           />
-          <Button variant="primary" size="md">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setNewClientModal(true)}
+          >
             <Plus className="w-4 h-4" />
             Nuevo Cliente
           </Button>
@@ -779,6 +790,16 @@ export function PremiumClientes() {
           </div>
         </div>
       </div>
+
+      {/* Modal de creación de cliente (mismo que el legacy del hub) */}
+      <NewClientModal
+        open={newClientModal}
+        onClose={() => setNewClientModal(false)}
+        onCreated={() => {
+          setNewClientModal(false);
+          refresh();
+        }}
+      />
     </div>
   );
 }
