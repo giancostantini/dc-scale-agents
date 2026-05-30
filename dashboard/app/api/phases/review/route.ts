@@ -65,12 +65,9 @@ const EXPECTED_SECTIONS: Record<PhaseKey, string[]> = {
     "Conclusiones y próximos pasos",
   ],
   setup: [
-    "Resumen ejecutivo",
-    "Setup técnico",
-    "Tracking",
-    "Estructura de cuentas",
-    "Creativos",
-    "Conclusión",
+    "Redes sociales",
+    "Meta (Facebook + Instagram Ads)",
+    "Google Analytics 4",
   ],
   lanzamiento: [
     "Resumen ejecutivo",
