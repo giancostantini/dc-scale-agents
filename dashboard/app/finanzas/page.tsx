@@ -166,11 +166,9 @@ export default function FinanzasPage() {
       label: "Finanzas",
       items: [
         { key: "dashboard", icon: "◈", label: "Panel principal" },
-        { key: "metricas", icon: "▲", label: "Métricas del negocio" },
         { key: "ingresos", icon: "↑", label: "Ingresos" },
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
-        { key: "mkt_clientes", icon: "◐", label: "Mkt Clientes" },
         { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
