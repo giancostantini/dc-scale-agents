@@ -327,34 +327,54 @@ export function PremiumDashboard() {
     flujo: d.net,
   }));
 
-  // ===== Tabla resumen financiero =====
+  // ===== Tabla resumen financiero: mes actual vs MES ANTERIOR =====
+  // Independiente del período del filtro general — el director pidió
+  // que esta tabla siempre compare el mes corriente contra el anterior.
+  const _now = new Date();
+  const curMonth = _now.toISOString().slice(0, 7);
+  const prevMonthRef = new Date(
+    _now.getFullYear(),
+    _now.getMonth() - 1,
+    1,
+  ).toISOString().slice(0, 7);
+
+  const curMonthStats = netOfMonth(curMonth);
+  const prevMonthStats = netOfMonth(prevMonthRef);
+  const curMonthMargin =
+    curMonthStats.ingresos > 0
+      ? (curMonthStats.net / curMonthStats.ingresos) * 100
+      : 0;
+  const prevMonthMargin =
+    prevMonthStats.ingresos > 0
+      ? (prevMonthStats.net / prevMonthStats.ingresos) * 100
+      : 0;
   const summaryRows = [
     {
       concept: "Ingresos",
-      actual: kpis.ingresos,
-      previous: comparisonStats.ingresos,
-      delta: kpis.ingresosDelta,
+      actual: curMonthStats.ingresos,
+      previous: prevMonthStats.ingresos,
+      delta: pct(curMonthStats.ingresos, prevMonthStats.ingresos),
       goodIfUp: true,
     },
     {
       concept: "Gastos",
-      actual: kpis.egresos,
-      previous: comparisonStats.egresos,
-      delta: kpis.egresosDelta,
+      actual: curMonthStats.egresos,
+      previous: prevMonthStats.egresos,
+      delta: pct(curMonthStats.egresos, prevMonthStats.egresos),
       goodIfUp: false,
     },
     {
       concept: "Resultado Neto",
-      actual: kpis.net,
-      previous: comparisonStats.net,
-      delta: kpis.netDelta,
+      actual: curMonthStats.net,
+      previous: prevMonthStats.net,
+      delta: pct(curMonthStats.net, prevMonthStats.net),
       goodIfUp: true,
     },
     {
       concept: "Margen de Ganancia",
-      actual: periodMargin,
-      previous: comparisonMargin,
-      delta: kpis.marginDelta,
+      actual: curMonthMargin,
+      previous: prevMonthMargin,
+      delta: curMonthMargin - prevMonthMargin,
       goodIfUp: true,
       isPercent: true,
     },
@@ -654,7 +674,7 @@ export function PremiumDashboard() {
                     Actual
                   </th>
                   <th className="text-right px-5 py-2.5 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">
-                    Año Anterior
+                    Mes Anterior
                   </th>
                   <th className="text-right px-5 py-2.5 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">
                     Variación

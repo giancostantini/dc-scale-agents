@@ -170,12 +170,11 @@ export default function FinanzasPage() {
       label: "Finanzas",
       items: [
         { key: "dashboard", icon: "◈", label: "Panel principal" },
-        { key: "ingresos", icon: "↑", label: "Ingresos" },
+        { key: "facturacion", icon: "$", label: "Facturación" },
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
         { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
-        { key: "facturacion", icon: "$", label: "Facturación" },
         { key: "documentos", icon: "▤", label: "Documentos" },
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
       ],

@@ -206,10 +206,11 @@ export function PremiumClientes() {
     return mk >= prevFrom && mk <= prevTo;
   }).length;
 
-  // Facturación anual + saldo pendiente por cliente
+  // Cobrado (solo pagados en el período), proyectado anual (12 meses
+  // forward desde hoy) + saldo pendiente del período.
   function clientFinances(c: Client) {
     const periodMonths = monthsBetween(period.from, period.to);
-    let facturacionPeriodo = 0;
+    let cobrado = 0;
     let saldoPendiente = 0;
     for (const mk of periodMonths) {
       const p = payments.find(
@@ -217,46 +218,64 @@ export function PremiumClientes() {
       );
       const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
       const fee = p?.amountOverride ?? scheduled ?? c.fee;
-      if (!p || p.status === "paid") {
-        // contado si fue paid; si no hay payment lo asumimos pendiente
-      }
-      facturacionPeriodo += fee;
-      if (p && p.status !== "paid") {
+      if (p && p.status === "paid") {
+        cobrado += fee;
+      } else if (p && p.status !== "paid") {
         saldoPendiente += fee;
       } else if (!p) {
-        // sin registro → consideramos pendiente
-        saldoPendiente += fee;
+        // sin registro del mes → consideramos pendiente solo si el mes
+        // ya pasó o es el actual (no contabilizamos meses futuros como
+        // saldo pendiente).
+        const now = new Date().toISOString().slice(0, 7);
+        if (mk <= now) {
+          saldoPendiente += fee;
+        }
       }
     }
-    return { facturacionPeriodo, saldoPendiente };
-  }
-
-  const facturacionPromedio =
-    totalClients > 0
-      ? clients.reduce((s, c) => s + clientFinances(c).facturacionPeriodo, 0) /
-        totalClients
-      : 0;
-
-  // Comparativo: año anterior
-  const comparisonPeriodMonths = monthsBetween(
-    shiftYearMonth(period.from, -1),
-    shiftYearMonth(period.to, -1),
-  );
-  function clientFinancesPrev(c: Client) {
-    let fact = 0;
-    for (const mk of comparisonPeriodMonths) {
+    // Proyectado anual: próximos 12 meses desde el mes actual
+    const now = new Date();
+    let proyectadoAnual = 0;
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const mk = d.toISOString().slice(0, 7);
       const p = payments.find(
         (pp) => pp.clientId === c.id && pp.month === mk,
       );
       const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
       const fee = p?.amountOverride ?? scheduled ?? c.fee;
-      fact += fee;
+      proyectadoAnual += fee;
     }
-    return fact;
+    return { cobrado, proyectadoAnual, saldoPendiente };
   }
-  const facturacionPromedioPrev =
+
+  const cobradoPromedio =
     totalClients > 0
-      ? clients.reduce((s, c) => s + clientFinancesPrev(c), 0) / totalClients
+      ? clients.reduce((s, c) => s + clientFinances(c).cobrado, 0) /
+        totalClients
+      : 0;
+
+  // Comparativo: año anterior — cobrado del período shifteado un año
+  const comparisonPeriodMonths = monthsBetween(
+    shiftYearMonth(period.from, -1),
+    shiftYearMonth(period.to, -1),
+  );
+  function clientCobradoPrev(c: Client) {
+    let cob = 0;
+    for (const mk of comparisonPeriodMonths) {
+      const p = payments.find(
+        (pp) => pp.clientId === c.id && pp.month === mk,
+      );
+      if (p && p.status === "paid") {
+        const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+        const fee = p.amountOverride ?? scheduled ?? c.fee;
+        cob += fee;
+      }
+    }
+    return cob;
+  }
+  const cobradoPromedioPrev =
+    totalClients > 0
+      ? clients.reduce((s, c) => s + clientCobradoPrev(c), 0) / totalClients
       : 0;
 
   function pct(a: number, b: number): number | null {
@@ -303,17 +322,17 @@ export function PremiumClientes() {
     });
   }, [clients, period.from, period.to]);
 
-  // Top 5 clientes por facturación del período
+  // Top 5 clientes por facturación del período (cobrado)
   const topClientes = clients
     .map((c) => ({
       c,
-      fact: clientFinances(c).facturacionPeriodo,
+      fact: clientFinances(c).cobrado,
     }))
     .filter((x) => x.fact > 0)
     .sort((a, b) => b.fact - a.fact)
     .slice(0, 5);
   const totalFactPeriod = clients.reduce(
-    (s, c) => s + clientFinances(c).facturacionPeriodo,
+    (s, c) => s + clientFinances(c).cobrado,
     0,
   );
 
@@ -351,7 +370,8 @@ export function PremiumClientes() {
       "Email",
       "Teléfono",
       "Estado",
-      "Facturación Anual",
+      "Cobrado",
+      "Proyectado Anual",
       "Saldo Pendiente",
     ];
     const rows = filteredList.map((row) =>
@@ -361,7 +381,8 @@ export function PremiumClientes() {
         row.c.contact_email ?? "",
         row.c.contact_phone ?? "",
         row.classification,
-        row.finances.facturacionPeriodo.toFixed(0),
+        row.finances.cobrado.toFixed(0),
+        row.finances.proyectadoAnual.toFixed(0),
         row.finances.saldoPendiente.toFixed(0),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -448,9 +469,9 @@ export function PremiumClientes() {
           loading={loading}
         />
         <KpiCardBig
-          label="Facturación Promedio"
-          value={formatMoney(facturacionPromedio)}
-          delta={pct(facturacionPromedio, facturacionPromedioPrev)}
+          label="Cobrado Promedio"
+          value={formatMoney(cobradoPromedio)}
+          delta={pct(cobradoPromedio, cobradoPromedioPrev)}
           icon={<DollarSign className="w-4 h-4" />}
           loading={loading}
         />
@@ -671,7 +692,8 @@ export function PremiumClientes() {
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Email</th>
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Teléfono</th>
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Estado</th>
-                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Facturación Anual</th>
+                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Cobrado</th>
+                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Proyectado Anual</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Saldo Pendiente</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Acciones</th>
               </tr>
@@ -680,14 +702,14 @@ export function PremiumClientes() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-rule-soft">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="skeleton h-3.5 w-3/4" /></td>
                     ))}
                   </tr>
                 ))
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center text-ink-300 italic">
+                  <td colSpan={9} className="px-4 py-16 text-center text-ink-300 italic">
                     Sin clientes que matcheen los filtros.
                   </td>
                 </tr>
@@ -702,7 +724,10 @@ export function PremiumClientes() {
                       <StatePill state={row.classification} />
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
-                      {formatMoney(row.finances.facturacionPeriodo)}
+                      {formatMoney(row.finances.cobrado)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink-400">
+                      {formatMoney(row.finances.proyectadoAnual)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
                       {formatMoney(row.finances.saldoPendiente)}
