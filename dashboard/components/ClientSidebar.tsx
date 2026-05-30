@@ -93,7 +93,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { href: base,                   icon: LayoutDashboard, label: "Dashboard" },
     { href: `${base}/fases`,         icon: Layers,         label: "Fases del negocio" },
     { href: `${base}/objetivos`,     icon: Target,         label: "Objetivos", directorOnly: true },
-    { href: `${base}/planificador`,  icon: Map,            label: "Roadmap" },
+    { href: `${base}/planificador`,  icon: Map,            label: "Calendario" },
     { href: `${base}/contenido`,     icon: Sparkles,       label: "Contenido" },
     { href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
     { href: `${base}/campanas`,      icon: Clapperboard,   label: "Producciones" },

@@ -408,7 +408,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     <>
       <div className={ui.head}>
         <div>
-          <div className={ui.eyebrow}>Roadmap · Acciones del cliente</div>
+          <div className={ui.eyebrow}>Calendario · Acciones del cliente</div>
           <h1>Calendario de acciones</h1>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -1120,7 +1120,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 marginBottom: 12,
               }}
             >
-              Roadmap · Poblar desde estrategia
+              Calendario · Poblar desde estrategia
             </div>
             <h2
               style={{
@@ -1297,7 +1297,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                 marginBottom: 12,
               }}
             >
-              Roadmap · Descarga PDF
+              Calendario · Descarga PDF
             </div>
             <h2
               style={{
@@ -1858,7 +1858,7 @@ function CreativeAssistantModal({
             marginBottom: 6,
           }}
         >
-          Roadmap · Asistente creativo
+          Calendario · Asistente creativo
         </div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
           ✨ Diseñá el calendario con IA

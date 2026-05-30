@@ -1690,7 +1690,7 @@ interface ContentRow {
   id: string;
   client_id: string;
   date: string;
-  time: string;
+  time: string | null;
   network: ContentNetwork;
   format: ContentFormat;
   brief: string;
@@ -1698,6 +1698,11 @@ interface ContentRow {
   status: ContentStatus;
   source: "ai" | "manual";
   created_at: string;
+  // Migración 045
+  idea?: string | null;
+  cta?: string | null;
+  assigned_to?: string | null;
+  influencer?: string | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
@@ -1709,7 +1714,11 @@ function contentFromRow(r: ContentRow): ContentPost {
     network: r.network,
     format: r.format,
     brief: r.brief,
-    copy: r.copy ?? undefined,
+    idea: r.idea ?? null,
+    copy: r.copy ?? null,
+    cta: r.cta ?? null,
+    influencer: r.influencer ?? null,
+    assignedTo: r.assigned_to ?? null,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -1736,11 +1745,15 @@ export async function addContent(
     .insert({
       client_id: data.clientId,
       date: data.date,
-      time: data.time,
+      time: data.time ?? null,
       network: data.network,
       format: data.format,
       brief: data.brief,
+      idea: data.idea ?? null,
       copy: data.copy ?? null,
+      cta: data.cta ?? null,
+      influencer: data.influencer ?? null,
+      assigned_to: data.assignedTo ?? null,
       status: data.status,
       source: data.source,
     })
@@ -1748,6 +1761,53 @@ export async function addContent(
     .single();
   if (error) throw error;
   return contentFromRow(inserted as ContentRow);
+}
+
+/**
+ * Actualiza campos editables de una pieza (idea, copy, cta, fecha,
+ * formato, red, influencer, assigned_to, brief). Solo se mandan los
+ * campos definidos en el patch.
+ */
+export interface UpdateContentInput {
+  date?: string;
+  time?: string | null;
+  network?: ContentNetwork;
+  format?: ContentFormat;
+  brief?: string;
+  idea?: string | null;
+  copy?: string | null;
+  cta?: string | null;
+  influencer?: string | null;
+  assignedTo?: string | null;
+  status?: ContentStatus;
+}
+
+export async function updateContent(
+  id: string,
+  patch: UpdateContentInput,
+): Promise<ContentPost | null> {
+  const supabase = getSupabase();
+  // Mapear camelCase → snake_case
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.date !== undefined) dbPatch.date = patch.date;
+  if (patch.time !== undefined) dbPatch.time = patch.time;
+  if (patch.network !== undefined) dbPatch.network = patch.network;
+  if (patch.format !== undefined) dbPatch.format = patch.format;
+  if (patch.brief !== undefined) dbPatch.brief = patch.brief;
+  if (patch.idea !== undefined) dbPatch.idea = patch.idea;
+  if (patch.copy !== undefined) dbPatch.copy = patch.copy;
+  if (patch.cta !== undefined) dbPatch.cta = patch.cta;
+  if (patch.influencer !== undefined) dbPatch.influencer = patch.influencer;
+  if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
+  if (patch.status !== undefined) dbPatch.status = patch.status;
+  const { data, error } = await supabase
+    .from("content_posts")
+    .update(dbPatch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return contentFromRow(data as ContentRow);
 }
 
 export async function deleteContent(id: string): Promise<void> {

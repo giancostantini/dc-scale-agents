@@ -580,18 +580,34 @@ export interface ProductionCampaign {
 // ==================== CONTENIDO PROGRAMADO ====================
 
 export type ContentNetwork = "ig" | "tt" | "in" | "fb";
-export type ContentFormat = "reel" | "post" | "carrusel" | "story";
+export type ContentFormat =
+  | "reel"
+  | "post"
+  | "carrusel"
+  | "story"
+  | "ugc"
+  | "anuncio";
 export type ContentStatus = "draft" | "scheduled" | "published";
 
 export interface ContentPost {
   id: string;
   clientId: string;
   date: string;
-  time: string;
+  time: string | null;
   network: ContentNetwork;
   format: ContentFormat;
+  /** Brief operativo / instrucciones de producción. */
   brief: string;
-  copy?: string;
+  /** Idea central de la pieza (concepto creativo). */
+  idea?: string | null;
+  /** Copy completo listo para publicar. */
+  copy?: string | null;
+  /** Call-to-action (típicamente para anuncios). */
+  cta?: string | null;
+  /** Influencer asignado cuando format=ugc. */
+  influencer?: string | null;
+  /** Miembro del equipo responsable de producir la pieza. */
+  assignedTo?: string | null;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;
