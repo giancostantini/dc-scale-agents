@@ -226,6 +226,7 @@ export default function FinanzasPage() {
                 expenses={expenses}
                 payments={payments}
                 manualRevs={manualRevs}
+                feeSchedules={feeSchedules}
               />
             )}
             {page === "estados" && <ReportesView />}

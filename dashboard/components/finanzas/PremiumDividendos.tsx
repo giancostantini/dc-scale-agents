@@ -66,8 +66,10 @@ import {
   type DividendConfig,
   type ManualRevenue,
 } from "@/lib/finanzas";
+import { effectiveFeeForMonth } from "@/lib/storage";
 import type {
   Client,
+  ClientFeeSchedule,
   Expense,
   InvoicePayment,
 } from "@/lib/types";
@@ -132,11 +134,13 @@ export function PremiumDividendos({
   expenses,
   payments,
   manualRevs,
+  feeSchedules = [],
 }: {
   clients: Client[];
   expenses: Expense[];
   payments: InvoicePayment[];
   manualRevs: ManualRevenue[];
+  feeSchedules?: ClientFeeSchedule[];
 }) {
   const [config, setConfig] = useState<DividendConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -233,18 +237,28 @@ export function PremiumDividendos({
     };
   }, [periodMode, customFrom, customTo]);
 
-  // ===== Net mensual real (cash cobrado) =====
+  // ===== Net mensual real (CASH cobrado solamente) =====
+  // Reglas estrictas para evitar inflar utilidades:
+  //   1. Fees: solo si el payment del mes tiene status='paid'.
+  //      Importe = amountOverride > effectiveFeeForMonth > client.fee.
+  //   2. Manual revenues: solo los marcados con status='paid'.
+  //      Los pending/cancelled NO cuentan como utilidad.
+  //   3. Egresos: todos los expenses con fecha dentro del mes.
   function monthNet(mk: string): number {
     const feesPaid = clients.reduce((s, c) => {
       const p = payments.find((pp) => pp.clientId === c.id && pp.month === mk);
-      if (p?.status !== "paid") return s;
-      const amt = p.amountOverride ?? c.fee;
+      if (!p || p.status !== "paid") return s;
+      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+      const amt = p.amountOverride ?? scheduled ?? c.fee;
       return s + amt;
     }, 0);
-    const manualImpact = manualRevs.reduce(
-      (s, r) => s + revenueMonthlyImpact(r, mk),
-      0,
-    );
+    const manualImpact = manualRevs.reduce((s, r) => {
+      // Solo manuales cobrados ('paid'). Si el campo status no existe
+      // (datos viejos) lo tratamos como paid por compatibilidad.
+      const isPaid = (r.status ?? "paid") === "paid";
+      if (!isPaid) return s;
+      return s + revenueMonthlyImpact(r, mk);
+    }, 0);
     const ex = expenses
       .filter((e) => (e.date ?? "").startsWith(mk))
       .reduce((s, e) => s + e.amount, 0);
@@ -273,14 +287,20 @@ export function PremiumDividendos({
     const out: HistRow[] = [];
     const monthsInPeriod = monthsBetween(period.from, period.to);
     for (const mk of monthsInPeriod) {
-      const hasPayment = payments.some((p) => p.month === mk);
-      const hasExpense = expenses.some((e) => (e.date ?? "").startsWith(mk));
-      const mImpact = manualRevs.reduce(
-        (s, r) => s + revenueMonthlyImpact(r, mk),
-        0,
+      // Solo contamos meses con ACTIVIDAD REAL DE CASH:
+      //   - al menos 1 payment 'paid' del mes
+      //   - O al menos 1 expense del mes
+      //   - O al menos 1 manual revenue 'paid' con impacto en el mes
+      const hasPaidPayment = payments.some(
+        (p) => p.month === mk && p.status === "paid",
       );
-      const hasRevenue = mImpact > 0;
-      if (!hasPayment && !hasExpense && !hasRevenue) continue;
+      const hasExpense = expenses.some((e) => (e.date ?? "").startsWith(mk));
+      const hasPaidManual = manualRevs.some(
+        (r) =>
+          (r.status ?? "paid") === "paid" &&
+          revenueMonthlyImpact(r, mk) > 0,
+      );
+      if (!hasPaidPayment && !hasExpense && !hasPaidManual) continue;
       const net = monthNet(mk);
       const dist = distributeDividends(net, config);
       const importeDistribuido = dist.partnerA + dist.partnerB;
@@ -317,16 +337,23 @@ export function PremiumDividendos({
   }, [config, period.from, period.to, payments, expenses, manualRevs, clients]);
 
   // ===== KPIs del período =====
-  const utilidadesPeriodo = history.reduce((s, r) => s + Math.max(0, r.net), 0);
+  // Utilidades = sum REAL de nets (puede ser negativo si hubo pérdida).
+  // No clampeamos a 0: necesitamos ver la realidad. Los dividendos /
+  // saldo / retenciones se calculan SOLO sobre los meses con utilidad
+  // positiva (no podés distribuir si perdiste plata).
+  const utilidadesPeriodo = history.reduce((s, r) => s + r.net, 0);
   const dividendosDistribuidos = history.reduce(
-    (s, r) => s + r.importeDistribuido,
+    (s, r) => s + (r.net > 0 ? r.importeDistribuido : 0),
     0,
   );
   const saldoDisponible = history.reduce(
-    (s, r) => s + r.saldoDisponible,
+    (s, r) => s + (r.net > 0 ? r.saldoDisponible : 0),
     0,
   );
-  const retencionesTotal = history.reduce((s, r) => s + r.retenciones, 0);
+  const retencionesTotal = history.reduce(
+    (s, r) => s + (r.net > 0 ? r.retenciones : 0),
+    0,
+  );
 
   // Período comparativo (mismo período un año atrás) para deltas
   const prevPeriod = useMemo(
@@ -366,13 +393,19 @@ export function PremiumDividendos({
     return out;
   }, [config, prevPeriod.from, prevPeriod.to, payments, expenses, manualRevs, clients]);
 
-  const utilidadesPrev = prevHistory.reduce((s, r) => s + Math.max(0, r.net), 0);
+  const utilidadesPrev = prevHistory.reduce((s, r) => s + r.net, 0);
   const dividendosPrev = prevHistory.reduce(
-    (s, r) => s + r.importeDistribuido,
+    (s, r) => s + (r.net > 0 ? r.importeDistribuido : 0),
     0,
   );
-  const saldoPrev = prevHistory.reduce((s, r) => s + r.saldoDisponible, 0);
-  const retencionesPrev = prevHistory.reduce((s, r) => s + r.retenciones, 0);
+  const saldoPrev = prevHistory.reduce(
+    (s, r) => s + (r.net > 0 ? r.saldoDisponible : 0),
+    0,
+  );
+  const retencionesPrev = prevHistory.reduce(
+    (s, r) => s + (r.net > 0 ? r.retenciones : 0),
+    0,
+  );
 
   function pct(a: number, b: number): number | null {
     if (b === 0) return a === 0 ? 0 : null;
@@ -382,10 +415,12 @@ export function PremiumDividendos({
   // ===== Donut por socio =====
   const distPorSocio = useMemo(() => {
     if (!config) return [] as { key: string; name: string; value: number; pct: number; color: string }[];
-    const totalA = history.reduce((s, r) => s + r.partnerA, 0);
-    const totalB = history.reduce((s, r) => s + r.partnerB, 0);
-    const totalInv = history.reduce((s, r) => s + r.inversiones, 0);
-    const totalBack = history.reduce((s, r) => s + r.back, 0);
+    // Solo distribuir sobre meses con net positivo (no se reparte pérdida).
+    const positives = history.filter((r) => r.net > 0);
+    const totalA = positives.reduce((s, r) => s + r.partnerA, 0);
+    const totalB = positives.reduce((s, r) => s + r.partnerB, 0);
+    const totalInv = positives.reduce((s, r) => s + r.inversiones, 0);
+    const totalBack = positives.reduce((s, r) => s + r.back, 0);
     const rows = [
       { key: "a", name: config.partner_a_name, value: totalA, color: SOCIO_COLORS[0] },
       { key: "b", name: config.partner_b_name, value: totalB, color: SOCIO_COLORS[1] },
@@ -401,7 +436,8 @@ export function PremiumDividendos({
   const evolucionData = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of history) {
-      map.set(r.monthKey, r.importeDistribuido);
+      // No graficamos distribución sobre meses con pérdida.
+      map.set(r.monthKey, r.net > 0 ? r.importeDistribuido : 0);
     }
     // Asegurar 12 meses si periodMode es this_year/ytd
     const months = monthsBetween(period.from, period.to);
@@ -424,10 +460,11 @@ export function PremiumDividendos({
       const mk = d.toISOString().slice(0, 7);
       const net = monthNet(mk);
       const dist = distributeDividends(net, config);
-      out.push({ v: dist.partnerA + dist.partnerB });
+      // No graficamos distribución sobre pérdida.
+      out.push({ v: net > 0 ? dist.partnerA + dist.partnerB : 0 });
     }
     return out;
-  }, [config, payments, expenses, manualRevs, clients]);
+  }, [config, payments, expenses, manualRevs, clients, feeSchedules]);
 
   // ===== Acciones =====
   async function saveConfig() {
@@ -625,6 +662,13 @@ export function PremiumDividendos({
           sparkColor="#A78BFA"
         />
       </div>
+
+      {/* Auditoría: detalle de qué meses están sumando a las utilidades */}
+      <UtilidadesAudit
+        history={history}
+        utilidades={utilidadesPeriodo}
+        periodLabel={period.label}
+      />
 
       {/* ===== Row 2: Donut + Bar chart ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1015,6 +1059,112 @@ export function PremiumDividendos({
 // ============================================================
 // Subcomponentes
 // ============================================================
+
+/**
+ * Panel auditable: muestra qué meses están sumando a Utilidades del
+ * Ejercicio y con qué importe. Sirve para verificar el cálculo cuando
+ * un número no coincide con la expectativa.
+ */
+function UtilidadesAudit({
+  history,
+  utilidades,
+  periodLabel,
+}: {
+  history: Array<{ monthKey: string; net: number }>;
+  utilidades: number;
+  periodLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const aporteFmt = (n: number) => `${n >= 0 ? "+" : ""}USD ${Math.round(n).toLocaleString("es-AR")}`;
+  return (
+    <div className="bg-blue-50/70 border border-blue-100 rounded-premium px-4 py-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-3 text-left"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+            <Info className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="font-semibold text-ink text-sm">
+              Cómo se calculan las utilidades
+            </div>
+            <div className="text-2xs text-ink-400 mt-0.5">
+              {history.length === 0
+                ? "Sin meses con actividad real de cash en este período."
+                : `${history.length} ${history.length === 1 ? "mes suma" : "meses suman"} a las utilidades del ejercicio.`}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-sm font-semibold tabular-nums text-ink">
+            {aporteFmt(utilidades)}
+          </div>
+          <svg
+            className={cn(
+              "w-3 h-3 text-ink-400 transition-transform",
+              open ? "rotate-180" : "",
+            )}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-3 border-t border-blue-100 pt-3">
+          <div className="text-2xs text-ink-400 mb-2 leading-relaxed">
+            Cálculo por mes:{" "}
+            <strong className="text-ink">cash cobrado</strong> (facturas con
+            estado <em>pagada</em> + ingresos manuales <em>cobrados</em>) − gastos del mes.
+            Solo se cuentan los meses con actividad real de cash dentro de {periodLabel}.
+          </div>
+          {history.length === 0 ? (
+            <div className="text-xs text-ink-300 italic py-3">
+              No hay registros que sumen a utilidades.
+            </div>
+          ) : (
+            <div className="border border-blue-100 rounded-premium-sm overflow-hidden bg-paper">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-paper-100/60 border-b border-blue-100">
+                    <th className="text-left px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Mes</th>
+                    <th className="text-right px-3 py-2 text-2xs uppercase tracking-wider text-ink-300 font-semibold">Aporte al período</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((r) => (
+                    <tr key={r.monthKey} className="border-t border-blue-100/60">
+                      <td className="px-3 py-2 text-ink tabular-nums">{r.monthKey}</td>
+                      <td
+                        className={cn(
+                          "px-3 py-2 text-right tabular-nums font-medium",
+                          r.net >= 0 ? "text-emerald-700" : "text-rose-700",
+                        )}
+                      >
+                        {aporteFmt(r.net)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-blue-100 bg-paper-100/40">
+                    <td className="px-3 py-2 text-ink font-semibold">TOTAL</td>
+                    <td className="px-3 py-2 text-right text-ink font-semibold tabular-nums">
+                      {aporteFmt(utilidades)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SparkKpiCard({
   label,
