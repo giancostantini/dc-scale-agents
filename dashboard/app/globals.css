@@ -112,23 +112,6 @@ body {
   min-height: 100vh;
 }
 
-/* ============ APP SHELL ============
-   El Topbar ahora renderiza un sidebar fijo de 230px en la izquierda +
-   un header slim de 56px arriba.  Para que el contenido de cada page
-   no quede tapado, agregamos padding-left/top al wrapper.  Las
-   páginas de auth/login (que no muestran Topbar) deben usar la clase
-   .no-shell para opt-out.
-*/
-body:has(aside[data-app-sidebar]) {
-  padding-left: 230px;
-  padding-top: 56px;
-}
-
-@media (max-width: 900px) {
-  body:has(aside[data-app-sidebar]) {
-    padding-left: 64px;
-  }
-}
 
 /* ============ TIPOGRAFÍA · Brand Board 2026 ============
    La firma visual ya no es el "&" en DM Sans. Ahora es el
