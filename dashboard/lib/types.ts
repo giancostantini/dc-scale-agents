@@ -256,8 +256,8 @@ export interface Lead {
   company: string;
   sector: string;
   type: ClientType;
-  /** USD/mes — 0 cuando el lead está en prospección/contactado
-   *  (no se cotiza hasta tener claro el alcance). */
+  /** USD/mes — recurrente mensual (= fee_mensual si GP, costo_mantenimiento
+   *  si IA). 0 cuando el lead está en prospección/contactado. */
   value: number;
   stage: PipelineStage;
   source: LeadSource;
@@ -270,6 +270,13 @@ export interface Lead {
   lostAt?: string | null;
   lostReason?: string | null;
   lostFromStage?: PipelineStage | null;
+  /** Cotización desglosada — se completa al pasar a "propuesta" */
+  feeMensual?: number | null;       // GP recurrente
+  bono?: number | null;             // GP success fee
+  costoProduccion?: number | null;  // IA one-time
+  costoMantenimiento?: number | null; // IA recurrente
+  /** Quién refirió el lead (solo si source === 'referido') */
+  referrerName?: string | null;
 }
 
 // Seniority alineado con Apollo.io

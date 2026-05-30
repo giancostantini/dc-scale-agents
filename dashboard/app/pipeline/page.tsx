@@ -18,7 +18,7 @@ import {
   getLostLeads,
   getCampaigns,
   updateLeadStage,
-  updateLeadValue,
+  updateLeadQuote,
   markLeadLost,
   restoreLead,
   deleteLead,
@@ -108,9 +108,14 @@ export default function PipelinePage() {
   const [lostModal, setLostModal] = useState<Lead | null>(null);
   const [lostReason, setLostReason] = useState("");
 
-  // Modal: editar valor de cotización (cuando pasa a propuesta)
-  const [valueModal, setValueModal] = useState<Lead | null>(null);
-  const [valueInput, setValueInput] = useState("");
+  // Modal: editar cotización desglosada (cuando pasa a propuesta)
+  const [quoteModal, setQuoteModal] = useState<Lead | null>(null);
+  const [quoteForm, setQuoteForm] = useState<{
+    feeMensual: string;
+    bono: string;
+    costoProduccion: string;
+    costoMantenimiento: string;
+  }>({ feeMensual: "", bono: "", costoProduccion: "", costoMantenimiento: "" });
 
   // Toggle: ver perdidos
   const [showLostPanel, setShowLostPanel] = useState(false);
@@ -146,13 +151,23 @@ export default function PipelinePage() {
     if (next < 0 || next >= STAGES.length) return;
     const nextStage = STAGES[next].key;
     await updateLeadStage(lead.id, nextStage);
-    // Cuando entra a "propuesta", abrir modal para definir el valor
+    // Cuando entra a "propuesta", abrir modal de cotización desglosada
     // si todavía no fue cotizado.
     if (direction === 1 && nextStage === "propuesta" && (!lead.value || lead.value === 0)) {
-      setValueModal({ ...lead, stage: nextStage });
-      setValueInput("");
+      openQuoteModal({ ...lead, stage: nextStage });
     }
     refresh();
+  }
+
+  function openQuoteModal(lead: Lead) {
+    setQuoteModal(lead);
+    setQuoteForm({
+      feeMensual: lead.feeMensual != null ? String(lead.feeMensual) : "",
+      bono: lead.bono != null ? String(lead.bono) : "",
+      costoProduccion: lead.costoProduccion != null ? String(lead.costoProduccion) : "",
+      costoMantenimiento:
+        lead.costoMantenimiento != null ? String(lead.costoMantenimiento) : "",
+    });
   }
 
   function openLostModal(lead: Lead) {
@@ -184,14 +199,164 @@ export default function PipelinePage() {
     refresh();
   }
 
-  async function saveLeadValue() {
-    if (!valueModal) return;
-    const n = Number(valueInput);
-    if (!Number.isFinite(n) || n < 0) return;
-    await updateLeadValue(valueModal.id, n);
-    setValueModal(null);
-    setValueInput("");
+  async function saveQuote() {
+    if (!quoteModal) return;
+    const toNum = (s: string) => {
+      const v = Number(s);
+      return s.trim() === "" || !Number.isFinite(v) ? null : v;
+    };
+    await updateLeadQuote(quoteModal.id, quoteModal.type, {
+      feeMensual: toNum(quoteForm.feeMensual),
+      bono: toNum(quoteForm.bono),
+      costoProduccion: toNum(quoteForm.costoProduccion),
+      costoMantenimiento: toNum(quoteForm.costoMantenimiento),
+    });
+    setQuoteModal(null);
     refresh();
+  }
+
+  function exportPipelineReport() {
+    if (leads.length === 0 && lostLeads.length === 0) {
+      alert("Sin datos para exportar.");
+      return;
+    }
+    const cur = new Date();
+    const ymd = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+
+    // ===== Resumen estadístico =====
+    const total = leads.length;
+    const closed = leads.filter((l) => l.stage === "cerrado").length;
+    const winRate = total > 0 ? Math.round((closed / total) * 100) : 0;
+    const pipelineValue = leads
+      .filter((l) => l.stage !== "cerrado")
+      .reduce((s, l) => s + (l.value || 0), 0);
+    const meetings = leads.filter((l) => l.meetingBooked).length;
+
+    const summaryHeader = ["Métrica", "Valor"];
+    const summaryRows: [string, string][] = [
+      ["Fecha del reporte", ymd],
+      ["Total leads activos", String(total)],
+      ["Leads cerrados (ganados)", String(closed)],
+      ["Tasa de cierre", `${winRate}%`],
+      ["Pipeline activo (USD/mes)", String(pipelineValue.toFixed(0))],
+      ["Reuniones agendadas", String(meetings)],
+      ["Oportunidades perdidas", String(lostLeads.length)],
+    ];
+
+    // Conversión por etapa
+    const stageSection = STAGES.map((s) => {
+      const stageLeads = leads.filter((l) => l.stage === s.key);
+      const stageValue = stageLeads.reduce((acc, l) => acc + (l.value || 0), 0);
+      return [
+        s.label,
+        String(stageLeads.length),
+        stageValue > 0 ? `USD ${stageValue.toLocaleString("es-AR")}` : "—",
+      ];
+    });
+    const stageHeader = ["Etapa", "Cantidad", "Valor recurrente"];
+
+    // Fuentes
+    const sources = (
+      ["referido", "sitio_web", "redes_sociales", "eventos", "linkedin", "email", "manual", "otro"] as LeadSource[]
+    )
+      .map((src) => ({
+        src,
+        count: leads.filter((l) => l.source === src).length,
+      }))
+      .filter((r) => r.count > 0);
+    const sourceHeader = ["Fuente", "Cantidad"];
+    const sourceRows = sources.map((s) => [SOURCE_LABEL[s.src], String(s.count)]);
+
+    // Listado activo
+    const activeHeader = [
+      "Lead",
+      "Empresa",
+      "Sector",
+      "Etapa",
+      "Tipo",
+      "Fuente",
+      "Referido por",
+      "Fee mensual",
+      "Bono",
+      "Costo producción",
+      "Mantenimiento",
+      "Valor recurrente USD",
+      "Días en etapa",
+      "Nota",
+    ];
+    const activeRows = leads.map((l) => [
+      l.name,
+      l.company,
+      l.sector,
+      STAGE_LABEL[l.stage],
+      l.type === "gp" ? "Growth Partner" : "Desarrollo",
+      SOURCE_LABEL[l.source],
+      l.referrerName ?? "",
+      l.feeMensual != null ? String(l.feeMensual) : "",
+      l.bono != null ? String(l.bono) : "",
+      l.costoProduccion != null ? String(l.costoProduccion) : "",
+      l.costoMantenimiento != null ? String(l.costoMantenimiento) : "",
+      String(l.value || 0),
+      String(daysInStage(l)),
+      l.note ?? "",
+    ]);
+
+    // Listado perdidos
+    const lostHeader = [
+      "Lead",
+      "Empresa",
+      "Etapa perdida",
+      "Razón",
+      "Fecha",
+      "Tipo",
+      "Fuente",
+    ];
+    const lostRows = lostLeads.map((l) => [
+      l.name,
+      l.company,
+      l.lostFromStage ? STAGE_LABEL[l.lostFromStage] : "—",
+      l.lostReason ?? "",
+      l.lostAt ? l.lostAt.slice(0, 10) : "",
+      l.type === "gp" ? "Growth Partner" : "Desarrollo",
+      SOURCE_LABEL[l.source],
+    ]);
+
+    const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const sec = (
+      title: string,
+      header: string[],
+      rows: (string | number)[][],
+    ) =>
+      [
+        "",
+        q(title),
+        header.map(q).join(","),
+        ...rows.map((r) => r.map((v) => q(String(v))).join(",")),
+      ].join("\n");
+
+    const csv =
+      "﻿" +
+      [
+        q(`Reporte del Pipeline · ${ymd}`),
+        "",
+        q("Resumen ejecutivo"),
+        summaryHeader.map(q).join(","),
+        ...summaryRows.map((r) => r.map(q).join(",")),
+        sec("Conversión por etapa", stageHeader, stageSection),
+        sec("Fuentes de prospectos", sourceHeader, sourceRows),
+        sec("Leads activos", activeHeader, activeRows),
+        sec("Oportunidades descartadas", lostHeader, lostRows),
+      ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pipeline-reporte-${ymd}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   async function removeCampaign(id: string) {
@@ -214,11 +379,76 @@ export default function PipelinePage() {
           </div>
         </div>
 
-        {/* ============ ESTADÍSTICAS ============ */}
-        <PipelineStats leads={leads} />
+        {/* ============ Acciones generales ============ */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 32,
+            marginBottom: 18,
+            padding: "14px 18px",
+            background: "var(--off-white)",
+            border: "1px solid rgba(10,26,12,0.06)",
+            borderRadius: 8,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Pipeline · Estadísticas
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--deep-green)",
+                fontWeight: 500,
+              }}
+            >
+              {leads.length} {leads.length === 1 ? "lead activo" : "leads activos"}
+              {lostLeads.length > 0 && (
+                <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+                  {" "}· {lostLeads.length}{" "}
+                  {lostLeads.length === 1 ? "descartado" : "descartados"}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={exportPipelineReport}
+            disabled={leads.length === 0 && lostLeads.length === 0}
+            style={{
+              padding: "10px 18px",
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.05em",
+              cursor:
+                leads.length === 0 && lostLeads.length === 0
+                  ? "not-allowed"
+                  : "pointer",
+              fontFamily: "inherit",
+              opacity:
+                leads.length === 0 && lostLeads.length === 0 ? 0.5 : 1,
+            }}
+          >
+            ↓ Descargar reporte (.csv)
+          </button>
+        </div>
 
         {/* ============ KANBAN ============ */}
-        <div className={styles.kanbanHeader} style={{ marginTop: 36 }}>
+        <div className={styles.kanbanHeader} style={{ marginTop: 8 }}>
           <h2>Pipeline · Kanban</h2>
         </div>
 
@@ -227,10 +457,55 @@ export default function PipelinePage() {
             const stageLeads = leads.filter((l) => l.stage === stage.key);
             return (
               <div key={stage.key} className={styles.kanbanCol}>
-                <div className={styles.kanbanColHead}>
-                  <div className={styles.kanbanColName}>{stage.label}</div>
-                  <div className={styles.kanbanColCount}>
-                    {stageLeads.length}
+                <div
+                  className={styles.kanbanColHead}
+                  style={{
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 6,
+                    paddingBottom: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      width: "100%",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div className={styles.kanbanColName}>{stage.label}</div>
+                    <div className={styles.kanbanColCount}>
+                      {stageLeads.length}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {stageLeads.length === 0
+                      ? "Sin leads"
+                      : stageLeads.length === 1
+                      ? "1 lead"
+                      : `${stageLeads.length} leads`}
+                    {stageLeads.length > 0 && (
+                      <>
+                        {" "}
+                        <span style={{ opacity: 0.5 }}>·</span>{" "}
+                        {(() => {
+                          const totalValue = stageLeads.reduce(
+                            (s, l) => s + (l.value || 0),
+                            0,
+                          );
+                          return totalValue > 0
+                            ? `US$ ${totalValue.toLocaleString()}/mes`
+                            : "sin cotizar";
+                        })()}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -286,11 +561,70 @@ export default function PipelinePage() {
                         {lead.company} · {lead.sector}
                       </div>
                       {showValue ? (
-                        <div className={styles.kValue}>
-                          {lead.value > 0
-                            ? `US$ ${lead.value.toLocaleString()}/mes`
-                            : "Sin cotizar"}
-                        </div>
+                        lead.value > 0 || (lead.type === "gp" ? lead.bono : lead.costoProduccion) ? (
+                          <div>
+                            <div className={styles.kValue}>
+                              {lead.type === "gp"
+                                ? lead.feeMensual && lead.feeMensual > 0
+                                  ? `US$ ${lead.feeMensual.toLocaleString()}/mes`
+                                  : lead.value > 0
+                                    ? `US$ ${lead.value.toLocaleString()}/mes`
+                                    : "Sin cotizar"
+                                : lead.costoMantenimiento && lead.costoMantenimiento > 0
+                                  ? `US$ ${lead.costoMantenimiento.toLocaleString()}/mes`
+                                  : lead.value > 0
+                                    ? `US$ ${lead.value.toLocaleString()}/mes`
+                                    : "Sin cotizar"}
+                            </div>
+                            {lead.type === "gp" && lead.bono != null && lead.bono > 0 && (
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                                + bono US$ {lead.bono.toLocaleString()}
+                              </div>
+                            )}
+                            {lead.type === "dev" && lead.costoProduccion != null && lead.costoProduccion > 0 && (
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                                Setup US$ {lead.costoProduccion.toLocaleString()}
+                              </div>
+                            )}
+                            {/* Botón rápido para re-editar cotización */}
+                            <button
+                              onClick={() => openQuoteModal(lead)}
+                              style={{
+                                marginTop: 6,
+                                fontSize: 10,
+                                color: "var(--sand-dark)",
+                                background: "transparent",
+                                border: "none",
+                                padding: 0,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                textDecoration: "underline",
+                                letterSpacing: "0.04em",
+                              }}
+                            >
+                              editar cotización
+                            </button>
+                          </div>
+                        ) : (
+                          <div className={styles.kValue}>
+                            <button
+                              onClick={() => openQuoteModal(lead)}
+                              style={{
+                                color: "var(--sand-dark)",
+                                background: "transparent",
+                                border: "1px dashed var(--sand)",
+                                padding: "4px 10px",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                fontWeight: 500,
+                              }}
+                            >
+                              + Cotizar
+                            </button>
+                          </div>
+                        )
                       ) : (
                         <div
                           style={{
@@ -301,6 +635,11 @@ export default function PipelinePage() {
                           }}
                         >
                           Cotización pendiente
+                          {lead.referrerName && (
+                            <div style={{ fontSize: 10, marginTop: 2 }}>
+                              Referido por <strong>{lead.referrerName}</strong>
+                            </div>
+                          )}
                         </div>
                       )}
                       {!stale && (
@@ -717,8 +1056,8 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* Modal: definir cotización al pasar a propuesta */}
-      {valueModal && (
+      {/* Modal: cotización desglosada al pasar a propuesta */}
+      {quoteModal && (
         <div
           style={{
             position: "fixed",
@@ -730,14 +1069,14 @@ export default function PipelinePage() {
             justifyContent: "center",
             padding: 20,
           }}
-          onClick={(e) => e.target === e.currentTarget && setValueModal(null)}
+          onClick={(e) => e.target === e.currentTarget && setQuoteModal(null)}
         >
           <div
             style={{
               background: "var(--white)",
               borderRadius: 12,
               padding: 28,
-              maxWidth: 460,
+              maxWidth: 520,
               width: "100%",
               boxShadow: "0 24px 48px rgba(0,0,0,0.25)",
             }}
@@ -752,7 +1091,8 @@ export default function PipelinePage() {
                 marginBottom: 8,
               }}
             >
-              Propuesta · Cotización
+              Propuesta · Cotización ·{" "}
+              {quoteModal.type === "gp" ? "Growth Partner" : "IA / Desarrollo"}
             </div>
             <h3
               style={{
@@ -762,45 +1102,73 @@ export default function PipelinePage() {
                 margin: "0 0 8px 0",
               }}
             >
-              Cotizar {valueModal.name}
+              Cotizar {quoteModal.name}
             </h3>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
-              Ya tenemos contexto del cliente. Definí el valor mensual de la
-              propuesta para empezar a trabajarla.
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 22 }}>
+              {quoteModal.type === "gp"
+                ? "Para Growth Partners definimos el fee mensual recurrente y el bono asociado al cumplimiento."
+                : "Para IA / Desarrollo definimos el costo de producción (one-time) y el mantenimiento mensual."}
             </p>
-            <div style={{ marginBottom: 20 }}>
-              <label
+
+            {quoteModal.type === "gp" ? (
+              <div
                 style={{
-                  display: "block",
-                  fontSize: 11,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                  color: "var(--sand-dark)",
-                  marginBottom: 6,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                  marginBottom: 22,
                 }}
               >
-                Valor (USD/mes)
-              </label>
-              <input
-                type="number"
-                value={valueInput}
-                onChange={(e) => setValueInput(e.target.value)}
-                placeholder="3500"
-                autoFocus
+                <QuoteField
+                  label="Fee mensual (USD)"
+                  hint="Recurrente · alimenta el MRR"
+                  value={quoteForm.feeMensual}
+                  onChange={(v) =>
+                    setQuoteForm({ ...quoteForm, feeMensual: v })
+                  }
+                  autoFocus
+                />
+                <QuoteField
+                  label="Bono (USD)"
+                  hint="Success fee / variable por objetivos"
+                  value={quoteForm.bono}
+                  onChange={(v) => setQuoteForm({ ...quoteForm, bono: v })}
+                />
+              </div>
+            ) : (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  fontSize: 14,
-                  border: "1px solid rgba(10,26,12,0.15)",
-                  borderRadius: 6,
-                  fontFamily: "inherit",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                  marginBottom: 22,
                 }}
-              />
-            </div>
+              >
+                <QuoteField
+                  label="Costo producción (USD)"
+                  hint="One-time · setup inicial"
+                  value={quoteForm.costoProduccion}
+                  onChange={(v) =>
+                    setQuoteForm({ ...quoteForm, costoProduccion: v })
+                  }
+                  autoFocus
+                />
+                <QuoteField
+                  label="Mantenimiento (USD/mes)"
+                  hint="Recurrente · alimenta el MRR"
+                  value={quoteForm.costoMantenimiento}
+                  onChange={(v) =>
+                    setQuoteForm({ ...quoteForm, costoMantenimiento: v })
+                  }
+                />
+              </div>
+            )}
+
+            <QuoteSummary type={quoteModal.type} form={quoteForm} />
+
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
-                onClick={() => setValueModal(null)}
+                onClick={() => setQuoteModal(null)}
                 style={{
                   padding: "10px 18px",
                   background: "transparent",
@@ -814,8 +1182,7 @@ export default function PipelinePage() {
                 Más tarde
               </button>
               <button
-                onClick={saveLeadValue}
-                disabled={!valueInput || Number(valueInput) <= 0}
+                onClick={saveQuote}
                 style={{
                   padding: "10px 18px",
                   background: "var(--deep-green)",
@@ -824,10 +1191,8 @@ export default function PipelinePage() {
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 600,
-                  cursor:
-                    !valueInput || Number(valueInput) <= 0 ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                   fontFamily: "inherit",
-                  opacity: !valueInput || Number(valueInput) <= 0 ? 0.5 : 1,
                 }}
               >
                 Guardar cotización
@@ -837,6 +1202,124 @@ export default function PipelinePage() {
         </div>
       )}
     </>
+  );
+}
+
+// ============================================================
+// QuoteField — input numérico del modal de cotización
+// ============================================================
+function QuoteField({
+  label,
+  hint,
+  value,
+  onChange,
+  autoFocus,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <div>
+      <label
+        style={{
+          display: "block",
+          fontSize: 10,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          fontWeight: 700,
+          color: "var(--sand-dark)",
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </label>
+      <input
+        type="number"
+        autoFocus={autoFocus}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          fontSize: 14,
+          border: "1px solid rgba(10,26,12,0.15)",
+          borderRadius: 6,
+          fontFamily: "inherit",
+        }}
+      />
+      {hint && (
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--text-muted)",
+            marginTop: 4,
+            letterSpacing: "0.02em",
+          }}
+        >
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// QuoteSummary — banner con el total y desglose de la cotización
+// ============================================================
+function QuoteSummary({
+  type,
+  form,
+}: {
+  type: "gp" | "dev";
+  form: {
+    feeMensual: string;
+    bono: string;
+    costoProduccion: string;
+    costoMantenimiento: string;
+  };
+}) {
+  const num = (s: string) => {
+    const v = Number(s);
+    return Number.isFinite(v) ? v : 0;
+  };
+  const recurring = type === "gp" ? num(form.feeMensual) : num(form.costoMantenimiento);
+  const oneTime = type === "gp" ? num(form.bono) : num(form.costoProduccion);
+  const recurringLabel = type === "gp" ? "Fee mensual" : "Mantenimiento";
+  const oneTimeLabel = type === "gp" ? "Bono" : "Producción";
+
+  if (recurring === 0 && oneTime === 0) return null;
+
+  return (
+    <div
+      style={{
+        marginBottom: 22,
+        padding: "12px 14px",
+        background: "rgba(45,80,54,0.06)",
+        borderLeft: "3px solid var(--deep-green)",
+        borderRadius: 4,
+        fontSize: 12,
+        color: "var(--deep-green)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span style={{ color: "var(--text-muted)" }}>{recurringLabel}:</span>
+        <strong>USD {recurring.toLocaleString("es-AR")}/mes</strong>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span style={{ color: "var(--text-muted)" }}>{oneTimeLabel}:</span>
+        <strong>
+          USD {oneTime.toLocaleString("es-AR")}
+          {type === "gp" ? "" : " (one-time)"}
+        </strong>
+      </div>
+    </div>
   );
 }
 

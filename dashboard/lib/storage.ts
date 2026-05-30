@@ -374,9 +374,17 @@ interface LeadRow {
   lost_at?: string | null;
   lost_reason?: string | null;
   lost_from_stage?: PipelineStage | null;
+  // Migración 043 — cotización desglosada + referido
+  fee_mensual?: number | string | null;
+  bono?: number | string | null;
+  costo_produccion?: number | string | null;
+  costo_mantenimiento?: number | string | null;
+  referrer_name?: string | null;
 }
 
 function leadFromRow(r: LeadRow): Lead {
+  const num = (v: unknown) =>
+    v == null ? null : typeof v === "string" ? parseFloat(v) : Number(v);
   return {
     id: r.id,
     name: r.name,
@@ -393,6 +401,11 @@ function leadFromRow(r: LeadRow): Lead {
     lostAt: r.lost_at ?? null,
     lostReason: r.lost_reason ?? null,
     lostFromStage: r.lost_from_stage ?? null,
+    feeMensual: num(r.fee_mensual),
+    bono: num(r.bono),
+    costoProduccion: num(r.costo_produccion),
+    costoMantenimiento: num(r.costo_mantenimiento),
+    referrerName: r.referrer_name ?? null,
   };
 }
 
@@ -445,6 +458,7 @@ export async function addLead(data: Omit<Lead, "id" | "createdAt">): Promise<Lea
       source: data.source,
       note: data.note ?? null,
       meeting_booked: data.meetingBooked ?? false,
+      referrer_name: data.referrerName ?? null,
     })
     .select()
     .single();
@@ -463,6 +477,46 @@ export async function updateLeadStage(id: string, stage: PipelineStage): Promise
 export async function updateLeadValue(id: string, value: number): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("leads").update({ value }).eq("id", id);
+}
+
+/**
+ * Guarda la cotización desglosada del lead al pasar a "propuesta".
+ *   · Growth Partner: fee_mensual + bono. value = fee_mensual.
+ *   · IA / Desarrollo: costo_produccion + costo_mantenimiento.
+ *     value = costo_mantenimiento.
+ *
+ * Pasar null para limpiar un campo.
+ */
+export interface UpdateLeadQuoteInput {
+  feeMensual?: number | null;
+  bono?: number | null;
+  costoProduccion?: number | null;
+  costoMantenimiento?: number | null;
+}
+
+export async function updateLeadQuote(
+  id: string,
+  type: "gp" | "dev",
+  patch: UpdateLeadQuoteInput,
+): Promise<void> {
+  const supabase = getSupabase();
+  // El "value" recurrente que alimenta los KPIs es:
+  //   GP  → fee_mensual
+  //   IA  → costo_mantenimiento
+  const recurring =
+    type === "gp"
+      ? (patch.feeMensual ?? 0)
+      : (patch.costoMantenimiento ?? 0);
+  await supabase
+    .from("leads")
+    .update({
+      fee_mensual: patch.feeMensual ?? null,
+      bono: patch.bono ?? null,
+      costo_produccion: patch.costoProduccion ?? null,
+      costo_mantenimiento: patch.costoMantenimiento ?? null,
+      value: recurring,
+    })
+    .eq("id", id);
 }
 
 /**

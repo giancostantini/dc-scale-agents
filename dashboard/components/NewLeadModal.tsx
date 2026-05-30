@@ -24,6 +24,7 @@ export default function NewLeadModal({
   const [type, setType] = useState<ClientType>("gp");
   const [value, setValue] = useState("");
   const [source, setSource] = useState<LeadSource>("manual");
+  const [referrerName, setReferrerName] = useState("");
   const [note, setNote] = useState("");
   const [stage, setStage] = useState<PipelineStage>(initialStage);
 
@@ -47,6 +48,9 @@ export default function NewLeadModal({
       source,
       note: note.trim() || undefined,
       stage,
+      referrerName: source === "referido" && referrerName.trim()
+        ? referrerName.trim()
+        : null,
     });
 
     setName("");
@@ -54,6 +58,7 @@ export default function NewLeadModal({
     setSector("");
     setValue("");
     setNote("");
+    setReferrerName("");
     onClose();
     onCreated?.();
   }
@@ -143,6 +148,16 @@ export default function NewLeadModal({
             </select>
           </div>
         </div>
+        {source === "referido" && (
+          <div className={styles.field}>
+            <label>Referido por</label>
+            <input
+              placeholder="Ej: Juan Pérez (cliente actual)"
+              value={referrerName}
+              onChange={(e) => setReferrerName(e.target.value)}
+            />
+          </div>
+        )}
         {!valueRequired && (
           <div
             style={{
