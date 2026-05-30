@@ -84,6 +84,9 @@ export interface AssignmentInput {
   since?: string;
   until?: string | null;
   notes?: string | null;
+  /** Keys de menús del sidebar del cliente que verá este miembro.
+   *  NULL = todos (default). Ver lib/client-menus.ts. */
+  visible_menus?: string[] | null;
 }
 
 export async function listAssignmentsForUser(
@@ -128,7 +131,29 @@ export async function addAssignment(input: AssignmentInput): Promise<void> {
     since: input.since ?? new Date().toISOString().slice(0, 10),
     until: input.until ?? null,
     notes: input.notes ?? null,
+    visible_menus: input.visible_menus ?? null,
   });
+  if (error) throw error;
+}
+
+/**
+ * Actualiza los menús visibles de una asignación existente.
+ * Identificada por (client_id, user_id, role_in_client).
+ * Pasar null = "ver todos los menús" (default).
+ */
+export async function updateAssignmentMenus(
+  clientId: string,
+  userId: string,
+  roleInClient: string,
+  visibleMenus: string[] | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_assignments")
+    .update({ visible_menus: visibleMenus })
+    .eq("client_id", clientId)
+    .eq("user_id", userId)
+    .eq("role_in_client", roleInClient);
   if (error) throw error;
 }
 

@@ -18,7 +18,13 @@ import {
   listAssignmentsForUser,
   addAssignment,
   removeAssignment,
+  updateAssignmentMenus,
 } from "@/lib/team";
+import {
+  CLIENT_MENUS_GP,
+  CLIENT_MENUS_DEV,
+  defaultVisibleMenus,
+} from "@/lib/client-menus";
 import { getClients } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import type { Client } from "@/lib/types";
@@ -69,6 +75,35 @@ export default function EquipoDetailPage({
   const [asgClientId, setAsgClientId] = useState("");
   const [asgRole, setAsgRole] = useState<string>(CLIENT_ROLES[0]);
   const [asgError, setAsgError] = useState("");
+  // Menus que verá el miembro asignado en el sidebar del cliente.
+  // Default = todos los no-directorOnly del tipo del cliente.
+  const [asgMenus, setAsgMenus] = useState<string[]>([]);
+  // Modal para editar menús de una asignación existente
+  const [editMenusFor, setEditMenusFor] = useState<ClientAssignment | null>(null);
+  const [editMenusDraft, setEditMenusDraft] = useState<string[]>([]);
+  const [savingMenus, setSavingMenus] = useState(false);
+
+  // Cliente elegido en el formulario de asignación (para saber si es GP/dev)
+  const selectedAsgClient = clients.find((c) => c.id === asgClientId) ?? null;
+  // Defaultear los menús al elegir cliente (todos los no-director)
+  useEffect(() => {
+    if (selectedAsgClient) {
+      setAsgMenus(defaultVisibleMenus(selectedAsgClient.type));
+    } else {
+      setAsgMenus([]);
+    }
+  }, [selectedAsgClient?.id]);
+
+  function toggleAsgMenu(key: string) {
+    setAsgMenus((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
+  function toggleEditMenu(key: string) {
+    setEditMenusDraft((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
 
   async function loadAssignments() {
     const a = await listAssignmentsForUser(id);
@@ -196,13 +231,29 @@ export default function EquipoDetailPage({
     }
     if (!profile) return;
     try {
+      // Si el cliente es GP, persistimos los menús elegidos.  Si es dev
+      // por ahora también persistimos (el usuario solo pidió la opción
+      // para GP pero el campo aplica a ambos tipos).
+      const cli = clients.find((c) => c.id === asgClientId);
+      const fullCatalog =
+        cli?.type === "dev" ? CLIENT_MENUS_DEV : CLIENT_MENUS_GP;
+      const everything = fullCatalog
+        .filter((m) => !m.directorOnly)
+        .map((m) => m.key);
+      const sameAsDefault =
+        asgMenus.length === everything.length &&
+        everything.every((k) => asgMenus.includes(k));
       await addAssignment({
         client_id: asgClientId,
         user_id: profile.id,
         role_in_client: asgRole,
+        // Si seleccionó todos, guardamos NULL (= ver todo, default).
+        // Si seleccionó un subset, guardamos el array.
+        visible_menus: sameAsDefault ? null : asgMenus,
       });
       await loadAssignments();
       setAsgClientId("");
+      setAsgMenus([]);
     } catch (err) {
       console.error("add assignment error:", err);
       const e = err as { code?: string; message?: string };
@@ -211,6 +262,45 @@ export default function EquipoDetailPage({
       } else {
         setAsgError(e.message ?? "No se pudo asignar.");
       }
+    }
+  }
+
+  function openEditMenus(a: ClientAssignment) {
+    const cli = clients.find((c) => c.id === a.client_id);
+    if (!cli) return;
+    const full = cli.type === "dev" ? CLIENT_MENUS_DEV : CLIENT_MENUS_GP;
+    const everything = full
+      .filter((m) => !m.directorOnly)
+      .map((m) => m.key);
+    // Si visible_menus es null, default = todos (el usuario está viendo todos)
+    setEditMenusDraft(a.visible_menus ?? everything);
+    setEditMenusFor(a);
+  }
+
+  async function saveEditMenus() {
+    if (!editMenusFor) return;
+    const cli = clients.find((c) => c.id === editMenusFor.client_id);
+    const full = (cli?.type === "dev" ? CLIENT_MENUS_DEV : CLIENT_MENUS_GP)
+      .filter((m) => !m.directorOnly)
+      .map((m) => m.key);
+    const sameAsDefault =
+      editMenusDraft.length === full.length &&
+      full.every((k) => editMenusDraft.includes(k));
+    setSavingMenus(true);
+    try {
+      await updateAssignmentMenus(
+        editMenusFor.client_id,
+        editMenusFor.user_id,
+        editMenusFor.role_in_client,
+        sameAsDefault ? null : editMenusDraft,
+      );
+      await loadAssignments();
+      setEditMenusFor(null);
+    } catch (err) {
+      const e = err as { message?: string };
+      alert(`No se pudo guardar: ${e.message ?? ""}`);
+    } finally {
+      setSavingMenus(false);
     }
   }
 
@@ -550,12 +640,33 @@ export default function EquipoDetailPage({
                       desde {a.since}
                     </div>
                     {canEdit && (
-                      <button
-                        className={detail.removeBtn}
-                        onClick={() => handleRemoveAssignment(a)}
-                      >
-                        ×
-                      </button>
+                      <>
+                        <button
+                          onClick={() => openEditMenus(a)}
+                          title="Editar qué menús ve este miembro en el cliente"
+                          style={{
+                            padding: "4px 10px",
+                            background: "transparent",
+                            border: "1px solid rgba(10,26,12,0.15)",
+                            borderRadius: 4,
+                            fontSize: 11,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            color: "var(--deep-green)",
+                            marginRight: 6,
+                          }}
+                        >
+                          {a.visible_menus
+                            ? `Menús (${a.visible_menus.length})`
+                            : "Menús (todos)"}
+                        </button>
+                        <button
+                          className={detail.removeBtn}
+                          onClick={() => handleRemoveAssignment(a)}
+                        >
+                          ×
+                        </button>
+                      </>
                     )}
                   </div>
                 );
@@ -595,6 +706,97 @@ export default function EquipoDetailPage({
                   Asignar
                 </button>
               </div>
+
+              {/* Menús que verá el miembro en el cliente.  Solo aparece
+                  cuando ya elegiste un cliente. */}
+              {selectedAsgClient && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: 16,
+                    background: "rgba(196,168,130,0.06)",
+                    border: "1px solid rgba(196,168,130,0.25)",
+                    borderRadius: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.15em",
+                      textTransform: "uppercase",
+                      fontWeight: 700,
+                      color: "var(--sand-dark)",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Menús que verá en{" "}
+                    {selectedAsgClient.type === "gp"
+                      ? "Growth Partner"
+                      : "Desarrollo"}{" "}
+                    · {selectedAsgClient.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginBottom: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Tildá los menús que querés que aparezcan en su
+                    sidebar al entrar al cliente. Si tildás todos, es
+                    igual que dar acceso completo.
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(180px, 1fr))",
+                      gap: 6,
+                    }}
+                  >
+                    {(selectedAsgClient.type === "dev"
+                      ? CLIENT_MENUS_DEV
+                      : CLIENT_MENUS_GP
+                    )
+                      .filter((m) => !m.directorOnly)
+                      .map((m) => {
+                        const checked = asgMenus.includes(m.key);
+                        return (
+                          <label
+                            key={m.key}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "4px 8px",
+                              fontSize: 12,
+                              cursor: "pointer",
+                              border: `1px solid ${
+                                checked
+                                  ? "var(--sand)"
+                                  : "rgba(10,26,12,0.08)"
+                              }`,
+                              borderRadius: 4,
+                              background: checked
+                                ? "var(--off-white)"
+                                : "transparent",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleAsgMenu(m.key)}
+                              style={{ width: "auto", margin: 0 }}
+                            />
+                            {m.label}
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {asgError && <div className={detail.asgError}>{asgError}</div>}
             </div>
           )}
@@ -621,6 +823,176 @@ export default function EquipoDetailPage({
           />
         )}
       </main>
+
+      {/* Modal: editar menús visibles de una asignación existente */}
+      {editMenusFor && (() => {
+        const cli = clients.find((c) => c.id === editMenusFor.client_id);
+        const catalog = (cli?.type === "dev" ? CLIENT_MENUS_DEV : CLIENT_MENUS_GP)
+          .filter((m) => !m.directorOnly);
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(10,26,12,0.5)",
+              zIndex: 1000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+            }}
+            onClick={(e) => e.target === e.currentTarget && setEditMenusFor(null)}
+          >
+            <div
+              style={{
+                background: "var(--white)",
+                borderRadius: 12,
+                padding: 28,
+                maxWidth: 560,
+                width: "100%",
+                boxShadow: "0 24px 48px rgba(0,0,0,0.25)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                Menús visibles ·{" "}
+                {cli?.type === "gp" ? "Growth Partner" : "Desarrollo"}
+              </div>
+              <h3
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: "var(--deep-green)",
+                  margin: "0 0 8px 0",
+                }}
+              >
+                {cli?.name ?? editMenusFor.client_id}
+              </h3>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 18 }}>
+                Definí qué menús aparecen en el sidebar de este cliente
+                para <strong>{profile.name}</strong>. Los items marcados
+                como solo-director nunca aparecen para el equipo.
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                  gap: 6,
+                  marginBottom: 18,
+                }}
+              >
+                {catalog.map((m) => {
+                  const checked = editMenusDraft.includes(m.key);
+                  return (
+                    <label
+                      key={m.key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 10px",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        border: `1px solid ${
+                          checked ? "var(--sand)" : "rgba(10,26,12,0.1)"
+                        }`,
+                        borderRadius: 4,
+                        background: checked ? "var(--off-white)" : "transparent",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleEditMenu(m.key)}
+                        style={{ width: "auto", margin: 0 }}
+                      />
+                      {m.label}
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <button
+                  onClick={() =>
+                    setEditMenusDraft(catalog.map((m) => m.key))
+                  }
+                  style={{
+                    padding: "6px 12px",
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.12)",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Tildar todos
+                </button>
+                <button
+                  onClick={() => setEditMenusDraft([])}
+                  style={{
+                    padding: "6px 12px",
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.12)",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Destildar todos
+                </button>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button
+                  onClick={() => setEditMenusFor(null)}
+                  disabled={savingMenus}
+                  style={{
+                    padding: "10px 18px",
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.15)",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveEditMenus}
+                  disabled={savingMenus}
+                  style={{
+                    padding: "10px 18px",
+                    background: "var(--deep-green)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: savingMenus ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    opacity: savingMenus ? 0.5 : 1,
+                  }}
+                >
+                  {savingMenus ? "Guardando…" : "Guardar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

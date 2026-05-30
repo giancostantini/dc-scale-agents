@@ -23,11 +23,14 @@ import {
 } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { deleteClient } from "@/lib/storage";
+import { listAssignmentsForUser } from "@/lib/team";
 import InviteUserModal from "./InviteUserModal";
 import type { Client } from "@/lib/types";
 import styles from "./ClientSidebar.module.css";
 
 interface NavItem {
+  /** Key estable que matchea lib/client-menus.ts CLIENT_MENUS_*. */
+  key: string;
   href: string;
   icon: LucideIcon;
   label: string;
@@ -40,12 +43,46 @@ export default function ClientSidebar({ client }: { client: Client }) {
   const [isDirector, setIsDirector] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  /** visible_menus de la asignación del viewer a este cliente.
+   *  undefined = todavía no se cargó, null = ver todos, string[] = filtrar. */
+  const [visibleMenus, setVisibleMenus] = useState<
+    string[] | null | undefined
+  >(undefined);
 
   useEffect(() => {
-    getCurrentProfile().then((p) => {
-      if (p) setIsDirector(p.role === "director");
+    getCurrentProfile().then(async (p) => {
+      if (!p) return;
+      const dir = p.role === "director";
+      setIsDirector(dir);
+      // Director ignora visible_menus, así que no hace falta cargar.
+      if (dir) {
+        setVisibleMenus(null);
+        return;
+      }
+      // Team: leer asignaciones del viewer y buscar la que matchea
+      // este cliente. Si tiene varias (distinto role_in_client), el
+      // visible_menus efectivo = UNIÓN de todas (le damos el set más
+      // permisivo).
+      const all = await listAssignmentsForUser(p.id);
+      const mine = all.filter((a) => a.client_id === client.id);
+      if (mine.length === 0) {
+        // No asignado → ver todos los menús (RLS del cliente decidirá
+        // si puede entrar a cada página).
+        setVisibleMenus(null);
+        return;
+      }
+      const anyUnrestricted = mine.some((a) => !a.visible_menus);
+      if (anyUnrestricted) {
+        setVisibleMenus(null); // al menos una asignación sin restricción
+        return;
+      }
+      const union = new Set<string>();
+      for (const a of mine) {
+        for (const k of a.visible_menus ?? []) union.add(k);
+      }
+      setVisibleMenus([...union]);
     });
-  }, []);
+  }, [client.id]);
 
   async function handleDeleteClient() {
     if (deleting) return;
@@ -90,31 +127,39 @@ export default function ClientSidebar({ client }: { client: Client }) {
   // Menú UNIFICADO (sin split nav/gestión). Orden por flujo de uso:
   // dashboard → estrategia → ejecución → análisis → soporte.
   const navGP: NavItem[] = [
-    { href: base,                   icon: LayoutDashboard, label: "Dashboard" },
-    { href: `${base}/fases`,         icon: Layers,         label: "Fases del negocio" },
-    { href: `${base}/objetivos`,     icon: Target,         label: "Objetivos", directorOnly: true },
-    { href: `${base}/planificador`,  icon: Map,            label: "Calendario" },
-    { href: `${base}/contenido`,     icon: Sparkles,       label: "Contenido" },
-    { href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
-    { href: `${base}/campanas`,      icon: Clapperboard,   label: "Producciones" },
-    { href: `${base}/analitica`,     icon: TrendingUp,     label: "Analítica" },
-    { href: `${base}/reporting`,     icon: FileText,       label: "Reporting" },
-    { href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
-    { href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
-    { href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
+    { key: "dashboard",   href: base,                   icon: LayoutDashboard, label: "Dashboard" },
+    { key: "fases",       href: `${base}/fases`,         icon: Layers,         label: "Fases del negocio" },
+    { key: "objetivos",   href: `${base}/objetivos`,     icon: Target,         label: "Objetivos", directorOnly: true },
+    { key: "calendario",  href: `${base}/planificador`,  icon: Map,            label: "Calendario" },
+    { key: "contenido",   href: `${base}/contenido`,     icon: Sparkles,       label: "Contenido" },
+    { key: "tareas",      href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
+    { key: "producciones",href: `${base}/campanas`,      icon: Clapperboard,   label: "Producciones" },
+    { key: "analitica",   href: `${base}/analitica`,     icon: TrendingUp,     label: "Analítica" },
+    { key: "reporting",   href: `${base}/reporting`,     icon: FileText,       label: "Reporting" },
+    { key: "biblioteca",  href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
+    { key: "notas",       href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
   ];
 
   const navDev: NavItem[] = [
-    { href: base,                    icon: LayoutDashboard, label: "Dashboard" },
-    { href: `${base}/sprints`,       icon: ListChecks,     label: "Sprints" },
-    { href: `${base}/nueva-tarea`,   icon: Plus,           label: "Nueva tarea" },
-    { href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
-    { href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
-    { href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
-    { href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
+    { key: "dashboard",   href: base,                    icon: LayoutDashboard, label: "Dashboard" },
+    { key: "sprints",     href: `${base}/sprints`,       icon: ListChecks,     label: "Sprints" },
+    { key: "nueva-tarea", href: `${base}/nueva-tarea`,   icon: Plus,           label: "Nueva tarea" },
+    { key: "tareas",      href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
+    { key: "biblioteca",  href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
+    { key: "notas",       href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
   ];
 
-  const nav = client.type === "gp" ? navGP : navDev;
+  const baseNav = client.type === "gp" ? navGP : navDev;
+  // Si el viewer es team y tiene visible_menus configurado, filtramos
+  // a los keys listados.  Director (visibleMenus=null) ve todo.
+  // Team sin restricción (visibleMenus=null) también ve todo.
+  // Los items directorOnly siguen filtrándose dentro de renderItem.
+  const nav =
+    isDirector || !visibleMenus
+      ? baseNav
+      : baseNav.filter((it) => visibleMenus.includes(it.key));
 
   function renderItem(it: NavItem) {
     if (it.directorOnly && !isDirector) return null;

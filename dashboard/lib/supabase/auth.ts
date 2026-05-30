@@ -85,6 +85,10 @@ export interface ClientAssignment {
   until?: string | null;
   notes?: string | null;
   created_at: string;
+  /** Lista de keys del catálogo CLIENT_MENUS_GP/DEV (lib/client-menus)
+   *  que este miembro puede ver en el sidebar del cliente. NULL =
+   *  ver todos los menús (default, backward-compatible). */
+  visible_menus?: string[] | null;
 }
 
 // ==================== ROLE HELPERS (client-side) ====================
