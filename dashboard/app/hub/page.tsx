@@ -212,52 +212,6 @@ export default function HubPage() {
     return acts.slice(0, 6);
   }, [requests, clients, tasks]);
 
-  // Cliente principal: el más activo (más tareas activas en el último mes)
-  const mainClient = useMemo(() => {
-    if (activeClients.length === 0) return null;
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-    const scores = new Map<string, number>();
-    for (const t of tasks) {
-      if (new Date(t.createdAt) >= monthAgo) {
-        scores.set(t.clientId, (scores.get(t.clientId) ?? 0) + 1);
-      }
-    }
-    let best = activeClients[0];
-    let bestScore = scores.get(best.id) ?? 0;
-    for (const c of activeClients) {
-      const s = scores.get(c.id) ?? 0;
-      if (s > bestScore) {
-        best = c;
-        bestScore = s;
-      }
-    }
-    return best;
-  }, [activeClients, tasks]);
-
-  // KPIs del pipeline (solo si tiene acceso)
-  const pipelineKpis = useMemo(() => {
-    const total = leads.length;
-    const ganados = leads.filter((l) => l.stage === "cerrado").length;
-    const conversion = total > 0 ? Math.round((ganados / total) * 100) : 0;
-    const value = leads
-      .filter((l) => l.stage !== "cerrado")
-      .reduce((s, l) => s + (l.value || 0), 0);
-    // Ciclo promedio: días entre createdAt y stageChangedAt para cerrados
-    const closed = leads.filter((l) => l.stage === "cerrado");
-    let cicloPromedio = 0;
-    if (closed.length > 0) {
-      const totalDays = closed.reduce((s, l) => {
-        const ms =
-          new Date(l.stageChangedAt ?? l.createdAt).getTime() -
-          new Date(l.createdAt).getTime();
-        return s + Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
-      }, 0);
-      cicloPromedio = Math.round(totalDays / closed.length);
-    }
-    return { total, conversion, value, cicloPromedio };
-  }, [leads]);
-
   // Performance % — basado en tareas completadas EN TÉRMINO durante el mes
   const performance = useMemo(() => {
     const monthStart = new Date();
@@ -489,237 +443,141 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* ============ ROW PRINCIPAL ============ */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "300px 1fr",
-            gap: 20,
-            marginBottom: 24,
-          }}
-        >
-          {/* Cliente principal */}
-          {mainClient ? (
+        {/* ============ MIS CLIENTES (grid con logos) ============ */}
+        <div style={{ marginBottom: 24 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 14,
+            }}
+          >
             <div
               style={{
-                background: "var(--white)",
-                border: "1px solid var(--hairline)",
-                borderRadius: "var(--r-lg)",
-                padding: 22,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
               }}
             >
-              <div
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  fontWeight: 700,
-                  marginBottom: 14,
-                  alignSelf: "flex-start",
-                }}
-              >
-                Cliente principal
-              </div>
-              <div
-                style={{
-                  padding: "3px 10px",
-                  background: "rgba(16,185,129,0.12)",
-                  color: "#0F7B4A",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  borderRadius: 999,
-                  marginBottom: 18,
-                }}
-              >
-                ● Cuenta activa
-              </div>
-              <div
-                style={{
-                  width: 130,
-                  height: 130,
-                  background: "var(--deep-green)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 16,
-                  marginBottom: 16,
-                  overflow: "hidden",
-                  color: "var(--off-white)",
-                  fontSize: 36,
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                }}
-              >
-                {mainClient.logo_url ? (
-                  <img
-                    src={mainClient.logo_url}
-                    alt={mainClient.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                ) : (
-                  mainClient.initials
-                )}
-              </div>
-              <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: "var(--deep-green)",
-                  letterSpacing: "-0.01em",
-                  marginBottom: 4,
-                }}
-              >
-                {mainClient.name}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginBottom: 18,
-                }}
-              >
-                {mainClient.created_at
-                  ? `Cliente desde ${new Date(mainClient.created_at).toLocaleDateString("es-AR", { month: "long", year: "numeric" })}`
-                  : mainClient.sector}
-              </div>
-              <Link
-                href={`/cliente/${mainClient.id}`}
-                style={{
-                  display: "inline-block",
-                  padding: "10px 18px",
-                  background: "var(--deep-green)",
-                  color: "var(--off-white)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  textDecoration: "none",
-                  borderRadius: 6,
-                  width: "100%",
-                  textAlign: "center",
-                }}
-              >
-                Ver perfil completo
-              </Link>
+              {profile.role === "director"
+                ? `Todos los clientes (${clients.length})`
+                : `Mis clientes (${clients.length})`}
             </div>
-          ) : (
+            {profile.role === "director" && (
+              <Link
+                href="/finanzas"
+                style={{
+                  fontSize: 11,
+                  color: "var(--deep-green)",
+                  textDecoration: "none",
+                  borderBottom: "1px solid var(--sand)",
+                  paddingBottom: 1,
+                  fontWeight: 600,
+                }}
+              >
+                + Nuevo cliente
+              </Link>
+            )}
+          </div>
+          {clients.length === 0 ? (
             <div
               style={{
                 background: "var(--white)",
                 border: "1px dashed var(--hairline)",
                 borderRadius: "var(--r-lg)",
-                padding: 30,
+                padding: 40,
                 textAlign: "center",
                 color: "var(--text-muted)",
                 fontSize: 13,
               }}
             >
-              Sin clientes asignados todavía.
+              {profile.role === "director"
+                ? "Todavía no hay clientes. Creá el primero desde Finanzas → Clientes Activos."
+                : "Todavía no tenés clientes asignados. Cuando el director te asigne uno, va a aparecer acá."}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fill, minmax(190px, 1fr))",
+                gap: 14,
+              }}
+            >
+              {clients.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/cliente/${c.id}`}
+                  style={{
+                    background: "var(--white)",
+                    border: "1px solid var(--hairline)",
+                    borderRadius: "var(--r-md)",
+                    padding: 18,
+                    textDecoration: "none",
+                    color: "inherit",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    transition: "transform 0.15s, box-shadow 0.15s",
+                  }}
+                >
+                  <ClientLogo client={c} size={70} />
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                      marginTop: 12,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {c.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {c.sector}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: "2px 8px",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      borderRadius: 999,
+                      background:
+                        c.status === "active"
+                          ? "rgba(16,185,129,0.12)"
+                          : c.status === "onboarding"
+                            ? "rgba(196,168,130,0.18)"
+                            : "rgba(10,26,12,0.06)",
+                      color:
+                        c.status === "active"
+                          ? "#0F7B4A"
+                          : c.status === "onboarding"
+                            ? "var(--sand-dark)"
+                            : "var(--text-muted)",
+                    }}
+                  >
+                    {c.status === "active"
+                      ? "● Activo"
+                      : c.status === "onboarding"
+                        ? "Onboarding"
+                        : "Dev"}
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
-
-          {/* Resumen general — pipeline (si tiene acceso) o métricas básicas */}
-          <div>
-            {hasPipelineAccess(profile) ? (
-              <>
-                <div
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: "0.22em",
-                    textTransform: "uppercase",
-                    color: "var(--sand-dark)",
-                    fontWeight: 700,
-                    marginBottom: 12,
-                  }}
-                >
-                  Resumen general
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: 12,
-                  }}
-                >
-                  <KpiCard
-                    icon="👥"
-                    label="Prospectos"
-                    value={String(pipelineKpis.total)}
-                    delta="+18,4%"
-                  />
-                  <KpiCard
-                    icon="📈"
-                    label="Conversión"
-                    value={`${pipelineKpis.conversion}%`}
-                    delta="+6,3%"
-                  />
-                  <KpiCard
-                    icon="$"
-                    label="Valor Estimado"
-                    value={formatMoney(pipelineKpis.value)}
-                    delta="+22,1%"
-                  />
-                  <KpiCard
-                    icon="🕒"
-                    label="Ciclo Promedio"
-                    value={`${pipelineKpis.cicloPromedio} días`}
-                    delta="-2,3 días"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: "0.22em",
-                    textTransform: "uppercase",
-                    color: "var(--sand-dark)",
-                    fontWeight: 700,
-                    marginBottom: 12,
-                  }}
-                >
-                  Resumen general
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: 12,
-                  }}
-                >
-                  <KpiCard
-                    icon="👥"
-                    label="Clientes"
-                    value={String(clients.length)}
-                  />
-                  <KpiCard
-                    icon="✓"
-                    label="Tareas Completadas"
-                    value={String(
-                      tasks.filter((t) => t.status === "done").length,
-                    )}
-                  />
-                  <KpiCard
-                    icon="📥"
-                    label="Solicitudes activas"
-                    value={String(requests.length)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* ============ TAREAS PENDIENTES + DESEMPEÑO ============ */}
@@ -1093,98 +951,84 @@ export default function HubPage() {
           </div>
         )}
 
-        {/* ============ GRID DE CLIENTES ============ */}
-        {clients.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 14,
-              }}
-            >
-              Mis clientes
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: 14,
-              }}
-            >
-              {clients.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/cliente/${c.id}`}
-                  style={{
-                    background: "var(--white)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: "var(--r-md)",
-                    padding: 18,
-                    textDecoration: "none",
-                    color: "inherit",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    textAlign: "center",
-                    transition: "transform 0.15s, box-shadow 0.15s",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 70,
-                      height: 70,
-                      background: "var(--ivory)",
-                      borderRadius: 10,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginBottom: 12,
-                      color: "var(--deep-green)",
-                      fontSize: 22,
-                      fontWeight: 800,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {c.logo_url ? (
-                      <img
-                        src={c.logo_url}
-                        alt={c.name}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                        }}
-                      />
-                    ) : (
-                      c.initials
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--deep-green)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {c.name}
-                  </div>
-                  <div
-                    style={{ fontSize: 11, color: "var(--text-muted)" }}
-                  >
-                    {c.sector}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
     </>
+  );
+}
+
+// ============ ClientLogo ============
+// Resuelve el logo del cliente con esta cascada:
+//   1. client.logo_url (subido manual)
+//   2. Clearbit logo API derivado del dominio de contact_email
+//   3. Iniciales como fallback visual
+// El <img> tiene onError → si la imagen no carga (404 de Clearbit,
+// dominio inválido, CORS), se cae graceful a las iniciales sin
+// romper el card.
+function ClientLogo({
+  client,
+  size = 70,
+}: {
+  client: Client;
+  size?: number;
+}) {
+  const [errored, setErrored] = useState(false);
+  // Derivar dominio del contact_email (si no hay logo_url manual)
+  const domain = (() => {
+    if (client.logo_url) return null;
+    const email = client.contact_email ?? "";
+    const at = email.indexOf("@");
+    if (at < 0) return null;
+    const d = email.slice(at + 1).trim().toLowerCase();
+    // Filtrar dominios genéricos (no tienen logo significativo)
+    if (
+      !d ||
+      d.includes("gmail.com") ||
+      d.includes("hotmail.com") ||
+      d.includes("outlook.com") ||
+      d.includes("yahoo.com")
+    ) {
+      return null;
+    }
+    return d;
+  })();
+  const src =
+    client.logo_url ??
+    (domain ? `https://logo.clearbit.com/${domain}` : null);
+  const showImg = src && !errored;
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        background: "var(--ivory)",
+        borderRadius: 10,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--deep-green)",
+        fontSize: Math.floor(size * 0.3),
+        fontWeight: 800,
+        overflow: "hidden",
+        flexShrink: 0,
+      }}
+    >
+      {showImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={`Logo ${client.name}`}
+          onError={() => setErrored(true)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            background: "var(--white)",
+          }}
+        />
+      ) : (
+        client.initials
+      )}
+    </div>
   );
 }
 
@@ -1228,82 +1072,6 @@ function HeroStat({
       >
         {label}
       </div>
-    </div>
-  );
-}
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  delta,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  delta?: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--white)",
-        border: "1px solid var(--hairline)",
-        borderRadius: "var(--r-md)",
-        padding: 18,
-      }}
-    >
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: "var(--ivory)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 14,
-          color: "var(--sand-dark)",
-          marginBottom: 12,
-        }}
-      >
-        {icon}
-      </div>
-      <div
-        style={{
-          fontSize: 10,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          color: "var(--text-muted)",
-          fontWeight: 600,
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          color: "var(--deep-green)",
-          letterSpacing: "-0.02em",
-        }}
-      >
-        {value}
-      </div>
-      {delta && (
-        <div
-          style={{
-            fontSize: 11,
-            color: delta.startsWith("-")
-              ? "#B91C1C"
-              : "var(--accent)",
-            marginTop: 4,
-            fontWeight: 600,
-          }}
-        >
-          {delta.startsWith("-") ? "↓" : "↑"} {delta.replace("-", "").replace("+", "")}
-        </div>
-      )}
     </div>
   );
 }
