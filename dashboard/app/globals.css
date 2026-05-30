@@ -57,15 +57,15 @@
   --yellow-warn: #C9A14A;
   --rule: #D8D1C4;
 
-  /* ============ ACENTO VIVO · identidad startup 2026 ============
-     Verde vivo/esmeralda = color de energía (CTAs, highlights, estados
-     activos). Es distinto de --green-ok (estado de éxito) a propósito,
-     para no confundir "acento de marca" con "estado positivo".
-     El sand se mantiene como acento cálido secundario. */
-  --accent: #16C75A;
-  --accent-deep: #0F9E47;
-  --accent-tint: rgba(22, 199, 90, 0.14);
-  --accent-tint-strong: rgba(22, 199, 90, 0.22);
+  /* ============ ACENTO · profesional 2026 ============
+     Se cambió el verde eléctrico (#16C75A) por un emerald oscuro
+     más sobrio y profesional. El sand sigue siendo el acento cálido
+     secundario. Para CTAs visuales fuertes se prefiere usar --sand
+     o --deep-green directamente. */
+  --accent: #0F7B4A;
+  --accent-deep: #0A5B36;
+  --accent-tint: rgba(15, 123, 74, 0.10);
+  --accent-tint-strong: rgba(15, 123, 74, 0.18);
 
   /* ============ FORMA / ELEVACIÓN · refresh 2026 (Torem-like) ============
      Tokens nuevos para el rediseño estético. NO modifican la paleta:

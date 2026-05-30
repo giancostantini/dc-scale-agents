@@ -87,6 +87,7 @@ interface ClientRow {
   tax_id?: string | null;
   created_at?: string | null;
   default_cuenta_id?: string | null;
+  logo_url?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -117,6 +118,7 @@ function clientFromRow(r: ClientRow): Client {
     tax_id: r.tax_id ?? null,
     created_at: r.created_at ?? null,
     default_cuenta_id: r.default_cuenta_id ?? null,
+    logo_url: r.logo_url ?? null,
   };
 }
 
@@ -272,6 +274,19 @@ export async function updateClientDefaultCuenta(
   const { error } = await supabase
     .from("clients")
     .update({ default_cuenta_id: cuentaId })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/** Actualiza la URL del logo del cliente. */
+export async function updateClientLogo(
+  clientId: string,
+  logoUrl: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ logo_url: logoUrl })
     .eq("id", clientId);
   if (error) throw error;
 }

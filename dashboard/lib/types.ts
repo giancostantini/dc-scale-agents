@@ -247,6 +247,9 @@ export interface Client {
    *  (migración 044). Cuando se marca un payment como 'paid', se
    *  crea un movimiento de entrada automáticamente. */
   default_cuenta_id?: string | null;
+  /** URL pública del logo del cliente (migración 048).
+   *  NULL = fallback a iniciales. */
+  logo_url?: string | null;
 }
 
 // ==================== PIPELINE / CRM ====================

@@ -26,7 +26,22 @@ export default function ClientCard({ client }: { client: Client }) {
       <div className={`${styles.badge} ${badgeClass}`}>
         {client.type === "gp" ? "Growth Partner" : "Desarrollo"}
       </div>
-      <div className={styles.logoBig}>{client.initials}</div>
+      <div className={styles.logoBig}>
+        {client.logo_url ? (
+          <img
+            src={client.logo_url}
+            alt={`Logo ${client.name}`}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              borderRadius: "inherit",
+            }}
+          />
+        ) : (
+          client.initials
+        )}
+      </div>
       <div className={styles.name}>{client.name}</div>
     </button>
   );
