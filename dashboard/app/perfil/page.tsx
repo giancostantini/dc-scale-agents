@@ -230,8 +230,35 @@ export default function PerfilPage() {
           </div>
         )}
 
-        {/* ===== Clientes asignados — solo equipo/director (no aplica a clientes) ===== */}
-        {!isClient && (
+        {/* ===== Clientes asignados — solo team (los directores ven
+             todo por su rol y no necesitan asignaciones explícitas) ===== */}
+        {!isClient && profile.role === "director" && (
+          <div className={styles.panel}>
+            <div className={styles.panelHead}>
+              <div className={styles.panelTitle}>
+                Acceso a clientes
+              </div>
+            </div>
+            <div
+              style={{
+                padding: 18,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+                fontSize: 13,
+                color: "var(--deep-green)",
+                lineHeight: 1.6,
+                borderRadius: "0 6px 6px 0",
+              }}
+            >
+              Como <strong>director</strong>, tenés acceso global a{" "}
+              <strong>todos los clientes</strong> del sistema. No necesitás
+              asignaciones explícitas para verlos o trabajar con ellos.
+              Las asignaciones se usan para distribuir el trabajo entre el
+              equipo (saber quién es responsable de qué).
+            </div>
+          </div>
+        )}
+        {!isClient && profile.role !== "director" && (
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <div className={styles.panelTitle}>

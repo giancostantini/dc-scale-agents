@@ -265,7 +265,19 @@ export default function EquipoPage() {
                   )}
                 </div>
                 <div className={styles.assignCount}>
-                  {countByUser[p.id] ?? 0} clientes
+                  {p.role === "director" ? (
+                    <span
+                      title="Los directores ven todos los clientes por su rol — no requieren asignaciones explícitas."
+                      style={{
+                        fontStyle: "italic",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      Acceso global
+                    </span>
+                  ) : (
+                    `${countByUser[p.id] ?? 0} clientes`
+                  )}
                 </div>
                 <div className={styles.payment}>
                   {p.payment_amount != null && isDirector

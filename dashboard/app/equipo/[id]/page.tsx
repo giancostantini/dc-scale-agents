@@ -600,8 +600,45 @@ export default function EquipoDetailPage({
         )}
 
         {/* ===== Asignaciones a clientes (solo team — los clients no se
-             asignan a clientes, ellos SON el cliente) ===== */}
-        {editRole !== "client" && (
+             asignan a clientes, ellos SON el cliente. Los directores
+             tienen acceso global por su rol y no necesitan asignaciones
+             explícitas — mostramos un cartel informativo en su lugar) ===== */}
+        {editRole === "director" && (
+          <Section title="Acceso a clientes">
+            <div
+              style={{
+                padding: 18,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+                fontSize: 13,
+                color: "var(--deep-green)",
+                lineHeight: 1.6,
+                borderRadius: "0 6px 6px 0",
+              }}
+            >
+              <strong>{profile?.name}</strong> es director — tiene acceso a{" "}
+              <strong>todos los clientes</strong> del sistema sin necesidad
+              de asignaciones explícitas. Las asignaciones se usan solo para
+              distribuir trabajo entre miembros del equipo.
+              {assignments.length > 0 && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    paddingTop: 12,
+                    borderTop: "1px solid rgba(10,26,12,0.08)",
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Hay <strong>{assignments.length}</strong> asignación(es)
+                  histórica(s) en el sistema, pero no impactan el acceso —
+                  se pueden eliminar sin problema.
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+        {editRole !== "client" && editRole !== "director" && (
           <>
         <Section title={`Clientes asignados (${assignments.length})`}>
           {assignments.length === 0 ? (
