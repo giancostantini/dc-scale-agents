@@ -47,6 +47,7 @@ import {
 import ReportesView from "@/components/finanzas/ReportesView";
 import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
+import { PremiumDocumentos } from "@/components/finanzas/PremiumDocumentos";
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
@@ -67,7 +68,8 @@ type FinPage =
   | "dividendos"
   | "estados"
   | "clientes"
-  | "facturacion";
+  | "facturacion"
+  | "documentos";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
 
@@ -174,6 +176,7 @@ export default function FinanzasPage() {
         { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "facturacion", icon: "$", label: "Facturación" },
+        { key: "documentos", icon: "▤", label: "Documentos" },
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
       ],
     },
@@ -227,6 +230,7 @@ export default function FinanzasPage() {
             {page === "egresos" && <PremiumEgresos />}
             {page === "clientes" && <PremiumClientes />}
             {page === "facturacion" && <PremiumFacturacion />}
+            {page === "documentos" && <PremiumDocumentos />}
             {page === "mkt_clientes" && (
               <MktClientesView
                 clients={clients}
