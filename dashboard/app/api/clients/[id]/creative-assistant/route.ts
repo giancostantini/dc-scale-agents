@@ -102,9 +102,17 @@ export async function POST(
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
-  if (!url || !anonKey || !serviceKey || !anthropicKey) {
+  const missing: string[] = [];
+  if (!url) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!anonKey) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!serviceKey) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!anthropicKey) missing.push("ANTHROPIC_API_KEY");
+  if (missing.length > 0) {
     return Response.json(
-      { error: "Servidor no configurado." },
+      {
+        error: "Servidor no configurado.",
+        detail: `Faltan estas env vars en producción: ${missing.join(", ")}`,
+      },
       { status: 500 },
     );
   }
@@ -116,7 +124,7 @@ export async function POST(
   if (!callerToken) {
     return Response.json({ error: "Sin sesión" }, { status: 401 });
   }
-  const callerClient = createClient(url, anonKey, {
+  const callerClient = createClient(url!, anonKey!, {
     global: { headers: { Authorization: `Bearer ${callerToken}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -124,13 +132,37 @@ export async function POST(
     data: { user: caller },
   } = await callerClient.auth.getUser();
   if (!caller) return Response.json({ error: "No autenticado" }, { status: 401 });
-  const { data: callerProfile } = await callerClient
+  const { data: callerProfile, error: profErr } = await callerClient
     .from("profiles")
     .select("role")
     .eq("id", caller.id)
     .maybeSingle();
-  if (!callerProfile || callerProfile.role !== "director") {
-    return Response.json({ error: "Solo directores." }, { status: 403 });
+  if (profErr) {
+    return Response.json(
+      {
+        error: "No se pudo leer el perfil.",
+        detail: profErr.message,
+      },
+      { status: 500 },
+    );
+  }
+  if (!callerProfile) {
+    return Response.json(
+      {
+        error: "Perfil no encontrado.",
+        detail: `No hay row en profiles con id=${caller.id}. Verificá que el usuario tenga perfil cargado.`,
+      },
+      { status: 403 },
+    );
+  }
+  if (callerProfile.role !== "director") {
+    return Response.json(
+      {
+        error: "Solo directores.",
+        detail: `Tu rol actual es '${callerProfile.role}'. Pedile a un director que te promueva o que use él el asistente.`,
+      },
+      { status: 403 },
+    );
   }
 
   let body: {
@@ -150,19 +182,45 @@ export async function POST(
     return Response.json({ error: "Sin mensajes" }, { status: 400 });
   }
 
-  // Cargar contexto del cliente
-  const admin = createClient(url, serviceKey, {
+  // Cargar contexto del cliente — uso queries defensivas: si una
+  // columna no existe (porque la migración no se aplicó), reintentamos
+  // con SELECT * para no quedar bloqueados.
+  const admin = createClient(url!, serviceKey!, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: client } = await admin
-    .from("clients")
-    .select(
-      "id, name, sector, type, country, content_frequency, content_mix, onboarding",
-    )
-    .eq("id", clientId)
-    .maybeSingle();
+  let client: Record<string, unknown> | null = null;
+  {
+    const { data, error: cliErr } = await admin
+      .from("clients")
+      .select("id, name, sector, type, country, content_frequency, content_mix, onboarding")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (cliErr) {
+      // Reintento con SELECT * por si alguna columna no existe
+      const fallback = await admin
+        .from("clients")
+        .select("*")
+        .eq("id", clientId)
+        .maybeSingle();
+      if (fallback.error) {
+        return Response.json(
+          {
+            error: "Error leyendo el cliente.",
+            detail: `${cliErr.message} / fallback: ${fallback.error.message}`,
+          },
+          { status: 500 },
+        );
+      }
+      client = fallback.data as Record<string, unknown>;
+    } else {
+      client = data as Record<string, unknown>;
+    }
+  }
   if (!client) {
-    return Response.json({ error: "Cliente no encontrado" }, { status: 404 });
+    return Response.json(
+      { error: "Cliente no encontrado.", detail: `id=${clientId}` },
+      { status: 404 },
+    );
   }
 
   // Estrategia aprobada (si existe)
@@ -182,15 +240,21 @@ export async function POST(
     .order("date", { ascending: false })
     .limit(30);
 
-  // Construir bloque de contexto
-  const contextBlock = `CLIENTE: ${client.name} · sector: ${client.sector} · tipo: ${client.type}
-PAÍS: ${client.country ?? "no especificado"}
+  // Construir bloque de contexto — todos los campos son opcionales por defensa
+  const cName = String(client.name ?? "—");
+  const cSector = String(client.sector ?? "—");
+  const cType = String(client.type ?? "—");
+  const cCountry = client.country ? String(client.country) : "no especificado";
+  const cFreq = client.content_frequency ?? {};
+  const cMix = client.content_mix ?? {};
+  const contextBlock = `CLIENTE: ${cName} · sector: ${cSector} · tipo: ${cType}
+PAÍS: ${cCountry}
 
 FRECUENCIA CONFIGURADA (por red × formato, x veces por semana):
-${JSON.stringify(client.content_frequency ?? {}, null, 2)}
+${JSON.stringify(cFreq, null, 2)}
 
 MIX DE TIPO DE CONTENIDO POR RED (% valor / oferta / engagement):
-${JSON.stringify(client.content_mix ?? {}, null, 2)}
+${JSON.stringify(cMix, null, 2)}
 
 ESTRATEGIA APROBADA:
 ${strategy?.content_md ? strategy.content_md.slice(0, 8000) : "No hay estrategia aprobada todavía. Trabajá con la frecuencia y mix configurados."}
@@ -215,61 +279,117 @@ RECORDÁ: devolvés SOLO el JSON con la estructura definida arriba. Sin code fen
     : "Respondé en markdown. Sugerencias concretas y aplicables."
 }`;
 
-  const anthropic = new Anthropic({ apiKey: anthropicKey });
-  try {
-    const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL_OPUS,
-      max_tokens: mode === "propose" ? 8000 : 2000,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-        {
-          type: "text",
-          text: contextBlock,
-          cache_control: { type: "ephemeral" },
-        },
-        { type: "text", text: constraintsBlock },
-      ],
-      thinking: { type: "adaptive" },
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    });
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    const reply =
-      textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
-
-    return Response.json({
-      success: true,
-      mode,
-      reply,
-      usage: {
-        input: response.usage.input_tokens,
-        output: response.usage.output_tokens,
-        cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
-        cacheRead: response.usage.cache_read_input_tokens ?? 0,
+  const anthropic = new Anthropic({ apiKey: anthropicKey! });
+  const baseRequest = {
+    max_tokens: mode === "propose" ? 8000 : 2000,
+    system: [
+      {
+        type: "text" as const,
+        text: SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" as const },
       },
-    });
-  } catch (err) {
-    console.error("[creative-assistant] Claude error:", err);
-    if (err instanceof Anthropic.APIError) {
-      return Response.json(
-        {
-          error: `Claude API · ${err.status ?? "?"}`,
-          detail: err.message,
+      {
+        type: "text" as const,
+        text: contextBlock,
+        cache_control: { type: "ephemeral" as const },
+      },
+      { type: "text" as const, text: constraintsBlock },
+    ],
+    messages: messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+  };
+
+  // Modelos a intentar en orden: la config del director primero, después
+  // fallbacks razonables. Si Anthropic deprecó alguno, pasamos al
+  // siguiente. Si todos fallan, devolvemos el error original al usuario.
+  const modelChain = [
+    CLAUDE_MODEL_OPUS,
+    "claude-opus-4-5",
+    "claude-sonnet-4-5",
+  ];
+
+  let lastErr: unknown = null;
+  for (const model of modelChain) {
+    try {
+      // Primer intento con thinking adaptive
+      const response = await anthropic.messages.create({
+        ...baseRequest,
+        model,
+        thinking: { type: "adaptive" },
+      });
+
+      const textBlock = response.content.find((b) => b.type === "text");
+      const reply =
+        textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
+
+      return Response.json({
+        success: true,
+        mode,
+        model,
+        reply,
+        usage: {
+          input: response.usage.input_tokens,
+          output: response.usage.output_tokens,
+          cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
+          cacheRead: response.usage.cache_read_input_tokens ?? 0,
         },
-        { status: err.status ?? 500 },
-      );
+      });
+    } catch (err) {
+      lastErr = err;
+      // Si fue 400 (modelo/feature inválido), retry sin thinking antes
+      // de pasar al siguiente modelo
+      if (err instanceof Anthropic.APIError && err.status === 400) {
+        try {
+          const response = await anthropic.messages.create({
+            ...baseRequest,
+            model,
+          });
+          const textBlock = response.content.find((b) => b.type === "text");
+          const reply =
+            textBlock && textBlock.type === "text"
+              ? textBlock.text.trim()
+              : "";
+          return Response.json({
+            success: true,
+            mode,
+            model,
+            reply,
+            usage: {
+              input: response.usage.input_tokens,
+              output: response.usage.output_tokens,
+              cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
+              cacheRead: response.usage.cache_read_input_tokens ?? 0,
+            },
+            note: "Retry sin extended thinking.",
+          });
+        } catch (retryErr) {
+          lastErr = retryErr;
+        }
+      }
+      // Si no es 404 (modelo inexistente), no probamos los siguientes
+      if (err instanceof Anthropic.APIError && err.status !== 404) {
+        break;
+      }
+      console.error(`[creative-assistant] model ${model} fallo:`, err);
     }
-    const e = err as Error;
+  }
+
+  // Todos los intentos fallaron — devolver el último error con detalle
+  console.error("[creative-assistant] Final error:", lastErr);
+  if (lastErr instanceof Anthropic.APIError) {
     return Response.json(
-      { error: "Error inesperado.", detail: e.message },
-      { status: 500 },
+      {
+        error: `Claude API · ${lastErr.status ?? "?"}`,
+        detail: lastErr.message,
+      },
+      { status: lastErr.status ?? 500 },
     );
   }
+  const e = lastErr as Error;
+  return Response.json(
+    { error: "Error inesperado.", detail: e?.message ?? String(lastErr) },
+    { status: 500 },
+  );
 }
