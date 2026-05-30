@@ -11,7 +11,8 @@ import {
   type Profile,
   type ClientAssignment,
 } from "@/lib/supabase/auth";
-import { listProfiles, listAllAssignments } from "@/lib/team";
+import { listProfiles, listAllAssignments, updateProfile } from "@/lib/team";
+import { getSupabase } from "@/lib/supabase/client";
 import styles from "./equipo.module.css";
 
 export default function EquipoPage() {
@@ -21,6 +22,7 @@ export default function EquipoPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function refresh() {
     const [list, asg] = await Promise.all([
@@ -51,6 +53,108 @@ export default function EquipoPage() {
   if (!authChecked || !me) return null;
 
   const isDirector = me.role === "director";
+
+  async function changeRole(
+    profile: Profile,
+    newRole: "director" | "team",
+  ) {
+    if (busyId) return;
+    if (profile.role === newRole) return;
+    if (newRole === "team" && profile.role === "director") {
+      const remaining = profiles.filter(
+        (p) => p.role === "director" && p.id !== profile.id,
+      ).length;
+      if (remaining === 0) {
+        alert(
+          "No se puede degradar al último director. Promové primero a otra persona.",
+        );
+        return;
+      }
+    }
+    if (
+      !confirm(
+        `¿Cambiar el rol de ${profile.name} a ${
+          newRole === "director" ? "Director" : "Equipo"
+        }?`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(profile.id);
+    try {
+      await updateProfile(profile.id, { role: newRole });
+      await refresh();
+    } catch (err) {
+      const e = err as { message?: string };
+      alert(`No se pudo cambiar el rol.\n${e.message ?? ""}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function deleteMember(profile: Profile) {
+    if (busyId) return;
+    if (profile.id === me?.id) {
+      alert("No te podés eliminar a vos mismo.");
+      return;
+    }
+    if (profile.role === "director") {
+      const remaining = profiles.filter(
+        (p) => p.role === "director" && p.id !== profile.id,
+      ).length;
+      if (remaining === 0) {
+        alert(
+          "No se puede eliminar al último director. Promové a otra persona primero.",
+        );
+        return;
+      }
+    }
+    if (
+      !confirm(
+        `¿Eliminar a ${profile.name} del equipo?\n\n` +
+          `Esto borra su acceso al sistema, sus asignaciones a clientes y todo su historial. ` +
+          `Esta acción NO se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    const typed = window.prompt(
+      `Para confirmar, tipeá el nombre exacto:\n\n${profile.name}`,
+    );
+    if (typed === null) return;
+    if (typed.trim() !== profile.name) {
+      alert("El nombre no coincide. Eliminación cancelada.");
+      return;
+    }
+    setBusyId(profile.id);
+    try {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        alert("Sesión expirada. Volvé a entrar.");
+        return;
+      }
+      const res = await fetch("/api/team/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId: profile.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+      }
+      await refresh();
+    } catch (err) {
+      const e = err as { message?: string };
+      alert(`No se pudo eliminar al miembro.\n${e.message ?? ""}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   // count assignments per user
   const countByUser: Record<string, number> = {};
@@ -98,25 +202,63 @@ export default function EquipoPage() {
         <div className={styles.list}>
           {profiles.map((p) => {
             const isMe = p.id === me.id;
+            const linkHref = isDirector || isMe ? `/equipo/${p.id}` : `/perfil`;
+            const rowBusy = busyId === p.id;
             return (
-              <Link
+              <div
                 key={p.id}
-                href={isDirector || isMe ? `/equipo/${p.id}` : `/perfil`}
                 className={styles.row}
+                style={rowBusy ? { opacity: 0.5, pointerEvents: "none" } : undefined}
               >
-                <div className={styles.avatar}>
+                <Link
+                  href={linkHref}
+                  className={styles.avatar}
+                  style={{ textDecoration: "none" }}
+                >
                   {p.initials || "??"}
-                </div>
-                <div className={styles.info}>
+                </Link>
+                <Link
+                  href={linkHref}
+                  className={styles.info}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
                   <div className={styles.name}>
                     {p.name}
                     {isMe && <span className={styles.youTag}>Vos</span>}
                   </div>
                   <div className={styles.email}>{p.email}</div>
-                </div>
+                </Link>
                 <div className={styles.position}>{p.position || "—"}</div>
                 <div className={styles.roleCol}>
-                  {p.role === "director" ? (
+                  {isDirector && !isMe ? (
+                    <select
+                      value={p.role}
+                      onChange={(e) =>
+                        changeRole(p, e.target.value as "director" | "team")
+                      }
+                      disabled={rowBusy}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        fontSize: 11,
+                        padding: "4px 8px",
+                        border: "1px solid rgba(10,26,12,0.15)",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        background: "var(--white)",
+                        fontFamily: "inherit",
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        color:
+                          p.role === "director"
+                            ? "var(--deep-green)"
+                            : "var(--text-muted)",
+                      }}
+                      title="Cambiar rol"
+                    >
+                      <option value="director">Director</option>
+                      <option value="team">Equipo</option>
+                    </select>
+                  ) : p.role === "director" ? (
                     <span className={styles.dirBadge}>Director</span>
                   ) : (
                     <span className={styles.teamBadge}>Equipo</span>
@@ -130,8 +272,6 @@ export default function EquipoPage() {
                     ? (() => {
                         const base = Number(p.payment_amount);
                         const cnt = countByUser[p.id] ?? 0;
-                        // Si es por_cliente, mostrar el total efectivo
-                        // (monto unitario × clientes asignados).
                         if (p.payment_type === "por_cliente") {
                           const total = base * cnt;
                           return (
@@ -156,8 +296,45 @@ export default function EquipoPage() {
                     ? "—"
                     : ""}
                 </div>
-                <div className={styles.arrow}>→</div>
-              </Link>
+                <div
+                  className={styles.arrow}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  {isDirector && !isMe && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteMember(p);
+                      }}
+                      disabled={rowBusy}
+                      title="Eliminar miembro"
+                      style={{
+                        background: "transparent",
+                        border: "1px solid rgba(176,75,58,0.2)",
+                        borderRadius: 6,
+                        color: "var(--red-warn, #B91C1C)",
+                        fontSize: 12,
+                        padding: "4px 10px",
+                        cursor: rowBusy ? "not-allowed" : "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                  <Link
+                    href={linkHref}
+                    style={{
+                      textDecoration: "none",
+                      color: "inherit",
+                      padding: "4px 8px",
+                    }}
+                  >
+                    →
+                  </Link>
+                </div>
+              </div>
             );
           })}
         </div>
