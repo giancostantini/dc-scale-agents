@@ -19,7 +19,6 @@ import {
   ArrowLeft,
   Sparkles,
   FileText,
-  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/auth";
@@ -102,7 +101,6 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { href: `${base}/reporting`,     icon: FileText,       label: "Reporting" },
     { href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
     { href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
-    { href: `${base}/facturacion`,   icon: Receipt,        label: "Facturación", directorOnly: true },
     { href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
   ];
 
@@ -113,7 +111,6 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { href: `${base}/tareas`,        icon: ListChecks,     label: "Tareas" },
     { href: `${base}/biblioteca`,    icon: BookOpen,       label: "Biblioteca" },
     { href: `${base}/solicitudes`,   icon: Inbox,          label: "Solicitudes del cliente" },
-    { href: `${base}/facturacion`,   icon: Receipt,        label: "Facturación", directorOnly: true },
     { href: `${base}/notas`,         icon: PenLine,        label: "Notas internas" },
   ];
 
