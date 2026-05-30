@@ -84,6 +84,8 @@ interface ClientRow {
   content_frequency: Client["content_frequency"] | null;
   content_mix: Client["content_mix"] | null;
   roadmap_month_notes: Client["roadmap_month_notes"] | null;
+  tax_id?: string | null;
+  created_at?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -107,6 +109,12 @@ function clientFromRow(r: ClientRow): Client {
     content_frequency: r.content_frequency ?? undefined,
     content_mix: r.content_mix ?? undefined,
     roadmap_month_notes: r.roadmap_month_notes ?? undefined,
+    contact_name: r.contact_name,
+    contact_email: r.contact_email,
+    contact_phone: r.contact_phone,
+    country: r.country,
+    tax_id: r.tax_id ?? null,
+    created_at: r.created_at ?? null,
   };
 }
 

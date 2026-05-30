@@ -220,6 +220,15 @@ export interface Client {
   /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
    *  value = markdown. Aparece en el PDF del roadmap. */
   roadmap_month_notes?: RoadmapMonthNotes;
+  /** Contacto principal del cliente (cargado desde el onboarding). */
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  country?: string | null;
+  /** Identificador fiscal (CUIT/RUT/NIT) — migración 039. */
+  tax_id?: string | null;
+  /** Fecha de creación (ISO) del cliente. */
+  created_at?: string | null;
 }
 
 // ==================== PIPELINE / CRM ====================

@@ -45,6 +45,7 @@ import {
   TeamCostView,
 } from "./FinanzasViews";
 import ReportesView from "@/components/finanzas/ReportesView";
+import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
@@ -223,13 +224,7 @@ export default function FinanzasPage() {
             )}
             {page === "estados" && <ReportesView />}
             {page === "egresos" && <PremiumEgresos />}
-            {page === "clientes" && (
-              <ClientesView
-                clients={clients}
-                expenses={expenses}
-                payments={payments}
-              />
-            )}
+            {page === "clientes" && <PremiumClientes />}
             {page === "facturacion" && (
               <FacturacionView
                 clients={clients}
