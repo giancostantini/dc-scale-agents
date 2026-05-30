@@ -89,6 +89,68 @@ function codeFor(idx: number): string {
   return `C-${String(idx + 1).padStart(4, "0")}`;
 }
 
+/**
+ * Parser defensivo del JSON de propose: tolera code fences, preámbulos
+ * tipo "Acá tenés las piezas:" y texto extra después del JSON. Busca
+ * el primer { y trata de extraer un objeto balanceado.
+ */
+function parseProposedFromText(raw: string): unknown {
+  if (!raw) return null;
+  // 1) Probar el path directo
+  try {
+    return JSON.parse(raw.trim());
+  } catch {
+    // continuar
+  }
+  // 2) Limpiar code fences ```json o ```
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // continuar
+  }
+  // 3) Buscar primer { y extraer hasta el } balanceado
+  const start = raw.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let end = -1;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end < 0) return null;
+  try {
+    return JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
 export default function ContenidoPage({
   params,
 }: {
@@ -216,28 +278,46 @@ export default function ContenidoPage({
 
       const reply = data.reply ?? "";
       if (mode === "propose") {
-        try {
-          const cleaned = reply
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/\s*```\s*$/i, "")
-            .trim();
-          const parsed = JSON.parse(cleaned);
-          if (parsed.pieces && Array.isArray(parsed.pieces)) {
-            setProposed(parsed);
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content:
-                  parsed.intro ??
-                  `Te propongo ${parsed.pieces.length} piezas. Revisalas abajo y aprobalas o ajustá lo que quieras.`,
-              },
-            ]);
-            return;
-          }
-        } catch {
-          // fallthrough → mostrar como chat
+        // Path preferido (nuevo): el backend devuelve `proposed` ya
+        // parseado desde el tool_use de Anthropic.
+        let parsed = data.proposed ?? null;
+        // Fallback: si por algún motivo no vino estructurado, intentamos
+        // parsear el texto del reply de forma defensiva (buscando el
+        // primer {...} para tolerar preámbulos).
+        if (!parsed && reply) {
+          parsed = parseProposedFromText(reply);
         }
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          Array.isArray((parsed as { pieces?: unknown[] }).pieces)
+        ) {
+          const typed = parsed as { intro?: string; pieces: ProposedPiece[] };
+          setProposed({ intro: typed.intro ?? "", pieces: typed.pieces });
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content:
+                typed.intro ??
+                `Te propongo ${typed.pieces.length} piezas. Revisalas abajo y aprobalas o ajustá lo que quieras.`,
+            },
+          ]);
+          return;
+        }
+        // Si llegamos acá, el modelo no devolvió el batch.  Lo mostramos
+        // como chat para que el director vea qué dijo el modelo y pueda
+        // pedirlo de nuevo.
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              (reply || "El asistente no devolvió un batch estructurado.") +
+              "\n\n⚠ No se pudo armar el listado de piezas — probá apretar ✨ Generar batch otra vez.",
+          },
+        ]);
+        return;
       }
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {

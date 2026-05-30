@@ -293,7 +293,55 @@ RECORDÁ: devolvés SOLO el JSON con la estructura definida arriba. Sin code fen
 }`;
 
   const anthropic = new Anthropic({ apiKey: anthropicKey! });
-  const baseRequest = {
+
+  // Tool schema para el modo PROPOSE — fuerza JSON estructurado en
+  // lugar de confiar en que el modelo siga la instrucción de "devolvé
+  // SOLO JSON". Con tool_use Anthropic garantiza el formato.
+  const proposeTool = {
+    name: "propose_content_pieces",
+    description:
+      "Propone N piezas de contenido listas para agregar al calendario del cliente. Cada pieza tiene fecha, red, formato, idea, copy y brief.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        intro: {
+          type: "string",
+          description: "1-2 oraciones explicando la lógica del batch (qué semana cubre, qué priorizó, etc).",
+        },
+        pieces: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              date: { type: "string", description: "YYYY-MM-DD" },
+              time: { type: "string", description: "HH:mm (24h)" },
+              network: {
+                type: "string",
+                enum: ["ig", "tt", "in", "fb", "yt"],
+                description: "Red social (ig=Instagram, tt=TikTok, in=LinkedIn, fb=Facebook, yt=YouTube)",
+              },
+              format: {
+                type: "string",
+                enum: ["reel", "carrusel", "post", "story", "ugc", "anuncio"],
+              },
+              type: {
+                type: "string",
+                enum: ["valor", "oferta", "engagement"],
+                description: "Tipo del contenido según el mix configurado del cliente.",
+              },
+              idea: { type: "string", description: "Idea central de la pieza (1 frase)." },
+              copy: { type: "string", description: "Copy completo listo para publicar (con CTA si aplica). NO escribas '[acá poner X]'." },
+              brief: { type: "string", description: "Brief breve para el editor: shots, tono, formato visual." },
+            },
+            required: ["date", "network", "format", "idea", "copy", "brief"],
+          },
+        },
+      },
+      required: ["intro", "pieces"],
+    },
+  };
+
+  const baseRequest: Record<string, unknown> = {
     max_tokens: mode === "propose" ? 8000 : 2000,
     system: [
       {
@@ -314,6 +362,11 @@ RECORDÁ: devolvés SOLO el JSON con la estructura definida arriba. Sin code fen
     })),
   };
 
+  if (mode === "propose") {
+    baseRequest.tools = [proposeTool];
+    baseRequest.tool_choice = { type: "tool", name: proposeTool.name };
+  }
+
   // Modelos a intentar en orden: la config del director primero, después
   // fallbacks razonables. Si Anthropic deprecó alguno, pasamos al
   // siguiente. Si todos fallan, devolvemos el error original al usuario.
@@ -323,60 +376,71 @@ RECORDÁ: devolvés SOLO el JSON con la estructura definida arriba. Sin code fen
     "claude-sonnet-4-5",
   ];
 
+  // Extrae el resultado del response y arma el payload de respuesta.
+  // En modo "propose" busca el tool_use block; en "chat" busca texto.
+  function buildResponsePayload(
+    response: { content: Array<{ type: string; text?: string; input?: unknown }>; usage: { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null; } },
+    modelUsed: string,
+    note?: string,
+  ): Record<string, unknown> {
+    const textBlock = response.content.find((b) => b.type === "text");
+    const reply = textBlock?.text ? textBlock.text.trim() : "";
+
+    let proposed: unknown = null;
+    let replyForFrontend = reply;
+    if (mode === "propose") {
+      // Buscar tool_use block
+      const toolBlock = response.content.find((b) => b.type === "tool_use");
+      if (toolBlock && toolBlock.input !== undefined) {
+        proposed = toolBlock.input;
+        // El frontend espera "reply" como string JSON (para parsear).
+        // Lo mantenemos serializado por backward compat + agregamos
+        // `proposed` ya parseado para uso directo.
+        replyForFrontend = JSON.stringify(proposed);
+      }
+    }
+
+    return {
+      success: true,
+      mode,
+      model: modelUsed,
+      reply: replyForFrontend,
+      proposed,
+      usage: {
+        input: response.usage.input_tokens,
+        output: response.usage.output_tokens,
+        cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
+        cacheRead: response.usage.cache_read_input_tokens ?? 0,
+      },
+      ...(note ? { note } : {}),
+    };
+  }
+
   let lastErr: unknown = null;
   for (const model of modelChain) {
     try {
-      // Primer intento con thinking adaptive
-      const response = await anthropic.messages.create({
+      // thinking + tool_use no son compatibles — si está en modo
+      // propose, no usamos thinking adaptive
+      const useThinking = mode !== "propose";
+      const response = (await anthropic.messages.create({
         ...baseRequest,
         model,
-        thinking: { type: "adaptive" },
-      });
-
-      const textBlock = response.content.find((b) => b.type === "text");
-      const reply =
-        textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
-
-      return Response.json({
-        success: true,
-        mode,
-        model,
-        reply,
-        usage: {
-          input: response.usage.input_tokens,
-          output: response.usage.output_tokens,
-          cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
-          cacheRead: response.usage.cache_read_input_tokens ?? 0,
-        },
-      });
+        ...(useThinking ? { thinking: { type: "adaptive" } } : {}),
+      } as Parameters<typeof anthropic.messages.create>[0])) as Anthropic.Messages.Message;
+      return Response.json(buildResponsePayload(response as never, model));
     } catch (err) {
       lastErr = err;
       // Si fue 400 (modelo/feature inválido), retry sin thinking antes
       // de pasar al siguiente modelo
       if (err instanceof Anthropic.APIError && err.status === 400) {
         try {
-          const response = await anthropic.messages.create({
+          const response = (await anthropic.messages.create({
             ...baseRequest,
             model,
-          });
-          const textBlock = response.content.find((b) => b.type === "text");
-          const reply =
-            textBlock && textBlock.type === "text"
-              ? textBlock.text.trim()
-              : "";
-          return Response.json({
-            success: true,
-            mode,
-            model,
-            reply,
-            usage: {
-              input: response.usage.input_tokens,
-              output: response.usage.output_tokens,
-              cacheCreation: response.usage.cache_creation_input_tokens ?? 0,
-              cacheRead: response.usage.cache_read_input_tokens ?? 0,
-            },
-            note: "Retry sin extended thinking.",
-          });
+          } as Parameters<typeof anthropic.messages.create>[0])) as Anthropic.Messages.Message;
+          return Response.json(
+            buildResponsePayload(response as never, model, "Retry sin extended thinking."),
+          );
         } catch (retryErr) {
           lastErr = retryErr;
         }
