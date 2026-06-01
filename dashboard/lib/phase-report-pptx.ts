@@ -42,6 +42,58 @@ const C = {
 
 const FONT = "Helvetica";
 
+// El "&" es la firma de marca (Brand Board 2026: "El & es la firma. No se
+// negocia."). Va en DM Sans weight 200, color sand #C4A882.
+//
+// LIMITACIÓN de pptxgenjs (v4.0.1): NO embebe archivos de fuente — solo
+// referencia la tipografía por nombre y el visor (PowerPoint / Keynote /
+// Google Slides) sustituye el glifo si esa fuente no está instalada. No hay
+// API de embed (a diferencia de react-pdf, que sí embebe el TTF en el
+// PhaseReportPdf). Por eso:
+//
+//   - FONT_AMP = "DM Sans ExtraLight" es el nombre de familia GDI EXACTO del
+//     TTF que servimos en /public/fonts/DMSans-ExtraLight.ttf (verificado en
+//     su name table: Family="DM Sans ExtraLight", Subfamily="Regular"). Con
+//     ese nombre, una máquina que tenga instalado ese TTF renderiza el "&" en
+//     el peso 200 real. Usamos bold:false porque la subfamily es "Regular"
+//     (el peso ExtraLight está codificado en el nombre de familia, no como
+//     bold). Referenciar "DM Sans" a secas matchearía la familia regular
+//     (peso 400) — peso equivocado para la firma.
+//   - Si la fuente NO está instalada, el visor sustituye el glifo del "&",
+//     pero el color sand (#C4A882) se mantiene SIEMPRE — la firma de marca
+//     sigue presente y diferenciada aunque la cara tipográfica varíe.
+//
+// Para presentar con el peso 200 exacto, instalar DMSans-ExtraLight.ttf en la
+// máquina que abre el .pptx.
+const FONT_AMP = "DM Sans ExtraLight";
+
+/**
+ * Runs del lockup "Dearmas & Costantini" para pptxgenjs `addText`.
+ * Centraliza la firma de marca: "Dearmas" (bold) + " & " (DM Sans 200 sand) +
+ * "Costantini" (regular). El contenedor `addText` debe pasar `fontFace: FONT`
+ * — los runs de los nombres lo heredan; solo el "&" sobreescribe a FONT_AMP.
+ *
+ * @param fontSize  tamaño en pt aplicado a los tres runs
+ * @param baseColor color (hex sin #) de "Dearmas" y "Costantini"
+ * @param charSpacing tracking opcional aplicado a los runs de nombres
+ */
+function lockupRuns(
+  fontSize: number,
+  baseColor: string,
+  charSpacing?: number,
+): TextRun[] {
+  const nameOpts: TextOpts =
+    charSpacing !== undefined ? { fontSize, charSpacing } : { fontSize };
+  return [
+    { text: "Dearmas", options: { ...nameOpts, bold: true, color: baseColor } },
+    {
+      text: " & ",
+      options: { fontFace: FONT_AMP, bold: false, color: C.sand, fontSize },
+    },
+    { text: "Costantini", options: { ...nameOpts, color: baseColor } },
+  ];
+}
+
 export interface BuildPptxOptions {
   phaseLabel: string;
   reportName: string;
@@ -70,8 +122,13 @@ export async function buildPhaseReportPptx(
 
   pptx.title = `${opts.phaseLabel} · ${opts.clientName}`;
   pptx.subject = opts.reportName;
-  pptx.author = "Dearmas Costantini";
-  pptx.company = "Dearmas Costantini";
+  pptx.author = "Dearmas & Costantini"; // core.xml — pptxgenjs lo escapa (encodeXmlEntities)
+  // OJO: pptxgenjs v4.0.1 NO escapa el Company en app.xml (makeXmlApp inserta
+  // `<Company>${company}</Company>` crudo, a diferencia de author/title/subject
+  // en makeXmlCore que sí pasan por encodeXmlEntities). Un "&" sin escapar
+  // rompería el XML y PowerPoint pediría "reparar". Pre-escapamos la entidad a
+  // mano para que el archivo quede válido y la propiedad lea "Dearmas & Costantini".
+  pptx.company = "Dearmas &amp; Costantini";
   pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 inches
 
   const blocks = parseMarkdownBlocks(opts.contentMd);
@@ -263,20 +320,14 @@ function addCoverSlide(pptx: PptxInstance, opts: BuildPptxOptions) {
   const slide = pptx.addSlide();
   slide.background = { color: C.deepGreen };
 
-  // Top-left: lockup DC
-  slide.addText(
-    [
-      { text: "Dearmas", options: { bold: true, color: C.offWhite, fontSize: 28 } },
-      { text: "  Costantini", options: { color: C.offWhite, fontSize: 28, charSpacing: -1 } },
-    ],
-    {
-      x: 0.6,
-      y: 0.5,
-      w: 8,
-      h: 0.6,
-      fontFace: FONT,
-    },
-  );
+  // Top-left: lockup DC (con el "&" — la firma de marca)
+  slide.addText(lockupRuns(28, C.offWhite, -1), {
+    x: 0.6,
+    y: 0.5,
+    w: 8,
+    h: 0.6,
+    fontFace: FONT,
+  });
   slide.addText("Business Growth Partners · LATAM", {
     x: 0.6,
     y: 1.1,
@@ -1268,20 +1319,14 @@ function addClosingSlide(
     );
   }
 
-  // Bottom: lockup DC discreto
-  slide.addText(
-    [
-      { text: "Dearmas", options: { bold: true, color: C.offWhite, fontSize: 11 } },
-      { text: " Costantini", options: { color: C.offWhite, fontSize: 11 } },
-    ],
-    {
-      x: 0.6,
-      y: 7.1,
-      w: 6,
-      h: 0.3,
-      fontFace: FONT,
-    },
-  );
+  // Bottom: lockup DC discreto (con el "&" — la firma de marca)
+  slide.addText(lockupRuns(11, C.offWhite), {
+    x: 0.6,
+    y: 7.1,
+    w: 6,
+    h: 0.3,
+    fontFace: FONT,
+  });
   slide.addText(`${opts.phaseLabel} · ${opts.clientName}`, {
     x: 7,
     y: 7.1,
@@ -1300,20 +1345,14 @@ function addClosingSlide(
 // ============================================================
 
 function addContentHeader(slide: Slide, opts: BuildPptxOptions) {
-  // Lockup DC chico arriba a la izquierda
-  slide.addText(
-    [
-      { text: "Dearmas", options: { bold: true, color: C.deepGreen, fontSize: 10 } },
-      { text: " Costantini", options: { color: C.deepGreen, fontSize: 10 } },
-    ],
-    {
-      x: 0.6,
-      y: 0.3,
-      w: 6,
-      h: 0.3,
-      fontFace: FONT,
-    },
-  );
+  // Lockup DC chico arriba a la izquierda (con el "&" — la firma de marca)
+  slide.addText(lockupRuns(10, C.deepGreen), {
+    x: 0.6,
+    y: 0.3,
+    w: 6,
+    h: 0.3,
+    fontFace: FONT,
+  });
   // Tag arriba a la derecha
   slide.addText(`${opts.phaseLabel} · ${opts.clientName}`, {
     x: 7,
@@ -1349,7 +1388,7 @@ function addContentFooter(
     h: 0.005,
     fill: { color: C.deepGreen },
   });
-  slide.addText("Confidencial · Dearmas Costantini", {
+  slide.addText("Confidencial · Dearmas & Costantini", {
     x: 0.6,
     y: 7.15,
     w: 6,
