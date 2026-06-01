@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getClient,
@@ -10,10 +10,12 @@ import {
 } from "@/lib/storage";
 import { listRequestsForClient } from "@/lib/requests";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { getDownloadUrl } from "@/lib/upload";
 import type {
   Client,
   ClientObjectives,
   ClientRequest,
+  OnboardingFile,
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
@@ -269,6 +271,9 @@ function DevDashboard({
   const progress =
     tasks.length > 0 ? Math.round((done / tasks.length) * 100) : 0;
 
+  const projectFile = client.onboarding?.devProjectFile;
+  const deliveryDate = client.onboarding?.devDeliveryDate;
+
   return (
     <>
       <WelcomeBanner
@@ -279,6 +284,21 @@ function DevDashboard({
       >
         <span className={ui.phaseBadge}>{client.phase}</span>
       </WelcomeBanner>
+
+      {/* Accesos directos del proyecto: PDF + entrega */}
+      {(projectFile || deliveryDate) && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            marginBottom: 18,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          {projectFile && <ProyectoButton file={projectFile} />}
+        </div>
+      )}
 
       <PendingRequestsPanel
         clientId={client.id}
@@ -391,6 +411,23 @@ function DevDashboard({
             <div className={ui.panelTitle}>Definición</div>
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+            {deliveryDate && (
+              <div style={{ marginBottom: 18 }}>
+                <strong
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Entrega del proyecto
+                </strong>
+                <DeliveryCountdown deliveryDate={deliveryDate} />
+              </div>
+            )}
             <div style={{ marginBottom: 14 }}>
               <strong
                 style={{
@@ -618,6 +655,190 @@ function PendingRequestsPanel({
           + {requests.length - 5} más. Click "Ver todas" para gestionarlas.
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// ProyectoButton
+// ============================================================
+// Botón "Proyecto" que abre el PDF del proyecto de desarrollo
+// (devProjectFile del onboarding) en una nueva pestaña. Genera la
+// signed URL al hacer click — no preloadeamos para evitar quemar
+// links si el usuario no lo abre.
+function ProyectoButton({ file }: { file: OnboardingFile | string }) {
+  const [loading, setLoading] = useState(false);
+  const path = typeof file === "string" ? file : file.path;
+  const name =
+    typeof file === "string"
+      ? file.split("/").pop() ?? "Proyecto"
+      : file.name;
+
+  async function open() {
+    setLoading(true);
+    try {
+      const url = await getDownloadUrl(path);
+      if (!url) {
+        alert("No se pudo generar el link al PDF.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      disabled={loading}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 16px",
+        background: "var(--deep-green)",
+        color: "var(--off-white)",
+        border: "none",
+        borderRadius: "var(--r-sm)",
+        fontFamily: "inherit",
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        cursor: loading ? "default" : "pointer",
+        opacity: loading ? 0.6 : 1,
+      }}
+      title={name}
+    >
+      <span style={{ fontSize: 14 }}>📄</span>
+      {loading ? "Abriendo…" : "Proyecto"}
+    </button>
+  );
+}
+
+// ============================================================
+// DeliveryCountdown
+// ============================================================
+// Cuenta atrás hacia la fecha de entrega del proyecto. Se refresca
+// cada minuto — para días/horas/min basta con eso, sin segundos
+// (no necesitamos parpadeo). Si la fecha ya pasó, muestra los días
+// vencidos en rojo.
+function DeliveryCountdown({ deliveryDate }: { deliveryDate: string }) {
+  // Estado del tick — solo para forzar re-render cada minuto.
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const target = useMemo(() => {
+    // Interpretamos YYYY-MM-DD como fin del día (23:59 local) para
+    // que "faltan X días" no salte un día antes por timezone.
+    const d = new Date(deliveryDate + "T23:59:59");
+    return d.getTime();
+  }, [deliveryDate]);
+
+  const now = Date.now();
+  const diffMs = target - now;
+  const overdue = diffMs < 0;
+  const absMs = Math.abs(diffMs);
+  const totalHours = Math.floor(absMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const minutes = Math.floor((absMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  const human = new Date(deliveryDate + "T00:00:00").toLocaleDateString(
+    "es-UY",
+    { day: "numeric", month: "long", year: "numeric" },
+  );
+
+  return (
+    <div
+      style={{
+        background: overdue ? "rgba(176,75,58,0.08)" : "var(--ivory)",
+        border: `1px solid ${overdue ? "rgba(176,75,58,0.3)" : "rgba(196,168,130,0.35)"}`,
+        borderRadius: "var(--r-md)",
+        padding: "12px 14px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          color: "var(--text-muted)",
+          marginBottom: 8,
+        }}
+      >
+        {overdue ? "Plazo vencido el" : "Fecha objetivo"} ·{" "}
+        <strong style={{ color: "var(--deep-green)" }}>{human}</strong>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 14,
+          alignItems: "baseline",
+          color: overdue ? "#B91C1C" : "var(--deep-green)",
+        }}
+      >
+        <CountdownUnit value={days} label={days === 1 ? "día" : "días"} big />
+        <CountdownUnit value={hours} label={hours === 1 ? "hora" : "horas"} />
+        <CountdownUnit
+          value={minutes}
+          label={minutes === 1 ? "min" : "min"}
+        />
+      </div>
+      {overdue && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#B91C1C",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          Entrega vencida
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountdownUnit({
+  value,
+  label,
+  big,
+}: {
+  value: number;
+  label: string;
+  big?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <span
+        style={{
+          fontSize: big ? 28 : 20,
+          fontWeight: 800,
+          letterSpacing: "-0.02em",
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </span>
+      <span
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+          marginTop: 4,
+        }}
+      >
+        {label}
+      </span>
     </div>
   );
 }

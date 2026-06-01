@@ -342,7 +342,9 @@ RECORDÁ: devolvés SOLO el JSON con la estructura definida arriba. Sin code fen
   };
 
   const baseRequest: Record<string, unknown> = {
-    max_tokens: mode === "propose" ? 8000 : 2000,
+    // 16000 en propose para soportar batches grandes (el director
+    // puede pedir 40+ piezas con copy completo). 2000 en chat.
+    max_tokens: mode === "propose" ? 16000 : 2000,
     system: [
       {
         type: "text" as const,

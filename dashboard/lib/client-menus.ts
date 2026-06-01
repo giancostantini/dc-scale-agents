@@ -30,24 +30,21 @@ export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "objetivos",   segment: "objetivos",      label: "Objetivos", directorOnly: true },
   { key: "calendario",  segment: "planificador",   label: "Calendario" },
   { key: "contenido",   segment: "contenido",      label: "Contenido" },
-  { key: "tareas",      segment: "tareas",         label: "Tareas" },
+  { key: "tareas",      segment: "tareas",         label: "Tareas del cliente" },
   { key: "producciones",segment: "campanas",       label: "Producciones" },
   { key: "analitica",   segment: "analitica",      label: "Analítica" },
   { key: "reporting",   segment: "reporting",      label: "Reporting" },
   { key: "biblioteca",  segment: "biblioteca",     label: "Biblioteca" },
-  { key: "solicitudes", segment: "solicitudes",    label: "Solicitudes del cliente" },
   { key: "notas",       segment: "notas",          label: "Notas internas" },
   { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
 
-/** Menús del sidebar para clientes Desarrollo. */
+/** Menús del sidebar para clientes Desarrollo (IA / dev). */
 export const CLIENT_MENUS_DEV: ClientMenuItem[] = [
   { key: "dashboard",   segment: "",            label: "Dashboard" },
   { key: "sprints",     segment: "sprints",     label: "Sprints" },
   { key: "nueva-tarea", segment: "nueva-tarea", label: "Nueva tarea" },
-  { key: "tareas",      segment: "tareas",      label: "Tareas" },
-  { key: "biblioteca",  segment: "biblioteca",  label: "Biblioteca" },
-  { key: "solicitudes", segment: "solicitudes", label: "Solicitudes del cliente" },
+  { key: "tareas",      segment: "tareas",      label: "Tareas del cliente" },
   { key: "notas",       segment: "notas",       label: "Notas internas" },
   { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];

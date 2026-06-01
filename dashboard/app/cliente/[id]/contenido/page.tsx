@@ -89,6 +89,48 @@ function codeFor(idx: number): string {
   return `C-${String(idx + 1).padStart(4, "0")}`;
 }
 
+const MONTHS_ES = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
+
+/**
+ * Formatea YYYY-MM-DD a "12 mar 2026" — más legible que el ISO
+ * crudo y todavía cabe en una sola línea de la tabla.
+ */
+function formatHumanDate(iso: string): string {
+  if (!iso || iso.length < 10) return iso;
+  const y = iso.slice(0, 4);
+  const m = Number(iso.slice(5, 7)) - 1;
+  const d = Number(iso.slice(8, 10));
+  if (Number.isNaN(m) || Number.isNaN(d)) return iso;
+  return `${d} ${MONTHS_ES[m] ?? "?"} ${y}`;
+}
+
+/**
+ * Extrae la cantidad de piezas del mensaje del director.
+ *   "dame 40 publicaciones" → 40
+ *   "armá 12 piezas para abril" → 12
+ *   "ideas de contenido para mayo" → undefined (default del agente)
+ *
+ * Toma el PRIMER número entre 1 y 200 que aparece en el mensaje.
+ * Filtra años (≥2000) y números chicos típicos no relacionados al
+ * count (como "Reels 9:16" o "60 segundos").
+ */
+function extractCountFromMessage(msg: string): number | undefined {
+  const matches = msg.match(/\b(\d{1,3})\b/g);
+  if (!matches) return undefined;
+  for (const m of matches) {
+    const n = Number(m);
+    if (n >= 1 && n <= 200) {
+      // Saltar años / formatos típicos
+      if (n === 4 || n === 9 || n === 16 || n === 24 || n === 60) continue;
+      return n;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Parser defensivo del JSON de propose: tolera code fences, preámbulos
  * tipo "Acá tenés las piezas:" y texto extra después del JSON. Busca
@@ -162,6 +204,9 @@ export default function ContenidoPage({
   const [isDirector, setIsDirector] = useState(false);
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [filter, setFilter] = useState<"all" | ContentStatus>("all");
+  const [periodMode, setPeriodMode] = useState<
+    "all" | "this_month" | "last_month" | "next_month" | "last_30" | "next_30"
+  >("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Asistente Creativo
@@ -189,8 +234,39 @@ export default function ContenidoPage({
 
   const sortedFiltered = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    const filtered =
-      filter === "all" ? posts : posts.filter((p) => p.status === filter);
+    // Aplicar filtro de período sobre post.date
+    const inPeriod = (dateStr: string): boolean => {
+      if (periodMode === "all") return true;
+      const now = new Date();
+      const d = new Date(dateStr);
+      if (periodMode === "this_month") {
+        return (
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth()
+        );
+      }
+      if (periodMode === "last_month") {
+        const ref = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return (
+          d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth()
+        );
+      }
+      if (periodMode === "next_month") {
+        const ref = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        return (
+          d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth()
+        );
+      }
+      const days =
+        periodMode === "last_30" ? -30 : periodMode === "next_30" ? 30 : 0;
+      const ref = new Date();
+      ref.setDate(ref.getDate() + days);
+      if (days < 0) return d >= ref && d <= now;
+      return d >= now && d <= ref;
+    };
+    const filtered = posts
+      .filter((p) => filter === "all" || p.status === filter)
+      .filter((p) => inPeriod(p.date));
     return [...filtered].sort((a, b) => {
       const aOverdue = a.status !== "published" && a.date < today;
       const bOverdue = b.status !== "published" && b.date < today;
@@ -198,7 +274,7 @@ export default function ContenidoPage({
       if (bOverdue && !aOverdue) return 1;
       return a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? "");
     });
-  }, [posts, filter]);
+  }, [posts, filter, periodMode]);
 
   const stats = {
     total: posts.length,
@@ -268,7 +344,9 @@ export default function ContenidoPage({
         body: JSON.stringify({
           mode,
           messages: [...messages, userMsg],
-          constraints: mode === "propose" ? { count: 7 } : undefined,
+          constraints: mode === "propose"
+            ? { count: extractCountFromMessage(userMsg.content) }
+            : undefined,
         }),
       });
       const data = await res.json();
@@ -396,44 +474,87 @@ export default function ContenidoPage({
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs compactos */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 12,
-          marginBottom: 18,
+          display: "flex",
+          gap: 8,
+          marginBottom: 14,
+          flexWrap: "wrap",
         }}
       >
-        <Kpi label="Total" value={stats.total} sub="Ideas creadas" />
-        <Kpi label="Borradores" value={stats.draft} color={STATUS_COLOR.draft} />
-        <Kpi label="Aprobadas" value={stats.scheduled} color={STATUS_COLOR.scheduled} sub="En el calendario" />
-        <Kpi label="Publicadas" value={stats.published} color={STATUS_COLOR.published} />
+        <CompactKpi label="Total" value={stats.total} />
+        <CompactKpi label="Borradores" value={stats.draft} color={STATUS_COLOR.draft} />
+        <CompactKpi label="Aprobadas" value={stats.scheduled} color={STATUS_COLOR.scheduled} />
+        <CompactKpi label="Publicadas" value={stats.published} color={STATUS_COLOR.published} />
       </div>
 
-      {/* Filtros */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      {/* Filtros: estado + período */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 14,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         {(["all", "draft", "scheduled", "published"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             style={{
-              padding: "6px 14px",
+              padding: "5px 12px",
               fontSize: 11,
               fontWeight: 600,
-              letterSpacing: "0.08em",
+              letterSpacing: "0.06em",
               textTransform: "uppercase",
               background: filter === f ? "var(--deep-green)" : "transparent",
               color: filter === f ? "var(--off-white)" : "var(--deep-green)",
               border: "1px solid rgba(10,26,12,0.15)",
               cursor: "pointer",
               fontFamily: "inherit",
-              borderRadius: "var(--r-sm)",
+              borderRadius: 4,
             }}
           >
             {f === "all" ? `Todas · ${stats.total}` : `${STATUS_LABEL[f]} · ${stats[f]}`}
           </button>
         ))}
+        <div style={{ flex: 1 }} />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            color: "var(--text-muted)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Período:
+          <select
+            value={periodMode}
+            onChange={(e) => setPeriodMode(e.target.value as typeof periodMode)}
+            style={{
+              padding: "5px 10px",
+              fontSize: 11,
+              fontWeight: 600,
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 4,
+              background: "var(--white)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              color: "var(--deep-green)",
+            }}
+          >
+            <option value="all">Todo el calendario</option>
+            <option value="this_month">Este mes</option>
+            <option value="last_month">Mes anterior</option>
+            <option value="next_month">Próximo mes</option>
+            <option value="last_30">Últimos 30 días</option>
+            <option value="next_30">Próximos 30 días</option>
+          </select>
+        </label>
       </div>
 
       {/* TABLA de ideas */}
@@ -776,7 +897,7 @@ function RowEditor({
         }}
         onClick={onExpand}
       >
-        <td style={{ ...tdStyle, fontFamily: "monospace", fontWeight: 600 }}>
+        <td style={{ ...tdStyle, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>
           {isExpanded ? "▼ " : "▶ "}
           {code}
         </td>
@@ -801,12 +922,16 @@ function RowEditor({
           {FORMAT_LABEL[post.format] ?? post.format}
         </td>
         <td style={tdStyle}>
+          {/* La idea es la única columna con texto largo — la dejamos
+              wrap en 2 líneas para que no se corte el resto. */}
           <div
             style={{
-              maxWidth: 320,
+              maxWidth: 420,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              lineHeight: 1.4,
               color: post.idea ? "var(--deep-green)" : "var(--text-muted)",
               fontStyle: post.idea ? "normal" : "italic",
             }}
@@ -814,8 +939,8 @@ function RowEditor({
             {post.idea ?? post.brief?.split("\n")[0]?.slice(0, 100) ?? "(sin idea)"}
           </div>
         </td>
-        <td style={tdStyle}>
-          <div style={{ fontWeight: 600 }}>{post.date}</div>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+          <div style={{ fontWeight: 600 }}>{formatHumanDate(post.date)}</div>
           {post.time && (
             <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{post.time}</div>
           )}
@@ -1101,6 +1226,9 @@ const tdStyle: React.CSSProperties = {
   fontSize: 13,
   color: "var(--deep-green)",
   verticalAlign: "middle",
+  // Default nowrap — la única celda con texto largo (Idea) sobreescribe
+  // con su propia regla de wrap controlado (line-clamp).
+  whiteSpace: "nowrap",
 };
 
 const editorStyle: React.CSSProperties = {
@@ -1167,51 +1295,53 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Kpi({
+/**
+ * Pill compacto horizontal: [LABEL · VALUE]. Pensado para una fila
+ * sutil arriba de la tabla — la idea es que las KPIs no se roben el
+ * espacio visual del listado de creativos.
+ */
+function CompactKpi({
   label,
   value,
-  sub,
   color,
 }: {
   label: string;
-  value: string | number;
-  sub?: string;
+  value: number;
   color?: string;
 }) {
   return (
     <div
       style={{
-        padding: "14px 18px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 12px",
         background: "var(--white)",
         border: "1px solid rgba(10,26,12,0.08)",
-        borderRadius: "var(--r-md)",
+        borderRadius: 6,
       }}
     >
-      <div
+      <span
         style={{
-          fontSize: 10,
-          letterSpacing: "0.18em",
+          color: "var(--text-muted)",
           textTransform: "uppercase",
-          color: "var(--sand-dark)",
-          fontWeight: 600,
-          marginBottom: 8,
+          letterSpacing: "0.08em",
+          fontSize: 9,
+          fontWeight: 700,
         }}
       >
         {label}
-      </div>
-      <div
+      </span>
+      <span
         style={{
-          fontSize: 24,
           fontWeight: 700,
           color: color ?? "var(--deep-green)",
+          fontSize: 14,
           fontVariantNumeric: "tabular-nums",
         }}
       >
         {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{sub}</div>
-      )}
+      </span>
     </div>
   );
 }

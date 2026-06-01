@@ -361,6 +361,17 @@ export default function HubPage() {
             >
               Actividad reciente
             </div>
+
+            {/* Mensaje del agente — resumen del día (qué pasó / qué falta).
+                Se arma con datos locales (tareas, solicitudes, leads) — no
+                requiere llamada al LLM. */}
+            <AgentDailySummary
+              userFirstName={userFirstName}
+              clients={clients}
+              tasks={tasks}
+              requests={requests}
+              leads={leads}
+            />
             {recentActivity.length === 0 ? (
               <div
                 style={{
@@ -602,20 +613,19 @@ export default function HubPage() {
               >
                 Tareas pendientes
               </div>
-              <Link
-                href="/tareas"
+              {/* "Ver todas" eliminado — la pantalla global /tareas ya no
+                  vive en el menú. Las tareas se muestran inline en este
+                  dashboard. */}
+              <span
                 style={{
                   fontSize: 11,
-                  color: "var(--deep-green)",
-                  textDecoration: "none",
-                  borderBottom: "1px solid var(--sand)",
-                  paddingBottom: 1,
-                  fontWeight: 600,
+                  color: "var(--text-muted)",
                   letterSpacing: "0.04em",
                 }}
               >
-                Ver todas
-              </Link>
+                {pendingTasksList.length} pendiente
+                {pendingTasksList.length === 1 ? "" : "s"}
+              </span>
             </div>
             {pendingTasksList.length === 0 ? (
               <div
@@ -716,20 +726,13 @@ export default function HubPage() {
                 paddingTop: 14,
                 borderTop: "1px solid var(--hairline)",
                 textAlign: "center",
+                fontSize: 11,
+                color: "var(--text-muted)",
+                fontStyle: "italic",
               }}
             >
-              <Link
-                href="/tareas?new=true"
-                style={{
-                  fontSize: 12,
-                  color: "var(--sand-dark)",
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                }}
-              >
-                + Nueva tarea
-              </Link>
+              Para crear o asignar tareas, entrá al cliente correspondiente
+              → <strong>Tareas del cliente</strong>.
             </div>
           </div>
 
@@ -1129,4 +1132,161 @@ function formatMoney(n: number): string {
   if (n >= 1_000_000) return `$ ${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `$ ${(n / 1_000).toFixed(0)}K`;
   return `$ ${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+// ============================================================
+// AgentDailySummary — mensaje "del agente" que aparece arriba
+// de Actividad reciente. Resume el día: qué se hizo, qué falta,
+// qué está vencido. Se arma con datos locales (sin LLM).
+// ============================================================
+function AgentDailySummary({
+  userFirstName,
+  clients,
+  tasks,
+  requests,
+  leads,
+}: {
+  userFirstName: string;
+  clients: Client[];
+  tasks: DevTask[];
+  requests: ClientRequest[];
+  leads: Lead[];
+}) {
+  const summary = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const pendingTasks = tasks.filter((t) => t.status !== "done");
+    const overdueTasks = pendingTasks.filter(
+      (t) => t.dueDate && t.dueDate < today,
+    );
+    const dueTodayTasks = pendingTasks.filter((t) => t.dueDate === today);
+    const doneToday = tasks.filter((t) => {
+      if (t.status !== "done") return false;
+      // Heurística: si el createdAt es hoy, lo contamos. (No tenemos campo
+      // doneAt; es una aproximación.)
+      return (t.createdAt ?? "").slice(0, 10) === today;
+    });
+    const pendingReqs = requests.length;
+    const newLeads = leads.filter((l) => {
+      const created = (l.createdAt ?? "").slice(0, 10);
+      return created === today;
+    });
+    const onboardingClients = clients.filter((c) => c.status === "onboarding");
+
+    return {
+      pending: pendingTasks.length,
+      overdue: overdueTasks.length,
+      dueToday: dueTodayTasks.length,
+      doneToday: doneToday.length,
+      pendingReqs,
+      newLeads: newLeads.length,
+      onboardingClients: onboardingClients.length,
+    };
+  }, [clients, tasks, requests, leads]);
+
+  // Armado del párrafo — orden por urgencia.
+  const lines: string[] = [];
+  if (summary.overdue > 0) {
+    lines.push(
+      `Tenés ${summary.overdue} tarea${summary.overdue === 1 ? "" : "s"} vencida${summary.overdue === 1 ? "" : "s"} — conviene priorizarla${summary.overdue === 1 ? "" : "s"} hoy.`,
+    );
+  }
+  if (summary.dueToday > 0) {
+    lines.push(
+      `${summary.dueToday} tarea${summary.dueToday === 1 ? "" : "s"} vence${summary.dueToday === 1 ? "" : "n"} hoy.`,
+    );
+  }
+  if (summary.pendingReqs > 0) {
+    lines.push(
+      `${summary.pendingReqs} solicitud${summary.pendingReqs === 1 ? "" : "es"} de clientes esperando respuesta.`,
+    );
+  }
+  if (summary.newLeads > 0) {
+    lines.push(
+      `Entraron ${summary.newLeads} prospecto${summary.newLeads === 1 ? "" : "s"} hoy al pipeline.`,
+    );
+  }
+  if (summary.onboardingClients > 0) {
+    lines.push(
+      `${summary.onboardingClients} cliente${summary.onboardingClients === 1 ? "" : "s"} en onboarding — chequeá que el kickoff esté en marcha.`,
+    );
+  }
+  if (summary.doneToday > 0) {
+    lines.push(
+      `Buen avance: ${summary.doneToday} tarea${summary.doneToday === 1 ? "" : "s"} completada${summary.doneToday === 1 ? "" : "s"} hoy.`,
+    );
+  }
+  if (lines.length === 0) {
+    lines.push(
+      "Todo limpio: sin tareas vencidas, sin solicitudes nuevas. Buen momento para avanzar con contenido o estrategia.",
+    );
+  }
+
+  return (
+    <div
+      style={{
+        background: "var(--ivory)",
+        border: "1px solid rgba(196,168,130,0.35)",
+        borderRadius: "var(--r-md)",
+        padding: "12px 14px",
+        marginBottom: 16,
+        display: "flex",
+        gap: 10,
+        alignItems: "flex-start",
+      }}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          flexShrink: 0,
+          borderRadius: "50%",
+          background: "var(--deep-green)",
+          color: "var(--off-white)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          fontWeight: 700,
+        }}
+      >
+        ✦
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 4,
+          }}
+        >
+          Resumen del día · Asistente
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--deep-green)",
+            lineHeight: 1.5,
+          }}
+        >
+          {userFirstName}, esto es lo que veo hoy:
+          <ul
+            style={{
+              margin: "6px 0 0",
+              paddingLeft: 18,
+              listStyle: "disc",
+            }}
+          >
+            {lines.map((l, i) => (
+              <li key={i} style={{ marginBottom: 2 }}>
+                {l}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -1732,7 +1732,22 @@ function CreativeAssistantModal({
         body: JSON.stringify({
           mode,
           messages: [...messages, userMsg],
-          constraints: mode === "propose" ? { count: 7 } : undefined,
+          constraints: mode === "propose"
+            ? (() => {
+                // Extrae el primer número del mensaje (entre 1 y 200)
+                // como cantidad de piezas pedidas. Si no hay, undefined
+                // y el agente decide según la frecuencia del cliente.
+                const m = userMsg.content.match(/\b(\d{1,3})\b/g);
+                if (!m) return undefined;
+                for (const tok of m) {
+                  const n = Number(tok);
+                  if (n >= 1 && n <= 200 && ![4, 9, 16, 24, 60].includes(n)) {
+                    return { count: n };
+                  }
+                }
+                return undefined;
+              })()
+            : undefined,
         }),
       });
       const data = await res.json();

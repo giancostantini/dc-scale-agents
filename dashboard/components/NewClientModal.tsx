@@ -50,7 +50,7 @@ const STEP_LABELS = [
   "Servicio",
   "Datos",
   "Contrato + Fees",
-  "Kickoff + Branding",
+  "Proyecto",
   "Alcance",
   "Confirmar",
 ];
