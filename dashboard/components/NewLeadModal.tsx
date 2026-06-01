@@ -39,19 +39,28 @@ export default function NewLeadModal({
   async function handleSubmit() {
     if (!canSubmit) return;
 
-    await addLead({
-      name: name.trim(),
-      company: company.trim(),
-      sector: sector.trim() || "—",
-      type,
-      value: valueRequired ? Number(value) : 0,
-      source,
-      note: note.trim() || undefined,
-      stage,
-      referrerName: source === "referido" && referrerName.trim()
-        ? referrerName.trim()
-        : null,
-    });
+    try {
+      await addLead({
+        name: name.trim(),
+        company: company.trim(),
+        sector: sector.trim() || "—",
+        type,
+        value: valueRequired ? Number(value) : 0,
+        source,
+        note: note.trim() || undefined,
+        stage,
+        referrerName: source === "referido" && referrerName.trim()
+          ? referrerName.trim()
+          : null,
+      });
+    } catch (err) {
+      const e = err as { code?: string; message?: string; details?: string; hint?: string };
+      console.error("addLead error:", err);
+      alert(
+        `No se pudo cargar el lead.\n${e.code ?? ""} ${e.message ?? ""}\n${e.details ?? ""}\n${e.hint ?? ""}`,
+      );
+      return;
+    }
 
     setName("");
     setCompany("");

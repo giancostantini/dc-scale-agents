@@ -563,24 +563,48 @@ export async function getLostLeads(): Promise<Lead[]> {
 
 export async function addLead(data: Omit<Lead, "id" | "createdAt">): Promise<Lead> {
   const supabase = getSupabase();
+  // Mapeo completo (columnas que requieren migración 042/043).  Si
+  // alguna columna no existe en la DB (porque la migración no se
+  // aplicó), Postgres devuelve PGRST204 / 42703 y reintentamos con
+  // un payload mínimo compatible con el schema base.
+  const fullPayload: Record<string, unknown> = {
+    name: data.name,
+    company: data.company,
+    sector: data.sector,
+    type: data.type,
+    value: data.value ?? 0,
+    stage: data.stage,
+    source: data.source,
+    note: data.note ?? null,
+    meeting_booked: data.meetingBooked ?? false,
+    referrer_name: data.referrerName ?? null,
+  };
   const { data: inserted, error } = await supabase
     .from("leads")
-    .insert({
-      name: data.name,
-      company: data.company,
-      sector: data.sector,
-      type: data.type,
-      value: data.value ?? 0,
-      stage: data.stage,
-      source: data.source,
-      note: data.note ?? null,
-      meeting_booked: data.meetingBooked ?? false,
-      referrer_name: data.referrerName ?? null,
-    })
+    .insert(fullPayload)
     .select()
     .single();
-  if (error) throw error;
-  return leadFromRow(inserted as LeadRow);
+  if (!error) return leadFromRow(inserted as LeadRow);
+  // Detectar errores de columna inexistente y reintentar sin el campo
+  // que falta.  PostgREST devuelve "Could not find the 'X' column".
+  const msg = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  const missingMatch = msg.match(/column ['"]?(\w+)['"]?/);
+  const missingCol = missingMatch?.[1];
+  if (missingCol && missingCol in fullPayload) {
+    console.warn(
+      `[addLead] columna '${missingCol}' no existe en DB — reintento sin ella. Aplicá migración 042/043.`,
+    );
+    const { [missingCol]: _drop, ...minimal } = fullPayload;
+    void _drop;
+    const retry = await supabase
+      .from("leads")
+      .insert(minimal)
+      .select()
+      .single();
+    if (retry.error) throw retry.error;
+    return leadFromRow(retry.data as LeadRow);
+  }
+  throw error;
 }
 
 export async function updateLeadStage(id: string, stage: PipelineStage): Promise<void> {

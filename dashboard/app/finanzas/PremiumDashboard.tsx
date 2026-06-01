@@ -113,6 +113,11 @@ export function PremiumDashboard() {
 
   // === Filtros ===
   const [periodMode, setPeriodMode] = useState<PeriodMode>("this_year");
+  /** Período de comparación del Resumen Financiero: 1m / 3m / 6m /
+   *  12m / ytd (default 1m = mes actual vs mes anterior). */
+  const [resumenMode, setResumenMode] = useState<
+    "1m" | "3m" | "6m" | "12m" | "ytd"
+  >("1m");
   const [customFrom, setCustomFrom] = useState<string>(() => {
     const d = new Date();
     return `${d.getFullYear()}-01`;
@@ -327,54 +332,114 @@ export function PremiumDashboard() {
     flujo: d.net,
   }));
 
-  // ===== Tabla resumen financiero: mes actual vs MES ANTERIOR =====
-  // Independiente del período del filtro general — el director pidió
-  // que esta tabla siempre compare el mes corriente contra el anterior.
+  // ===== Tabla resumen financiero — período configurable =====
+  // El director elige el rango de meses a comparar.  Presets:
+  //   · 1m  = mes actual vs mes anterior (default)
+  //   · 3m  = últimos 3 meses vs 3 anteriores
+  //   · 6m  = últimos 6 meses vs 6 anteriores
+  //   · 12m = últimos 12 meses vs 12 anteriores
+  //   · ytd = año actual (YTD) vs año anterior (mismo período)
+  //   · custom = elegir N meses
   const _now = new Date();
-  const curMonth = _now.toISOString().slice(0, 7);
-  const prevMonthRef = new Date(
-    _now.getFullYear(),
-    _now.getMonth() - 1,
-    1,
-  ).toISOString().slice(0, 7);
+  const _curMk = _now.toISOString().slice(0, 7);
 
-  const curMonthStats = netOfMonth(curMonth);
-  const prevMonthStats = netOfMonth(prevMonthRef);
-  const curMonthMargin =
-    curMonthStats.ingresos > 0
-      ? (curMonthStats.net / curMonthStats.ingresos) * 100
-      : 0;
-  const prevMonthMargin =
-    prevMonthStats.ingresos > 0
-      ? (prevMonthStats.net / prevMonthStats.ingresos) * 100
-      : 0;
+  // Genera la lista de meses YYYY-MM para "actual" y "comparison"
+  // según el modo elegido.
+  function getResumenRanges(mode: string): {
+    actualMonths: string[];
+    prevMonths: string[];
+    actualLabel: string;
+    prevLabel: string;
+  } {
+    function shift(mk: string, months: number): string {
+      const [y, m] = mk.split("-").map(Number);
+      const d = new Date(y, m - 1 + months, 1);
+      return d.toISOString().slice(0, 7);
+    }
+    function range(endMk: string, count: number): string[] {
+      const out: string[] = [];
+      for (let i = count - 1; i >= 0; i--) out.push(shift(endMk, -i));
+      return out;
+    }
+    if (mode === "ytd") {
+      const year = _now.getFullYear();
+      const months: string[] = [];
+      for (let m = 1; m <= _now.getMonth() + 1; m++) {
+        months.push(`${year}-${String(m).padStart(2, "0")}`);
+      }
+      const prev = months.map((mk) => shift(mk, -12));
+      return {
+        actualMonths: months,
+        prevMonths: prev,
+        actualLabel: `YTD ${year}`,
+        prevLabel: `YTD ${year - 1}`,
+      };
+    }
+    const count =
+      mode === "1m" ? 1 : mode === "3m" ? 3 : mode === "6m" ? 6 : 12;
+    const actual = range(_curMk, count);
+    const prev = actual.map((mk) => shift(mk, -count));
+    const label = count === 1 ? "Mes actual" : `Últimos ${count} meses`;
+    const prevLabel =
+      count === 1 ? "Mes anterior" : `${count} meses anteriores`;
+    return {
+      actualMonths: actual,
+      prevMonths: prev,
+      actualLabel: label,
+      prevLabel,
+    };
+  }
+
+  const resumenRanges = getResumenRanges(resumenMode);
+
+  // Suma stats sobre un array de meses
+  function sumRange(months: string[]) {
+    return months.reduce(
+      (acc, mk) => {
+        const s = netOfMonth(mk);
+        return {
+          ingresos: acc.ingresos + s.ingresos,
+          egresos: acc.egresos + s.egresos,
+          net: acc.net + s.net,
+        };
+      },
+      { ingresos: 0, egresos: 0, net: 0 },
+    );
+  }
+
+  const curStats = sumRange(resumenRanges.actualMonths);
+  const prevStats = sumRange(resumenRanges.prevMonths);
+  const curMargin =
+    curStats.ingresos > 0 ? (curStats.net / curStats.ingresos) * 100 : 0;
+  const prevMargin =
+    prevStats.ingresos > 0 ? (prevStats.net / prevStats.ingresos) * 100 : 0;
   const summaryRows = [
     {
       concept: "Ingresos",
-      actual: curMonthStats.ingresos,
-      previous: prevMonthStats.ingresos,
-      delta: pct(curMonthStats.ingresos, prevMonthStats.ingresos),
+      actual: curStats.ingresos,
+      previous: prevStats.ingresos,
+      delta: pct(curStats.ingresos, prevStats.ingresos),
       goodIfUp: true,
     },
     {
       concept: "Gastos",
-      actual: curMonthStats.egresos,
-      previous: prevMonthStats.egresos,
-      delta: pct(curMonthStats.egresos, prevMonthStats.egresos),
+      actual: curStats.egresos,
+      previous: prevStats.egresos,
+      delta: pct(curStats.egresos, prevStats.egresos),
       goodIfUp: false,
     },
     {
       concept: "Resultado Neto",
-      actual: curMonthStats.net,
-      previous: prevMonthStats.net,
-      delta: pct(curMonthStats.net, prevMonthStats.net),
+      actual: curStats.net,
+      previous: prevStats.net,
+      delta: pct(curStats.net, prevStats.net),
       goodIfUp: true,
     },
     {
       concept: "Margen de Ganancia",
-      actual: curMonthMargin,
-      previous: prevMonthMargin,
-      delta: curMonthMargin - prevMonthMargin,
+      actual: curMargin,
+      previous: prevMargin,
+      delta: curMargin - prevMargin,
       goodIfUp: true,
       isPercent: true,
     },
@@ -658,10 +723,24 @@ export function PremiumDashboard() {
 
         {/* Resumen Financiero */}
         <div className="bg-paper border border-rule rounded-premium shadow-premium-xs">
-          <div className="px-5 py-4 border-b border-rule">
+          <div className="px-5 py-4 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
             <div className="font-semibold text-ink text-md">
               Resumen Financiero
             </div>
+            <select
+              value={resumenMode}
+              onChange={(e) =>
+                setResumenMode(e.target.value as typeof resumenMode)
+              }
+              className="h-7 px-2 text-xs bg-paper border border-rule rounded-premium-sm cursor-pointer focus:outline-none focus:border-ink-300"
+              title="Período a comparar"
+            >
+              <option value="1m">Mes actual vs anterior</option>
+              <option value="3m">Últimos 3 meses vs 3 anteriores</option>
+              <option value="6m">Últimos 6 meses vs 6 anteriores</option>
+              <option value="12m">Últimos 12 meses vs 12 anteriores</option>
+              <option value="ytd">YTD vs año anterior</option>
+            </select>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -671,10 +750,10 @@ export function PremiumDashboard() {
                     Concepto
                   </th>
                   <th className="text-right px-5 py-2.5 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">
-                    Actual
+                    {resumenRanges.actualLabel}
                   </th>
                   <th className="text-right px-5 py-2.5 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">
-                    Mes Anterior
+                    {resumenRanges.prevLabel}
                   </th>
                   <th className="text-right px-5 py-2.5 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">
                     Variación

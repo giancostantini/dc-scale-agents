@@ -466,21 +466,6 @@ export default function HubPage() {
                 ? `Todos los clientes (${clients.length})`
                 : `Mis clientes (${clients.length})`}
             </div>
-            {profile.role === "director" && (
-              <Link
-                href="/finanzas"
-                style={{
-                  fontSize: 11,
-                  color: "var(--deep-green)",
-                  textDecoration: "none",
-                  borderBottom: "1px solid var(--sand)",
-                  paddingBottom: 1,
-                  fontWeight: 600,
-                }}
-              >
-                + Nuevo cliente
-              </Link>
-            )}
           </div>
           {clients.length === 0 ? (
             <div

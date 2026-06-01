@@ -68,6 +68,17 @@ import {
   type Currency,
   type MovimientoCategoria,
 } from "@/lib/cuentas-bancarias";
+import {
+  effectiveFeeForMonth,
+  getClients,
+  getPayments,
+  listFeeSchedules,
+} from "@/lib/storage";
+import type {
+  Client as ClientType,
+  ClientFeeSchedule,
+  InvoicePayment,
+} from "@/lib/types";
 import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
 import { Field, Input, Select } from "@/components/premium/Field";
@@ -135,6 +146,13 @@ export function PremiumCuentasBancarias() {
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [movs, setMovs] = useState<CuentaMovimiento[]>([]);
   const [loading, setLoading] = useState(true);
+  // Para el modal "Registrar movimiento" → permitir vincular el
+  // movimiento con una factura paga (autofill description + amount).
+  const [clientsForLink, setClientsForLink] = useState<ClientType[]>([]);
+  const [paidPayments, setPaidPayments] = useState<InvoicePayment[]>([]);
+  const [feeSchedulesForLink, setFeeSchedulesForLink] = useState<
+    ClientFeeSchedule[]
+  >([]);
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>("this_year");
   const [customFrom, setCustomFrom] = useState(() => {
@@ -194,9 +212,19 @@ export function PremiumCuentasBancarias() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([listCuentas(), listMovimientos()]).then(([c, m]) => {
+    Promise.all([
+      listCuentas(),
+      listMovimientos(),
+      getClients(),
+      getPayments(),
+      listFeeSchedules(),
+    ]).then(([c, m, cls, pmts, fs]) => {
       setCuentas(c);
       setMovs(m);
+      setClientsForLink(cls);
+      // Solo facturas pagas — el director quiere vincular a cobros reales
+      setPaidPayments(pmts.filter((p) => p.status === "paid"));
+      setFeeSchedulesForLink(fs);
       setLoading(false);
     });
   }
@@ -1132,6 +1160,74 @@ export function PremiumCuentasBancarias() {
         }
       >
         <div className="space-y-4">
+          {/* Vincular a una factura paga — al seleccionar autofill
+              importe + descripción + dirección entrada + categoría ingreso. */}
+          {paidPayments.length > 0 && (
+            <Field
+              label="Vincular a factura cobrada (opcional)"
+              hint="Si este movimiento es el pago de una factura, elegila acá para auto-rellenar importe y descripción."
+            >
+              <Select
+                value=""
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) return;
+                  const [clientId, month] = val.split("|");
+                  const payment = paidPayments.find(
+                    (p) => p.clientId === clientId && p.month === month,
+                  );
+                  const client = clientsForLink.find((c) => c.id === clientId);
+                  if (!payment || !client) return;
+                  const scheduled = effectiveFeeForMonth(
+                    feeSchedulesForLink,
+                    clientId,
+                    month,
+                  );
+                  const amount =
+                    payment.amountOverride ?? scheduled ?? client.fee;
+                  // Si el cliente tiene cuenta default y la cuenta del
+                  // modal aún no se eligió, preseteamos su default.
+                  const targetCuenta =
+                    nm.cuenta_id ||
+                    (client.default_cuenta_id ?? "");
+                  setNm({
+                    ...nm,
+                    cuenta_id: targetCuenta,
+                    description: `Cobro factura ${month} · ${client.name}`,
+                    category: "ingreso",
+                    direction: "entry",
+                    amount: String(amount),
+                    fecha: new Date().toISOString().slice(0, 10),
+                  });
+                }}
+              >
+                <option value="">— Sin vincular (movimiento manual) —</option>
+                {paidPayments
+                  .slice()
+                  .sort((a, b) => b.month.localeCompare(a.month))
+                  .slice(0, 50)
+                  .map((p) => {
+                    const c = clientsForLink.find((x) => x.id === p.clientId);
+                    if (!c) return null;
+                    const scheduled = effectiveFeeForMonth(
+                      feeSchedulesForLink,
+                      p.clientId,
+                      p.month,
+                    );
+                    const amount =
+                      p.amountOverride ?? scheduled ?? c.fee;
+                    return (
+                      <option
+                        key={`${p.clientId}|${p.month}`}
+                        value={`${p.clientId}|${p.month}`}
+                      >
+                        {c.name} · {p.month} · USD {Math.round(amount).toLocaleString("es-AR")}
+                      </option>
+                    );
+                  })}
+              </Select>
+            </Field>
+          )}
           <Field label="Cuenta" required>
             <Select
               value={nm.cuenta_id}
