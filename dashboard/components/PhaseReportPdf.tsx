@@ -27,6 +27,17 @@ const FONT_REGULAR = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
 const FONT_OBLIQUE = "Helvetica-Oblique";
 
+// El "&" de la firma va en DM Sans 200 (Brand Board 2026: "El & es la
+// firma. No se negocia."). react-pdf NO usa next/font ni var(--font-dm-sans),
+// así que registramos el TTF local servido desde /public/fonts. Solo el peso
+// 200 (ExtraLight) — es el único glifo que renderizamos en DM Sans; el resto
+// del lockup sigue en Helvetica built-in (cero red salvo la firma).
+const FONT_AMP = "DM Sans";
+Font.register({
+  family: FONT_AMP,
+  fonts: [{ src: "/fonts/DMSans-ExtraLight.ttf", fontWeight: 200 }],
+});
+
 // Hyphenation custom: no partir palabras (en rioplatense queda raro).
 Font.registerHyphenationCallback((w) => [w]);
 
@@ -66,12 +77,27 @@ const styles = StyleSheet.create({
   coverLockup: {
     flexDirection: "column",
   },
+  // Línea 1 del lockup apilado: "Dearmas &" (el "&" es la firma de marca).
+  coverLockupTop: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
   coverDearmas: {
     fontFamily: FONT_BOLD,
     fontSize: 22,
     letterSpacing: -0.4,
     color: C.bone,
     lineHeight: 1.0,
+  },
+  // El "&" — DM Sans 200, sand. No se negocia (Brand Board 2026).
+  coverAmp: {
+    fontFamily: FONT_AMP,
+    fontWeight: 200,
+    fontSize: 22,
+    letterSpacing: -0.4,
+    color: C.sand,
+    lineHeight: 1.0,
+    marginLeft: 6,
   },
   coverCostantini: {
     fontFamily: FONT_REGULAR,
@@ -203,6 +229,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT_BOLD,
     fontSize: 8.5,
     color: C.deepGreen,
+    letterSpacing: -0.1,
+  },
+  pageHeaderAmp: {
+    fontFamily: FONT_AMP,
+    fontWeight: 200,
+    fontSize: 8.5,
+    color: C.sand,
     letterSpacing: -0.1,
   },
   pageHeaderCostantini: {
@@ -692,17 +725,20 @@ export default function PhaseReportPdf({
   return (
     <Document
       title={`${phaseLabel} · ${clientName}`}
-      author="Dearmas Costantini"
+      author="Dearmas & Costantini"
       subject={reportName}
-      creator="Dearmas Costantini Scale"
-      producer="Dearmas Costantini Scale"
+      creator="Dearmas & Costantini Scale"
+      producer="Dearmas & Costantini Scale"
     >
       {/* ============ COVER ============ */}
       <Page size="A4" style={styles.cover}>
         {/* Top: lockup DC + logo cliente */}
         <View style={styles.coverTopRow}>
           <View style={styles.coverLockup}>
-            <Text style={styles.coverDearmas}>Dearmas</Text>
+            <View style={styles.coverLockupTop}>
+              <Text style={styles.coverDearmas}>Dearmas</Text>
+              <Text style={styles.coverAmp}>&</Text>
+            </View>
             <Text style={styles.coverCostantini}>Costantini</Text>
             <Text style={styles.coverTagline}>
               Business Growth Partners · LATAM
@@ -759,6 +795,7 @@ export default function PhaseReportPdf({
           <View style={styles.pageHeader} fixed>
             <View style={styles.pageHeaderLockup}>
               <Text style={styles.pageHeaderDearmas}>Dearmas</Text>
+              <Text style={styles.pageHeaderAmp}>&</Text>
               <Text style={styles.pageHeaderCostantini}>Costantini</Text>
             </View>
             <Text style={styles.pageHeaderRight}>
@@ -768,7 +805,7 @@ export default function PhaseReportPdf({
 
           <View style={styles.pageFooter} fixed>
             <Text style={styles.pageFooterText}>
-              Confidencial · Dearmas Costantini · {today}
+              Confidencial · Dearmas & Costantini · {today}
             </Text>
             <Text
               style={styles.pageFooterPageNum}
@@ -803,6 +840,7 @@ export default function PhaseReportPdf({
         <View style={styles.pageHeader} fixed>
           <View style={styles.pageHeaderLockup}>
             <Text style={styles.pageHeaderDearmas}>Dearmas</Text>
+            <Text style={styles.pageHeaderAmp}>&</Text>
             <Text style={styles.pageHeaderCostantini}>Costantini</Text>
           </View>
           <Text style={styles.pageHeaderRight}>
@@ -812,7 +850,7 @@ export default function PhaseReportPdf({
 
         <View style={styles.pageFooter} fixed>
           <Text style={styles.pageFooterText}>
-            Confidencial · Dearmas Costantini · {today}
+            Confidencial · Dearmas & Costantini · {today}
           </Text>
           <Text
             style={styles.pageFooterPageNum}

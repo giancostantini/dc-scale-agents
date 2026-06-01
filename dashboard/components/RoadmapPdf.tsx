@@ -313,7 +313,7 @@ export default function RoadmapPdf({
   return (
     <Document
       title={`Roadmap · ${clientName}`}
-      author="Dearmas Costantini"
+      author="Dearmas & Costantini"
       subject="Roadmap de contenido y acciones"
     >
       {months.flatMap(({ year, month0 }, monthIdx) => {
@@ -641,7 +641,7 @@ export default function RoadmapPdf({
             ))}
 
             <Text style={styles.footer}>
-              Dearmas Costantini · Roadmap · Generado{" "}
+              Dearmas & Costantini · Roadmap · Generado{" "}
               {today.toLocaleDateString("es-AR", {
                 day: "numeric",
                 month: "short",
@@ -681,7 +681,7 @@ export default function RoadmapPdf({
                   letterSpacing: 1,
                 }}
               >
-                Dearmas Costantini · Roadmap · Página {monthIdx * 2 + 2} de {months.length * 2}
+                Dearmas & Costantini · Roadmap · Página {monthIdx * 2 + 2} de {months.length * 2}
               </Text>
             </Page>,
           );
