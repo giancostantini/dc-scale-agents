@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dearmas Costantini — Tu socio de crecimiento en LATAM</title>
+<title>Dearmas &amp; Costantini — Tu socio de crecimiento en LATAM</title>
 <meta name="description" content="No somos una agencia. Somos una firma que se asocia a tu empresa para hacerla crecer. Agendá 30 minutos con los socios.">
-<meta property="og:title" content="Dearmas Costantini — Business Growth Partners · LATAM">
+<meta property="og:title" content="Dearmas &amp; Costantini — Business Growth Partners · LATAM">
 <meta property="og:description" content="No entregamos informes. Ejecutamos. Agendá 30 minutos con los socios.">
 <meta property="og:type" content="website">
 
@@ -282,6 +282,10 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     --emerald-faint: rgba(196, 168, 130, 0.08);
     --emerald-glow: rgba(196, 168, 130, 0.4);
 
+    /* Alerta de cupos - rojo de urgencia (punto que titila) */
+    --cupo-alert: #E5484D;
+    --cupo-alert-glow: rgba(229, 72, 77, 0.45);
+
     /* Acento CÁLIDO secundario - Sand */
     --sand: #C4A882;
     --sand-soft: rgba(196, 168, 130, 0.14);
@@ -384,10 +388,10 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   }
   .availability-banner .ab-dot {
     width: 8px; height: 8px;
-    background: var(--emerald);
+    background: var(--cupo-alert);
     border-radius: 50%;
-    box-shadow: 0 0 0 0 var(--emerald-glow);
-    animation: emeraldPulse 2s ease-in-out infinite;
+    box-shadow: 0 0 0 0 var(--cupo-alert-glow);
+    animation: redPulse 2s ease-in-out infinite;
   }
   .availability-banner strong { color: var(--emerald); font-weight: 700; }
   .availability-banner .ab-cta {
@@ -402,6 +406,10 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   @keyframes emeraldPulse {
     0%, 100% { box-shadow: 0 0 0 0 var(--emerald-glow); }
     70%      { box-shadow: 0 0 0 10px rgba(196, 168, 130, 0); }
+  }
+  @keyframes redPulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--cupo-alert-glow); }
+    70%      { box-shadow: 0 0 0 10px rgba(229, 72, 77, 0); }
   }
 
   /* ============ SCROLL PROGRESS ============ */
@@ -512,12 +520,12 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   }
   .nav-cupos strong { color: var(--linen); font-weight: 700; }
 
-  .nav-cta {
+  .nav-links a.nav-cta {
     font-size: 13px;
     letter-spacing: -0.005em;
     color: var(--ink-900) !important;
     background: var(--emerald);
-    padding: 11px 20px;
+    padding: 11px 26px;
     font-weight: 600;
     transition: all var(--tx-fast);
     display: inline-flex;
@@ -545,8 +553,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   /* ============ BURGER + MOBILE MENU ============ */
   .nav-burger {
     display: none;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     background: rgba(10, 26, 12, 0.6);
     backdrop-filter: blur(10px);
     border: 1px solid var(--on-dark-line);
@@ -613,8 +621,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     margin-top: 5px;
   }
   .mobile-menu-close {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     background: transparent;
     border: 1px solid var(--on-dark-line);
     color: var(--linen);
@@ -1061,10 +1069,10 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   }
   .scope-pill .sp-dot {
     width: 8px; height: 8px;
-    background: var(--emerald);
+    background: var(--cupo-alert);
     border-radius: 50%;
-    box-shadow: 0 0 12px var(--emerald-glow);
-    animation: emeraldPulse 2s ease-in-out infinite;
+    box-shadow: 0 0 12px var(--cupo-alert-glow);
+    animation: redPulse 2s ease-in-out infinite;
   }
   .scope-pill strong { font-weight: 800; color: var(--linen); }
 
@@ -1615,6 +1623,13 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     font-feature-settings: "tnum";
   }
   .case.dark-case .case-metric { color: var(--emerald); }
+  /* Métrica textual (ej. "Desde 0"): más chica que las cifras gigantes
+     y en una sola línea para que no wrappee feo. */
+  .case-metric.case-metric-text {
+    font-size: clamp(34px, 3vw, 46px);
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
 
   .case-metric-label {
     font-size: 14px;
@@ -4076,9 +4091,25 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     .chat-window { width: calc(100vw - 32px); height: calc(100vh - 100px); bottom: 70px; }
 
     .faq-q { font-size: 16px; gap: 16px; padding: 22px 24px; }
-    .faq-toggle { width: 30px; height: 30px; font-size: 18px; }
+    .faq-toggle { width: 44px; height: 44px; font-size: 22px; }
     .faq-a { font-size: 14px; padding: 0 24px; }
     .faq-item.open .faq-a { padding: 0 24px 24px; }
+  }
+
+  /* Teléfonos medianos: 3 cupos por fila + mockup y cifras más compactas. */
+  @media (max-width: 600px) {
+    .cupo-grid-slots { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .sol-phone { width: 210px; }
+    .hero-bottom { gap: 18px; }
+    .case-metric { font-size: clamp(38px, 13vw, 50px); }
+  }
+
+  /* Teléfonos chicos (≤430): 2 cupos por fila, mockup aún menor. */
+  @media (max-width: 430px) {
+    .cupo-grid-slots { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .sol-phone { width: 190px; }
+    .hero-bottom { grid-template-columns: repeat(2, 1fr); }
+    .foot-social { width: 40px; height: 40px; }
   }
 
   @media (max-width: 380px) {
@@ -4089,7 +4120,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     h2 { font-size: clamp(26px, 7vw, 36px); }
     .skin-headline { font-size: clamp(24px, 7vw, 34px); }
     .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
-    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); }
+    .cupo-grid-slots { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* Hero overlays apagados — fondo plano oscuro (sin aurora/glow/sweep/blobs).
@@ -4117,14 +4148,14 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 <!-- ============ AVAILABILITY BANNER ============ -->
 <div class="availability-banner" id="availabilityBanner">
   <span class="ab-dot"></span>
-  <span>Solo <strong>2 cupos disponibles</strong> en la firma · 2026</span>
+  <span>Solo <strong>2 cupos disponibles</strong> en la firma</span>
   <a class="ab-cta" onclick="openCalendly(event)">Agendar 30 min →</a>
 </div>
 
 <!-- ============ NAV ============ -->
 <nav class="nav" id="nav">
   <a href="#top" class="nav-brand">
-    <span>Dearmas <span class="soft">Costantini</span></span>
+    <span>Dearmas <span class="amp">&amp;</span> <span class="soft">Costantini</span></span>
     <span class="tagline">Business Growth Partners</span>
   </a>
   <div class="nav-links">
@@ -4147,7 +4178,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
   <div class="mobile-menu-header">
     <span class="mobile-menu-brand">
-      <span>Dearmas <span class="soft">Costantini</span></span>
+      <span>Dearmas <span class="amp">&amp;</span> <span class="soft">Costantini</span></span>
       <span class="tag">Business Growth Partners</span>
     </span>
     <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Cerrar menú">×</button>
@@ -4194,7 +4225,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <div class="hero-pill-row">
       <a href="#cupo" class="scope-pill">
         <span class="sp-dot"></span>
-        <span>Solo <strong>2 cupos</strong> disponibles · 2026</span>
+        <span>Solo <strong>2 cupos</strong> disponibles</span>
       </a>
       <span class="hero-meta-pill">
         <span class="check">✓</span> Skin in the game · cobramos si crecés
@@ -4352,8 +4383,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 01 · Digital</div>
-        <div class="case-metric">+180%</div>
-        <div class="case-metric-label">Ventas online en los primeros 6 meses de sociedad.</div>
+        <div class="case-metric">2×</div>
+        <div class="case-metric-label">Ventas duplicadas respecto al último año.</div>
       </div>
       <div class="case-body">
         <p class="case-desc">
@@ -4376,12 +4407,12 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 01 · Digital</div>
-        <div class="case-metric">3×</div>
-        <div class="case-metric-label">Conversión tras rediseñar el embudo de venta digital.</div>
+        <div class="case-metric case-metric-text">Desde 0</div>
+        <div class="case-metric-label">Marca lanzada de cero: estrategia de lanzamiento y proyección de crecimiento.</div>
       </div>
       <div class="case-body">
         <p class="case-desc">
-          Nuevo embudo, canal digital y estrategia LATAM. Tracking desde cero, optimización por cohorte y scaling con presupuesto controlado. El equipo del cliente no tuvo que contratar a nadie más.
+          Creamos la marca desde cero — naming, posicionamiento e identidad — y diseñamos toda la estrategia de lanzamiento y la proyección de crecimiento. Ejecutamos la salida al mercado end-to-end, sin que el cliente tuviera que armar un equipo.
         </p>
         <div class="case-quote">
           "La diferencia es que no esperamos una presentación. Abrimos Slack y están ahí, haciendo."
@@ -4396,7 +4427,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <!-- Caso 3: Mundiplast -->
     <div class="case">
       <div class="case-logo-wrap has-logo">
-        <img src="logos/mundiplast.svg" alt="Mundiplast UY">
+        <img src="logos/mundiplast.png" alt="Mundiplast UY">
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 02 · IA</div>
@@ -4489,7 +4520,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
         <img src="logos/wiztrip.svg" alt="Wiz Trip">
       </div>
       <div class="slot occupied has-logo" data-tooltip="Mundiplast UY · Camino 02">
-        <img src="logos/mundiplast.svg" alt="Mundiplast UY">
+        <img src="logos/mundiplast.png" alt="Mundiplast UY">
       </div>
       <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
         <span class="slot-mark">+</span>
@@ -4915,7 +4946,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   <!-- Main grid -->
   <div class="foot-grid">
     <div class="foot-brand-col">
-      <div class="foot-brand">Dearmas <span class="soft">Costantini</span></div>
+      <div class="foot-brand">Dearmas <span class="amp">&amp;</span> <span class="soft">Costantini</span></div>
       <div class="foot-brand-tagline">Business Growth Partners · LATAM</div>
       <p class="foot-tag">Nos asociamos a tu empresa para hacerla crecer — con ejecución directa y responsabilidad sobre los resultados.</p>
       <div class="foot-socials">
