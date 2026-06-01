@@ -1857,12 +1857,15 @@ interface ContentRow {
   cta?: string | null;
   assigned_to?: string | null;
   influencer?: string | null;
+  // Migración 050 — código persistente por cliente.
+  code?: number | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
   return {
     id: r.id,
     clientId: r.client_id,
+    code: r.code ?? null,
     date: r.date,
     time: r.time,
     network: r.network,

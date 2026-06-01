@@ -93,12 +93,31 @@ function formatCode(n: number): string {
 }
 
 /**
- * Construye un mapa post.id → "C-XXXX" estable basado en orden de
- * CREACIÓN, no de display. Así al filtrar por estado el código de una
- * pieza no cambia, y agregar una nueva no pisa los códigos previos —
- * la nueva siempre recibe el siguiente número disponible.
+ * Devuelve el código visual de una pieza.
+ *
+ * Preferencia: `post.code` viene de DB (migración 050). El trigger en
+ * Postgres asigna max(code)+1 por cliente al insertar y nunca lo
+ * reusa cuando se borra una pieza → es 100% persistente.
+ *
+ * Fallback (post.code = null/undefined): para entornos donde la
+ * migración todavía no corrió, derivamos por orden de creación dentro
+ * del array recibido. NO es persistente — pero al menos la UI no
+ * muestra "—".
  */
-function buildCodeMap(posts: ContentPost[]): Map<string, string> {
+function codeOf(
+  post: ContentPost,
+  fallback: Map<string, string>,
+): string {
+  if (typeof post.code === "number") return formatCode(post.code);
+  return fallback.get(post.id) ?? "—";
+}
+
+/**
+ * Mapa fallback id → "C-XXXX" basado en orden de createdAt dentro del
+ * array recibido. Solo se usa para posts que vinieron sin code (es
+ * decir, antes de que la migración 050 corra en la DB).
+ */
+function buildCodeFallbackMap(posts: ContentPost[]): Map<string, string> {
   const ordered = [...posts].sort((a, b) =>
     (a.createdAt ?? "").localeCompare(b.createdAt ?? ""),
   );
@@ -159,7 +178,7 @@ function downloadContenidoCSV(
   posts: ContentPost[],
   clientName: string,
   teamMembers: Profile[],
-  codeMap: Map<string, string>,
+  codeFallback: Map<string, string>,
 ): void {
   if (posts.length === 0) return;
   const memberById = new Map(teamMembers.map((m) => [m.id, m.name]));
@@ -188,7 +207,7 @@ function downloadContenidoCSV(
   posts.forEach((p) => {
     lines.push(
       [
-        codeMap.get(p.id) ?? "—",
+        codeOf(p, codeFallback),
         p.date,
         p.time ?? "",
         NETWORK_LABEL[p.network] ?? p.network,
@@ -299,15 +318,25 @@ export default function ContenidoPage({
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Filtros por columna — combinan con el chip de estado + período.
+  // "all" / "" significa sin filtro.
+  const [colNetwork, setColNetwork] = useState<ContentNetwork | "all">("all");
+  const [colFormat, setColFormat] = useState<ContentFormat | "all">("all");
+  const [colAssignedTo, setColAssignedTo] = useState<string>("all");
+  const [colCodeQuery, setColCodeQuery] = useState<string>("");
+  const [colIdeaQuery, setColIdeaQuery] = useState<string>("");
   // Modal de "nueva idea manual"
   const [showNewIdea, setShowNewIdea] = useState(false);
   const [savingNewIdea, setSavingNewIdea] = useState(false);
 
-  // Mapa estable id → "C-XXXX" basado en orden de creación.
-  // Se recalcula solo cuando cambia `posts` (no cuando filtramos), por
-  // eso el código de una pieza no salta cuando el usuario cambia el
-  // filtro.
-  const codeMap = useMemo(() => buildCodeMap(posts), [posts]);
+  // Fallback id → "C-XXXX" para posts sin `code` en DB (entornos donde
+  // la migración 050 todavía no corrió). El path normal usa
+  // post.code directamente.
+  const codeFallback = useMemo(
+    () => buildCodeFallbackMap(posts),
+    [posts],
+  );
 
   // Asistente Creativo
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -371,9 +400,32 @@ export default function ContenidoPage({
       if (days < 0) return d >= ref && d <= now;
       return d >= now && d <= ref;
     };
+    // Filtros por columna — todos combinables.
+    const codeQ = colCodeQuery.trim().toLowerCase();
+    const ideaQ = colIdeaQuery.trim().toLowerCase();
     const filtered = posts
       .filter((p) => filter === "all" || p.status === filter)
-      .filter((p) => inPeriod(p.date));
+      .filter((p) => inPeriod(p.date))
+      .filter((p) => colNetwork === "all" || p.network === colNetwork)
+      .filter((p) => colFormat === "all" || p.format === colFormat)
+      .filter(
+        (p) =>
+          colAssignedTo === "all" ||
+          (colAssignedTo === "_unassigned"
+            ? !p.assignedTo
+            : p.assignedTo === colAssignedTo),
+      )
+      .filter((p) => {
+        if (!codeQ) return true;
+        const visibleCode = codeOf(p, codeFallback).toLowerCase();
+        return visibleCode.includes(codeQ);
+      })
+      .filter((p) => {
+        if (!ideaQ) return true;
+        return (p.idea ?? "").toLowerCase().includes(ideaQ) ||
+          (p.copy ?? "").toLowerCase().includes(ideaQ) ||
+          (p.brief ?? "").toLowerCase().includes(ideaQ);
+      });
     return [...filtered].sort((a, b) => {
       const aOverdue = a.status !== "published" && a.date < today;
       const bOverdue = b.status !== "published" && b.date < today;
@@ -381,7 +433,19 @@ export default function ContenidoPage({
       if (bOverdue && !aOverdue) return 1;
       return a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? "");
     });
-  }, [posts, filter, periodMode, customFrom, customTo]);
+  }, [
+    posts,
+    filter,
+    periodMode,
+    customFrom,
+    customTo,
+    colNetwork,
+    colFormat,
+    colAssignedTo,
+    colCodeQuery,
+    colIdeaQuery,
+    codeFallback,
+  ]);
 
   const stats = {
     total: posts.length,
@@ -769,7 +833,7 @@ export default function ContenidoPage({
               sortedFiltered,
               client?.name ?? "cliente",
               teamMembers,
-              codeMap,
+              codeFallback,
             )
           }
           disabled={sortedFiltered.length === 0}
@@ -821,6 +885,109 @@ export default function ContenidoPage({
                   <th style={thStyle}>Estado</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Acciones</th>
                 </tr>
+                {/* Fila de filtros por columna — combinables con el chip de estado y el período */}
+                <tr style={{ background: "var(--white)", borderBottom: "1px solid rgba(10,26,12,0.08)" }}>
+                  <th style={thFilterCell}>
+                    <input
+                      type="text"
+                      value={colCodeQuery}
+                      onChange={(e) => setColCodeQuery(e.target.value)}
+                      placeholder="Buscar…"
+                      style={filterInputStyle}
+                    />
+                  </th>
+                  <th style={thFilterCell}>
+                    <select
+                      value={colNetwork}
+                      onChange={(e) =>
+                        setColNetwork(e.target.value as ContentNetwork | "all")
+                      }
+                      style={filterInputStyle}
+                    >
+                      <option value="all">Todas</option>
+                      {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => (
+                        <option key={n} value={n}>
+                          {NETWORK_LABEL[n]}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th style={thFilterCell}>
+                    <select
+                      value={colFormat}
+                      onChange={(e) =>
+                        setColFormat(e.target.value as ContentFormat | "all")
+                      }
+                      style={filterInputStyle}
+                    >
+                      <option value="all">Todos</option>
+                      {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
+                        <option key={f} value={f}>
+                          {FORMAT_LABEL[f]}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th style={thFilterCell}>
+                    <input
+                      type="text"
+                      value={colIdeaQuery}
+                      onChange={(e) => setColIdeaQuery(e.target.value)}
+                      placeholder="Buscar en idea/copy/brief…"
+                      style={filterInputStyle}
+                    />
+                  </th>
+                  <th style={thFilterCell}>{/* Fecha — filtro vive arriba (período) */}</th>
+                  <th style={thFilterCell}>
+                    <select
+                      value={colAssignedTo}
+                      onChange={(e) => setColAssignedTo(e.target.value)}
+                      style={filterInputStyle}
+                    >
+                      <option value="all">Todos</option>
+                      <option value="_unassigned">Sin asignar</option>
+                      {teamMembers.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th style={thFilterCell}>{/* Estado — chips arriba */}</th>
+                  <th style={{ ...thFilterCell, textAlign: "right" }}>
+                    {(colNetwork !== "all" ||
+                      colFormat !== "all" ||
+                      colAssignedTo !== "all" ||
+                      colCodeQuery ||
+                      colIdeaQuery) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setColNetwork("all");
+                          setColFormat("all");
+                          setColAssignedTo("all");
+                          setColCodeQuery("");
+                          setColIdeaQuery("");
+                        }}
+                        style={{
+                          padding: "3px 8px",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          background: "transparent",
+                          border: "1px solid rgba(10,26,12,0.15)",
+                          color: "var(--text-muted)",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          letterSpacing: "0.04em",
+                        }}
+                        title="Limpiar filtros de columna"
+                      >
+                        ✕ limpiar
+                      </button>
+                    )}
+                  </th>
+                </tr>
               </thead>
               <tbody>
                 {sortedFiltered.map((p) => {
@@ -833,7 +1000,7 @@ export default function ContenidoPage({
                     <RowEditor
                       key={p.id}
                       post={p}
-                      code={codeMap.get(p.id) ?? "—"}
+                      code={codeOf(p, codeFallback)}
                       netColor={netColor}
                       overdue={overdue}
                       isExpanded={isExpanded}
@@ -1539,6 +1706,27 @@ function RowEditor({
     </>
   );
 }
+
+/** Celda del thead que aloja un filtro por columna. */
+const thFilterCell: React.CSSProperties = {
+  padding: "6px 10px",
+  textAlign: "left",
+  verticalAlign: "middle",
+  fontWeight: 400,
+};
+
+/** Input/select compacto para los filtros de columna. */
+const filterInputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "4px 6px",
+  fontSize: 11,
+  border: "1px solid rgba(10,26,12,0.12)",
+  borderRadius: 3,
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  fontFamily: "inherit",
+  outline: "none",
+};
 
 const thStyle: React.CSSProperties = {
   textAlign: "left",

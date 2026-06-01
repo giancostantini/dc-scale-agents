@@ -612,6 +612,13 @@ export type ContentStatus = "draft" | "scheduled" | "published";
 export interface ContentPost {
   id: string;
   clientId: string;
+  /** Número secuencial PERSISTENTE por cliente (1, 2, 3…). Se muestra
+   *  como "C-XXXX" en la UI. Lo asigna un trigger en DB al insertar
+   *  (max(code) por client_id + 1) y nunca se reusa: si borrás una
+   *  pieza, las posteriores conservan su número y la próxima nueva
+   *  tomará un valor mayor a TODOS los que ya existieron, no el del
+   *  hueco. Ver migración 050. */
+  code?: number | null;
   date: string;
   time: string | null;
   network: ContentNetwork;
