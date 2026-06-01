@@ -36,7 +36,16 @@ interface NavItem {
   directorOnly?: boolean;
 }
 
-export default function ClientSidebar({ client }: { client: Client }) {
+export default function ClientSidebar({
+  client,
+  onHide,
+}: {
+  client: Client;
+  /** Si está definida, se renderiza un botón "ocultar" en la esquina
+   *  superior derecha del sidebar. El parent (layout) controla el
+   *  estado y persiste en localStorage. */
+  onHide?: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [isDirector, setIsDirector] = useState(false);
@@ -138,6 +147,17 @@ export default function ClientSidebar({ client }: { client: Client }) {
 
   return (
     <aside className={styles.sidebar}>
+      {onHide && (
+        <button
+          type="button"
+          className={styles.hideBtn}
+          onClick={onHide}
+          title="Ocultar menú para ver más ancho"
+          aria-label="Ocultar menú lateral"
+        >
+          ‹
+        </button>
+      )}
       <button className={styles.back} onClick={() => router.push("/hub")}>
         <IArrowLeft size={15} /> Volver al hub
       </button>

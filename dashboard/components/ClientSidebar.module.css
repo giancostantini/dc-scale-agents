@@ -196,6 +196,68 @@
   overflow-x: hidden;
 }
 
+/* ============ TOGGLE OCULTAR / MOSTRAR SIDEBAR ============ */
+/* Botón dentro del sidebar (esquina superior derecha) que oculta el
+   panel y deja la pantalla a ancho completo. */
+.hideBtn {
+  position: absolute;
+  top: 18px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--off-white);
+  border: 1px solid var(--hairline);
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  z-index: 2;
+}
+
+.hideBtn:hover {
+  color: var(--deep-green);
+  background: var(--white);
+  border-color: var(--sand-dark);
+}
+
+/* Botón flotante en el main para volver a mostrar el sidebar cuando
+   está oculto. Sutil, sticky en el borde superior izquierdo. */
+.showSidebarBtn {
+  position: sticky;
+  top: 16px;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--white);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  font-family: inherit;
+  margin-bottom: 18px;
+  margin-left: -36px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  z-index: 5;
+}
+
+.showSidebarBtn:hover {
+  color: var(--deep-green);
+  border-color: var(--sand-dark);
+  background: var(--off-white);
+}
+
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
