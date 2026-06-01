@@ -57,15 +57,15 @@
   --yellow-warn: #C9A14A;
   --rule: #D8D1C4;
 
-  /* ============ ACENTO · profesional 2026 ============
-     Se cambió el verde eléctrico (#16C75A) por un emerald oscuro
-     más sobrio y profesional. El sand sigue siendo el acento cálido
-     secundario. Para CTAs visuales fuertes se prefiere usar --sand
-     o --deep-green directamente. */
-  --accent: #0F7B4A;
-  --accent-deep: #0A5B36;
-  --accent-tint: rgba(15, 123, 74, 0.10);
-  --accent-tint-strong: rgba(15, 123, 74, 0.18);
+  /* ============ ACENTO · Brand Board 2026 ============
+     El acento de marca es SAND (#C4A882). En el brandbook el sand es
+     el color del "&" de la firma y de los CTAs ("Acento · & · CTA").
+     No hay verde como acento — el verde (deep-green / forest) es solo
+     fondo oscuro. --accent-deep = sand-dark, para hover / pressed. */
+  --accent: var(--sand);
+  --accent-deep: var(--sand-dark);
+  --accent-tint: rgba(196, 168, 130, 0.10);
+  --accent-tint-strong: rgba(196, 168, 130, 0.18);
 
   /* ============ FORMA / ELEVACIÓN · refresh 2026 (Torem-like) ============
      Tokens nuevos para el rediseño estético. NO modifican la paleta:
@@ -114,17 +114,18 @@ body {
 
 
 /* ============ TIPOGRAFÍA · Brand Board 2026 ============
-   La firma visual ya no es el "&" en DM Sans. Ahora es el
-   contraste tipográfico Bold/Light del lockup `Dearmas Costantini`,
-   gestionado por el componente <Lockup />. Ver components/Lockup.tsx.
+   La firma visual de la marca es el lockup "Dearmas & Costantini"
+   con el "&" como elemento gráfico central: DM Sans 200, color sand.
+   "El & es la firma. No se negocia." (Brand Board 2026). El lockup lo
+   gestiona el componente <Lockup />. Ver components/Lockup.tsx.
    ======================================================= */
 
-/* `.amp` queda como utilitario decorativo (NO firma de marca).
-   Útil para conectores tipo "Captación & ventas" donde el `&` es
-   parte del lenguaje y no de la identidad. */
+/* `.amp` — el "&" de la firma: DM Sans 200, color sand. Se usa en el
+   lockup y en conectores tipo "Captación & ventas". */
 .amp {
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
+  font-weight: 200;
   color: var(--sand);
-  font-weight: 300;
   font-style: normal;
 }
 

@@ -172,7 +172,7 @@ export default function NewEventModal({
         <p className={styles.sub}>
           {googleConnected
             ? "Si activás la sincronización, el evento aparece también en tu Google Calendar."
-            : "Google Calendar no está conectado — el evento queda solo en Dearmas Costantini Scale."}
+            : "Google Calendar no está conectado — el evento queda solo en Dearmas & Costantini Scale."}
         </p>
 
         <div className={styles.field}>

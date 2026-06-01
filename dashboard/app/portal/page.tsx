@@ -202,7 +202,7 @@ export default function PortalPage() {
           <Lockup size="md" />
           <h2 className={styles.errorTitle}>Tu cuenta no está conectada a una empresa</h2>
           <p className={styles.errorBody}>
-            Avisale a tu account lead en Dearmas Costantini para que
+            Avisale a tu account lead en Dearmas & Costantini para que
             configure tu acceso. Tu cuenta existe pero falta vincularla
             a tu empresa.
           </p>

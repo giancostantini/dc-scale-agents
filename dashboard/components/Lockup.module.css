@@ -1,7 +1,7 @@
 /* ============ LOCKUP · Brand Board 2026 ============
-   Firma visual: contraste tipográfico Bold/Light entre
-   "Dearmas" y "Costantini". Mismo color, mismo tracking,
-   distinto peso y opacidad.
+   Firma visual: "Dearmas" (Bold) + "&" (DM Sans 200, sand) +
+   "Costantini" (Light, 55% opacidad). El "&" es la firma de
+   marca y no se negocia (Brand Board 2026).
    ==================================================== */
 
 .lockup {
@@ -24,8 +24,17 @@
 
 .costantini {
   font-weight: 300;
-  /* 55% de opacidad sobre el mismo color base — la firma del lockup. */
+  /* 55% de opacidad sobre el mismo color base (contraste Light). */
   opacity: 0.55;
+}
+
+/* El "&" de la firma — DM Sans 200 en color sand. Mantiene el sand
+   sea cual sea el `color` del lockup (es la firma de marca). */
+.amp {
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
+  font-weight: 200;
+  color: var(--sand);
+  font-style: normal;
 }
 
 .tagline {
@@ -39,7 +48,7 @@
   opacity: 0.9;
 }
 
-/* Monograma — el isotipo DC, usado donde no entra el lockup completo. */
+/* Monograma — el isotipo D&C, usado donde no entra el lockup completo. */
 .monogram {
   font-family: var(--font-inter), 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-weight: 700;

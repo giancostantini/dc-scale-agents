@@ -112,7 +112,7 @@
 
 .btnPrimary:hover {
   background: var(--accent-deep);
-  box-shadow: 0 8px 24px rgba(22, 199, 90, 0.3);
+  box-shadow: 0 8px 24px rgba(196, 168, 130, 0.35);
   transform: translateY(-1px);
 }
 

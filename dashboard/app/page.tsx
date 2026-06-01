@@ -124,7 +124,7 @@ export default function LoginPage() {
           </div>
 
           <div className={styles.loginHint}>
-            Acceso restringido al equipo de Dearmas Costantini.
+            Acceso restringido al equipo de Dearmas & Costantini.
           </div>
         </form>
       </div>

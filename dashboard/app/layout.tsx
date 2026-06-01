@@ -18,9 +18,9 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Dearmas Costantini · Scale",
+  title: "Dearmas & Costantini · Scale",
   description:
-    "Dearmas Costantini — Business Growth Partners en LATAM. Sistema interno de gestión.",
+    "Dearmas & Costantini — Business Growth Partners en LATAM. Sistema interno de gestión.",
 };
 
 export default function RootLayout({
