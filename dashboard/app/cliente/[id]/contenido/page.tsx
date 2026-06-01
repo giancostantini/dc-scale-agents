@@ -26,6 +26,7 @@ import {
   getContent,
   updateContent,
   deleteContent,
+  addContent,
 } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import { getSupabase } from "@/lib/supabase/client";
@@ -86,9 +87,24 @@ interface ChatMessage {
   content: string;
 }
 
-/** Genera el código visual de la pieza basado en su posición. */
-function codeFor(idx: number): string {
-  return `C-${String(idx + 1).padStart(4, "0")}`;
+/** Formato del código visual: C-XXXX padded a 4 dígitos. */
+function formatCode(n: number): string {
+  return `C-${String(n).padStart(4, "0")}`;
+}
+
+/**
+ * Construye un mapa post.id → "C-XXXX" estable basado en orden de
+ * CREACIÓN, no de display. Así al filtrar por estado el código de una
+ * pieza no cambia, y agregar una nueva no pisa los códigos previos —
+ * la nueva siempre recibe el siguiente número disponible.
+ */
+function buildCodeMap(posts: ContentPost[]): Map<string, string> {
+  const ordered = [...posts].sort((a, b) =>
+    (a.createdAt ?? "").localeCompare(b.createdAt ?? ""),
+  );
+  const m = new Map<string, string>();
+  ordered.forEach((p, i) => m.set(p.id, formatCode(i + 1)));
+  return m;
 }
 
 const MONTHS_ES = [
@@ -143,6 +159,7 @@ function downloadContenidoCSV(
   posts: ContentPost[],
   clientName: string,
   teamMembers: Profile[],
+  codeMap: Map<string, string>,
 ): void {
   if (posts.length === 0) return;
   const memberById = new Map(teamMembers.map((m) => [m.id, m.name]));
@@ -168,10 +185,10 @@ function downloadContenidoCSV(
     return s;
   };
   const lines = [header.map(esc).join(",")];
-  posts.forEach((p, idx) => {
+  posts.forEach((p) => {
     lines.push(
       [
-        codeFor(idx),
+        codeMap.get(p.id) ?? "—",
         p.date,
         p.time ?? "",
         NETWORK_LABEL[p.network] ?? p.network,
@@ -282,6 +299,15 @@ export default function ContenidoPage({
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Modal de "nueva idea manual"
+  const [showNewIdea, setShowNewIdea] = useState(false);
+  const [savingNewIdea, setSavingNewIdea] = useState(false);
+
+  // Mapa estable id → "C-XXXX" basado en orden de creación.
+  // Se recalcula solo cuando cambia `posts` (no cuando filtramos), por
+  // eso el código de una pieza no salta cuando el usuario cambia el
+  // filtro.
+  const codeMap = useMemo(() => buildCodeMap(posts), [posts]);
 
   // Asistente Creativo
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -716,12 +742,34 @@ export default function ContenidoPage({
             />
           </div>
         )}
+        {isDirector && (
+          <button
+            onClick={() => setShowNewIdea(true)}
+            style={{
+              padding: "5px 12px",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              borderRadius: 4,
+            }}
+            title="Agregar una idea manualmente sin pasar por el asistente"
+          >
+            + Nueva idea
+          </button>
+        )}
         <button
           onClick={() =>
             downloadContenidoCSV(
               sortedFiltered,
               client?.name ?? "cliente",
               teamMembers,
+              codeMap,
             )
           }
           disabled={sortedFiltered.length === 0}
@@ -775,7 +823,7 @@ export default function ContenidoPage({
                 </tr>
               </thead>
               <tbody>
-                {sortedFiltered.map((p, idx) => {
+                {sortedFiltered.map((p) => {
                   const today = new Date().toISOString().slice(0, 10);
                   const overdue = p.status !== "published" && p.date < today;
                   const isExpanded = expandedId === p.id;
@@ -785,7 +833,7 @@ export default function ContenidoPage({
                     <RowEditor
                       key={p.id}
                       post={p}
-                      code={codeFor(idx)}
+                      code={codeMap.get(p.id) ?? "—"}
                       netColor={netColor}
                       overdue={overdue}
                       isExpanded={isExpanded}
@@ -1077,6 +1125,42 @@ export default function ContenidoPage({
           </div>
         </div>
       </div>
+
+      {/* ============== MODAL NUEVA IDEA MANUAL ============== */}
+      {showNewIdea && (
+        <NewIdeaModal
+          saving={savingNewIdea}
+          onCancel={() => setShowNewIdea(false)}
+          onSubmit={async (draft) => {
+            setSavingNewIdea(true);
+            try {
+              await addContent({
+                clientId: id,
+                date: draft.date,
+                time: draft.time || null,
+                network: draft.network,
+                format: draft.format,
+                brief: draft.brief,
+                idea: draft.idea || null,
+                copy: draft.copy || null,
+                cta: draft.cta || null,
+                influencer: null,
+                assignedTo: null,
+                status: "draft",
+                source: "manual",
+              });
+              setShowNewIdea(false);
+              refresh();
+            } catch (err) {
+              alert(
+                "No se pudo guardar la idea:\n" + (err as Error).message,
+              );
+            } finally {
+              setSavingNewIdea(false);
+            }
+          }}
+        />
+      )}
     </>
   );
 }
@@ -1589,3 +1673,290 @@ function CompactKpi({
     </div>
   );
 }
+
+// ============================================================
+// NewIdeaModal — modal para crear una pieza manual desde cero.
+// El código de la pieza no se elige acá: se genera automáticamente
+// (siguiente número disponible) cuando se guarda, basado en orden
+// de creación.
+// ============================================================
+interface NewIdeaDraft {
+  date: string;
+  time: string;
+  network: ContentNetwork;
+  format: ContentFormat;
+  idea: string;
+  copy: string;
+  cta: string;
+  brief: string;
+}
+
+function NewIdeaModal({
+  saving,
+  onCancel,
+  onSubmit,
+}: {
+  saving: boolean;
+  onCancel: () => void;
+  onSubmit: (draft: NewIdeaDraft) => Promise<void>;
+}) {
+  // Default: hoy, sin hora, IG post.
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [draft, setDraft] = useState<NewIdeaDraft>({
+    date: todayISO,
+    time: "",
+    network: "ig",
+    format: "post",
+    idea: "",
+    copy: "",
+    cta: "",
+    brief: "",
+  });
+
+  const isAnuncio = draft.format === "anuncio";
+  const canSave = draft.date && draft.idea.trim().length > 0;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(10,26,12,0.45)",
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onCancel();
+      }}
+    >
+      <div
+        style={{
+          background: "var(--white)",
+          borderRadius: "var(--r-lg)",
+          padding: 28,
+          width: "100%",
+          maxWidth: 640,
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 6,
+          }}
+        >
+          Contenido · Manual
+        </div>
+        <h2
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            margin: 0,
+            marginBottom: 4,
+            color: "var(--deep-green)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Nueva idea
+        </h2>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted)",
+            marginBottom: 20,
+          }}
+        >
+          El código C-XXXX se asigna automáticamente al guardar — no se
+          pisa con los existentes.
+        </div>
+
+        {/* Fila: fecha + hora */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <ModalLabel>Fecha *</ModalLabel>
+            <input
+              type="date"
+              value={draft.date}
+              onChange={(e) => setDraft({ ...draft, date: e.target.value })}
+              style={modalInput}
+            />
+          </div>
+          <div>
+            <ModalLabel>Hora</ModalLabel>
+            <input
+              type="time"
+              value={draft.time}
+              onChange={(e) => setDraft({ ...draft, time: e.target.value })}
+              style={modalInput}
+            />
+          </div>
+        </div>
+
+        {/* Fila: red + formato */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <ModalLabel>Red *</ModalLabel>
+            <select
+              value={draft.network}
+              onChange={(e) =>
+                setDraft({ ...draft, network: e.target.value as ContentNetwork })
+              }
+              style={modalInput}
+            >
+              {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => (
+                <option key={n} value={n}>
+                  {NETWORK_LABEL[n]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <ModalLabel>Formato *</ModalLabel>
+            <select
+              value={draft.format}
+              onChange={(e) =>
+                setDraft({ ...draft, format: e.target.value as ContentFormat })
+              }
+              style={modalInput}
+            >
+              {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
+                <option key={f} value={f}>
+                  {FORMAT_LABEL[f]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <ModalLabel>Idea *</ModalLabel>
+        <textarea
+          value={draft.idea}
+          onChange={(e) => setDraft({ ...draft, idea: e.target.value })}
+          rows={2}
+          placeholder="Concepto creativo de la pieza"
+          style={modalInput}
+        />
+
+        <ModalLabel>Copy</ModalLabel>
+        <textarea
+          value={draft.copy}
+          onChange={(e) => setDraft({ ...draft, copy: e.target.value })}
+          rows={4}
+          placeholder="Texto listo para publicar (opcional)"
+          style={modalInput}
+        />
+
+        {isAnuncio && (
+          <>
+            <ModalLabel>CTA (call to action)</ModalLabel>
+            <input
+              type="text"
+              value={draft.cta}
+              onChange={(e) => setDraft({ ...draft, cta: e.target.value })}
+              placeholder='Ej: "Reservá tu lugar", "Comprá ahora"'
+              style={modalInput}
+            />
+          </>
+        )}
+
+        <ModalLabel>Brief de producción</ModalLabel>
+        <textarea
+          value={draft.brief}
+          onChange={(e) => setDraft({ ...draft, brief: e.target.value })}
+          rows={3}
+          placeholder="Shots, tono, formato visual, referencias (opcional)"
+          style={modalInput}
+        />
+
+        {/* Acciones */}
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            justifyContent: "flex-end",
+            marginTop: 22,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            style={{
+              padding: "10px 18px",
+              fontSize: 12,
+              fontWeight: 600,
+              background: "transparent",
+              color: "var(--deep-green)",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: "var(--r-sm)",
+              cursor: saving ? "default" : "pointer",
+              fontFamily: "inherit",
+              opacity: saving ? 0.5 : 1,
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => canSave && !saving && onSubmit(draft)}
+            disabled={!canSave || saving}
+            style={{
+              padding: "10px 22px",
+              fontSize: 12,
+              fontWeight: 700,
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              borderRadius: "var(--r-sm)",
+              cursor: !canSave || saving ? "default" : "pointer",
+              fontFamily: "inherit",
+              opacity: !canSave || saving ? 0.5 : 1,
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar idea"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 10,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        fontWeight: 600,
+        color: "var(--sand-dark)",
+        marginTop: 12,
+        marginBottom: 5,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const modalInput: React.CSSProperties = {
+  width: "100%",
+  padding: "9px 11px",
+  fontSize: 13,
+  border: "1px solid rgba(10,26,12,0.15)",
+  borderRadius: "var(--r-sm)",
+  fontFamily: "inherit",
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  resize: "vertical",
+  outline: "none",
+};
