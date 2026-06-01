@@ -148,6 +148,22 @@ export default function HubPage() {
     [tasks],
   );
 
+  // Mis tareas pendientes — tareas pending asignadas al viewer.
+  // El campo `assignee` es texto libre (ej "Federico · Director"), por
+  // eso matcheamos por primer nombre del perfil. No es perfecto pero
+  // funciona mientras el dropdown de Responsable use el patrón
+  // "Nombre · Rol".
+  const myPendingTasks = useMemo(() => {
+    if (!profile) return 0;
+    const firstName = profile.name.split(" ")[0]?.toLowerCase();
+    if (!firstName) return 0;
+    return tasks.filter(
+      (t) =>
+        t.status !== "done" &&
+        (t.assignee ?? "").toLowerCase().includes(firstName),
+    ).length;
+  }, [tasks, profile]);
+
   // Solicitudes pendientes de clientes — sin resolver todavía.
   const pendingClientRequests = requests.length;
 
@@ -275,6 +291,14 @@ export default function HubPage() {
               <HeroStat
                 value={totalClients}
                 label={totalClients === 1 ? "Cliente" : "Clientes"}
+              />
+              <HeroStat
+                value={myPendingTasks}
+                label={
+                  myPendingTasks === 1
+                    ? "Tarea pendiente"
+                    : "Tareas pendientes"
+                }
               />
               <HeroStat
                 value={pendingTeamTasks}
