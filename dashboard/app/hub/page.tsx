@@ -556,13 +556,13 @@ export default function HubPage() {
                       borderRadius: 999,
                       background:
                         c.status === "active"
-                          ? "rgba(16,185,129,0.12)"
+                          ? "var(--green-tint)"
                           : c.status === "onboarding"
                             ? "rgba(196,168,130,0.18)"
                             : "rgba(10,26,12,0.06)",
                       color:
                         c.status === "active"
-                          ? "#0F7B4A"
+                          ? "var(--green-ok)"
                           : c.status === "onboarding"
                             ? "var(--sand-dark)"
                             : "var(--text-muted)",
@@ -911,7 +911,7 @@ export default function HubPage() {
                       padding: 14,
                       borderTop:
                         stage === "cerrado"
-                          ? "3px solid #0F7B4A"
+                          ? "3px solid var(--green-ok)"
                           : "3px solid var(--sand)",
                     }}
                   >

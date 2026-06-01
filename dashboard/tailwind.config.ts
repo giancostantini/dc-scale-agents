@@ -8,7 +8,7 @@ import type { Config } from "tailwindcss";
  *   - "ink"      : verde oscuro casi negro (heredado de --deep-green)
  *                  → reemplaza el "navy" del mockup manteniendo brand.
  *   - "paper"    : whites + grises premium para fondos.
- *   - "accent"   : verde acento vivo (CTAs) + sand cálido secundario.
+ *   - "accent"   : sand cálido — acento de marca y CTAs (Brand Board 2026).
  *   - "ring"     : focus + bordes sutiles para forms premium.
  *
  * IMPORTANTE: solo afecta clases tailwind. Los CSS modules + inline
@@ -46,12 +46,12 @@ const config: Config = {
           300: "#EDEBE6",
           400: "#E4E1D9",
         },
-        // === ACCENT (CTAs, hovers, estados activos) ===
+        // === ACCENT (CTAs, hovers, estados activos) · Brand Board 2026: SAND ===
         accent: {
-          DEFAULT: "#16C75A",
-          dim: "#0F9E47",
-          tint: "rgba(22, 199, 90, 0.10)",
-          ring: "rgba(22, 199, 90, 0.25)",
+          DEFAULT: "#C4A882",
+          dim: "#9B8259",
+          tint: "rgba(196, 168, 130, 0.10)",
+          ring: "rgba(196, 168, 130, 0.25)",
         },
         // === SAND (cálido secundario, heredado D&C) ===
         sand: {
@@ -117,7 +117,7 @@ const config: Config = {
         "premium": "0 4px 12px -2px rgba(10, 26, 12, 0.05), 0 2px 4px rgba(10, 26, 12, 0.04)",
         "premium-md": "0 8px 24px -4px rgba(10, 26, 12, 0.08), 0 4px 8px rgba(10, 26, 12, 0.04)",
         "premium-lg": "0 16px 48px -8px rgba(10, 26, 12, 0.12)",
-        "ring-accent": "0 0 0 3px rgba(22, 199, 90, 0.18)",
+        "ring-accent": "0 0 0 3px rgba(196, 168, 130, 0.35)",
         "ring-ink": "0 0 0 3px rgba(10, 26, 12, 0.08)",
       },
       spacing: {

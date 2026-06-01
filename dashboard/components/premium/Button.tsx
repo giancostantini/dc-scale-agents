@@ -15,7 +15,7 @@ const buttonVariants = cva(
           "bg-paper text-ink border border-rule-strong hover:bg-paper-200 hover:border-ink-300",
         ghost: "text-ink hover:bg-paper-200",
         accent:
-          "bg-accent text-white hover:bg-accent-dim shadow-premium-sm hover:shadow-premium",
+          "bg-accent text-ink hover:bg-accent-dim shadow-premium-sm hover:shadow-premium",
         danger:
           "bg-paper text-danger border border-danger/20 hover:bg-danger/5 hover:border-danger/40",
         link: "text-ink underline-offset-4 hover:underline px-0 py-0",
