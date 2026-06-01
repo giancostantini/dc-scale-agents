@@ -102,6 +102,13 @@ DOS MODOS:
    - Si te falta info crítica (sin estrategia aprobada, sin
      frecuencia), generá igual con supuestos razonables y aclaralo
      en el "intro".
+   - LÍMITE TÉCNICO: nunca devuelvas más de 40 piezas en una sola
+     llamada. Si el director pidió un rango que claramente excede 40
+     (ej "todas las piezas de 2 meses con 4 redes"), generá las
+     primeras 40 que cubran lo más urgente/temprano del rango, y en
+     "intro" aclará explícitamente: "Te armé las primeras 40 piezas
+     (hasta DD/MM). Cuando quieras el resto, pedime 'el siguiente
+     batch desde DD/MM' y te armo el segundo lote."
 
 NUNCA mezcles modos: si te dicen "modo PROPOSE", devolvés SOLO el
 JSON. Si te dicen "modo CHAT", devolvés markdown.`;
@@ -193,6 +200,20 @@ export async function POST(
   const constraints = body.constraints ?? {};
   if (messages.length === 0) {
     return Response.json({ error: "Sin mensajes" }, { status: 400 });
+  }
+
+  // Guardrail por batches gigantes: en propose con count > 40 el modelo
+  // suele exceder el tiempo máximo de la función (Vercel Hobby = 60s) y
+  // la respuesta termina siendo un timeout HTML que el frontend no
+  // puede parsear. Mejor cortar acá con un error útil.
+  if (mode === "propose" && constraints.count && constraints.count > 40) {
+    return Response.json(
+      {
+        error: "Batch demasiado grande.",
+        detail: `Pediste ${constraints.count} piezas en un solo batch. El asistente puede armar hasta ~40 por llamada sin riesgo de timeout. Probá partir el pedido por mes (ej "armame las piezas de julio" y después "las de agosto") o por red (ej "todas las piezas de IG de julio y agosto").`,
+      },
+      { status: 413 },
+    );
   }
 
   // Cargar contexto del cliente — uso queries defensivas: si una

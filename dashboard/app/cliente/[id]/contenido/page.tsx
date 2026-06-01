@@ -430,7 +430,35 @@ export default function ContenidoPage({
             : undefined,
         }),
       });
-      const data = await res.json();
+      // Leer como texto primero — si la función falla en Vercel (timeout,
+      // memory, crash), devuelve HTML/texto en vez de JSON y el .json()
+      // tira "Unexpected token A...".  Atajamos eso acá.
+      const rawText = await res.text();
+      let data: {
+        error?: string;
+        detail?: string;
+        reply?: string;
+        proposed?: unknown;
+      };
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        // No fue JSON — armamos un error humano según el status.
+        const status = res.status;
+        if (status === 504 || status === 408) {
+          throw new Error(
+            "El asistente tardó demasiado y se cortó. Probá pedir menos piezas a la vez (ej 20-30) o pediendo solo un mes a la vez.",
+          );
+        }
+        if (status >= 500) {
+          throw new Error(
+            `Error del servidor (${status}). Probá de nuevo en un minuto o partí el pedido en batches más chicos.\n\nDetalle: ${rawText.slice(0, 200)}…`,
+          );
+        }
+        throw new Error(
+          `Respuesta inesperada (${status}): ${rawText.slice(0, 200)}…`,
+        );
+      }
       if (!res.ok) {
         throw new Error([data?.error, data?.detail].filter(Boolean).join(" — "));
       }
@@ -439,7 +467,7 @@ export default function ContenidoPage({
       if (mode === "propose") {
         // Path preferido (nuevo): el backend devuelve `proposed` ya
         // parseado desde el tool_use de Anthropic.
-        let parsed = data.proposed ?? null;
+        let parsed: unknown = data.proposed ?? null;
         // Fallback: si por algún motivo no vino estructurado, intentamos
         // parsear el texto del reply de forma defensiva (buscando el
         // primer {...} para tolerar preámbulos).
@@ -966,7 +994,7 @@ export default function ContenidoPage({
             onChange={(e) => setInput(e.target.value)}
             placeholder={
               isDirector
-                ? 'Ej: "Armame 12 piezas para junio enfocadas en lanzamiento" · "8 anuncios para promo de invierno con CTA"…'
+                ? 'Ej: "Armame 12 piezas para junio enfocadas en lanzamiento" · "8 anuncios para promo de invierno con CTA" · (máx ~40 piezas por batch — partilo por mes si es más)'
                 : "Solo director puede usar el asistente"
             }
             rows={2}
