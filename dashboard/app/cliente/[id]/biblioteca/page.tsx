@@ -123,7 +123,11 @@ export default function BibliotecaPage({
         </div>
       </div>
 
-      {/* Acceso directo a carpeta de Teams (toda la docu viva del cliente) */}
+      {/* Acceso directo a la carpeta de OneDrive (toda la docu viva
+          del cliente). El nombre interno del banner sigue siendo
+          "TeamsFolderBanner" y el campo en DB es `teams_folder_url`
+          por razones históricas — para evitar una migración. Visualmente
+          el cliente ve "OneDrive". */}
       <TeamsFolderBanner
         client={client}
         isDirector={isDirector}
@@ -676,9 +680,12 @@ function FilesList({
 }
 
 // ============================================================
-// TeamsFolderBanner — acceso directo a la carpeta de Microsoft Teams
-// del cliente. Vive en client.external_links.teams_folder_url. El
-// director lo configura inline; el resto del equipo lo abre.
+// TeamsFolderBanner — acceso directo a la carpeta de OneDrive del
+// cliente. (El nombre del componente y el campo `teams_folder_url`
+// quedaron del pasado cuando usábamos Microsoft Teams para esto.
+// Internamente se mantienen para no migrar; visualmente decimos
+// OneDrive.) El director lo configura inline; el resto del equipo
+// lo abre.
 // ============================================================
 function TeamsFolderBanner({
   client,
@@ -707,7 +714,7 @@ function TeamsFolderBanner({
       onUpdated();
     } catch (err) {
       const e = err as Error;
-      alert(`No se pudo guardar el link de Teams:\n${e.message}`);
+      alert(`No se pudo guardar el link de OneDrive:\n${e.message}`);
     } finally {
       setSaving(false);
     }
@@ -745,7 +752,7 @@ function TeamsFolderBanner({
             marginBottom: 6,
           }}
         >
-          Carpeta del cliente · Microsoft Teams
+          Carpeta del cliente · OneDrive
         </div>
         <div
           style={{
@@ -755,7 +762,7 @@ function TeamsFolderBanner({
           }}
         >
           Toda la documentación viva del cliente (contratos, briefings, archivos
-          compartidos, notas de reuniones) vive en Teams. Click abre la carpeta
+          compartidos, notas de reuniones) vive en OneDrive. Click abre la carpeta
           en una pestaña nueva.
         </div>
       </div>
@@ -765,7 +772,7 @@ function TeamsFolderBanner({
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://teams.microsoft.com/..."
+            placeholder="https://onedrive.live.com/... o https://...sharepoint.com/..."
             autoFocus
             disabled={saving}
             style={{
@@ -833,7 +840,7 @@ function TeamsFolderBanner({
               whiteSpace: "nowrap",
             }}
           >
-            Abrir carpeta Teams ↗
+            Abrir carpeta OneDrive ↗
           </a>
           {isDirector && (
             <button
@@ -867,7 +874,7 @@ function TeamsFolderBanner({
             whiteSpace: "nowrap",
           }}
         >
-          + Configurar carpeta Teams
+          + Configurar carpeta OneDrive
         </button>
       ) : (
         <div

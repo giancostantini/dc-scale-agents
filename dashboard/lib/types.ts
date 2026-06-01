@@ -136,7 +136,10 @@ export interface ClientExternalLinks {
   espor_ai_url?: string;
   /** URL del Looker Studio con métricas generales del negocio. */
   looker_studio_url?: string;
-  /** URL de la carpeta de Microsoft Teams con docs del cliente. */
+  /** URL de la carpeta de OneDrive (o SharePoint) con docs del cliente.
+   *  El nombre del campo `teams_folder_url` quedó del pasado cuando
+   *  usábamos Microsoft Teams para esto — lo dejamos sin renombrar
+   *  para no migrar la columna en DB. */
   teams_folder_url?: string;
 }
 
@@ -218,7 +221,7 @@ export interface Client {
   progress?: number;
   sprints?: Sprint[];
   onboarding?: ClientOnboarding;
-  /** URLs a herramientas externas (Espor.ai, Looker Studio, Teams).
+  /** URLs a herramientas externas (Espor.ai, Looker Studio, OneDrive).
    *  Las configura el director desde Analítica / Biblioteca. */
   external_links?: ClientExternalLinks;
   /** URL pública del dashboard Looker Studio del cliente. El portal lo

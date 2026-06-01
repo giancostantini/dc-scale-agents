@@ -443,7 +443,8 @@ export async function updateRoadmapMonthNote(
 /**
  * Actualiza solo el campo external_links de un cliente (merge sobre
  * el JSONB actual). Usado desde la UI de Analítica (Espor.ai / Looker
- * Studio URL) y Biblioteca (Teams folder URL).
+ * Studio URL) y Biblioteca (carpeta de OneDrive — el campo se llama
+ * teams_folder_url en DB por razones históricas).
  */
 export async function updateClientExternalLinks(
   clientId: string,
