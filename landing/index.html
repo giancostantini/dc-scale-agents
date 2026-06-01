@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dearmas Costantini — Tu socio de crecimiento en LATAM</title>
+<title>Dearmas &amp; Costantini — Tu socio de crecimiento en LATAM</title>
 <meta name="description" content="No somos una agencia. Somos una firma que se asocia a tu empresa para hacerla crecer. Agendá 30 minutos con los socios.">
-<meta property="og:title" content="Dearmas Costantini — Business Growth Partners · LATAM">
+<meta property="og:title" content="Dearmas &amp; Costantini — Business Growth Partners · LATAM">
 <meta property="og:description" content="No entregamos informes. Ejecutamos. Agendá 30 minutos con los socios.">
 <meta property="og:type" content="website">
 
@@ -545,8 +545,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   /* ============ BURGER + MOBILE MENU ============ */
   .nav-burger {
     display: none;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     background: rgba(10, 26, 12, 0.6);
     backdrop-filter: blur(10px);
     border: 1px solid var(--on-dark-line);
@@ -613,8 +613,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     margin-top: 5px;
   }
   .mobile-menu-close {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     background: transparent;
     border: 1px solid var(--on-dark-line);
     color: var(--linen);
@@ -4076,9 +4076,25 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     .chat-window { width: calc(100vw - 32px); height: calc(100vh - 100px); bottom: 70px; }
 
     .faq-q { font-size: 16px; gap: 16px; padding: 22px 24px; }
-    .faq-toggle { width: 30px; height: 30px; font-size: 18px; }
+    .faq-toggle { width: 44px; height: 44px; font-size: 22px; }
     .faq-a { font-size: 14px; padding: 0 24px; }
     .faq-item.open .faq-a { padding: 0 24px 24px; }
+  }
+
+  /* Teléfonos medianos: 3 cupos por fila + mockup y cifras más compactas. */
+  @media (max-width: 600px) {
+    .cupo-grid-slots { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .sol-phone { width: 210px; }
+    .hero-bottom { gap: 18px; }
+    .case-metric { font-size: clamp(38px, 13vw, 50px); }
+  }
+
+  /* Teléfonos chicos (≤430): 2 cupos por fila, mockup aún menor. */
+  @media (max-width: 430px) {
+    .cupo-grid-slots { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .sol-phone { width: 190px; }
+    .hero-bottom { grid-template-columns: repeat(2, 1fr); }
+    .foot-social { width: 40px; height: 40px; }
   }
 
   @media (max-width: 380px) {
@@ -4089,7 +4105,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     h2 { font-size: clamp(26px, 7vw, 36px); }
     .skin-headline { font-size: clamp(24px, 7vw, 34px); }
     .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
-    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); }
+    .cupo-grid-slots { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* Hero overlays apagados — fondo plano oscuro (sin aurora/glow/sweep/blobs).
@@ -4124,7 +4140,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 <!-- ============ NAV ============ -->
 <nav class="nav" id="nav">
   <a href="#top" class="nav-brand">
-    <span>Dearmas <span class="soft">Costantini</span></span>
+    <span>Dearmas <span class="amp">&amp;</span> <span class="soft">Costantini</span></span>
     <span class="tagline">Business Growth Partners</span>
   </a>
   <div class="nav-links">
@@ -4147,7 +4163,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
   <div class="mobile-menu-header">
     <span class="mobile-menu-brand">
-      <span>Dearmas <span class="soft">Costantini</span></span>
+      <span>Dearmas <span class="amp">&amp;</span> <span class="soft">Costantini</span></span>
       <span class="tag">Business Growth Partners</span>
     </span>
     <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Cerrar menú">×</button>
@@ -4915,7 +4931,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   <!-- Main grid -->
   <div class="foot-grid">
     <div class="foot-brand-col">
-      <div class="foot-brand">Dearmas <span class="soft">Costantini</span></div>
+      <div class="foot-brand">Dearmas <span class="amp">&amp;</span> <span class="soft">Costantini</span></div>
       <div class="foot-brand-tagline">Business Growth Partners · LATAM</div>
       <p class="foot-tag">Nos asociamos a tu empresa para hacerla crecer — con ejecución directa y responsabilidad sobre los resultados.</p>
       <div class="foot-socials">
