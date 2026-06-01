@@ -859,7 +859,9 @@ export default function ContenidoPage({
 
       {/* TABLA de ideas */}
       <div className={ui.panel} style={{ marginBottom: 24, padding: 0, overflow: "hidden" }}>
-        {sortedFiltered.length === 0 ? (
+        {posts.length === 0 ? (
+          // Sin posts cargados en absoluto — la fila de filtros no
+          // tiene sentido todavía. Mensaje único.
           <div
             style={{
               padding: 40,
@@ -872,6 +874,11 @@ export default function ContenidoPage({
             Sin ideas todavía. Usá el Asistente Creativo abajo ↓ para empezar.
           </div>
         ) : (
+          // Hay posts: SIEMPRE renderizamos la tabla con headers +
+          // fila de filtros. Si los filtros excluyeron todo, el tbody
+          // muestra un empty state dedicado con botón "Limpiar
+          // filtros" — antes se ocultaba todo y el usuario no podía
+          // deshacer el filtro.
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
               <thead>
@@ -990,31 +997,78 @@ export default function ContenidoPage({
                 </tr>
               </thead>
               <tbody>
-                {sortedFiltered.map((p) => {
-                  const today = new Date().toISOString().slice(0, 10);
-                  const overdue = p.status !== "published" && p.date < today;
-                  const isExpanded = expandedId === p.id;
-                  const netColor =
-                    (NETWORK_COLORS as Record<string, { solid: string }>)[p.network]?.solid ?? "#0A1A0C";
-                  return (
-                    <RowEditor
-                      key={p.id}
-                      post={p}
-                      code={codeOf(p, codeFallback)}
-                      netColor={netColor}
-                      overdue={overdue}
-                      isExpanded={isExpanded}
-                      onExpand={() => setExpandedId(isExpanded ? null : p.id)}
-                      onPatch={(patch) => patchPost(p, patch)}
-                      onApprove={() => approve(p)}
-                      onUnapprove={() => unapprove(p)}
-                      onPublish={() => markPublished(p)}
-                      onDelete={() => deleteOne(p)}
-                      isDirector={isDirector}
-                      teamMembers={teamMembers}
-                    />
-                  );
-                })}
+                {sortedFiltered.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      style={{
+                        padding: "32px 20px",
+                        textAlign: "center",
+                        color: "var(--text-muted)",
+                        fontSize: 13,
+                      }}
+                    >
+                      <div style={{ fontStyle: "italic", marginBottom: 12 }}>
+                        Ningún contenido coincide con estos filtros.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFilter("all");
+                          setPeriodMode("all");
+                          setCustomFrom("");
+                          setCustomTo("");
+                          setColNetwork("all");
+                          setColFormat("all");
+                          setColAssignedTo("all");
+                          setColCodeQuery("");
+                          setColIdeaQuery("");
+                        }}
+                        style={{
+                          padding: "6px 14px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: "var(--deep-green)",
+                          color: "var(--off-white)",
+                          border: "none",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        ✕ Limpiar todos los filtros
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  sortedFiltered.map((p) => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const overdue = p.status !== "published" && p.date < today;
+                    const isExpanded = expandedId === p.id;
+                    const netColor =
+                      (NETWORK_COLORS as Record<string, { solid: string }>)[p.network]?.solid ?? "#0A1A0C";
+                    return (
+                      <RowEditor
+                        key={p.id}
+                        post={p}
+                        code={codeOf(p, codeFallback)}
+                        netColor={netColor}
+                        overdue={overdue}
+                        isExpanded={isExpanded}
+                        onExpand={() => setExpandedId(isExpanded ? null : p.id)}
+                        onPatch={(patch) => patchPost(p, patch)}
+                        onApprove={() => approve(p)}
+                        onUnapprove={() => unapprove(p)}
+                        onPublish={() => markPublished(p)}
+                        onDelete={() => deleteOne(p)}
+                        isDirector={isDirector}
+                        teamMembers={teamMembers}
+                      />
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

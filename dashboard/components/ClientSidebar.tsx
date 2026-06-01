@@ -96,8 +96,7 @@ export default function ClientSidebar({
   // dashboard → estrategia → ejecución → análisis → soporte.
   const navGP: NavItem[] = [
     { key: "dashboard",   href: base,                   icon: IDashboard,     label: "Dashboard" },
-    { key: "fases",       href: `${base}/fases`,         icon: IFases,         label: "Fases del negocio" },
-    { key: "objetivos",   href: `${base}/objetivos`,     icon: IObjetivos,     label: "Objetivos", directorOnly: true },
+    { key: "fases",       href: `${base}/fases`,         icon: IFases,         label: "Estrategia" },
     { key: "calendario",  href: `${base}/planificador`,  icon: ICalendario,    label: "Calendario" },
     { key: "contenido",   href: `${base}/contenido`,     icon: IContenido,     label: "Contenido" },
     { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
@@ -106,6 +105,7 @@ export default function ClientSidebar({
     { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
     { key: "biblioteca",  href: `${base}/biblioteca`,    icon: IBiblioteca,    label: "Biblioteca" },
     { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
+    { key: "objetivos",   href: `${base}/objetivos`,     icon: IObjetivos,     label: "Objetivos", directorOnly: true },
     { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
 

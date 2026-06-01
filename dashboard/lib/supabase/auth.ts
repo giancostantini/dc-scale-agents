@@ -50,6 +50,9 @@ export interface Profile {
   // Migración 047: integración Outlook
   outlook_email?: string | null;
   outlook_connected_at?: string | null;
+  // Migración 051: foto de perfil. Public URL del bucket "avatars".
+  // Si está vacía, el UI cae a las iniciales coloreadas (default).
+  avatar_url?: string | null;
 }
 
 export type TeamPosition =
@@ -155,7 +158,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, avatar_url",
     )
     .eq("id", user.id)
     .single();

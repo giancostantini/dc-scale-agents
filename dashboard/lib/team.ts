@@ -12,7 +12,7 @@ import type {
 } from "./supabase/auth";
 
 const PROFILE_COLS =
-  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, email_on_new_request, email_on_task_assigned, email_on_client_assigned, email_on_payment_received, email_on_content_approved, outlook_email, outlook_connected_at";
+  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, email_on_new_request, email_on_task_assigned, email_on_client_assigned, email_on_payment_received, email_on_content_approved, outlook_email, outlook_connected_at, avatar_url";
 
 // ============ PROFILES ============
 
@@ -64,6 +64,9 @@ export interface UpdateProfileInput {
   email_on_client_assigned?: boolean;
   email_on_payment_received?: boolean;
   email_on_content_approved?: boolean;
+  /** Migración 051. Public URL al avatar del usuario en el bucket
+   *  "avatars" de Storage. NULL = sin foto, el UI usa iniciales. */
+  avatar_url?: string | null;
 }
 
 export async function updateProfile(

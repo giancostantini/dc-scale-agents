@@ -103,8 +103,15 @@ export default function PerfilPage() {
       <Topbar showPrimary={false} />
 
       <main className={styles.wrap}>
-        <div className={styles.head}>
-          <div>
+        <div
+          className={styles.head}
+          style={{ display: "flex", alignItems: "center", gap: 22 }}
+        >
+          <AvatarEditor
+            profile={profile}
+            onUpdated={(p) => setProfile(p)}
+          />
+          <div style={{ flex: 1 }}>
             <div className={styles.eyebrow}>Mi perfil</div>
             <h1>{profile.name}</h1>
             <div className={styles.email}>{profile.email}</div>
@@ -660,6 +667,226 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
     <div className={styles.kv}>
       <div className={styles.kvLabel}>{label}</div>
       <div className={styles.kvValue}>{value}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// AvatarEditor — circulito con foto + botón para subir/cambiar.
+// El path en Storage es {user_id}/avatar.{ext}; al actualizar se
+// reemplaza el anterior (upsert).
+// ============================================================
+function AvatarEditor({
+  profile,
+  onUpdated,
+}: {
+  profile: Profile;
+  onUpdated: (p: Profile) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Máximo 2 MB.");
+      return;
+    }
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      setError("Formato no soportado. Usá JPG, PNG, WEBP o GIF.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const supabase = getSupabase();
+      // Mantenemos un nombre estable por usuario para que cada upload
+      // reemplace el anterior (upsert: true). Extraemos extensión
+      // del MIME para soportar gif/webp además de jpg/png.
+      const extByMime: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+      };
+      const ext = extByMime[file.type] ?? "jpg";
+      const path = `${profile.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, {
+          upsert: true,
+          contentType: file.type,
+          cacheControl: "3600",
+        });
+      if (upErr) throw upErr;
+
+      // Obtener URL pública. Le agregamos cache-bust con timestamp
+      // porque el CDN cachea por path y al reemplazar el archivo
+      // necesitamos forzar refresh en los avatars que ya se mostraron.
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const cacheBusted = `${pub.publicUrl}?t=${Date.now()}`;
+
+      const updated = await updateProfile(profile.id, {
+        avatar_url: cacheBusted,
+      });
+      if (updated) onUpdated(updated);
+    } catch (err) {
+      const e = err as Error;
+      setError(`No se pudo subir: ${e.message}`);
+    } finally {
+      setUploading(false);
+      // Reset el input para permitir subir el mismo archivo otra vez
+      // (Chrome no dispara onChange si el filename no cambia).
+      e.target.value = "";
+    }
+  }
+
+  async function handleRemove() {
+    if (!profile.avatar_url) return;
+    if (!confirm("¿Quitar tu foto de perfil?")) return;
+    setUploading(true);
+    setError(null);
+    try {
+      // Borrar el blob — intentamos las 4 extensiones porque no
+      // sabemos cuál subió.
+      const supabase = getSupabase();
+      const tryPaths = ["jpg", "png", "webp", "gif"].map(
+        (ext) => `${profile.id}/avatar.${ext}`,
+      );
+      await supabase.storage.from("avatars").remove(tryPaths);
+      const updated = await updateProfile(profile.id, { avatar_url: null });
+      if (updated) onUpdated(updated);
+    } catch (err) {
+      const e = err as Error;
+      setError(`No se pudo borrar: ${e.message}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <div
+        style={{
+          width: 86,
+          height: 86,
+          borderRadius: "50%",
+          background: profile.avatar_url ? "var(--off-white)" : "var(--deep-green)",
+          color: "var(--sand)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 700,
+          fontSize: 26,
+          overflow: "hidden",
+          border: "1px solid var(--hairline)",
+          letterSpacing: "0.05em",
+        }}
+      >
+        {profile.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.avatar_url}
+            alt={profile.name}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          profile.initials
+        )}
+      </div>
+
+      {/* Botón flotante de cambiar — abajo a la derecha del círculo */}
+      <label
+        style={{
+          position: "absolute",
+          bottom: -2,
+          right: -2,
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          background: "var(--deep-green)",
+          color: "var(--off-white)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          cursor: uploading ? "default" : "pointer",
+          border: "2px solid var(--white)",
+          opacity: uploading ? 0.6 : 1,
+        }}
+        title={profile.avatar_url ? "Cambiar foto" : "Subir foto"}
+      >
+        {uploading ? "…" : "✎"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleFile}
+          disabled={uploading}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0,
+            cursor: uploading ? "default" : "pointer",
+          }}
+        />
+      </label>
+
+      {profile.avatar_url && !uploading && (
+        <button
+          type="button"
+          onClick={handleRemove}
+          style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            background: "var(--white)",
+            color: "#B91C1C",
+            border: "1px solid rgba(176,75,58,0.2)",
+            cursor: "pointer",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "inherit",
+            padding: 0,
+            lineHeight: 1,
+          }}
+          title="Quitar foto"
+        >
+          ×
+        </button>
+      )}
+
+      {error && (
+        <div
+          style={{
+            position: "absolute",
+            left: 100,
+            top: "50%",
+            transform: "translateY(-50%)",
+            fontSize: 11,
+            color: "#B91C1C",
+            background: "rgba(176,75,58,0.08)",
+            border: "1px solid rgba(176,75,58,0.2)",
+            padding: "5px 9px",
+            borderRadius: 4,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {error}
+        </div>
+      )}
     </div>
   );
 }

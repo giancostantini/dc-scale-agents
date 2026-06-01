@@ -26,8 +26,7 @@ export interface ClientMenuItem {
 /** Menús del sidebar para clientes Growth Partner. */
 export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "dashboard",   segment: "",              label: "Dashboard" },
-  { key: "fases",       segment: "fases",          label: "Fases del negocio" },
-  { key: "objetivos",   segment: "objetivos",      label: "Objetivos", directorOnly: true },
+  { key: "fases",       segment: "fases",          label: "Estrategia" },
   { key: "calendario",  segment: "planificador",   label: "Calendario" },
   { key: "contenido",   segment: "contenido",      label: "Contenido" },
   { key: "tareas",      segment: "tareas",         label: "Tareas" },
@@ -36,6 +35,7 @@ export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "reporting",   segment: "reporting",      label: "Reporting" },
   { key: "biblioteca",  segment: "biblioteca",     label: "Biblioteca" },
   { key: "notas",       segment: "notas",          label: "Notas internas" },
+  { key: "objetivos",   segment: "objetivos",      label: "Objetivos", directorOnly: true },
   { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
 
