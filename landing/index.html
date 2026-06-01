@@ -1585,6 +1585,20 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     object-fit: contain;
     display: block;
   }
+  /* Bandera de país (chica, esquina superior derecha de la tarjeta). */
+  .case-logo-wrap img.case-flag {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 26px;
+    height: auto;
+    max-width: 26px;
+    max-height: none;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(10, 26, 12, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    z-index: 2;
+  }
   .case-logo-text {
     font-size: 14px;
     letter-spacing: 0.2em;
@@ -4148,7 +4162,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 <!-- ============ AVAILABILITY BANNER ============ -->
 <div class="availability-banner" id="availabilityBanner">
   <span class="ab-dot"></span>
-  <span>Solo <strong>2 cupos disponibles</strong> en la firma</span>
+  <span><strong>5 cupos disponibles</strong> en la firma</span>
   <a class="ab-cta" onclick="openCalendly(event)">Agendar 30 min →</a>
 </div>
 
@@ -4159,8 +4173,9 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <span class="tagline">Business Growth Partners</span>
   </a>
   <div class="nav-links">
-    <a href="#caminos" data-spy="modelo">Modelo</a>
+    <a href="#modelo" data-spy="modelo">Modelo</a>
     <a href="#casos" data-spy="casos">Resultados</a>
+    <a href="#cupo" data-spy="cupo">Cupos</a>
     <a href="#socios" data-spy="socios">Socios</a>
     <a href="#soluciones" data-spy="soluciones">Soluciones</a>
     <a href="#faq" data-spy="faq">FAQ</a>
@@ -4184,8 +4199,9 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Cerrar menú">×</button>
   </div>
   <nav class="mobile-menu-links">
-    <a href="#caminos" data-mm-link>Modelo</a>
+    <a href="#modelo" data-mm-link>Modelo</a>
     <a href="#casos" data-mm-link>Resultados</a>
+    <a href="#cupo" data-mm-link>Cupos</a>
     <a href="#socios" data-mm-link>Socios</a>
     <a href="#soluciones" data-mm-link>Soluciones</a>
     <a href="#faq" data-mm-link>FAQ</a>
@@ -4225,7 +4241,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <div class="hero-pill-row">
       <a href="#cupo" class="scope-pill">
         <span class="sp-dot"></span>
-        <span>Solo <strong>2 cupos</strong> disponibles</span>
+        <span><strong>5 cupos</strong> disponibles</span>
       </a>
       <span class="hero-meta-pill">
         <span class="check">✓</span> Skin in the game · cobramos si crecés
@@ -4257,19 +4273,19 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 
     <div class="hero-bottom">
       <div class="hero-stat">
-        <div class="stat-num">+180<span class="small">%</span></div>
-        <div class="stat-label"><strong>Glassy Waves</strong> · ventas online en 6 meses</div>
+        <div class="stat-num">2<span class="small">×</span></div>
+        <div class="stat-label"><strong>Glassy Waves</strong> · ventas duplicadas vs. el último año</div>
       </div>
       <div class="hero-stat">
-        <div class="stat-num">3<span class="small">×</span></div>
-        <div class="stat-label"><strong>Wiz Trip</strong> · conversión tras rediseño del embudo</div>
+        <div class="stat-num">Desde 0</div>
+        <div class="stat-label"><strong>Wiz Trip</strong> · marca lanzada de cero</div>
       </div>
       <div class="hero-stat">
-        <div class="stat-num">60<span class="small">%</span></div>
-        <div class="stat-label"><strong>Cliente NDA</strong> · consultas resueltas por agente IA</div>
+        <div class="stat-num">+30<span class="small">%</span></div>
+        <div class="stat-label"><strong>Mundiplast</strong> · seguimiento por vendedor + agente IA</div>
       </div>
       <div class="hero-stat">
-        <div class="stat-num">8<span class="small">/8</span></div>
+        <div class="stat-num">8</div>
         <div class="stat-label"><strong>Cuentas máximas</strong> · los dos socios en cada una</div>
       </div>
     </div>
@@ -4310,58 +4326,106 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   </div>
 </section>
 
-<!-- ============ PATHS ============ -->
-<section class="linen-bg reveal" id="caminos" data-bg="#F5F2EC" data-tone="light">
-  <div class="label">Cómo entramos</div>
-  <h2>Una firma,<br>dos tipos de <span class="accent-sand">negocio</span>.</h2>
+<!-- ============ SOLUCIONES (tabs + showcase) ============ -->
+<section class="soluciones-section reveal dark" id="soluciones" data-bg="#1E3A28" data-tone="dark">
+  <div class="sol-intro">
+    <div class="label">Soluciones</div>
+    <h2>Lo que <span class="accent-sand">ejecutamos</span><br>por dentro.</h2>
+    <p class="lead">
+      No vendemos un SaaS modular ni servicios sueltos. Cuando entramos como socio, asumimos cada uno de estos frentes — el que tu negocio necesite — con responsabilidad sobre los resultados.
+    </p>
+  </div>
 
-  <div class="paths reveal-stagger">
-    <div class="path path-01">
-      <div class="path-num">Camino 01</div>
-      <div class="path-title">Negocios<br>digitales.</div>
-      <div class="path-sub">E-commerce · Venta online</div>
-      <p class="path-desc">
-        Si tu negocio vende online, nos asociamos al crecimiento. Estrategia, performance y conversión, ejecutados por nosotros — sin tercerizar a terceros.
-      </p>
-      <div class="path-lead">Cómo trabajamos</div>
-      <div class="path-leader">Ambos socios en la cuenta · equipo dedicado ejecutando</div>
-      <ul class="path-list">
-        <li>Estrategia digital completa</li>
-        <li>Gestión de canales y performance</li>
-        <li>Optimización de conversión</li>
-        <li>Fede y Gian al tanto de cada decisión crítica</li>
-      </ul>
-      <div class="path-model">
-        <div class="pm-eyebrow">Cómo cobramos</div>
-        <div class="pm-structure">
-          Fee estructural mensual <span class="highlight">+ 2–4% de la facturación</span> — atado al objetivo de crecimiento.
+  <div class="sol-tabs-wrap">
+    <div class="sol-tabs" role="tablist" id="solTabs">
+      <button class="sol-tab active" role="tab" data-sol="paid" aria-selected="true">Growth &amp; Marketing</button>
+      <button class="sol-tab" role="tab" data-sol="ai" aria-selected="false">Automatizaciones con IA</button>
+    </div>
+  </div>
+
+  <div class="sol-showcase" id="solShowcase">
+
+    <!-- ============ Growth & Marketing ============ -->
+    <div class="sol-panel active" data-sol-panel="paid" role="tabpanel" data-comment-anchor="56298e6fd0-div">
+      <div class="sol-info">
+        <div class="sol-eyebrow">Camino 01 · Performance</div>
+        <h3 class="sol-title">Escala tu <em>negocio</em> con <em>Growth &amp; Marketing</em> ejecutado.</h3>
+        <p class="sol-desc">Performance ejecutada por nosotros, sin tercerizar a una media-agency. Cada peso entra al canal correcto, con tracking limpio y escalado controlado.</p>
+        <ul class="sol-bullets">
+          <li>Meta + Google Ads con creativos iterados semanalmente</li>
+          <li>Dashboard propio para analizar y medir resultados en todos los canales, en tiempo real</li>
+          <li>Escalado con presupuesto controlado, no a fuerza bruta</li>
+        </ul>
+      </div>
+      <div class="sol-visual">
+        <div class="sol-phone">
+          <div class="sol-phone-screen">
+            <div class="sol-phone-notch"></div>
+            <div class="sol-phone-status"><span>22:50</span><span class="sol-phone-status-right">●●●● 5G</span></div>
+            <div class="sp-kpi-body">
+              <div class="sp-kpi-hero">
+                <div class="sp-kpi-num">+32<span class="x">×</span></div>
+                <div class="sp-kpi-lbl">ROAS · últimos 30 días · escalando</div>
+              </div>
+              <div class="sp-kpi-row">
+                <div class="sp-kpi-cell"><div class="v">$0.84</div><div class="l">CPC</div><div class="d">−47%</div></div>
+                <div class="sp-kpi-cell"><div class="v">5.8%</div><div class="l">CTR</div><div class="d">+38%</div></div>
+              </div>
+              <div class="sp-kpi-row">
+                <div class="sp-kpi-cell"><div class="v">US$ 84k</div><div class="l">Ventas</div><div class="d">+61%</div></div>
+                <div class="sp-kpi-cell"><div class="v">$11</div><div class="l">CAC</div><div class="d">−34%</div></div>
+              </div>
+              <div class="sp-kpi-bars">
+                <span style="--h: 38%"></span>
+                <span style="--h: 62%"></span>
+                <span style="--h: 48%"></span>
+                <span style="--h: 78%"></span>
+                <span style="--h: 66%"></span>
+                <span style="--h: 92%"></span>
+                <span style="--h: 84%"></span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="pm-pitch">"¿Estás dispuesto a que tu negocio crezca un 30% solo por el 2% de la facturación?"</div>
       </div>
     </div>
-    <div class="path path-02">
-      <div class="path-num">Camino 02</div>
-      <div class="path-title">Negocios<br>tradicionales.</div>
-      <div class="path-sub">Operaciones offline</div>
-      <p class="path-desc">
-        Si tu negocio opera offline, diagnosticamos los procesos e implementamos IA a medida para automatizar lo que hoy consume tiempo y margen.
-      </p>
-      <div class="path-lead">Cómo trabajamos</div>
-      <div class="path-leader">Ambos socios en la cuenta · equipo técnico ejecutando</div>
-      <ul class="path-list">
-        <li>Diagnóstico de procesos internos</li>
-        <li>Implementación de IA a medida</li>
-        <li>Automatización de operaciones</li>
-        <li>Fede y Gian al tanto de cada decisión crítica</li>
-      </ul>
-      <div class="path-model">
-        <div class="pm-eyebrow">Cómo cobramos</div>
-        <div class="pm-structure">
-          <span class="highlight">Fee de instalación</span> + fee mensual de mantenimiento y soporte.
+
+    <!-- ============ Automatizaciones con IA ============ -->
+    <div class="sol-panel" data-sol-panel="ai" role="tabpanel">
+      <div class="sol-info">
+        <div class="sol-eyebrow">Camino 02 · Operaciones</div>
+        <h3 class="sol-title">Escala tu <em>negocio</em> con <em>Automatizaciones con IA</em>.</h3>
+        <p class="sol-desc">IA y automatización a medida que resuelven cuellos de botella concretos: atención, ventas, pedidos, soporte. Integrada a tu sistema — no es un SaaS más.</p>
+        <ul class="sol-bullets">
+          <li>Agente IA sobre WhatsApp + integración al sistema interno</li>
+          <li>Automatización de procesos manuales que hoy consumen tiempo</li>
+          <li>Mantenimiento y mejora continua post-lanzamiento como socios técnicos</li>
+        </ul>
+      </div>
+      <div class="sol-visual">
+        <div class="sol-phone">
+          <div class="sol-phone-screen light">
+            <div class="sol-phone-notch"></div>
+            <div class="sol-phone-status"><span>22:50</span><span class="sol-phone-status-right">●●●● 5G</span></div>
+            <div class="sp-chat-header">
+              <div class="sp-chat-avatar">DC</div>
+              <div>
+                <div class="sp-chat-name">Agente Ventas DC</div>
+                <div class="sp-chat-name-sub">asistente comercial · 24/7</div>
+              </div>
+            </div>
+            <div class="sp-chat-body">
+              <div class="sp-bub us">Estoy por entrar a <strong>Ferretería del Sur</strong>. ¿Cuándo fue su última compra?</div>
+              <div class="sp-bub them">Última compra: <strong>18/04</strong> (hace 41 días) por USD 1.840. Antes compraban cada 25 días.</div>
+              <div class="sp-bub us">¿Algún producto que solían pedir y dejaron de comprar?</div>
+              <div class="sp-bub them">Sí — <strong>focos LED 9W</strong>: pedían 200 u/mes y no compran hace 73 días. Posible churn.</div>
+              <div class="sp-bub us">Perfecto, voy con eso. Gracias.</div>
+            </div>
+          </div>
         </div>
-        <div class="pm-pitch">Construimos, dejamos funcionando y nos quedamos como socios técnicos operando y mejorando la solución.</div>
       </div>
     </div>
+
   </div>
 </section>
 
@@ -4380,6 +4444,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <div class="case">
       <div class="case-logo-wrap has-logo">
         <img src="logos/glassy.svg" alt="Glassy Waves">
+        <img class="case-flag" src="flags/uy.svg" alt="Uruguay" width="26" height="17">
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 01 · Digital</div>
@@ -4404,6 +4469,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <div class="case dark-case">
       <div class="case-logo-wrap has-logo">
         <img src="logos/wiztrip.svg" alt="Wiz Trip">
+        <img class="case-flag" src="flags/us.svg" alt="Estados Unidos" width="26" height="17">
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 01 · Digital</div>
@@ -4428,6 +4494,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <div class="case">
       <div class="case-logo-wrap has-logo">
         <img src="logos/mundiplast.png" alt="Mundiplast UY">
+        <img class="case-flag" src="flags/uy.svg" alt="Uruguay" width="26" height="17">
       </div>
       <div class="case-head">
         <div class="case-tag">Camino 02 · IA</div>
@@ -4500,14 +4567,14 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   <div class="cupo-intro">
     <div>
       <div class="label">Cupos disponibles</div>
-      <h2>5 clientes totales.<br><span class="accent">2 cupos</span> abiertos.</h2>
+      <h2>3 clientes activos.<br><span class="accent">5 cupos</span> abiertos.</h2>
       <a href="#agendar" class="scope-pill" onclick="openCalendly(event)" style="background: var(--emerald-soft); border-color: rgba(196, 168, 130,0.4); margin-top: 16px;">
         <span class="sp-dot"></span>
-        <span>Solo <strong style="color: var(--ink-900);">2 cupos disponibles</strong></span>
+        <span><strong style="color: var(--ink-900);">5 cupos disponibles</strong></span>
       </a>
     </div>
     <p class="lead">
-      La firma opera con <strong>5 cuentas activas como máximo</strong> — es la única forma de garantizar que los socios estén involucrados en cada una. Cuando se completan los cupos, cerramos inscripciones hasta que un cliente termina su ciclo.
+      La firma opera con <strong>8 cuentas activas como máximo</strong> — es la única forma de garantizar que los socios estén involucrados en cada una. Cuando se completan los cupos, cerramos inscripciones hasta que un cliente termina su ciclo.
     </p>
   </div>
 
@@ -4528,6 +4595,15 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
         <span class="slot-mark">+</span>
       </div>
+      <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
+        <span class="slot-mark">+</span>
+      </div>
+      <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
+        <span class="slot-mark">+</span>
+      </div>
+      <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
+        <span class="slot-mark">+</span>
+      </div>
     </div>
 
     <div class="cupo-legend">
@@ -4537,9 +4613,9 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   </div>
 
   <div class="cupo-summary">
-    <div class="cs-num">2</div>
+    <div class="cs-num">5</div>
     <div class="cs-text">
-      Quedan <strong>solo 2 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
+      Quedan <strong>5 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
     </div>
     <button class="btn btn-primary" onclick="openCalendly(event)">
       <span class="dot"></span>
@@ -4822,109 +4898,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   </div>
 </section>
 
-<!-- ============ SOLUCIONES (tabs + showcase) ============ -->
-<section class="soluciones-section reveal dark" id="soluciones" data-bg="#1E3A28" data-tone="dark">
-  <div class="sol-intro">
-    <div class="label">Soluciones</div>
-    <h2>Lo que <span class="accent-sand">ejecutamos</span><br>por dentro.</h2>
-    <p class="lead">
-      No vendemos un SaaS modular ni servicios sueltos. Cuando entramos como socio, asumimos cada uno de estos frentes — el que tu negocio necesite — con responsabilidad sobre los resultados.
-    </p>
-  </div>
-
-  <div class="sol-tabs-wrap">
-    <div class="sol-tabs" role="tablist" id="solTabs">
-      <button class="sol-tab active" role="tab" data-sol="paid" aria-selected="true">Growth &amp; Marketing</button>
-      <button class="sol-tab" role="tab" data-sol="ai" aria-selected="false">Automatizaciones con IA</button>
-    </div>
-  </div>
-
-  <div class="sol-showcase" id="solShowcase">
-
-    <!-- ============ Growth & Marketing ============ -->
-    <div class="sol-panel active" data-sol-panel="paid" role="tabpanel" data-comment-anchor="56298e6fd0-div">
-      <div class="sol-info">
-        <div class="sol-eyebrow">Camino 01 · Performance</div>
-        <h3 class="sol-title">Escala tu <em>negocio</em> con <em>Growth &amp; Marketing</em> ejecutado.</h3>
-        <p class="sol-desc">Performance ejecutada por nosotros, sin tercerizar a una media-agency. Cada peso entra al canal correcto, con tracking limpio y escalado controlado.</p>
-        <ul class="sol-bullets">
-          <li>Meta + Google Ads con creativos iterados semanalmente</li>
-          <li>Dashboard propio para analizar y medir resultados en todos los canales, en tiempo real</li>
-          <li>Escalado con presupuesto controlado, no a fuerza bruta</li>
-        </ul>
-      </div>
-      <div class="sol-visual">
-        <div class="sol-phone">
-          <div class="sol-phone-screen">
-            <div class="sol-phone-notch"></div>
-            <div class="sol-phone-status"><span>22:50</span><span class="sol-phone-status-right">●●●● 5G</span></div>
-            <div class="sp-kpi-body">
-              <div class="sp-kpi-hero">
-                <div class="sp-kpi-num">+32<span class="x">×</span></div>
-                <div class="sp-kpi-lbl">ROAS · últimos 30 días · escalando</div>
-              </div>
-              <div class="sp-kpi-row">
-                <div class="sp-kpi-cell"><div class="v">$0.84</div><div class="l">CPC</div><div class="d">−47%</div></div>
-                <div class="sp-kpi-cell"><div class="v">5.8%</div><div class="l">CTR</div><div class="d">+38%</div></div>
-              </div>
-              <div class="sp-kpi-row">
-                <div class="sp-kpi-cell"><div class="v">US$ 84k</div><div class="l">Ventas</div><div class="d">+61%</div></div>
-                <div class="sp-kpi-cell"><div class="v">$11</div><div class="l">CAC</div><div class="d">−34%</div></div>
-              </div>
-              <div class="sp-kpi-bars">
-                <span style="--h: 38%"></span>
-                <span style="--h: 62%"></span>
-                <span style="--h: 48%"></span>
-                <span style="--h: 78%"></span>
-                <span style="--h: 66%"></span>
-                <span style="--h: 92%"></span>
-                <span style="--h: 84%"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============ Automatizaciones con IA ============ -->
-    <div class="sol-panel" data-sol-panel="ai" role="tabpanel">
-      <div class="sol-info">
-        <div class="sol-eyebrow">Camino 02 · Operaciones</div>
-        <h3 class="sol-title">Escala tu <em>negocio</em> con <em>Automatizaciones con IA</em>.</h3>
-        <p class="sol-desc">IA y automatización a medida que resuelven cuellos de botella concretos: atención, ventas, pedidos, soporte. Integrada a tu sistema — no es un SaaS más.</p>
-        <ul class="sol-bullets">
-          <li>Agente IA sobre WhatsApp + integración al sistema interno</li>
-          <li>Automatización de procesos manuales que hoy consumen tiempo</li>
-          <li>Mantenimiento y mejora continua post-lanzamiento como socios técnicos</li>
-        </ul>
-      </div>
-      <div class="sol-visual">
-        <div class="sol-phone">
-          <div class="sol-phone-screen light">
-            <div class="sol-phone-notch"></div>
-            <div class="sol-phone-status"><span>22:50</span><span class="sol-phone-status-right">●●●● 5G</span></div>
-            <div class="sp-chat-header">
-              <div class="sp-chat-avatar">DC</div>
-              <div>
-                <div class="sp-chat-name">Agente Ventas DC</div>
-                <div class="sp-chat-name-sub">asistente comercial · 24/7</div>
-              </div>
-            </div>
-            <div class="sp-chat-body">
-              <div class="sp-bub us">Estoy por entrar a <strong>Ferretería del Sur</strong>. ¿Cuándo fue su última compra?</div>
-              <div class="sp-bub them">Última compra: <strong>18/04</strong> (hace 41 días) por USD 1.840. Antes compraban cada 25 días.</div>
-              <div class="sp-bub us">¿Algún producto que solían pedir y dejaron de comprar?</div>
-              <div class="sp-bub them">Sí — <strong>focos LED 9W</strong>: pedían 200 u/mes y no compran hace 73 días. Posible churn.</div>
-              <div class="sp-bub us">Perfecto, voy con eso. Gracias.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</section>
-
 <!-- ============ FOOTER ============ -->
 <footer data-bg="#0A1A0C" data-tone="dark">
   <!-- Newsletter block -->
@@ -5204,10 +5177,12 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   //  - Resultados → casos
   //  - FAQ → faq
   const LINK_OWNS = {
-    'modelo':  ['nosotros', 'caminos', 'soluciones', 'skin', 'modelo'],
-    'casos':   ['casos'],
-    'socios':  ['socios'],
-    'faq':     ['faq']
+    'modelo':     ['skin', 'modelo'],
+    'casos':      ['casos'],
+    'cupo':       ['cupo'],
+    'socios':     ['nosotros', 'socios'],
+    'soluciones': ['soluciones'],
+    'faq':        ['faq']
   };
   const sectionToLinkKey = {};
   Object.entries(LINK_OWNS).forEach(([key, ids]) => {
