@@ -30,7 +30,12 @@ interface PieceInput {
   network: string;
   format: string;
   brief: string;
+  /** Concepto creativo separado del brief. */
+  idea?: string;
+  /** Caption final listo para publicar. */
   copy?: string;
+  /** CTA corto — típicamente para anuncios. */
+  cta?: string;
   status?: "draft" | "scheduled" | "published";
 }
 
@@ -80,19 +85,35 @@ export async function POST(
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Validar piezas mínimas + mapear a row
+  // Validar piezas mínimas + mapear a row.
+  // Formatos válidos: reel/post/carrusel/story (orgánicos) + ugc + anuncio.
+  // Antes excluía ugc/anuncio porque el asistente nuevo los genera y se
+  // perdían silenciosamente en el filtro.
+  const VALID_FORMATS = [
+    "reel",
+    "post",
+    "carrusel",
+    "story",
+    "ugc",
+    "anuncio",
+    "video",
+    "short",
+  ];
+  const VALID_NETWORKS = ["ig", "tt", "in", "fb", "yt"];
+
   const rows = pieces
     .filter(
       (p) =>
         p &&
         /^\d{4}-\d{2}-\d{2}$/.test(p.date) &&
         /^\d{2}:\d{2}$/.test(p.time) &&
-        ["ig", "tt", "in", "fb", "yt"].includes(p.network) &&
-        ["reel", "carrusel", "post", "story", "video", "short"].includes(
-          p.format,
-        ) &&
-        typeof p.brief === "string" &&
-        p.brief.trim().length > 0,
+        VALID_NETWORKS.includes(p.network) &&
+        VALID_FORMATS.includes(p.format) &&
+        // brief o idea sirven como contenido mínimo — antes era solo
+        // brief obligatorio, pero el asistente nuevo puede mandar piezas
+        // donde lo importante está en idea/copy.
+        ((typeof p.brief === "string" && p.brief.trim().length > 0) ||
+          (typeof p.idea === "string" && p.idea.trim().length > 0)),
     )
     .map((p) => ({
       client_id: clientId,
@@ -100,7 +121,10 @@ export async function POST(
       time: p.time,
       network: p.network,
       format: p.format,
-      brief: p.brief.trim(),
+      brief: (p.brief ?? "").trim(),
+      idea: p.idea?.trim() || null,
+      copy: p.copy?.trim() || null,
+      cta: p.cta?.trim() || null,
       status: p.status ?? "draft",
       source: "ai",
     }));

@@ -76,6 +76,8 @@ interface ProposedPiece {
   type?: string;
   idea: string;
   copy: string;
+  /** Solo cuando format=anuncio. */
+  cta?: string;
   brief: string;
 }
 
@@ -505,12 +507,20 @@ export default function ContenidoPage({
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          // Cada campo en su columna — antes se concatenaba todo en
+          // brief y la tabla mostraba "(sin idea)" porque idea quedaba
+          // null. Ahora idea/copy/cta/brief van separados al insert.
           pieces: proposed.pieces.map((p) => ({
             date: p.date,
             time: p.time,
             network: p.network,
             format: p.format,
-            brief: `[${p.type ?? "—"}] ${p.idea}\n\n${p.copy}\n\n— BRIEF —\n${p.brief}`,
+            idea: p.idea,
+            copy: p.copy,
+            // CTA solo si format=anuncio (el asistente puede mandarlo
+            // igual; lo dejamos pasar y el backend lo guarda).
+            cta: p.cta,
+            brief: p.brief,
             status: "draft",
           })),
         }),
@@ -853,24 +863,58 @@ export default function ContenidoPage({
                 >
                   {proposed.pieces.length} piezas propuestas
                 </div>
-                <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                <div style={{ maxHeight: 320, overflowY: "auto" }}>
                   {proposed.pieces.map((p, i) => (
                     <div
                       key={i}
                       style={{
-                        padding: "6px 10px",
+                        padding: "10px 12px",
                         background: "var(--white)",
-                        marginBottom: 4,
+                        marginBottom: 6,
                         fontSize: 11,
                         borderLeft: "2px solid var(--sand-dark)",
                         borderRadius: "var(--r-sm)",
                       }}
                     >
-                      <strong>
-                        {p.date} {p.time}
-                      </strong>{" "}
-                      · {NETWORK_LABEL[p.network as ContentNetwork] ?? p.network} {p.format}
-                      <div style={{ marginTop: 2 }}>{p.idea}</div>
+                      <div style={{ fontWeight: 700, color: "var(--deep-green)" }}>
+                        {p.date} {p.time} ·{" "}
+                        {NETWORK_LABEL[p.network as ContentNetwork] ?? p.network}{" "}
+                        · {FORMAT_LABEL[p.format as ContentFormat] ?? p.format}
+                        {p.type && (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              padding: "1px 6px",
+                              fontSize: 9,
+                              background: "var(--ivory)",
+                              color: "var(--sand-dark)",
+                              borderRadius: "var(--r-pill)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            {p.type}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 4 }}>
+                        <strong style={{ color: "var(--sand-dark)" }}>Idea:</strong>{" "}
+                        {p.idea}
+                      </div>
+                      {p.copy && (
+                        <div style={{ marginTop: 3, lineHeight: 1.4 }}>
+                          <strong style={{ color: "var(--sand-dark)" }}>Copy:</strong>{" "}
+                          {p.copy.length > 140
+                            ? p.copy.slice(0, 140) + "…"
+                            : p.copy}
+                        </div>
+                      )}
+                      {p.cta && (
+                        <div style={{ marginTop: 3 }}>
+                          <strong style={{ color: "var(--sand-dark)" }}>CTA:</strong>{" "}
+                          {p.cta}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -915,20 +959,19 @@ export default function ContenidoPage({
           </div>
         )}
 
-        {/* Input + acciones — horizontal */}
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+        {/* Input + acciones */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
               isDirector
-                ? 'Ej: "10 ideas para junio enfocadas en lanzamiento" · "copy de un reel de oferta"…'
+                ? 'Ej: "Armame 12 piezas para junio enfocadas en lanzamiento" · "8 anuncios para promo de invierno con CTA"…'
                 : "Solo director puede usar el asistente"
             }
             rows={2}
             disabled={!isDirector || thinking}
             style={{
-              flex: 1,
               padding: "10px 12px",
               border: "1px solid rgba(10,26,12,0.15)",
               background: "var(--white)",
@@ -940,46 +983,69 @@ export default function ContenidoPage({
               outline: "none",
             }}
           />
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => sendChat("chat")}
-              disabled={!isDirector || thinking || !input.trim()}
-              style={{
-                padding: "10px 18px",
-                fontSize: 12,
-                fontWeight: 600,
-                background: "var(--deep-green)",
-                color: "var(--off-white)",
-                border: "none",
-                cursor: thinking ? "default" : "pointer",
-                fontFamily: "inherit",
-                borderRadius: "var(--r-sm)",
-                opacity: thinking || !input.trim() ? 0.5 : 1,
-                whiteSpace: "nowrap",
-              }}
-            >
-              ↑ Preguntar
-            </button>
+
+          {/* Botones — primary = generar piezas a la tabla, secondary = chat */}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
             <button
               onClick={() => sendChat("propose")}
               disabled={!isDirector || thinking || !input.trim()}
               style={{
                 padding: "10px 18px",
                 fontSize: 12,
-                fontWeight: 600,
-                background: "transparent",
-                border: "1px solid var(--sand-dark)",
-                color: "var(--sand-dark)",
-                cursor: thinking ? "default" : "pointer",
+                fontWeight: 700,
+                background: "var(--deep-green)",
+                color: "var(--off-white)",
+                border: "none",
+                cursor: thinking || !input.trim() ? "default" : "pointer",
                 fontFamily: "inherit",
                 borderRadius: "var(--r-sm)",
                 opacity: thinking || !input.trim() ? 0.5 : 1,
                 whiteSpace: "nowrap",
               }}
-              title="Generar batch de piezas para aprobar"
+              title="Genera idea + copy + CTA (anuncios) para cada pieza y las muestra como borradores en la tabla."
             >
-              ✨ Generar batch
+              ✨ Generar ideas para la tabla
             </button>
+            <button
+              onClick={() => sendChat("chat")}
+              disabled={!isDirector || thinking || !input.trim()}
+              style={{
+                padding: "10px 16px",
+                fontSize: 12,
+                fontWeight: 600,
+                background: "transparent",
+                border: "1px solid var(--sand-dark)",
+                color: "var(--sand-dark)",
+                cursor: thinking || !input.trim() ? "default" : "pointer",
+                fontFamily: "inherit",
+                borderRadius: "var(--r-sm)",
+                opacity: thinking || !input.trim() ? 0.5 : 1,
+                whiteSpace: "nowrap",
+              }}
+              title="Conversación libre — ideal para brainstorm o pedir consejos sin agregar piezas a la tabla."
+            >
+              💬 Solo chatear
+            </button>
+            <div
+              style={{
+                fontSize: 10.5,
+                color: "var(--text-muted)",
+                letterSpacing: "0.04em",
+                fontStyle: "italic",
+                marginLeft: 4,
+              }}
+            >
+              {input.trim()
+                ? "Escribiste algo — apretá ✨ para que se vuelque a la tabla."
+                : "Escribí tu pedido arriba y elegí cómo querés que responda."}
+            </div>
           </div>
         </div>
       </div>
