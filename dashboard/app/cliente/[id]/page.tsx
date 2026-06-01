@@ -285,21 +285,6 @@ function DevDashboard({
         <span className={ui.phaseBadge}>{client.phase}</span>
       </WelcomeBanner>
 
-      {/* Accesos directos del proyecto: PDF + entrega */}
-      {(projectFile || deliveryDate) && (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            marginBottom: 18,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          {projectFile && <ProyectoButton file={projectFile} />}
-        </div>
-      )}
-
       <PendingRequestsPanel
         clientId={client.id}
         requests={pendingRequests}
@@ -410,69 +395,65 @@ function DevDashboard({
           <div className={ui.panelHead}>
             <div className={ui.panelTitle}>Definición</div>
           </div>
-          <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-            {deliveryDate && (
-              <div style={{ marginBottom: 18 }}>
-                <strong
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Temporizador hacia la fecha de entrega */}
+            {deliveryDate ? (
+              <div>
+                <div
                   style={{
                     fontSize: 10,
                     letterSpacing: "0.2em",
                     textTransform: "uppercase",
                     color: "var(--sand-dark)",
-                    display: "block",
-                    marginBottom: 6,
+                    fontWeight: 600,
+                    marginBottom: 8,
                   }}
                 >
                   Entrega del proyecto
-                </strong>
+                </div>
                 <DeliveryCountdown deliveryDate={deliveryDate} />
               </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
+                  padding: "8px 0",
+                }}
+              >
+                Sin fecha de entrega definida en el onboarding.
+              </div>
             )}
-            <div style={{ marginBottom: 14 }}>
-              <strong
+
+            {/* Botón Proyecto — link al PDF del onboarding */}
+            {projectFile ? (
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 600,
+                    marginBottom: 8,
+                  }}
+                >
+                  Documento del proyecto
+                </div>
+                <ProyectoButton file={projectFile} />
+              </div>
+            ) : (
+              <div
                 style={{
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  display: "block",
-                  marginBottom: 4,
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
                 }}
               >
-                Método
-              </strong>
-              {client.method}
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <strong
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  display: "block",
-                  marginBottom: 4,
-                }}
-              >
-                Fee mensual
-              </strong>
-              US$ {client.fee.toLocaleString()}
-            </div>
-            <div>
-              <strong
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  display: "block",
-                  marginBottom: 4,
-                }}
-              >
-                Sector
-              </strong>
-              {client.sector}
-            </div>
+                Sin documento de proyecto cargado.
+              </div>
+            )}
           </div>
         </div>
       </div>

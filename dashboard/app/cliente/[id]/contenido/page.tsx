@@ -132,6 +132,76 @@ function extractCountFromMessage(msg: string): number | undefined {
 }
 
 /**
+ * Genera y descarga un CSV (UTF-8 con BOM) con los contenidos
+ * filtrados. Excel/Numbers lo abre directamente como hoja de cálculo
+ * sin requerir conversión. Usamos CSV en vez de XLSX nativo para
+ * evitar sumar una dep pesada (sheetjs ~600KB) al bundle.
+ */
+function downloadContenidoCSV(
+  posts: ContentPost[],
+  clientName: string,
+  teamMembers: Profile[],
+): void {
+  if (posts.length === 0) return;
+  const memberById = new Map(teamMembers.map((m) => [m.id, m.name]));
+  const header = [
+    "Código",
+    "Fecha",
+    "Hora",
+    "Red",
+    "Formato",
+    "Idea",
+    "Copy",
+    "CTA",
+    "Influencer",
+    "Asignado a",
+    "Estado",
+    "Brief",
+  ];
+  // Escape CSV: si tiene coma, salto de línea o comilla, envolver en
+  // comillas dobles y duplicar comillas internas.
+  const esc = (v: string | null | undefined): string => {
+    const s = (v ?? "").toString();
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [header.map(esc).join(",")];
+  posts.forEach((p, idx) => {
+    lines.push(
+      [
+        codeFor(idx),
+        p.date,
+        p.time ?? "",
+        NETWORK_LABEL[p.network] ?? p.network,
+        FORMAT_LABEL[p.format] ?? p.format,
+        p.idea ?? "",
+        p.copy ?? "",
+        p.cta ?? "",
+        p.influencer ?? "",
+        (p.assignedTo && memberById.get(p.assignedTo)) ?? "",
+        STATUS_LABEL[p.status],
+        p.brief ?? "",
+      ]
+        .map(esc)
+        .join(","),
+    );
+  });
+  // BOM ﻿ para que Excel detecte UTF-8 (acentos, ñ).
+  const csv = "﻿" + lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const safeName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const today = new Date().toISOString().slice(0, 10);
+  a.download = `contenido-${safeName}-${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Parser defensivo del JSON de propose: tolera code fences, preámbulos
  * tipo "Acá tenés las piezas:" y texto extra después del JSON. Busca
  * el primer { y trata de extraer un objeto balanceado.
@@ -205,8 +275,10 @@ export default function ContenidoPage({
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [filter, setFilter] = useState<"all" | ContentStatus>("all");
   const [periodMode, setPeriodMode] = useState<
-    "all" | "this_month" | "last_month" | "next_month" | "last_30" | "next_30"
+    "all" | "this_month" | "last_month" | "next_month" | "last_30" | "next_30" | "custom"
   >("all");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Asistente Creativo
@@ -257,6 +329,13 @@ export default function ContenidoPage({
           d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth()
         );
       }
+      if (periodMode === "custom") {
+        // Si solo está from o solo está to, filtra contra ese límite.
+        // Si no hay nada, no filtra. Comparación por string YYYY-MM-DD.
+        if (customFrom && dateStr < customFrom) return false;
+        if (customTo && dateStr > customTo) return false;
+        return true;
+      }
       const days =
         periodMode === "last_30" ? -30 : periodMode === "next_30" ? 30 : 0;
       const ref = new Date();
@@ -274,7 +353,7 @@ export default function ContenidoPage({
       if (bOverdue && !aOverdue) return 1;
       return a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? "");
     });
-  }, [posts, filter, periodMode]);
+  }, [posts, filter, periodMode, customFrom, customTo]);
 
   const stats = {
     total: posts.length,
@@ -553,8 +632,79 @@ export default function ContenidoPage({
             <option value="next_month">Próximo mes</option>
             <option value="last_30">Últimos 30 días</option>
             <option value="next_30">Próximos 30 días</option>
+            <option value="custom">Rango personalizado…</option>
           </select>
         </label>
+        {periodMode === "custom" && (
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              fontSize: 11,
+              color: "var(--text-muted)",
+            }}
+          >
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              style={{
+                padding: "5px 8px",
+                fontSize: 11,
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: 4,
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                fontFamily: "inherit",
+              }}
+              title="Desde"
+            />
+            <span style={{ fontSize: 10 }}>→</span>
+            <input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              style={{
+                padding: "5px 8px",
+                fontSize: 11,
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: 4,
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                fontFamily: "inherit",
+              }}
+              title="Hasta"
+            />
+          </div>
+        )}
+        <button
+          onClick={() =>
+            downloadContenidoCSV(
+              sortedFiltered,
+              client?.name ?? "cliente",
+              teamMembers,
+            )
+          }
+          disabled={sortedFiltered.length === 0}
+          style={{
+            padding: "5px 12px",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            background: "transparent",
+            color: "var(--deep-green)",
+            border: "1px solid var(--sand-dark)",
+            cursor: sortedFiltered.length === 0 ? "default" : "pointer",
+            fontFamily: "inherit",
+            borderRadius: 4,
+            opacity: sortedFiltered.length === 0 ? 0.4 : 1,
+          }}
+          title="Descargar listado de contenidos visibles como Excel (CSV UTF-8 con BOM — se abre directo en Excel/Numbers)"
+        >
+          ⬇ Descargar Excel
+        </button>
       </div>
 
       {/* TABLA de ideas */}

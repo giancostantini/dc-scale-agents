@@ -71,16 +71,6 @@ function spanishDate(): string {
   });
 }
 
-interface Activity {
-  id: string;
-  kind: "task_done" | "request" | "client_created" | "lead_new";
-  title: string;
-  subtitle: string;
-  when: string;
-  iconBg: string;
-  initials: string;
-}
-
 export default function HubPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
@@ -145,72 +135,33 @@ export default function HubPage() {
   }, [router, refresh]);
 
   // ============ Derived ============
-  const activeClients = useMemo(
-    () => clients.filter((c) => c.status === "active"),
-    [clients],
+  // Total de clientes del viewer (director ve todos; team ve los
+  // asignados). Sin filtro por status — un cliente en "dev" o
+  // "onboarding" también cuenta como cliente real.
+  const totalClients = clients.length;
+
+  // Tareas pendientes del equipo (todas las que están sin completar
+  // en el alcance del viewer). Director ve las de todos los clientes,
+  // team las de sus clientes asignados.
+  const pendingTeamTasks = useMemo(
+    () => tasks.filter((t) => t.status !== "done").length,
+    [tasks],
   );
 
-  // Pending activities = solicitudes pending del viewer + tareas pending/active del viewer
-  const pendingActivities = useMemo(() => {
-    const pendingReqs = requests.length;
-    const pendingTasks = tasks.filter(
-      (t) => t.status !== "done",
-    ).length;
-    return pendingReqs + pendingTasks;
-  }, [requests, tasks]);
+  // Solicitudes pendientes de clientes — sin resolver todavía.
+  const pendingClientRequests = requests.length;
 
-  // Recent activity (mix de eventos): últimos 5
-  const recentActivity: Activity[] = useMemo(() => {
-    const acts: Activity[] = [];
-    // Solicitudes recientes
-    for (const r of requests.slice(0, 5)) {
-      const c = clients.find((cl) => cl.id === r.client_id);
-      acts.push({
-        id: `req-${r.id}`,
-        kind: "request",
-        title: `${c?.name ?? r.client_id}`,
-        subtitle: r.title,
-        when: timeAgo(r.submitted_at),
-        iconBg: "#1E3A8A",
-        initials: c?.initials ?? "??",
-      });
-    }
-    // Clientes recientes
-    const recentClients = [...clients]
-      .filter((c) => c.created_at)
-      .sort((a, b) =>
-        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
-      )
-      .slice(0, 3);
-    for (const c of recentClients) {
-      acts.push({
-        id: `cli-${c.id}`,
-        kind: "client_created",
-        title: c.name,
-        subtitle: "Cliente activo",
-        when: timeAgo(c.created_at ?? new Date().toISOString()),
-        iconBg: "#3B82F6",
-        initials: c.initials,
-      });
-    }
-    // Tareas done recientes
-    const doneTasks = tasks
-      .filter((t) => t.status === "done")
-      .slice(0, 3);
-    for (const t of doneTasks) {
-      const c = clients.find((cl) => cl.id === t.clientId);
-      acts.push({
-        id: `task-${t.id}`,
-        kind: "task_done",
-        title: c?.name ?? t.clientId,
-        subtitle: `✓ ${t.title}`,
-        when: timeAgo(t.createdAt),
-        iconBg: "#10B981",
-        initials: c?.initials ?? "??",
-      });
-    }
-    return acts.slice(0, 6);
-  }, [requests, clients, tasks]);
+  // Tareas vencidas (due date pasado) — usadas en el banner de alerta.
+  const overdueTasks = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return tasks.filter(
+      (t) => t.status !== "done" && t.dueDate && t.dueDate < today,
+    );
+  }, [tasks]);
+
+  // Nota: el listado "recent activity" (mix de solicitudes/clientes/
+  // tareas done) se eliminó del UI — Actividad reciente ahora muestra
+  // solo el resumen del día generado por AgentDailySummary.
 
   // Performance % — basado en tareas completadas EN TÉRMINO durante el mes
   const performance = useMemo(() => {
@@ -320,33 +271,41 @@ export default function HubPage() {
               Este es el resumen de tu actividad y el estado de tus
               clientes.
             </p>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <HeroStat
-                value={activeClients.length}
+                value={totalClients}
+                label={totalClients === 1 ? "Cliente" : "Clientes"}
+              />
+              <HeroStat
+                value={pendingTeamTasks}
                 label={
-                  activeClients.length === 1
-                    ? "Cliente activo"
-                    : "Clientes activos"
+                  pendingTeamTasks === 1
+                    ? "Tarea pendiente del equipo"
+                    : "Tareas pendientes del equipo"
                 }
               />
               <HeroStat
-                value={pendingActivities}
+                value={pendingClientRequests}
                 label={
-                  pendingActivities === 1
-                    ? "Actividad pendiente"
-                    : "Actividades pendientes"
+                  pendingClientRequests === 1
+                    ? "Solicitud del cliente"
+                    : "Solicitudes del cliente"
                 }
               />
             </div>
           </div>
 
-          {/* Actividad reciente */}
+          {/* Actividad reciente — solo el mensaje del asistente.
+              El listado de items (solicitudes/clientes/tareas done) se
+              sacó: era ruido y no aportaba sobre el resumen del día. */}
           <div
             style={{
               background: "var(--white)",
               border: "1px solid var(--hairline)",
               borderRadius: "var(--r-lg)",
               padding: "20px 22px",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
@@ -361,10 +320,6 @@ export default function HubPage() {
             >
               Actividad reciente
             </div>
-
-            {/* Mensaje del agente — resumen del día (qué pasó / qué falta).
-                Se arma con datos locales (tareas, solicitudes, leads) — no
-                requiere llamada al LLM. */}
             <AgentDailySummary
               userFirstName={userFirstName}
               clients={clients}
@@ -372,87 +327,17 @@ export default function HubPage() {
               requests={requests}
               leads={leads}
             />
-            {recentActivity.length === 0 ? (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-muted)",
-                  fontStyle: "italic",
-                  padding: "20px 0",
-                }}
-              >
-                Sin actividad reciente.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {recentActivity.map((a) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      paddingBottom: 10,
-                      borderBottom: "1px solid var(--hairline)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: a.iconBg,
-                        color: "white",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {a.initials}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--deep-green)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {a.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {a.subtitle}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: "var(--text-muted)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {a.when}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
+
+        {/* ============ ALERTAS — banner destacado ============ */}
+        {(overdueTasks.length > 0 || pendingClientRequests > 0) && (
+          <HubAlertsBanner
+            overdueCount={overdueTasks.length}
+            pendingTasks={pendingTeamTasks}
+            pendingRequests={pendingClientRequests}
+          />
+        )}
 
         {/* ============ MIS CLIENTES (grid con logos) ============ */}
         <div style={{ marginBottom: 24 }}>
@@ -1109,6 +994,98 @@ function CircularGauge({ value }: { value: number }) {
         }}
       >
         {pct}%
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// HubAlertsBanner — banner destacado arriba del grid de clientes.
+// Aparece solo si hay tareas vencidas o solicitudes pendientes;
+// si no, se oculta entero (no mete ruido visual).
+// ============================================================
+function HubAlertsBanner({
+  overdueCount,
+  pendingTasks,
+  pendingRequests,
+}: {
+  overdueCount: number;
+  pendingTasks: number;
+  pendingRequests: number;
+}) {
+  const alerts: { tone: "danger" | "warn"; text: string }[] = [];
+  if (overdueCount > 0) {
+    alerts.push({
+      tone: "danger",
+      text: `${overdueCount} tarea${overdueCount === 1 ? "" : "s"} vencida${overdueCount === 1 ? "" : "s"} — necesitan atención inmediata.`,
+    });
+  } else if (pendingTasks > 0) {
+    alerts.push({
+      tone: "warn",
+      text: `${pendingTasks} tarea${pendingTasks === 1 ? "" : "s"} pendiente${pendingTasks === 1 ? "" : "s"} en el equipo.`,
+    });
+  }
+  if (pendingRequests > 0) {
+    alerts.push({
+      tone: "warn",
+      text: `${pendingRequests} solicitud${pendingRequests === 1 ? "" : "es"} de cliente${pendingRequests === 1 ? "" : "s"} esperando respuesta.`,
+    });
+  }
+  if (alerts.length === 0) return null;
+
+  const hasDanger = alerts.some((a) => a.tone === "danger");
+
+  return (
+    <div
+      style={{
+        marginBottom: 24,
+        background: hasDanger ? "rgba(176,75,58,0.07)" : "rgba(196,168,130,0.12)",
+        border: `1px solid ${hasDanger ? "rgba(176,75,58,0.3)" : "rgba(196,168,130,0.4)"}`,
+        borderLeft: `4px solid ${hasDanger ? "#B91C1C" : "var(--sand-dark)"}`,
+        borderRadius: "var(--r-md)",
+        padding: "14px 18px",
+        display: "flex",
+        gap: 14,
+        alignItems: "flex-start",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 18,
+          flexShrink: 0,
+          marginTop: 2,
+        }}
+      >
+        {hasDanger ? "🚨" : "⚠️"}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+            color: hasDanger ? "#B91C1C" : "var(--sand-dark)",
+            marginBottom: 6,
+          }}
+        >
+          {hasDanger ? "Atención requerida" : "Pendientes en tu mesa"}
+        </div>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 16,
+            fontSize: 12.5,
+            lineHeight: 1.6,
+            color: "var(--deep-green)",
+          }}
+        >
+          {alerts.map((a, i) => (
+            <li key={i} style={{ marginBottom: 2 }}>
+              {a.text}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

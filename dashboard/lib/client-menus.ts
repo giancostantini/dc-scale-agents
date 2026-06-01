@@ -30,7 +30,7 @@ export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "objetivos",   segment: "objetivos",      label: "Objetivos", directorOnly: true },
   { key: "calendario",  segment: "planificador",   label: "Calendario" },
   { key: "contenido",   segment: "contenido",      label: "Contenido" },
-  { key: "tareas",      segment: "tareas",         label: "Tareas del cliente" },
+  { key: "tareas",      segment: "tareas",         label: "Tareas" },
   { key: "producciones",segment: "campanas",       label: "Producciones" },
   { key: "analitica",   segment: "analitica",      label: "Analítica" },
   { key: "reporting",   segment: "reporting",      label: "Reporting" },

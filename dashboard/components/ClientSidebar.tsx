@@ -91,7 +91,7 @@ export default function ClientSidebar({ client }: { client: Client }) {
     { key: "objetivos",   href: `${base}/objetivos`,     icon: IObjetivos,     label: "Objetivos", directorOnly: true },
     { key: "calendario",  href: `${base}/planificador`,  icon: ICalendario,    label: "Calendario" },
     { key: "contenido",   href: `${base}/contenido`,     icon: IContenido,     label: "Contenido" },
-    { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas del cliente" },
+    { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
     { key: "producciones",href: `${base}/campanas`,      icon: IProducciones,  label: "Producciones" },
     { key: "analitica",   href: `${base}/analitica`,     icon: IAnalitica,     label: "Analítica" },
     { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
