@@ -88,6 +88,8 @@ interface ClientRow {
   created_at?: string | null;
   default_cuenta_id?: string | null;
   logo_url?: string | null;
+  // Migración 052
+  dividend_distribution?: Client["dividend_distribution"];
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -119,6 +121,7 @@ function clientFromRow(r: ClientRow): Client {
     created_at: r.created_at ?? null,
     default_cuenta_id: r.default_cuenta_id ?? null,
     logo_url: r.logo_url ?? null,
+    dividend_distribution: r.dividend_distribution ?? null,
   };
 }
 
@@ -167,6 +170,9 @@ export interface AddClientInput {
    *  Cuando se marca una factura como pagada, se crea un movimiento
    *  ingreso automáticamente en esta cuenta. */
   defaultCuentaId?: string | null;
+  /** Distribución de dividendos específica del cliente (migración 052).
+   *  Si está vacío, se aplica la config global. */
+  dividendDistribution?: Client["dividend_distribution"];
 }
 
 export async function addClient(data: AddClientInput): Promise<Client> {
@@ -226,6 +232,7 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     country: data.country,
     onboarding: data.onboarding ?? {},
     default_cuenta_id: data.defaultCuentaId ?? null,
+    dividend_distribution: data.dividendDistribution ?? null,
   };
 
   const { data: inserted, error } = await supabase

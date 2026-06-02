@@ -138,6 +138,17 @@ export default function NewClientModal({
   const [budgetProduccionFixed, setBudgetProduccionFixed] = useState("");
   const [budgetProduccionPct, setBudgetProduccionPct] = useState("");
 
+  // Step 3 — distribución de dividendos específica del cliente.
+  // Default: usar la config global de Finanzas. Si el director marca
+  // "Específica para este cliente", aparecen 4 inputs (% partner A,
+  // % partner B, % inversiones, % back). El UI alerta si no suman
+  // 100 pero no bloquea.
+  const [dividendUseDefault, setDividendUseDefault] = useState(true);
+  const [dividendPartnerA, setDividendPartnerA] = useState("50");
+  const [dividendPartnerB, setDividendPartnerB] = useState("50");
+  const [dividendInversiones, setDividendInversiones] = useState("0");
+  const [dividendBack, setDividendBack] = useState("0");
+
   // Step 4 — kickoff + branding (uploads reales a Supabase Storage)
   // El wizardId es un folder único por modal-abierto. Si el usuario
   // cancela, handleClose() borra los archivos uploadeados antes de
@@ -206,6 +217,11 @@ export default function NewClientModal({
     setBudgetMarketingPct("");
     setBudgetProduccionFixed("");
     setBudgetProduccionPct("");
+    setDividendUseDefault(true);
+    setDividendPartnerA("50");
+    setDividendPartnerB("50");
+    setDividendInversiones("0");
+    setDividendBack("0");
     setWizardId(makeWizardSessionId());
     setKickoffFile(null);
     setBrandingFiles([]);
@@ -340,6 +356,20 @@ export default function NewClientModal({
           ? Number(devMaintenanceCost) || 0
           : Number(fee);
 
+      // Distribución de dividendos específica del cliente — solo se
+      // manda si el director optó por "específica". Si dejó "default",
+      // mandamos undefined → la columna queda NULL en DB y el cálculo
+      // cae a la config global de dividend_config.
+      const dividendDistribution = dividendUseDefault
+        ? undefined
+        : {
+            use_default: false,
+            partner_a_pct: Number(dividendPartnerA) || 0,
+            partner_b_pct: Number(dividendPartnerB) || 0,
+            inversiones_pct: Number(dividendInversiones) || 0,
+            back_pct: Number(dividendBack) || 0,
+          };
+
       const newClient = await addClient({
         name: name.trim(),
         sector: sector.trim(),
@@ -354,6 +384,7 @@ export default function NewClientModal({
         modules: type === "gp" ? modules : undefined,
         onboarding,
         defaultCuentaId: defaultCuentaId || null,
+        dividendDistribution,
       });
 
       // Si el cliente es de tipo dev y se asignaron personas, creamos
@@ -1117,6 +1148,163 @@ export default function NewClientModal({
                 {type === "dev"
                   ? `$${(parseFloat(devMaintenanceCost) || 0).toLocaleString()}/mes`
                   : `$${(parseFloat(fee) || 0).toLocaleString()}/mes`}
+              </div>
+            </div>
+
+            {/* ===== Distribución de dividendos (financial config) ===== */}
+            <div style={{ marginTop: 28 }}>
+              <div className={styles.sectionLabel}>
+                Distribución de dividendos
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 4,
+                  marginBottom: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                Algunos clientes tienen acuerdos específicos. Si dejás el
+                default, se usan los porcentajes globales configurados en
+                Finanzas. Si elegís personalizado, los porcentajes acá
+                aplican solo a este cliente.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  marginTop: 6,
+                }}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 14px",
+                    border: `1px solid ${dividendUseDefault ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                    background: dividendUseDefault
+                      ? "rgba(196,168,130,0.1)"
+                      : "var(--white)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="dividend_mode"
+                    checked={dividendUseDefault}
+                    onChange={() => setDividendUseDefault(true)}
+                    style={{ width: "auto" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      Usar la distribución por defecto (global de Finanzas)
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Recomendado para la mayoría de los clientes.
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 14px",
+                    border: `1px solid ${!dividendUseDefault ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                    background: !dividendUseDefault
+                      ? "rgba(196,168,130,0.1)"
+                      : "var(--white)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="dividend_mode"
+                    checked={!dividendUseDefault}
+                    onChange={() => setDividendUseDefault(false)}
+                    style={{ width: "auto" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      Distribución específica para este cliente
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Definí los porcentajes a aplicar sobre la utilidad del cliente.
+                    </div>
+                  </div>
+                </label>
+
+                {!dividendUseDefault && (
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      background: "var(--off-white)",
+                      border: "1px solid rgba(196,168,130,0.3)",
+                      borderRadius: 6,
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                    }}
+                  >
+                    <DividendInput
+                      label="Socio A (%)"
+                      value={dividendPartnerA}
+                      onChange={setDividendPartnerA}
+                    />
+                    <DividendInput
+                      label="Socio B (%)"
+                      value={dividendPartnerB}
+                      onChange={setDividendPartnerB}
+                    />
+                    <DividendInput
+                      label="Inversiones (%)"
+                      value={dividendInversiones}
+                      onChange={setDividendInversiones}
+                    />
+                    <DividendInput
+                      label="Back (reservas) (%)"
+                      value={dividendBack}
+                      onChange={setDividendBack}
+                    />
+
+                    {/* Suma de control */}
+                    {(() => {
+                      const sum =
+                        (Number(dividendPartnerA) || 0) +
+                        (Number(dividendPartnerB) || 0) +
+                        (Number(dividendInversiones) || 0) +
+                        (Number(dividendBack) || 0);
+                      const ok = Math.abs(sum - 100) < 0.01;
+                      return (
+                        <div
+                          style={{
+                            gridColumn: "1 / -1",
+                            marginTop: 4,
+                            padding: "8px 12px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            background: ok
+                              ? "rgba(47,125,79,0.1)"
+                              : "rgba(176,75,58,0.08)",
+                            color: ok ? "var(--green-ok)" : "#B91C1C",
+                            border: `1px solid ${ok ? "rgba(47,125,79,0.25)" : "rgba(176,75,58,0.25)"}`,
+                            borderRadius: 4,
+                          }}
+                        >
+                          Total: {sum.toFixed(2)}%{" "}
+                          {ok ? "✓" : "— debería sumar 100"}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -2108,4 +2296,52 @@ function formatBudget(fixedStr: string, pctStr: string): string {
   if (!Number.isNaN(fixed)) parts.push(`US$ ${fixed.toLocaleString()}`);
   if (!Number.isNaN(pct)) parts.push(`${pct}% revenue`);
   return parts.length === 0 ? "—" : parts.join(" + ");
+}
+
+// Input compacto para porcentajes de dividendos (step 3 del wizard).
+function DividendInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          display: "block",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </label>
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "8px 10px",
+          fontSize: 13,
+          fontFamily: "inherit",
+          border: "1px solid rgba(10,26,12,0.15)",
+          borderRadius: 4,
+          background: "var(--white)",
+          color: "var(--deep-green)",
+          outline: "none",
+        }}
+      />
+    </div>
+  );
 }

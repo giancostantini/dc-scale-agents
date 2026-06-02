@@ -253,6 +253,24 @@ export interface Client {
   /** URL pública del logo del cliente (migración 048).
    *  NULL = fallback a iniciales. */
   logo_url?: string | null;
+  /** Distribución de dividendos específica para este cliente
+   *  (migración 052). Si está NULL o `use_default=true`, se usa la
+   *  config global de `dividend_config`. */
+  dividend_distribution?: ClientDividendDistribution | null;
+}
+
+/** Distribución de dividendos a aplicar sobre el net profit que viene
+ *  de este cliente. Los 4 porcentajes deberían sumar 100 — el UI
+ *  alerta si no, pero no bloquea (puede haber lógica intencional). */
+export interface ClientDividendDistribution {
+  /** Si true, ignorar los % y usar la config global de dividend_config.
+   *  Cuando se setea en true, el resto de los campos pueden quedar
+   *  como referencia histórica pero no afectan al cálculo. */
+  use_default: boolean;
+  partner_a_pct: number;
+  partner_b_pct: number;
+  inversiones_pct: number;
+  back_pct: number;
 }
 
 /** Contacto del cliente (migración 049 — uno-a-muchos). */
