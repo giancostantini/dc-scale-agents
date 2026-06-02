@@ -90,6 +90,8 @@ interface ClientRow {
   logo_url?: string | null;
   // Migración 052
   dividend_distribution?: Client["dividend_distribution"];
+  // Migración 053
+  website_url?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -122,6 +124,7 @@ function clientFromRow(r: ClientRow): Client {
     default_cuenta_id: r.default_cuenta_id ?? null,
     logo_url: r.logo_url ?? null,
     dividend_distribution: r.dividend_distribution ?? null,
+    website_url: r.website_url ?? null,
   };
 }
 
@@ -173,6 +176,8 @@ export interface AddClientInput {
   /** Distribución de dividendos específica del cliente (migración 052).
    *  Si está vacío, se aplica la config global. */
   dividendDistribution?: Client["dividend_distribution"];
+  /** URL del sitio web del cliente (migración 053). Solo GP. */
+  websiteUrl?: string | null;
 }
 
 export async function addClient(data: AddClientInput): Promise<Client> {
@@ -233,6 +238,7 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     onboarding: data.onboarding ?? {},
     default_cuenta_id: data.defaultCuentaId ?? null,
     dividend_distribution: data.dividendDistribution ?? null,
+    website_url: data.websiteUrl ?? null,
   };
 
   const { data: inserted, error } = await supabase
@@ -296,6 +302,50 @@ export async function updateClientLogo(
     .update({ logo_url: logoUrl })
     .eq("id", clientId);
   if (error) throw error;
+}
+
+/**
+ * Update genérico — solo los campos que vienen seteados se mandan al
+ * UPDATE.  Usado por la edición de "creación del cliente" desde
+ * Configuración (para corregir datos cargados en el wizard).
+ *
+ * NOTA: para mergear onboarding (JSONB), enviá el blob completo —
+ * el caller es responsable de hacer el merge previo.
+ */
+export interface UpdateClientCoreInput {
+  name?: string;
+  sector?: string;
+  country?: string | null;
+  method?: string;
+  fee?: number;
+  fee_variable?: string | null;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  website_url?: string | null;
+  default_cuenta_id?: string | null;
+  dividend_distribution?: Client["dividend_distribution"] | null;
+  onboarding?: ClientOnboarding | null;
+}
+
+export async function updateClientCore(
+  clientId: string,
+  patch: UpdateClientCoreInput,
+): Promise<Client> {
+  const supabase = getSupabase();
+  // Si modifica nombre, recalculamos initials para mantener consistencia.
+  const dbPatch: Record<string, unknown> = { ...patch };
+  if (patch.name) {
+    dbPatch.initials = makeInitials(patch.name);
+  }
+  const { data, error } = await supabase
+    .from("clients")
+    .update(dbPatch)
+    .eq("id", clientId)
+    .select()
+    .single();
+  if (error) throw error;
+  return clientFromRow(data as ClientRow);
 }
 
 // ==================== CLIENT CONTACTS (migración 049) ====================

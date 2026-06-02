@@ -244,6 +244,9 @@ export interface Client {
   country?: string | null;
   /** Identificador fiscal (CUIT/RUT/NIT) — migración 039. */
   tax_id?: string | null;
+  /** URL del sitio web del cliente (migración 053). Usada como contexto
+   *  adicional para los agentes (asistente creativo, estrategia). */
+  website_url?: string | null;
   /** Fecha de creación (ISO) del cliente. */
   created_at?: string | null;
   /** Cuenta bancaria default donde se acreditan los pagos del cliente

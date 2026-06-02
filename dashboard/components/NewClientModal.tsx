@@ -113,6 +113,9 @@ export default function NewClientModal({
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
   const [country, setCountry] = useState("Uruguay");
+  /** Sitio web del cliente (solo GP). Se guarda en clients.website_url
+   *  y queda accesible para los agentes (asistente creativo / estrategia). */
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -200,6 +203,7 @@ export default function NewClientModal({
     setName("");
     setSector("");
     setCountry("Uruguay");
+    setWebsiteUrl("");
     setContactName("");
     setContactEmail("");
     setContactPhone("");
@@ -272,12 +276,33 @@ export default function NewClientModal({
     return true;
   }
 
+  /**
+   * Algunos steps se saltean según el tipo de cliente o el flag
+   * isBrandLaunch. Hoy el único caso es:
+   *   · Step 4 (Kickoff + Branding / Proyecto DEV) se saltea cuando
+   *     el cliente es GP y NO está en lanzamiento. Para una marca
+   *     que ya está operando no tiene sentido pedir kickoff/branding.
+   *     DEV siempre lo ve (es donde carga el PDF del proyecto).
+   */
+  function shouldSkipStep(s: number): boolean {
+    if (s === 4 && type === "gp" && !isBrandLaunch) return true;
+    return false;
+  }
+
   function next() {
     if (!canAdvance()) return;
-    setStep((s) => Math.min(s + 1, STEP_LABELS.length));
+    setStep((s) => {
+      let nxt = s + 1;
+      while (nxt < STEP_LABELS.length && shouldSkipStep(nxt)) nxt += 1;
+      return Math.min(nxt, STEP_LABELS.length);
+    });
   }
   function prev() {
-    setStep((s) => Math.max(s - 1, 1));
+    setStep((s) => {
+      let p = s - 1;
+      while (p > 1 && shouldSkipStep(p)) p -= 1;
+      return Math.max(p, 1);
+    });
   }
 
   // Cleanup: si el usuario cierra sin finalizar, borrar los archivos
@@ -385,6 +410,11 @@ export default function NewClientModal({
         onboarding,
         defaultCuentaId: defaultCuentaId || null,
         dividendDistribution,
+        // Solo GP carga sitio web. Para DEV no aplica.
+        websiteUrl:
+          type === "gp" && websiteUrl.trim()
+            ? websiteUrl.trim()
+            : undefined,
       });
 
       // Si el cliente es de tipo dev y se asignaron personas, creamos
@@ -456,7 +486,18 @@ export default function NewClientModal({
       reset();
       onClose();
       onCreated?.();
-      router.push(`/cliente/${newClient.id}/fases`);
+      // Redirección post-create:
+      //   · GP en lanzamiento → /fases (van a generar la estrategia).
+      //   · GP no-launch → dashboard del cliente directo (saltean el
+      //     paso de estrategia/onboarding).
+      //   · DEV → dashboard del cliente (no tienen módulo de Fases).
+      const redirectTo =
+        type === "dev"
+          ? `/cliente/${newClient.id}`
+          : isBrandLaunch
+            ? `/cliente/${newClient.id}/fases`
+            : `/cliente/${newClient.id}`;
+      router.push(redirectTo);
     } catch (err) {
       const e = err as { code?: string; message?: string; details?: string; hint?: string };
       console.error(
@@ -505,11 +546,14 @@ export default function NewClientModal({
             const idx = i + 1;
             const active = step === idx;
             const done = step > idx;
+            const skipped = shouldSkipStep(idx);
             return (
               <button
                 key={label}
                 type="button"
-                onClick={() => setStep(idx)}
+                onClick={() => !skipped && setStep(idx)}
+                disabled={skipped}
+                title={skipped ? "Este paso no aplica a este tipo de cliente" : undefined}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -525,12 +569,15 @@ export default function NewClientModal({
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                   fontWeight: 600,
-                  color: active
+                  color: skipped
+                    ? "rgba(10,26,12,0.25)"
+                    : active
                     ? "var(--deep-green)"
                     : done
                     ? "var(--sand-dark)"
                     : "var(--text-muted)",
-                  cursor: "pointer",
+                  textDecoration: skipped ? "line-through" : undefined,
+                  cursor: skipped ? "not-allowed" : "pointer",
                   fontFamily: "inherit",
                   textAlign: "center",
                 }}
@@ -609,6 +656,31 @@ export default function NewClientModal({
                 </select>
               </div>
             </div>
+
+            {/* Sitio web — solo GP. Para los agentes (asistente
+                creativo, estrategia) es contexto valioso. */}
+            {type === "gp" && (
+              <div className={styles.field}>
+                <label>Sitio web del cliente (opcional)</label>
+                <input
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://www.empresa.com"
+                />
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginTop: 4,
+                    fontStyle: "italic",
+                  }}
+                >
+                  Los agentes (asistente creativo, estrategia) lo usan como
+                  contexto para entender el negocio del cliente.
+                </div>
+              </div>
+            )}
 
             <div className={styles.sectionLabel}>
               Contacto principal del cliente
@@ -1979,83 +2051,133 @@ export default function NewClientModal({
                   </div>
                 </SummaryCell>
 
-                <SummaryCell label="Contrato">
-                  <div>
-                    <strong>${fee || 0}/mes</strong>
-                    {hasVariable ? " + variable" : ""}
-                  </div>
-                  <div
-                    style={{ color: "var(--text-muted)", fontSize: 12 }}
-                  >
-                    {contractDuration === "open"
-                      ? "Sin plazo fijo"
-                      : `${contractDuration} meses`}{" "}
-                    {contractFile
-                      ? "· Contrato adjunto ✓"
-                      : "· ⚠ Sin contrato"}
-                  </div>
-                  {hasVariable && variableTiers.filter((t) => t.trim()).length > 0 && (
-                    <div
-                      style={{
-                        color: "var(--text-muted)",
-                        fontSize: 11,
-                        marginTop: 6,
-                        fontStyle: "italic",
-                      }}
-                    >
-                      Tramos:{" "}
-                      {variableTiers
-                        .map((t) => t.trim())
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  )}
-                </SummaryCell>
+                {type === "gp" ? (
+                  <>
+                    <SummaryCell label="Contrato">
+                      <div>
+                        <strong>US$ {Number(fee || 0).toLocaleString()}/mes</strong>
+                        {hasVariable ? " + variable" : ""}
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                        {contractDuration === "open"
+                          ? "Sin plazo fijo"
+                          : `${contractDuration} meses`}{" "}
+                        {contractFile
+                          ? "· Contrato adjunto ✓"
+                          : "· ⚠ Sin contrato"}
+                      </div>
+                      {hasVariable &&
+                        variableTiers.filter((t) => t.trim()).length > 0 && (
+                          <div
+                            style={{
+                              color: "var(--text-muted)",
+                              fontSize: 11,
+                              marginTop: 6,
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Tramos:{" "}
+                            {variableTiers
+                              .map((t) => t.trim())
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                        )}
+                    </SummaryCell>
 
-                <SummaryCell label="Kickoff">
-                  <div>
-                    {kickoffFile ? "✓ Kickoff cargado" : "⚠ Sin kickoff"} ·{" "}
-                    {brandingFiles.length} archivo
-                    {brandingFiles.length === 1 ? "" : "s"} de branding
-                  </div>
-                  <div
-                    style={{ color: "var(--text-muted)", fontSize: 12 }}
-                  >
-                    Agentes serán alimentados con esta info
-                  </div>
-                </SummaryCell>
+                    {isBrandLaunch && (
+                      <SummaryCell label="Kickoff">
+                        <div>
+                          {kickoffFile ? "✓ Kickoff cargado" : "⚠ Sin kickoff"} ·{" "}
+                          {brandingFiles.length} archivo
+                          {brandingFiles.length === 1 ? "" : "s"} de branding
+                        </div>
+                        <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                          Agentes serán alimentados con esta info
+                        </div>
+                      </SummaryCell>
+                    )}
 
-                <SummaryCell label="Presupuestos">
-                  <div>
-                    Marketing:{" "}
-                    <strong>
-                      {formatBudget(budgetMarketingFixed, budgetMarketingPct)}
-                    </strong>
-                  </div>
-                  <div>
-                    Producción:{" "}
-                    <strong>
-                      {formatBudget(budgetProduccionFixed, budgetProduccionPct)}
-                    </strong>
-                  </div>
-                </SummaryCell>
+                    <SummaryCell label="Presupuestos">
+                      <div>
+                        Marketing:{" "}
+                        <strong>
+                          {formatBudget(budgetMarketingFixed, budgetMarketingPct)}
+                        </strong>
+                      </div>
+                      <div>
+                        Producción:{" "}
+                        <strong>
+                          {formatBudget(budgetProduccionFixed, budgetProduccionPct)}
+                        </strong>
+                      </div>
+                    </SummaryCell>
 
-                <SummaryCell
-                  label={
-                    type === "gp" ? "Módulos activos" : "Tipo de proyecto"
-                  }
-                >
-                  {type === "gp" ? (
-                    <div>
-                      {Object.entries(modules)
-                        .filter(([, on]) => on)
-                        .map(([k]) => k)
-                        .join(" · ") || "—"}
-                    </div>
-                  ) : (
-                    <div>{devProjectType || "—"}</div>
-                  )}
-                </SummaryCell>
+                    <SummaryCell label="Módulos activos">
+                      <div>
+                        {Object.entries(modules)
+                          .filter(([, on]) => on)
+                          .map(([k]) => k)
+                          .join(" · ") || "—"}
+                      </div>
+                    </SummaryCell>
+                  </>
+                ) : (
+                  /* ===== Resumen DEV — sin kickoff/branding ni presupuestos ===== */
+                  <>
+                    <SummaryCell label="Acuerdo comercial">
+                      <div>
+                        Producción:{" "}
+                        <strong>
+                          US$ {Number(devProductionCost || 0).toLocaleString()}
+                        </strong>{" "}
+                        (one-time)
+                      </div>
+                      <div>
+                        Mantenimiento:{" "}
+                        <strong>
+                          US$ {Number(devMaintenanceCost || 0).toLocaleString()}/mes
+                        </strong>
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
+                        {contractDuration === "open"
+                          ? "Sin plazo fijo"
+                          : `${contractDuration} meses`}{" "}
+                        {contractFile
+                          ? "· Contrato adjunto ✓"
+                          : "· ⚠ Sin contrato"}
+                      </div>
+                    </SummaryCell>
+
+                    <SummaryCell label="Tipo de proyecto">
+                      <div>{devProjectType || "—"}</div>
+                      {devDeliveryDate && (
+                        <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
+                          Entrega: {devDeliveryDate}
+                        </div>
+                      )}
+                    </SummaryCell>
+
+                    <SummaryCell label="Documento del proyecto">
+                      <div>
+                        {devProjectFile
+                          ? "✓ PDF cargado"
+                          : "⚠ Sin documento de proyecto"}
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                        Accesible desde el dashboard del cliente.
+                      </div>
+                    </SummaryCell>
+
+                    <SummaryCell label="Equipo asignado">
+                      <div>
+                        {devAssignedUserIds.length === 0
+                          ? "Sin asignar"
+                          : `${devAssignedUserIds.length} persona${devAssignedUserIds.length === 1 ? "" : "s"}`}
+                      </div>
+                    </SummaryCell>
+                  </>
+                )}
               </div>
             </div>
 

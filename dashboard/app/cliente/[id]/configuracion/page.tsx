@@ -27,6 +27,7 @@ import { getCurrentProfile } from "@/lib/supabase/auth";
 import { uploadFile } from "@/lib/upload";
 import type { Client, ClientContact } from "@/lib/types";
 import InviteUserModal from "@/components/InviteUserModal";
+import EditClientCoreModal from "@/components/EditClientCoreModal";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ConfiguracionPage({
@@ -73,6 +74,9 @@ export default function ConfiguracionPage({
 
   // Delete client
   const [deletingClient, setDeletingClient] = useState(false);
+
+  // Edit creation
+  const [editCoreOpen, setEditCoreOpen] = useState(false);
 
   async function refresh() {
     const [c, prof, ct] = await Promise.all([
@@ -247,6 +251,51 @@ export default function ConfiguracionPage({
           </p>
         </div>
       </div>
+
+      {/* ============== EDITAR CREACIÓN ============== */}
+      <div className={ui.panel} style={{ marginBottom: 24 }}>
+        <div className={ui.panelHead}>
+          <div>
+            <div className={ui.panelTitle}>Editar creación del cliente</div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginTop: 4,
+              }}
+            >
+              Corregir nombre, sector, contactos, fees, cuenta default,
+              dividendos y otros datos cargados al crear el cliente.
+            </div>
+          </div>
+          <button
+            onClick={() => setEditCoreOpen(true)}
+            style={{
+              padding: "9px 18px",
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.04em",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            ✎ Editar datos del cliente
+          </button>
+        </div>
+      </div>
+
+      {editCoreOpen && (
+        <EditClientCoreModal
+          client={client}
+          open={editCoreOpen}
+          onClose={() => setEditCoreOpen(false)}
+          onSaved={(updated) => setClient(updated)}
+        />
+      )}
 
       {/* ============== LOGO ============== */}
       <div className={ui.panel} style={{ marginBottom: 24 }}>

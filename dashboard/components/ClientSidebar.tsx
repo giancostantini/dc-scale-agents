@@ -118,7 +118,18 @@ export default function ClientSidebar({
     { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
 
-  const baseNav = client.type === "gp" ? navGP : navDev;
+  // Para clientes GP que NO están en fase de lanzamiento, ocultamos
+  // el menu "Estrategia". Razón: estrategia/branding solo tiene
+  // sentido para marcas nuevas. Una marca operativa no la necesita.
+  // El director siempre puede ver Configuración para activarla más
+  // adelante si cambia el flag.
+  const isGpLaunch = client.type === "gp" && !!client.onboarding?.isBrandLaunch;
+  const baseNav =
+    client.type === "gp"
+      ? isGpLaunch
+        ? navGP
+        : navGP.filter((it) => it.key !== "fases")
+      : navDev;
   // Si el viewer es team y tiene visible_menus configurado, filtramos
   // a los keys listados.  Director (visibleMenus=null) ve todo.
   // Team sin restricción (visibleMenus=null) también ve todo.
