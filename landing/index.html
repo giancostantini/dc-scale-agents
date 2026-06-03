@@ -2641,6 +2641,21 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     padding: 14px;
   }
   .slot.occupied.nda { background: var(--ink-800); }
+  /* Cliente confidencial: ocupa cupo pero no figura (logo/nombre). */
+  .slot.occupied.confidential {
+    background: var(--ink-900);
+    flex-direction: column;
+    gap: 7px;
+  }
+  .slot.occupied.confidential .slot-lock {
+    width: 24px; height: 24px;
+    stroke: var(--sand); stroke-width: 1.8;
+    fill: none; opacity: 0.9;
+  }
+  .slot.occupied.confidential .slot-conf {
+    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--on-dark-soft); font-weight: 600;
+  }
   .slot.available {
     background: var(--emerald);
     cursor: pointer;
@@ -2723,7 +2738,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     display: inline-block;
     border-radius: 4px;
   }
-  .cupo-legend .key-filled { background: var(--ink-900); }
+  .cupo-legend .key-active { background: var(--paper); border: 1px solid var(--ink-line); }
+  .cupo-legend .key-conf { background: var(--ink-900); }
   .cupo-legend .key-open { background: var(--emerald); }
 
   .cupo-summary {
@@ -4162,7 +4178,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 <!-- ============ AVAILABILITY BANNER ============ -->
 <div class="availability-banner" id="availabilityBanner">
   <span class="ab-dot"></span>
-  <span><strong>5 cupos disponibles</strong> en la firma</span>
+  <span><strong>3 cupos disponibles</strong> en la firma</span>
   <a class="ab-cta" onclick="openCalendly(event)">Agendar 30 min →</a>
 </div>
 
@@ -4241,7 +4257,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     <div class="hero-pill-row">
       <a href="#cupo" class="scope-pill">
         <span class="sp-dot"></span>
-        <span><strong>5 cupos</strong> disponibles</span>
+        <span><strong>3 cupos</strong> disponibles</span>
       </a>
       <span class="hero-meta-pill">
         <span class="check">✓</span> Skin in the game · cobramos si crecés
@@ -4567,10 +4583,10 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   <div class="cupo-intro">
     <div>
       <div class="label">Cupos disponibles</div>
-      <h2>3 clientes activos.<br><span class="accent">5 cupos</span> abiertos.</h2>
+      <h2>5 clientes activos.<br><span class="accent">3 cupos</span> abiertos.</h2>
       <a href="#agendar" class="scope-pill" onclick="openCalendly(event)" style="background: var(--emerald-soft); border-color: rgba(196, 168, 130,0.4); margin-top: 16px;">
         <span class="sp-dot"></span>
-        <span><strong style="color: var(--ink-900);">5 cupos disponibles</strong></span>
+        <span><strong style="color: var(--ink-900);">3 cupos disponibles</strong></span>
       </a>
     </div>
     <p class="lead">
@@ -4589,11 +4605,13 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       <div class="slot occupied has-logo" data-tooltip="Mundipack UY · Camino 02">
         <img src="logos/mundipack.png" alt="Mundipack UY">
       </div>
-      <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
-        <span class="slot-mark">+</span>
+      <div class="slot occupied confidential" data-tooltip="Cliente activo · confidencial">
+        <svg class="slot-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <span class="slot-conf">Confidencial</span>
       </div>
-      <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
-        <span class="slot-mark">+</span>
+      <div class="slot occupied confidential" data-tooltip="Cliente activo · confidencial">
+        <svg class="slot-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <span class="slot-conf">Confidencial</span>
       </div>
       <div class="slot available" data-tooltip="Cupo disponible" onclick="openCalendly(event)">
         <span class="slot-mark">+</span>
@@ -4607,15 +4625,16 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     </div>
 
     <div class="cupo-legend">
-      <span><span class="key key-filled"></span> Ocupado · cliente activo</span>
+      <span><span class="key key-active"></span> Cliente activo</span>
+      <span><span class="key key-conf"></span> Confidencial · prefiere no figurar</span>
       <span><span class="key key-open"></span> Disponible · ingreso evaluado caso por caso</span>
     </div>
   </div>
 
   <div class="cupo-summary">
-    <div class="cs-num">5</div>
+    <div class="cs-num">3</div>
     <div class="cs-text">
-      Quedan <strong>5 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
+      Quedan <strong>3 cupos</strong> para clientes nuevos en la firma. Tomamos por encaje real, no por orden de llegada — si no vemos que podemos mover la aguja, no avanzamos.
     </div>
     <button class="btn btn-primary" onclick="openCalendly(event)">
       <span class="dot"></span>
