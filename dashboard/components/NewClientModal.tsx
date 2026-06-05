@@ -277,15 +277,18 @@ export default function NewClientModal({
   }
 
   /**
-   * Algunos steps se saltean según el tipo de cliente o el flag
-   * isBrandLaunch. Hoy el único caso es:
-   *   · Step 4 (Kickoff + Branding / Proyecto DEV) se saltea cuando
-   *     el cliente es GP y NO está en lanzamiento. Para una marca
-   *     que ya está operando no tiene sentido pedir kickoff/branding.
-   *     DEV siempre lo ve (es donde carga el PDF del proyecto).
+   * Hook para saltear steps según el tipo de cliente. Hoy todos los
+   * steps aplican a ambos tipos:
+   *   · GP: step 4 = Kickoff + Branding (upload de info para los agentes).
+   *   · DEV: step 4 = Proyecto (PDF + fecha de entrega).
+   *
+   * Antes este hook saltaba el step 4 para GP no-launch, pero el upload
+   * de kickoff/branding alimenta a los agentes para CUALQUIER cliente
+   * GP (no solo los que están en fase de lanzamiento), así que ya no
+   * se saltea. El flag isBrandLaunch sigue afectando otras cosas (el
+   * menú Estrategia en el sidebar y el redirect post-create).
    */
-  function shouldSkipStep(s: number): boolean {
-    if (s === 4 && type === "gp" && !isBrandLaunch) return true;
+  function shouldSkipStep(_s: number): boolean {
     return false;
   }
 
@@ -2085,18 +2088,16 @@ export default function NewClientModal({
                         )}
                     </SummaryCell>
 
-                    {isBrandLaunch && (
-                      <SummaryCell label="Kickoff">
-                        <div>
-                          {kickoffFile ? "✓ Kickoff cargado" : "⚠ Sin kickoff"} ·{" "}
-                          {brandingFiles.length} archivo
-                          {brandingFiles.length === 1 ? "" : "s"} de branding
-                        </div>
-                        <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
-                          Agentes serán alimentados con esta info
-                        </div>
-                      </SummaryCell>
-                    )}
+                    <SummaryCell label="Kickoff + Branding">
+                      <div>
+                        {kickoffFile ? "✓ Kickoff cargado" : "⚠ Sin kickoff"} ·{" "}
+                        {brandingFiles.length} archivo
+                        {brandingFiles.length === 1 ? "" : "s"} de branding
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                        Los agentes usan esta info para entender el cliente.
+                      </div>
+                    </SummaryCell>
 
                     <SummaryCell label="Presupuestos">
                       <div>
