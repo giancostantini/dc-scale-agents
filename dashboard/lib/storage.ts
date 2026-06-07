@@ -204,17 +204,34 @@ export async function addClient(data: AddClientInput): Promise<Client> {
       ? { ...defaultGpModules, ...(data.modules ?? {}) }
       : null;
 
+  // Status + phase iniciales:
+  //   · DEV → "dev" / "En desarrollo · Sprint 1"
+  //   · GP en lanzamiento (isBrandLaunch=true) → "onboarding" /
+  //     "On-boarding · Diagnóstico" porque está pasando por la etapa
+  //     de estrategia y branding.
+  //   · GP no-launch → "active" / "Activo · Ejecución" directo. La
+  //     marca ya está operando y no tiene que pasar por onboarding.
+  //     Esto evita que en el hub aparezca como "Onboarding" cuando
+  //     en realidad va a ejecución directa.
+  const isGpLaunch =
+    data.type === "gp" && !!data.onboarding?.isBrandLaunch;
+  const initialStatus: "dev" | "onboarding" | "active" =
+    data.type === "dev" ? "dev" : isGpLaunch ? "onboarding" : "active";
+  const initialPhase =
+    data.type === "dev"
+      ? "En desarrollo · Sprint 1"
+      : isGpLaunch
+        ? "On-boarding · Diagnóstico"
+        : "Activo · Ejecución";
+
   const newRow: Partial<ClientRow> = {
     id,
     initials: makeInitials(data.name),
     name: data.name,
     sector: `${data.sector} · ${data.country}`,
     type: data.type,
-    status: data.type === "dev" ? "dev" : "onboarding",
-    phase:
-      data.type === "dev"
-        ? "En desarrollo · Sprint 1"
-        : "On-boarding · Diagnóstico",
+    status: initialStatus,
+    phase: initialPhase,
     fee: data.fee,
     method: data.method,
     modules: modulesValue,
