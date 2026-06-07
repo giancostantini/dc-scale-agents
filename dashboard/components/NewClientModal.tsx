@@ -116,6 +116,9 @@ export default function NewClientModal({
   /** Sitio web del cliente (solo GP). Se guarda en clients.website_url
    *  y queda accesible para los agentes (asistente creativo / estrategia). */
   const [websiteUrl, setWebsiteUrl] = useState("");
+  /** Datos fiscales — para facturación. Migración 054. */
+  const [razonSocial, setRazonSocial] = useState("");
+  const [rut, setRut] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -204,6 +207,8 @@ export default function NewClientModal({
     setSector("");
     setCountry("Uruguay");
     setWebsiteUrl("");
+    setRazonSocial("");
+    setRut("");
     setContactName("");
     setContactEmail("");
     setContactPhone("");
@@ -418,6 +423,9 @@ export default function NewClientModal({
           type === "gp" && websiteUrl.trim()
             ? websiteUrl.trim()
             : undefined,
+        // Datos fiscales — aplican a ambos tipos. Opcionales.
+        razonSocial: razonSocial.trim() || undefined,
+        rut: rut.trim() || undefined,
       });
 
       // Si el cliente es de tipo dev y se asignaron personas, creamos
@@ -684,6 +692,31 @@ export default function NewClientModal({
                 </div>
               </div>
             )}
+
+            {/* Datos fiscales — aplican a GP y DEV.  Se usan para
+                auto-rellenar la factura cuando se genera un comprobante
+                desde Facturación. */}
+            <div className={styles.sectionLabel}>
+              Datos fiscales (para facturación)
+            </div>
+            <div className={styles.fieldGrid2}>
+              <div className={styles.field}>
+                <label>Razón social</label>
+                <input
+                  value={razonSocial}
+                  onChange={(e) => setRazonSocial(e.target.value)}
+                  placeholder="Ej: Propiedades RealValue S.A."
+                />
+              </div>
+              <div className={styles.field}>
+                <label>RUT / NIT / Identificador fiscal</label>
+                <input
+                  value={rut}
+                  onChange={(e) => setRut(e.target.value)}
+                  placeholder="Ej: 215123450014"
+                />
+              </div>
+            </div>
 
             <div className={styles.sectionLabel}>
               Contacto principal del cliente

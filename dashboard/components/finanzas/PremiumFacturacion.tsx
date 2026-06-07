@@ -62,6 +62,7 @@ import {
   getPayments,
   listFeeSchedules,
   setPaymentAmount,
+  setPaymentPdfUrl,
   setPaymentStatus,
 } from "@/lib/storage";
 import type {
@@ -72,6 +73,7 @@ import type {
 import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
 import { Field, Input, Select } from "@/components/premium/Field";
+import { FileUpload } from "@/components/premium/FileUpload";
 import { cn } from "@/lib/cn";
 
 const MONTHS_SHORT_ES = [
@@ -169,6 +171,9 @@ export function PremiumFacturacion() {
   const [newMonth, setNewMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [newAmount, setNewAmount] = useState("");
   const [newNote, setNewNote] = useState("");
+  /** PDF de la factura subido por el director (factura emitida fuera
+   *  del sistema). Opcional — la factura existe sin PDF. */
+  const [newPdfUrl, setNewPdfUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Modales por comprobante
@@ -479,11 +484,16 @@ export function PremiumFacturacion() {
       await setPaymentAmount(newClientId, newMonth, override, newNote.trim() || null);
       // Aseguramos status='pending'
       await setPaymentStatus(newClientId, newMonth, "pending");
-      toast.success("Comprobante creado");
+      // Si el director subió un PDF, lo asociamos al payment.
+      if (newPdfUrl) {
+        await setPaymentPdfUrl(newClientId, newMonth, newPdfUrl);
+      }
+      toast.success("Factura cargada");
       setNewModal(false);
       setNewClientId("");
       setNewAmount("");
       setNewNote("");
+      setNewPdfUrl(null);
       refresh();
     } catch (err) {
       const e = err as Error;
@@ -703,8 +713,8 @@ export function PremiumFacturacion() {
             Desglose del mes
           </Button>
           <Button variant="primary" size="md" onClick={() => setNewModal(true)}>
-            <Plus className="w-4 h-4" />
-            Nueva Factura
+            <FileText className="w-4 h-4" />
+            Cargar factura
           </Button>
         </div>
       </div>
@@ -1195,12 +1205,14 @@ export function PremiumFacturacion() {
         </div>
       </Modal>
 
-      {/* Modal Nueva Factura */}
+      {/* Modal Nueva Factura — adjuntá el PDF de una factura emitida
+          fuera del sistema (ej por el contador). El cliente, razón
+          social y RUT se auto-rellenan al elegir el cliente. */}
       <Modal
         open={newModal}
         onClose={() => !saving && setNewModal(false)}
-        title="Nueva factura"
-        description="Generá un comprobante para un cliente y mes específico."
+        title="Cargar factura"
+        description="Adjuntá el PDF de una factura emitida (o creá el registro sin PDF para subirlo después)."
         size="md"
         footer={
           <>
@@ -1208,7 +1220,7 @@ export function PremiumFacturacion() {
               Cancelar
             </Button>
             <Button variant="primary" onClick={createInvoice} loading={saving}>
-              Crear factura
+              Guardar factura
             </Button>
           </>
         }
@@ -1235,6 +1247,76 @@ export function PremiumFacturacion() {
               ))}
             </Select>
           </Field>
+
+          {/* Auto-fill datos fiscales del cliente seleccionado */}
+          {(() => {
+            const selected = clients.find((c) => c.id === newClientId);
+            const razon = selected?.razon_social?.trim();
+            const rut = selected?.rut?.trim();
+            if (!selected) return null;
+            if (!razon && !rut) {
+              return (
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    background: "rgba(196,168,130,0.08)",
+                    border: "1px solid rgba(196,168,130,0.25)",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Este cliente no tiene razón social / RUT cargados.
+                  Cargalos desde Configuración del cliente para que
+                  aparezcan automáticamente en facturación.
+                </div>
+              );
+            }
+            return (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  background: "var(--off-white)",
+                  border: "1px solid var(--hairline)",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Datos fiscales (auto)
+                </div>
+                {razon && (
+                  <div>
+                    <strong style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                      Razón social:
+                    </strong>{" "}
+                    {razon}
+                  </div>
+                )}
+                {rut && (
+                  <div>
+                    <strong style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                      RUT:
+                    </strong>{" "}
+                    <span style={{ fontFamily: "monospace" }}>{rut}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Mes a facturar" required>
               <Input
@@ -1260,6 +1342,16 @@ export function PremiumFacturacion() {
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
               placeholder='Ej: "Honorarios extra por consultoría puntual"'
+            />
+          </Field>
+          <Field
+            label="PDF de la factura (opcional)"
+            hint="Subí el PDF de la factura emitida. Si no la tenés ahora, podés agregarla después."
+          >
+            <FileUpload
+              kind="expense"
+              value={newPdfUrl}
+              onChange={setNewPdfUrl}
             />
           </Field>
         </div>

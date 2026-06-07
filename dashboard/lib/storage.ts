@@ -92,6 +92,9 @@ interface ClientRow {
   dividend_distribution?: Client["dividend_distribution"];
   // Migración 053
   website_url?: string | null;
+  // Migración 054
+  razon_social?: string | null;
+  rut?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -125,6 +128,8 @@ function clientFromRow(r: ClientRow): Client {
     logo_url: r.logo_url ?? null,
     dividend_distribution: r.dividend_distribution ?? null,
     website_url: r.website_url ?? null,
+    razon_social: r.razon_social ?? null,
+    rut: r.rut ?? null,
   };
 }
 
@@ -178,6 +183,10 @@ export interface AddClientInput {
   dividendDistribution?: Client["dividend_distribution"];
   /** URL del sitio web del cliente (migración 053). Solo GP. */
   websiteUrl?: string | null;
+  /** Razón social legal del cliente — migración 054. */
+  razonSocial?: string | null;
+  /** RUT / NIT del cliente — migración 054. */
+  rut?: string | null;
 }
 
 export async function addClient(data: AddClientInput): Promise<Client> {
@@ -256,6 +265,8 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     default_cuenta_id: data.defaultCuentaId ?? null,
     dividend_distribution: data.dividendDistribution ?? null,
     website_url: data.websiteUrl ?? null,
+    razon_social: data.razonSocial ?? null,
+    rut: data.rut ?? null,
   };
 
   const { data: inserted, error } = await supabase
@@ -340,6 +351,9 @@ export interface UpdateClientCoreInput {
   contact_email?: string | null;
   contact_phone?: string | null;
   website_url?: string | null;
+  /** Datos fiscales — migración 054. */
+  razon_social?: string | null;
+  rut?: string | null;
   default_cuenta_id?: string | null;
   dividend_distribution?: Client["dividend_distribution"] | null;
   onboarding?: ClientOnboarding | null;
@@ -1435,6 +1449,7 @@ export async function getPayments(): Promise<InvoicePayment[]> {
       paid_date: string | null;
       amount_override: number | null;
       note: string | null;
+      pdf_url: string | null;
     }>
   ).map((r) => ({
     clientId: r.client_id,
@@ -1443,7 +1458,24 @@ export async function getPayments(): Promise<InvoicePayment[]> {
     paidDate: r.paid_date ?? undefined,
     amountOverride: r.amount_override ?? null,
     note: r.note ?? null,
+    pdfUrl: r.pdf_url ?? null,
   }));
+}
+
+/**
+ * Setea o limpia el URL del PDF subido manualmente para una factura
+ * (payment de un cliente para un mes). Migración 054.
+ */
+export async function setPaymentPdfUrl(
+  clientId: string,
+  month: string,
+  pdfUrl: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("payments").upsert(
+    { client_id: clientId, month, pdf_url: pdfUrl },
+    { onConflict: "client_id,month" },
+  );
 }
 
 export async function setPaymentStatus(

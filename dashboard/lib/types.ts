@@ -242,8 +242,15 @@ export interface Client {
   contact_email?: string | null;
   contact_phone?: string | null;
   country?: string | null;
-  /** Identificador fiscal (CUIT/RUT/NIT) — migración 039. */
+  /** Identificador fiscal (CUIT/RUT/NIT) — migración 039.
+   *  Mantenemos por compat; los datos nuevos van a `rut`. */
   tax_id?: string | null;
+  /** Razón social legal del cliente — puede diferir del nombre
+   *  comercial (`name`). Se usa en facturación. Migración 054. */
+  razon_social?: string | null;
+  /** RUT / NIT del cliente — migración 054. Se muestra en el perfil
+   *  del cliente y se auto-rellena al crear una factura. */
+  rut?: string | null;
   /** URL del sitio web del cliente (migración 053). Usada como contexto
    *  adicional para los agentes (asistente creativo, estrategia). */
   website_url?: string | null;
@@ -538,6 +545,9 @@ export interface InvoicePayment {
   amountOverride?: number | null;
   /** Nota libre del director (motivo del override / extras / etc). */
   note?: string | null;
+  /** URL pública al PDF de la factura subida manualmente
+   *  (migración 054). NULL = sin PDF cargado. */
+  pdfUrl?: string | null;
 }
 
 // ==================== OBJETIVOS DEL CLIENTE ====================

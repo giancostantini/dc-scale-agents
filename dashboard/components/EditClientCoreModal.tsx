@@ -58,6 +58,8 @@ export default function EditClientCoreModal({
   });
   const [country, setCountry] = useState(client.country ?? "Uruguay");
   const [websiteUrl, setWebsiteUrl] = useState(client.website_url ?? "");
+  const [razonSocial, setRazonSocial] = useState(client.razon_social ?? "");
+  const [rut, setRut] = useState(client.rut ?? "");
   const [method, setMethod] = useState(client.method ?? "Método completo");
 
   // Contacto
@@ -166,6 +168,8 @@ export default function EditClientCoreModal({
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
         website_url: isGp ? websiteUrl.trim() || null : null,
+        razon_social: razonSocial.trim() || null,
+        rut: rut.trim() || null,
         default_cuenta_id: defaultCuentaId || null,
         dividend_distribution: dividendDistribution,
         onboarding: onboardingMerged,
@@ -290,6 +294,27 @@ export default function EditClientCoreModal({
             </Field>
           </Row>
         )}
+
+        {/* ===== Datos fiscales ===== */}
+        <SectionTitle>Datos fiscales (para facturación)</SectionTitle>
+        <Row>
+          <Field label="Razón social">
+            <input
+              value={razonSocial}
+              onChange={(e) => setRazonSocial(e.target.value)}
+              placeholder="Ej: Propiedades RealValue S.A."
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="RUT / NIT">
+            <input
+              value={rut}
+              onChange={(e) => setRut(e.target.value)}
+              placeholder="Ej: 215123450014"
+              style={inputStyle}
+            />
+          </Field>
+        </Row>
 
         {/* ===== Contacto ===== */}
         <SectionTitle>Contacto principal</SectionTitle>

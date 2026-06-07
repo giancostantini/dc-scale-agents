@@ -119,6 +119,11 @@ function GPDashboard({
         </span>
       </WelcomeBanner>
 
+      {/* Datos fiscales — sutiles, solo aparecen si están cargados.
+          Importantes para que el equipo tenga la razón social/RUT a
+          mano sin entrar a Configuración. */}
+      <BillingInfoBar client={client} />
+
       {/* El morning briefing dejó de ser un panel por-cliente. Ahora vive
           en el widget global del consultor (bottom-right): es por user,
           personalizado por rol (director/team) y se entrega como mensaje
@@ -284,6 +289,8 @@ function DevDashboard({
       >
         <span className={ui.phaseBadge}>{client.phase}</span>
       </WelcomeBanner>
+
+      <BillingInfoBar client={client} />
 
       <PendingRequestsPanel
         clientId={client.id}
@@ -820,6 +827,61 @@ function CountdownUnit({
       >
         {label}
       </span>
+    </div>
+  );
+}
+
+// ============================================================
+// BillingInfoBar — chips con razón social + RUT del cliente.
+// Solo aparece si alguno está cargado. Si no, no mete ruido visual.
+// Las facturas se auto-rellenan con estos datos.
+// ============================================================
+function BillingInfoBar({ client }: { client: Client }) {
+  const razon = client.razon_social?.trim();
+  const rut = client.rut?.trim();
+  if (!razon && !rut) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 10,
+        marginBottom: 20,
+        padding: "10px 14px",
+        background: "var(--off-white)",
+        border: "1px solid var(--hairline)",
+        borderRadius: "var(--r-md)",
+        fontSize: 12,
+        alignItems: "center",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 700,
+        }}
+      >
+        Datos fiscales
+      </span>
+      {razon && (
+        <span style={{ color: "var(--deep-green)" }}>
+          <strong style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+            Razón social:
+          </strong>{" "}
+          {razon}
+        </span>
+      )}
+      {rut && (
+        <span style={{ color: "var(--deep-green)" }}>
+          <strong style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+            RUT:
+          </strong>{" "}
+          <span style={{ fontFamily: "monospace" }}>{rut}</span>
+        </span>
+      )}
     </div>
   );
 }
