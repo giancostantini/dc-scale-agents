@@ -372,6 +372,15 @@ function ExpenseFormModal({
     }
     setSaving(true);
     try {
+      // Para egresos fijos mensuales, el "status" del master record
+      // no representa nada útil (cada mes se paga por separado).
+      // Lo seteamos en "pending" — el cálculo financiero igualmente
+      // suma este costo todos los meses; el estado real de cada
+      // mes se trackea aparte. Para únicos, usamos lo que eligió el
+      // director en el form.
+      const effectiveStatus: ExpenseStatus =
+        recurrence === "monthly_fixed" ? "pending" : status;
+
       const patch = {
         date,
         concept: concept.trim(),
@@ -383,7 +392,7 @@ function ExpenseFormModal({
         paymentMethod: (paymentMethod as ExpensePaymentMethod) || null,
         ivaPct: ivaNumber,
         invoiceUrl,
-        status,
+        status: effectiveStatus,
       };
       if (isEdit && initial) {
         await updateExpense(initial.id, patch);
@@ -398,8 +407,22 @@ function ExpenseFormModal({
       }
       onSaved();
     } catch (err) {
-      const e = err as Error;
-      toast.error("No se pudo guardar", { description: e.message });
+      // Supabase errors traen code/message/details/hint. Mostramos
+      // todo lo disponible para que el director pueda diagnosticar
+      // (ej "column X does not exist" → migración pendiente).
+      const e = err as {
+        message?: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      };
+      console.error("addExpense error:", err);
+      const parts = [e?.message, e?.details, e?.hint]
+        .filter((s) => typeof s === "string" && s.trim().length > 0)
+        .join(" · ");
+      toast.error("No se pudo guardar el egreso", {
+        description: parts || "Error desconocido — revisá la consola del navegador.",
+      });
     } finally {
       setSaving(false);
     }
@@ -565,18 +588,25 @@ function ExpenseFormModal({
               ))}
             </Select>
           </Field>
-          <Field label="Estado" required>
-            <Select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as ExpenseStatus)}
-            >
-              {EXPENSE_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {/* Estado solo aplica para egresos de "Único pago". Para los
+              fijos mensuales el estado se gestiona por cada mes a
+              medida que se va pagando (no por el master record).
+              Cuando es monthly_fixed dejamos el status en "pending"
+              por default y no mostramos el campo. */}
+          {recurrence !== "monthly_fixed" && (
+            <Field label="Estado" required>
+              <Select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ExpenseStatus)}
+              >
+                {EXPENSE_STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
         </div>
 
         <Field
