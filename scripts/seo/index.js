@@ -10,6 +10,10 @@ import {
   pushNotification,
 } from "../lib/supabase.js";
 import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
+import {
+  readSectorTrends,
+  buildSectorTrendsBlock,
+} from "../lib/sector-trends-context.js";
 
 const AGENT = "seo";
 
@@ -122,6 +126,7 @@ function loadClientContext(client) {
     winningPages: readVaultFile("agents/seo/winning-pages.md"),
     learningLog: readVaultFile(`clients/${client}/learning-log.md`),
     seoLibrary: readVaultFile(`clients/${client}/seo-library.md`),
+    sectorTrends: readSectorTrends(VAULT, client),
     brand,
     brandBlock: buildBrandBlock(brand),
   };
@@ -189,6 +194,8 @@ ${ctx.winningPages || "Sin paginas ganadoras registradas."}
 
 --- APRENDIZAJES ---
 ${ctx.learningLog || "Sin aprendizajes registrados."}
+
+${buildSectorTrendsBlock(ctx.sectorTrends)}
 
 ---
 
@@ -271,6 +278,8 @@ ${ctx.strategy || "Sin estrategia definida."}
 
 --- KEYWORDS YA IDENTIFICADOS ---
 ${ctx.keywordDatabase || "Ninguno — este es el primer analisis."}
+
+${buildSectorTrendsBlock(ctx.sectorTrends)}
 
 ---
 

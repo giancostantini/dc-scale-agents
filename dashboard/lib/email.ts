@@ -292,6 +292,64 @@ export async function emailPhaseApprovedToClient(input: {
   });
 }
 
+/**
+ * 5. Tendencias semanales del nicho → email al cliente con CTA al portal.
+ */
+export async function emailSectorTrendsToClient(input: {
+  clientEmail: string;
+  clientName: string;
+  items: {
+    title: string;
+    summary?: string;
+    sourceUrl?: string;
+    sourceTitle?: string;
+  }[];
+}): Promise<{ id: string } | null> {
+  if (!input.items || input.items.length === 0) return null;
+  const top = input.items.slice(0, 5);
+
+  const list = top
+    .map(
+      (it) => `
+      <div style="margin:0 0 16px;padding-bottom:16px;border-bottom:1px solid rgba(10,26,12,0.06);">
+        <div style="font-size:15px;font-weight:600;color:#0a1a0c;">${escapeHtml(it.title)}</div>
+        ${
+          it.summary
+            ? `<div style="font-size:13px;color:#5a5a5a;margin-top:4px;line-height:1.5;">${escapeHtml(it.summary)}</div>`
+            : ""
+        }
+        ${
+          it.sourceUrl
+            ? `<a href="${it.sourceUrl}" style="font-size:12px;color:#3a8b5c;text-decoration:none;">${escapeHtml(it.sourceTitle || "Ver fuente")} ↗</a>`
+            : ""
+        }
+      </div>`,
+    )
+    .join("");
+
+  const html = baseLayout(
+    `
+      <h1 style="font-size:24px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        Tendencias de tu sector
+      </h1>
+      <p style="margin:0 0 24px;color:#5a5a5a;font-size:14px;">
+        Esto es lo que está funcionando ahora en tu nicho — contenido que se
+        vuelve viral, qué trae tráfico y qué convierte. Mirá el detalle completo
+        y todas las fuentes en tu portal.
+      </p>
+      ${list}
+    `,
+    `${PORTAL_URL}/portal/tendencias`,
+    "Ver todas en tu portal",
+  );
+
+  return sendEmail({
+    to: input.clientEmail,
+    subject: `Tendencias de tu sector — ${input.clientName}`,
+    html,
+  });
+}
+
 // ============================================================
 // Templates extra — eventos internos del equipo (migración 047)
 // ============================================================

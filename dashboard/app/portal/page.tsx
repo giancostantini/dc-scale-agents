@@ -22,6 +22,7 @@ import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
 import LookerStudioCard from "@/components/LookerStudioCard";
 import TeamCard from "@/components/TeamCard";
+import SectorTrendsCard from "@/components/SectorTrendsCard";
 import type {
   CalEvent,
   Client,
@@ -362,6 +363,9 @@ export default function PortalPage() {
 
             {/* Tu equipo D&C — account leads asignados + contacto directo */}
             <TeamCard />
+
+            {/* Tendencias del sector — teaser que linkea a /portal/tendencias */}
+            <SectorTrendsCard />
 
             {/* Estado de pago: ahora vive en el PortalHeader como CTA con
                 semáforo (verde / ámbar / rojo según fecha del mes). */}

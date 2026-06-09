@@ -17,6 +17,10 @@ import {
   fetchClientMemory,
   buildClientMemoryBlock,
 } from "../lib/client-memory.js";
+import {
+  readSectorTrends,
+  buildSectorTrendsBlock,
+} from "../lib/sector-trends-context.js";
 import { createContent } from "../creative-assistant/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -201,6 +205,7 @@ async function run() {
   }
 
   const clientMemory = await fetchClientMemory(CLIENT);
+  const sectorTrends = readSectorTrends(VAULT, CLIENT);
 
   const week = getWeekRange();
   const daysLabels = week.days.map((d) => d.label).join(", ");
@@ -222,6 +227,8 @@ ${daysJSON}
 ${buildVaultGuardrailBlock(vaultAssessment, CLIENT)}
 
 ${buildClientMemoryBlock(clientMemory)}
+
+${buildSectorTrendsBlock(sectorTrends)}
 
 --- CONTEXTO DE LA AGENCIA ---
 ${agencyContext || "Sin contexto de agencia."}

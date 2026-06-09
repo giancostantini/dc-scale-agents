@@ -12,6 +12,10 @@ import {
   buildClientMemoryBlock,
 } from "../lib/client-memory.js";
 import {
+  readSectorTrends,
+  buildSectorTrendsBlock,
+} from "../lib/sector-trends-context.js";
+import {
   logAgentRun,
   logAgentError,
   registerContentPiece,
@@ -148,6 +152,7 @@ async function loadClientContext(client) {
     brandBlock: buildBrandBlock(brand),
     vaultAssessment: assessClientVault(VAULT, client),
     clientMemory,
+    sectorTrends: readSectorTrends(VAULT, client),
   };
 
   const fileKeys = [
@@ -335,6 +340,8 @@ ${buildVaultGuardrailBlock(ctx.vaultAssessment, brief.client)}
 ${directivesBlock}
 
 ${buildClientMemoryBlock(ctx.clientMemory)}
+
+${buildSectorTrendsBlock(ctx.sectorTrends)}
 
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
