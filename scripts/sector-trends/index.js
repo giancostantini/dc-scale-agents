@@ -313,8 +313,7 @@ REGLAS:
 - Si no encontrás señales reales para algo, escribilo ("Sin datos recientes para X") — NO inventes ni rellenes con genéricos.
 - Priorizá lo accionable para generar contenido y campañas esta semana.
 
-SALIDA — Markdown legible (para el portal del cliente y el equipo). Omití una sección si no tiene datos reales. En total 5 a 10 tendencias accionables, cada una con su fuente (link) inline:
-## Tendencias del nicho — ${name} (${today})
+SALIDA — SOLO Markdown, SIN preámbulo ni introducción (NO escribas "Aquí está el informe", "Excelente…" ni un título general "## Tendencias…" — el sistema ya pone el título). Empezá DIRECTO en la primera sección "###". Omití una sección si no tiene datos reales. En total 5 a 10 tendencias accionables, cada una con su fuente (link) inline:
 ### 🎬 Contenido que está funcionando
 - [tendencia] — por qué importa + plataforma · (fuente: <link>)
 ### 📈 Tráfico a la web
@@ -359,10 +358,14 @@ export async function run(briefInput) {
     );
   }
 
+  // Limpieza defensiva: si el modelo agregó preámbulo antes del markdown,
+  // recortamos hasta el primer heading (### / ##) para no guardar basura.
+  const headingIdx = text.search(/^#{1,6}\s/m);
+  const bodyMd = headingIdx > 0 ? text.slice(headingIdx).trim() : text;
+
   // 2da llamada: estructurar los ítems con tool_use forzado (robusto). Si
-  // falla, items = [] y el portal igual muestra el markdown (body_md) + fuentes.
-  const bodyMd = text;
-  const items = await structureTrends(text);
+  // falla, items = [] y la página igual muestra el markdown (body_md) + fuentes.
+  const items = await structureTrends(bodyMd);
   const displayName = clientRow?.name || client;
 
   const sourcesBlock = sources.length

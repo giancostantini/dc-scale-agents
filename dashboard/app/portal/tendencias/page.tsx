@@ -10,7 +10,7 @@ import {
 import { getClient } from "@/lib/storage";
 import { getSupabase } from "@/lib/supabase/client";
 import PortalHeader from "@/components/PortalHeader";
-import SectorTrendsView, { type TrendItem } from "@/components/SectorTrendsView";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 import type { Client } from "@/lib/types";
 import portalStyles from "../portal.module.css";
 
@@ -18,7 +18,6 @@ export default function PortalTendenciasPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [client, setClient] = useState<Client | null>(null);
-  const [items, setItems] = useState<TrendItem[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [bodyMd, setBodyMd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,12 +55,10 @@ export default function PortalTendenciasPage() {
           });
           if (res.ok) {
             const data = (await res.json()) as {
-              items: TrendItem[];
               generatedAt: string | null;
               bodyMd: string | null;
             };
             if (active) {
-              setItems(data.items ?? []);
               setGeneratedAt(data.generatedAt ?? null);
               setBodyMd(data.bodyMd ?? null);
             }
@@ -97,7 +94,20 @@ export default function PortalTendenciasPage() {
           </div>
         </section>
 
-        <SectorTrendsView items={items} fallbackMarkdown={bodyMd} />
+        {bodyMd ? (
+          <MarkdownRenderer content={bodyMd} />
+        ) : (
+          <p
+            style={{
+              fontSize: 13.5,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+            }}
+          >
+            Todavía no hay tendencias cargadas. El agente las actualiza cada
+            semana.
+          </p>
+        )}
       </main>
     </>
   );

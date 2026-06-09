@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
-import SectorTrendsView from "@/components/SectorTrendsView";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 import {
   getCurrentProfile,
   hasSession,
@@ -184,11 +184,19 @@ export default function TendenciasInternasPage() {
                     {ct.generatedAt ? ` · actualizado ${ct.generatedAt}` : ""}
                   </span>
                 </div>
-                <SectorTrendsView
-                  items={ct.items}
-                  fallbackMarkdown={ct.bodyMd}
-                  emptyLabel="Sin tendencias para este cliente todavía."
-                />
+                {ct.bodyMd ? (
+                  <MarkdownRenderer content={ct.bodyMd} />
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--text-muted)",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Sin tendencias para este cliente todavía.
+                  </p>
+                )}
               </section>
             ))}
           </div>
