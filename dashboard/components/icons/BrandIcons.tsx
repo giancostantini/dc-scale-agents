@@ -100,15 +100,16 @@ export function IClientes(props: BrandIconProps) {
 }
 
 export function IEquipo(props: BrandIconProps) {
-  // Tres nodos conectados — equipo / red
+  // Dos personas — equipo. Una al frente, otra detrás-derecha
+  // (clásico "users" / team icon editorial).
   return (
     <IconShell {...props}>
-      <circle cx="6" cy="7" r="2.2" />
-      <circle cx="18" cy="7" r="2.2" />
-      <circle cx="12" cy="18" r="2.2" />
-      <line x1="7.5" y1="8.5" x2="10.5" y2="16.5" />
-      <line x1="16.5" y1="8.5" x2="13.5" y2="16.5" />
-      <line x1="8" y1="7" x2="16" y2="7" />
+      {/* Persona del fondo (derecha) — más chica */}
+      <circle cx="16" cy="8" r="2.4" />
+      <path d="M11.5 19 C12 16, 14, 14.5, 16, 14.5 C18 14.5, 20, 16, 20.5, 19" />
+      {/* Persona del frente (izquierda) — más prominente */}
+      <circle cx="9.5" cy="9" r="3" />
+      <path d="M4 20 C4.8 16.5, 7, 14.8, 9.5, 14.8 C12 14.8, 14.2, 16.5, 15, 20" />
     </IconShell>
   );
 }
