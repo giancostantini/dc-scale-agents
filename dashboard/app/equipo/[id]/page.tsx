@@ -167,6 +167,13 @@ export default function EquipoDetailPage({
   const isDirector = me.role === "director";
   const isSelf = me.id === profile.id;
   const canEdit = isDirector; // los miembros editan su propio perfil desde /perfil
+  /**
+   * Vista "solo contacto": cuando un team member mira a OTRO
+   * compañero. Le mostramos solo nombre, posición, email, teléfono.
+   * Sin pago, sin asignaciones, sin notas internas. El director ve
+   * todo; cada uno viendo su propio perfil también ve todo.
+   */
+  const isContactOnlyView = !isDirector && !isSelf;
 
   async function save() {
     if (!profile || !canEdit) return;
@@ -354,12 +361,24 @@ export default function EquipoDetailPage({
           </div>
         </div>
 
-        {!canEdit && (
+        {!canEdit && !isContactOnlyView && (
           <div className={detail.banner}>
             Solo el director puede editar a otros miembros.
           </div>
         )}
 
+        {/* ===== VISTA SOLO CONTACTO =====
+            Cuando un team mira a un compañero (no es director, no es
+            su propio perfil), le mostramos solo info de contacto.
+            El resto de los paneles (pago, asignaciones, notas,
+            permisos) quedan ocultos. */}
+        {isContactOnlyView && (
+          <ContactOnlyCard profile={profile} />
+        )}
+
+        {/* ===== Resto del perfil: solo para director o vista propia ===== */}
+        {!isContactOnlyView && (
+          <>
         {/* Cadena de mando — visible para todos */}
         {profile.role !== "client" && (
           <ManagerChain user={profile} allProfiles={allProfiles} />
@@ -859,6 +878,8 @@ export default function EquipoDetailPage({
             onDeleted={() => router.push("/equipo")}
           />
         )}
+          </>
+        )}
       </main>
 
       {/* Modal: editar menús visibles de una asignación existente */}
@@ -1170,6 +1191,69 @@ function DangerZone({
 }
 
 // ============ subcomponents ============
+
+/**
+ * Vista compacta de contacto — para team mirando a otro team. Solo
+ * muestra nombre, posición, email, teléfono. Nada de pago, notas,
+ * asignaciones, permisos.
+ */
+function ContactOnlyCard({ profile }: { profile: Profile }) {
+  const items: Array<{ label: string; value: string }> = [
+    { label: "Posición", value: profile.position || "—" },
+    { label: "Email", value: profile.email || "—" },
+    { label: "Teléfono", value: profile.phone || "—" },
+  ];
+  return (
+    <div className={detail.panel}>
+      <div className={detail.panelHead}>Información de contacto</div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "120px 1fr",
+          gap: "10px 16px",
+          padding: "8px 0",
+          fontSize: 14,
+        }}
+      >
+        {items.map((it) => (
+          <div key={it.label} style={{ display: "contents" }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 600,
+                alignSelf: "center",
+              }}
+            >
+              {it.label}
+            </div>
+            <div style={{ color: "var(--deep-green)", userSelect: "all" }}>
+              {it.value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div
+        style={{
+          marginTop: 14,
+          padding: "10px 12px",
+          background: "var(--off-white)",
+          borderLeft: "3px solid var(--sand)",
+          fontSize: 11.5,
+          color: "var(--text-muted)",
+          lineHeight: 1.5,
+          borderRadius: "0 4px 4px 0",
+        }}
+      >
+        Solo el director puede ver pagos, asignaciones y notas internas
+        de los miembros del equipo.
+      </div>
+    </div>
+  );
+}
+
 function Section({
   title,
   children,

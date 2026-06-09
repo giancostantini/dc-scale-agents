@@ -84,7 +84,19 @@ export default function BibliotecaPage({
   const [reports, setReports] = useState<PhaseReport[]>([]);
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [folder, setFolder] = useState<FolderKey>("onboarding");
-  const [isDirector, setIsDirector] = useState(false);
+  /**
+   * `canUpload`: si el viewer es director O team. Antes esta variable
+   * se llamaba `isDirector` pero contenía director OR team — confuso.
+   * La renombro para que el código sea legible.
+   */
+  const [canUpload, setCanUpload] = useState(false);
+  /**
+   * `isStrictDirector`: solo true para directores. Usado para filtrar
+   * las pestañas de la biblioteca. Team members solo ven Branding,
+   * Reportes y Contenidos (no Onboarding, Campañas, ni Facturas —
+   * esos son administrativos).
+   */
+  const [isStrictDirector, setIsStrictDirector] = useState(false);
 
   const refreshClient = useCallback(async () => {
     const c = await getClient(id);
@@ -98,9 +110,10 @@ export default function BibliotecaPage({
     getPayments().then((all) =>
       setPayments(all.filter((p) => p.clientId === id && !!p.pdfUrl)),
     );
-    getCurrentProfile().then((p) =>
-      setIsDirector(p?.role === "director" || p?.role === "team"),
-    );
+    getCurrentProfile().then((p) => {
+      setCanUpload(p?.role === "director" || p?.role === "team");
+      setIsStrictDirector(p?.role === "director");
+    });
     fetch(`/api/clients/${id}/pieces?limit=100`)
       .then((r) => (r.ok ? r.json() : { pieces: [] }))
       .then((data: { pieces?: ContentPieceRow[] }) =>
@@ -108,6 +121,29 @@ export default function BibliotecaPage({
       )
       .catch(() => setPieces([]));
   }, [id, refreshClient]);
+
+  /**
+   * Pestañas visibles según el rol del viewer.
+   *   · Director → todas (admin completo).
+   *   · Team    → solo Branding, Reportes, Contenidos.
+   * Para clientes GP no tiene sentido que el team vea Onboarding
+   * (es info contractual), Facturas (administrativo) ni Campañas
+   * (datos de pauta no necesarios).
+   */
+  const visibleFolders = useMemo(() => {
+    if (isStrictDirector) return FOLDERS;
+    const teamAllowed: FolderKey[] = ["branding", "reportes", "contenidos"];
+    return FOLDERS.filter((f) => teamAllowed.includes(f.key));
+  }, [isStrictDirector]);
+
+  // Si el folder activo no está visible (porque el viewer no tiene
+  // acceso), lo redirigimos al primero permitido.
+  useEffect(() => {
+    if (visibleFolders.length === 0) return;
+    if (!visibleFolders.some((f) => f.key === folder)) {
+      setFolder(visibleFolders[0].key);
+    }
+  }, [visibleFolders, folder]);
 
   // Counts por folder
   const counts = useMemo(() => {
@@ -143,20 +179,23 @@ export default function BibliotecaPage({
           el cliente ve "OneDrive". */}
       <TeamsFolderBanner
         client={client}
-        isDirector={isDirector}
+        isDirector={isStrictDirector}
         onUpdated={refreshClient}
       />
 
-      {/* Tabs / cards de folder */}
+      {/* Tabs / cards de folder.
+          Para team (no director), filtramos a solo 3 pestañas:
+          Branding, Reportes y Contenidos. Las administrativas
+          (Onboarding, Campañas, Facturas) son director-only. */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${FOLDERS.length}, 1fr)`,
+          gridTemplateColumns: `repeat(${visibleFolders.length}, 1fr)`,
           gap: 8,
           marginBottom: 28,
         }}
       >
-        {FOLDERS.map((f) => {
+        {visibleFolders.map((f) => {
           const active = folder === f.key;
           const count = counts[f.key];
           return (
@@ -216,14 +255,14 @@ export default function BibliotecaPage({
       {folder === "onboarding" && (
         <OnboardingFolder
           client={client}
-          canUpload={isDirector}
+          canUpload={canUpload}
           onChange={refreshClient}
         />
       )}
       {folder === "branding" && (
         <BrandingFolder
           client={client}
-          canUpload={isDirector}
+          canUpload={canUpload}
           onChange={refreshClient}
         />
       )}
