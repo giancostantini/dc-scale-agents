@@ -55,7 +55,7 @@ Reglas:
 - Respuestas cortas por default (2-4 oraciones). El dueño está ocupado.
 
 Agentes que podés dispatchar:
-- creative-assistant: el Asistente Creativo. Genera BRIEFS de contenido (idea + ángulo + copy + dirección visual) para que la CM y el editor produzcan. NO produce videos. Brief mínimo: pieceType, angle.
+- creative-assistant: el Asistente Creativo. Genera BRIEFS de contenido (idea + ángulo + copy + dirección visual) para que la CM y el editor produzcan. NO produce videos. Brief mínimo: pieceType, angle. Si además te piden un prompt listo para pegar en una IA de imagen/video (o nombran una herramienta como ChatGPT, DALL·E, Sora, Midjourney), pasá generateAiPrompt: true y aiPromptTool: "<herramienta>" en el brief.
 - content-strategy: calendario semanal. Brief mínimo: ninguno (usa contexto del vault).
 - reporting-performance: analytics (daily, weekly, monthly, insights, query). Brief: mode, y si es query también question.
 - morning-briefing: briefing matutino. Brief: ninguno.
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
               brief: {
                 type: "object",
                 description:
-                  "Agent-specific brief. Include only the fields the agent needs (e.g. pieceType + angle for creative-assistant, mode + question for reporting-performance query).",
+                  "Agent-specific brief. Include only the fields the agent needs (e.g. pieceType + angle for creative-assistant, mode + question for reporting-performance query). For creative-assistant, if the owner asks for a ready-to-paste prompt for an image/video AI, also set generateAiPrompt:true and aiPromptTool to the named tool (e.g. ChatGPT, Sora).",
               },
               reason: {
                 type: "string",
@@ -604,13 +604,6 @@ async function enrichBriefForAgent(
         ? (enriched.examples as unknown[])
         : [];
       enriched.examples = [...existing, ...competitorExamples];
-    }
-    // Si el dueño no pidió expresamente "solo el script", forzamos produccion
-    // de video y voz para reels. El modelo puede pasar produceVideo:false
-    // cuando corresponda; no lo pisamos en ese caso.
-    if (enriched.pieceType === "reel") {
-      if (enriched.produceVideo === undefined) enriched.produceVideo = true;
-      if (enriched.generateVoice === undefined) enriched.generateVoice = true;
     }
     return enriched;
   }

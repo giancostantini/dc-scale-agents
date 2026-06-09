@@ -61,6 +61,10 @@
  *
  * --- Cross-posting (sugerencia para la CM al publicar) ---
  * @property {string[]} [crossPost] - Plataformas adicionales sugeridas e.g. ["tiktok", "instagram-stories"]
+ *
+ * --- Prompt para IA generativa (opt-in, on-request) ---
+ * @property {boolean} [generateAiPrompt] - Si true, el agente suma una sección con un prompt listo para pegar en una IA de imagen/video.
+ * @property {string} [aiPromptTool] - Herramienta destino (e.g. "ChatGPT/DALL·E", "Sora", "NanoBanana Pro", "Midjourney"). Si null → prompt genérico.
  */
 
 /** Default brief — used when no brief file is provided. `client` is null on
@@ -84,6 +88,8 @@ export const DEFAULT_BRIEF = {
   calendarEntryId: null,
   prioritize: null,
   crossPost: [],
+  generateAiPrompt: false,
+  aiPromptTool: null,
 };
 
 /** Validates a brief and fills missing fields with defaults */
