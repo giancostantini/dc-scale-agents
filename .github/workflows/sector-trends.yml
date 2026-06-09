@@ -43,9 +43,9 @@ jobs:
           if [ -n "$MANUAL" ]; then
             slugs="[\"$MANUAL\"]"
           else
-            # Solo clientes Growth Partner activos (los DEV quedan afuera).
+            # Clientes Growth Partner (incluye onboarding, ej. WizTrip); los DEV quedan afuera por type.
             resp=$(curl -fsS \
-              "${SUPABASE_URL}/rest/v1/clients?status=eq.active&type=eq.gp&select=id" \
+              "${SUPABASE_URL}/rest/v1/clients?type=eq.gp&select=id" \
               -H "apikey: ${SUPABASE_KEY}" \
               -H "Authorization: Bearer ${SUPABASE_KEY}")
             slugs=$(echo "$resp" | jq -c '[.[] | .id]')

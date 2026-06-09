@@ -19,6 +19,8 @@ import {
 } from "@/lib/supabase/auth";
 import { getSupabase } from "@/lib/supabase/client";
 import type { ClientTrends } from "@/lib/sector-trends";
+import Link from "next/link";
+import { IArrowLeft } from "@/components/icons/BrandIcons";
 
 export default function TendenciasInternasPage() {
   const router = useRouter();
@@ -75,6 +77,20 @@ export default function TendenciasInternasPage() {
       <Topbar showPrimary={false} searchPlaceholder="Buscar tendencias…" />
 
       <main style={{ padding: "32px 40px 80px", maxWidth: 1400, margin: "0 auto" }}>
+        <Link
+          href="/hub"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 13,
+            color: "var(--text-muted)",
+            textDecoration: "none",
+            marginBottom: 18,
+          }}
+        >
+          <IArrowLeft size={15} /> Volver al hub
+        </Link>
         <header style={{ marginBottom: 28 }}>
           <div
             style={{
