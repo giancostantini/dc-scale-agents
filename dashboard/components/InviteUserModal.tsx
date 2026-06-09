@@ -45,8 +45,17 @@ export default function InviteUserModal({
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>("");
-  /** Link de invitación generado server-side cuando SMTP falla.
-   *  El director lo copia y se lo manda al usuario por otro medio. */
+  /** Credenciales por defecto que el server crea para el usuario.
+   *  El director se las pasa al miembro por WhatsApp / verbalmente.
+   *  El usuario cambia la password al entrar desde /perfil. */
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const [credsCopied, setCredsCopied] = useState(false);
+  // Legacy: el server viejo devolvía un link. Mantenemos por compat
+  // en caso de que el cliente esté en un deploy nuevo y el server
+  // viejo (o viceversa).
   const [manualInviteLink, setManualInviteLink] = useState<string | null>(null);
   const [smtpWarning, setSmtpWarning] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -103,6 +112,8 @@ export default function InviteUserModal({
     setManualInviteLink(null);
     setSmtpWarning(null);
     setLinkCopied(false);
+    setCreatedCredentials(null);
+    setCredsCopied(false);
   }
 
   async function submit() {
@@ -112,6 +123,8 @@ export default function InviteUserModal({
     setManualInviteLink(null);
     setSmtpWarning(null);
     setLinkCopied(false);
+    setCreatedCredentials(null);
+    setCredsCopied(false);
 
     try {
       const supabase = getSupabase();
@@ -163,9 +176,20 @@ export default function InviteUserModal({
         return;
       }
 
-      // Si vino el inviteLink, NO cerramos el modal — mostramos el
-      // link al director para que lo copie manualmente. El cierre lo
-      // hace él con "Listo".
+      // Caso nuevo: el server creó el usuario con password default y
+      // devuelve credenciales para que el director las pase al
+      // usuario.
+      if (data.defaultPassword) {
+        setCreatedCredentials({
+          email: email.trim(),
+          password: data.defaultPassword,
+        });
+        onCreated?.();
+        return;
+      }
+
+      // Caso legacy: server viejo devuelve un inviteLink en lugar de
+      // password default. Lo mostramos igual.
       if (data.inviteLink) {
         setManualInviteLink(data.inviteLink);
         setSmtpWarning(data.smtpWarning ?? null);
@@ -411,6 +435,121 @@ export default function InviteUserModal({
           </div>
         )}
 
+        {/* Credenciales por defecto: aparece cuando el server crea el
+            usuario con password fija. El director copia las dos cosas
+            (email + password) y se las pasa al miembro por WhatsApp /
+            verbalmente. El miembro entra y cambia la password desde
+            /perfil. */}
+        {createdCredentials && (
+          <div
+            style={{
+              padding: 16,
+              background: "rgba(47,125,79,0.08)",
+              borderLeft: "3px solid var(--green-ok)",
+              fontSize: 12,
+              marginTop: 10,
+              borderRadius: 4,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: "var(--green-ok)",
+                marginBottom: 6,
+              }}
+            >
+              Usuario creado · Pasale estos datos
+            </div>
+            <div
+              style={{
+                color: "var(--deep-green)",
+                lineHeight: 1.5,
+                marginBottom: 12,
+              }}
+            >
+              Mandale por WhatsApp o decile en persona. Cuando entre,
+              que cambie la contraseña desde su perfil → "Cambiar contraseña".
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "auto 1fr",
+                gap: "8px 14px",
+                alignItems: "center",
+                background: "var(--white)",
+                padding: 12,
+                borderRadius: 4,
+                border: "1px solid rgba(10,26,12,0.08)",
+                fontSize: 13,
+                fontFamily: "monospace",
+                marginBottom: 10,
+              }}
+            >
+              <strong
+                style={{
+                  fontFamily: "inherit",
+                  fontSize: 10,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                }}
+              >
+                Email
+              </strong>
+              <span style={{ color: "var(--deep-green)", userSelect: "all" }}>
+                {createdCredentials.email}
+              </span>
+              <strong
+                style={{
+                  fontFamily: "inherit",
+                  fontSize: 10,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                }}
+              >
+                Contraseña
+              </strong>
+              <span style={{ color: "var(--deep-green)", userSelect: "all" }}>
+                {createdCredentials.password}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const text = `Email: ${createdCredentials.email}\nContraseña: ${createdCredentials.password}\n\nCuando entres, cambiá la contraseña desde tu perfil → "Cambiar contraseña".`;
+                try {
+                  await navigator.clipboard.writeText(text);
+                  setCredsCopied(true);
+                  setTimeout(() => setCredsCopied(false), 2000);
+                } catch {
+                  // ignore — el director puede copiar a mano
+                }
+              }}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                fontSize: 12,
+                fontWeight: 600,
+                background: credsCopied ? "var(--green-ok)" : "var(--deep-green)",
+                color: "var(--off-white)",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {credsCopied ? "✓ Copiado" : "Copiar credenciales"}
+            </button>
+          </div>
+        )}
+
         {/* Link de invitación manual: aparece cuando el SMTP falló y
             el server hizo fallback con generateLink. El director copia
             el link y se lo manda al usuario por otro medio. */}
@@ -505,19 +644,19 @@ export default function InviteUserModal({
           <button
             className={styles.btnGhost}
             onClick={() => {
-              if (manualInviteLink) reset();
+              if (manualInviteLink || createdCredentials) reset();
               onClose();
             }}
           >
-            {manualInviteLink ? "Listo" : "Cancelar"}
+            {manualInviteLink || createdCredentials ? "Listo" : "Cancelar"}
           </button>
-          {!manualInviteLink && (
+          {!manualInviteLink && !createdCredentials && (
             <button
               className={styles.btnSolid}
               onClick={submit}
               disabled={!canSubmit}
             >
-              {sending ? "Enviando…" : isClient ? "Invitar al portal →" : "Invitar →"}
+              {sending ? "Creando…" : isClient ? "Crear acceso al portal →" : "Crear usuario →"}
             </button>
           )}
         </div>

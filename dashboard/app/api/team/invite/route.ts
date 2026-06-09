@@ -137,105 +137,61 @@ export async function POST(req: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Construimos la URL de "set password" para que el link del email lleve
-  // al usuario directo a setear su contraseña (no al login que no funciona
-  // sin password). Tomamos el origin del request y le agregamos /auth/reset
-  // (la misma página sirve para invite + password recovery: ambos casos
-  // resultan en una sesión activa donde el user setea su password).
-  // Esta URL DEBE estar en la allowlist de Redirect URLs en Supabase Auth.
-  const origin = req.headers.get("origin") ||
-    req.headers.get("referer")?.replace(/\/[^/]*$/, "") ||
-    `https://${req.headers.get("host")}`;
-  const redirectTo = `${origin}/auth/reset`;
+  /**
+   * Flujo simplificado: el director quería poder agregar usuarios
+   * sin depender del SMTP de Supabase (que no está configurado /
+   * tiene rate limit bajo). Estrategia:
+   *   1. createUser con password fija = "12345678" y email ya
+   *      confirmado (email_confirm: true).
+   *   2. El director le pasa al usuario su email + esa password
+   *      por WhatsApp / verbalmente / etc.
+   *   3. El usuario entra y la cambia desde /perfil (panel
+   *      "Cambiar contraseña").
+   *
+   * Esto reemplaza el invite-by-email anterior. No depende del SMTP.
+   * El UI del modal le muestra esa info al director después de crear.
+   */
+  const DEFAULT_PASSWORD = "12345678";
 
-  const { data: invite, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, {
-      data: { name },
-      redirectTo,
+  const { data: created, error: createErr } =
+    await admin.auth.admin.createUser({
+      email,
+      password: DEFAULT_PASSWORD,
+      email_confirm: true,
+      user_metadata: { name },
     });
 
-  // Variable que vamos a tener al final del flujo: el userId nuevo.
-  // Se setea en el path normal (invite OK) o en el path de fallback
-  // (createUser + generateLink cuando SMTP falla).
-  let newUserId: string | undefined = invite?.user?.id;
-  let manualInviteLink: string | undefined;
-  let smtpWarning: string | undefined;
-
-  if (inviteError) {
-    const msg = inviteError.message.toLowerCase();
-    const isEmailSendError =
-      msg.includes("error sending invite email") ||
-      msg.includes("error sending email") ||
-      msg.includes("smtp") ||
-      msg.includes("rate limit");
-    const isDuplicateError =
+  let newUserId: string | undefined;
+  if (createErr) {
+    const msg = createErr.message.toLowerCase();
+    const isDuplicate =
       msg.includes("already been registered") ||
       msg.includes("already exists") ||
       msg.includes("duplicate key");
-
-    if (isEmailSendError) {
-      // Fallback: crear el usuario manualmente (sin enviar email)
-      // y generar un magic link de invite que el director pueda
-      // compartir por otro medio (WhatsApp, etc).
-      try {
-        const { data: created, error: createErr } =
-          await admin.auth.admin.createUser({
-            email,
-            email_confirm: false,
-            user_metadata: { name },
-          });
-        if (createErr) throw createErr;
-        newUserId = created.user?.id;
-
-        const { data: linkData, error: linkErr } =
-          await admin.auth.admin.generateLink({
-            type: "invite",
-            email,
-            options: { redirectTo },
-          });
-        if (linkErr) throw linkErr;
-
-        manualInviteLink =
-          (linkData as { properties?: { action_link?: string } })?.properties
-            ?.action_link;
-        smtpWarning =
-          "El SMTP de Supabase no está configurado o saturó el rate limit. El usuario se creó OK — copiale el link de invitación que aparece acá abajo y compartiselo por otro medio.";
-      } catch (fallbackErr) {
-        const fe = fallbackErr as { message?: string };
-        return NextResponse.json(
-          {
-            error: inviteError.message,
-            hint:
-              "El SMTP de Supabase no está configurado y el fallback también falló: " +
-              (fe.message ?? "error desconocido") +
-              ". Andá a Supabase → Authentication → Email Templates → SMTP Settings y configurá tu propio SMTP (Resend, SendGrid, etc).",
-          },
-          { status: 500 },
-        );
-      }
-    } else if (isDuplicateError) {
+    if (isDuplicate) {
       return NextResponse.json(
         {
-          error: inviteError.message,
+          error: createErr.message,
           hint:
             "El email ya existe en auth.users. Buscá al usuario en " +
             "Supabase → Authentication → Users. Si ya tiene cuenta, " +
-            "podés invitarlo a este sistema desde Equipo → Editar (sin re-crearlo).",
-        },
-        { status: 500 },
-      );
-    } else {
-      return NextResponse.json(
-        {
-          error: inviteError.message,
-          hint:
-            "Error inesperado al invitar. Revisá los logs del servidor o " +
-            "creá el usuario manualmente desde Supabase → Authentication → Users.",
+            "no hace falta volver a crearlo — solo asignale rol/permisos " +
+            "desde Equipo.",
         },
         { status: 500 },
       );
     }
+    return NextResponse.json(
+      {
+        error: createErr.message,
+        hint:
+          "Error inesperado creando el usuario. Revisá los logs del " +
+          "servidor o crealo manualmente desde Supabase → Authentication → Users.",
+      },
+      { status: 500 },
+    );
   }
+  newUserId = created.user?.id;
 
   // ====== 4. Update profile con los campos extra ======
   // El trigger handle_new_user ya creó el profile con defaults.
@@ -301,15 +257,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     userId: newUserId,
-    // Si tuvimos que caer en el fallback porque SMTP falló, devolvemos
-    // el link de invitación armado por generateLink — el director lo
-    // tiene que copiar y compartir por otro medio (WhatsApp / mail
-    // personal / etc).  Sin esto, el usuario queda creado pero sin
-    // forma de setear su password.
-    inviteLink: manualInviteLink ?? null,
-    smtpWarning: smtpWarning ?? null,
-    message: manualInviteLink
-      ? `Usuario creado, pero NO se pudo mandar el email — copiale el link de invitación que aparece arriba y compartiselo a ${email}.`
-      : `Invitación enviada a ${email}.`,
+    // El usuario fue creado con la password default. El UI del modal
+    // se la muestra al director junto con el email para que se la
+    // pase al nuevo miembro.
+    defaultPassword: DEFAULT_PASSWORD,
+    message: `Usuario creado. Pasale el email y la contraseña por defecto al miembro — cuando entre, va a cambiarla desde su perfil.`,
   });
 }
