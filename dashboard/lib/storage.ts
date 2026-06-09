@@ -1098,6 +1098,7 @@ interface ExpenseRow {
   invoice_url: string | null;
   status: string | null;
   payment_day: number | null;
+  cuenta_id: string | null;
 }
 
 function expenseFromRow(r: ExpenseRow): Expense {
@@ -1131,6 +1132,7 @@ function expenseFromRow(r: ExpenseRow): Expense {
     invoiceUrl: r.invoice_url ?? null,
     status: (r.status as "paid" | "pending" | "cancelled" | null) ?? "paid",
     paymentDay: r.payment_day ?? null,
+    cuentaId: r.cuenta_id ?? null,
   };
 }
 
@@ -1163,11 +1165,17 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
       invoice_url: data.invoiceUrl ?? null,
       status: data.status ?? "paid",
       payment_day: data.paymentDay ?? null,
+      cuenta_id: data.cuentaId ?? null,
     })
     .select()
     .single();
   if (error) throw error;
-  return expenseFromRow(inserted as ExpenseRow);
+  const created = expenseFromRow(inserted as ExpenseRow);
+  // Sync movimiento bancario asociado, si aplica.
+  await syncExpenseToMovement(created).catch((err) =>
+    console.warn("[addExpense] sync movement failed:", err),
+  );
+  return created;
 }
 
 /** Update parcial de un expense. */
@@ -1195,6 +1203,7 @@ export async function updateExpense(
   if (patch.invoiceUrl !== undefined) dbPatch.invoice_url = patch.invoiceUrl;
   if (patch.status !== undefined) dbPatch.status = patch.status;
   if (patch.paymentDay !== undefined) dbPatch.payment_day = patch.paymentDay;
+  if (patch.cuentaId !== undefined) dbPatch.cuenta_id = patch.cuentaId;
 
   const { data, error } = await supabase
     .from("expenses")
@@ -1203,12 +1212,92 @@ export async function updateExpense(
     .select()
     .single();
   if (error) throw error;
-  return expenseFromRow(data as ExpenseRow);
+  const updated = expenseFromRow(data as ExpenseRow);
+  // Re-sincronizar movimiento bancario (puede haber cambiado cuenta,
+  // monto o fecha — o desvinculado).
+  await syncExpenseToMovement(updated).catch((err) =>
+    console.warn("[updateExpense] sync movement failed:", err),
+  );
+  return updated;
 }
 
 export async function deleteExpense(id: string): Promise<void> {
   const supabase = getSupabase();
+  // Borrar movimiento(s) linkeados antes de borrar el egreso. Si
+  // falla no bloqueamos — el director puede borrarlos a mano.
+  await deleteLinkedExpenseMovements(id).catch((err) =>
+    console.warn("[deleteExpense] delete linked movements failed:", err),
+  );
   await supabase.from("expenses").delete().eq("id", id);
+}
+
+// ============ EXPENSE ⇄ BANK MOVEMENT SYNC ============
+// Para egresos bancarios (cuenta_id != NULL), mantenemos un movimiento
+// de salida en cuenta_movimientos. El link se hace por una marca en
+// `notes` del movimiento: "[auto-expense:<expense_id>]".
+
+const EXPENSE_MOVEMENT_MARKER = (expenseId: string) =>
+  `[auto-expense:${expenseId}]`;
+
+/**
+ * Crea o actualiza el movimiento bancario asociado a un egreso.
+ * No-op si el egreso no tiene cuenta_id seteada o si el egreso
+ * fue creado pero todavía no se considera "ejecutado" (futuro:
+ * podríamos usar status === "paid" como gating, pero por ahora
+ * sincronizamos siempre que tenga cuenta_id).
+ */
+async function syncExpenseToMovement(expense: Expense): Promise<void> {
+  const supabase = getSupabase();
+  const marker = EXPENSE_MOVEMENT_MARKER(expense.id);
+
+  // Buscar el movimiento existente (si lo hubo de un sync anterior).
+  const { data: existing } = await supabase
+    .from("cuenta_movimientos")
+    .select("id, cuenta_id")
+    .like("notes", `%${marker}%`)
+    .limit(1)
+    .maybeSingle();
+
+  // Si el egreso ya NO tiene cuenta_id, borramos el movimiento que
+  // hubiera quedado vinculado (caso: el director cambió el medio de
+  // pago de tarjeta a efectivo).
+  if (!expense.cuentaId) {
+    if (existing?.id) {
+      await supabase.from("cuenta_movimientos").delete().eq("id", existing.id);
+    }
+    return;
+  }
+
+  const movementBody = {
+    cuenta_id: expense.cuentaId,
+    fecha: expense.date,
+    description: expense.concept,
+    category: "egreso" as const,
+    entry_amount: 0,
+    exit_amount: expense.amount,
+    comprobante_id: null,
+    notes: marker,
+  };
+
+  if (existing?.id) {
+    // Update — puede haber cambiado fecha/monto/cuenta.
+    await supabase
+      .from("cuenta_movimientos")
+      .update(movementBody)
+      .eq("id", existing.id);
+  } else {
+    // Insert — primer sync.
+    await supabase.from("cuenta_movimientos").insert(movementBody);
+  }
+}
+
+async function deleteLinkedExpenseMovements(expenseId: string): Promise<void> {
+  const supabase = getSupabase();
+  const marker = EXPENSE_MOVEMENT_MARKER(expenseId);
+  await supabase
+    .from("cuenta_movimientos")
+    .delete()
+    .like("notes", `%${marker}%`);
 }
 
 // ==================== CLIENT MKT BUDGETS ====================

@@ -120,6 +120,25 @@ function formatPesosCompact(n: number): string {
   return `$ ${Math.round(n).toLocaleString("es-AR")}`;
 }
 
+/**
+ * Versión PRECISA (sin redondeo, con 2 decimales). Para el saldo
+ * total de las cuentas — el director quería ver el monto exacto
+ * incluyendo centavos, no la versión compacta tipo "USD 5K".
+ */
+function formatUsdPrecise(n: number): string {
+  return `USD ${n.toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatPesosPrecise(n: number): string {
+  return `$ ${n.toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function monthsBetween(from: string, to: string): string[] {
   const out: string[] = [];
   const [fy, fm] = from.split("-").map(Number);
@@ -611,7 +630,7 @@ export function PremiumCuentasBancarias() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Saldo Total Disponible"
-          value={formatUsdCompact(totalUsd)}
+          value={formatUsdPrecise(totalUsd)}
           delta={pctDelta(totalUsd, totalUsdPrev)}
           subLabel="vs. mes anterior"
           icon={<Wallet className="w-4 h-4" />}
@@ -621,7 +640,7 @@ export function PremiumCuentasBancarias() {
         />
         <KpiCard
           label="Total en Pesos"
-          value={formatPesosCompact(totalPesos)}
+          value={formatPesosPrecise(totalPesos)}
           delta={pctDelta(totalPesos, totalPesosPrev)}
           subLabel="vs. mes anterior"
           icon={<Banknote className="w-4 h-4" />}
@@ -631,7 +650,7 @@ export function PremiumCuentasBancarias() {
         />
         <KpiCard
           label="Total en Dólares"
-          value={`USD ${Math.round(totalDolares).toLocaleString("es-AR")}`}
+          value={formatUsdPrecise(totalDolares)}
           delta={pctDelta(totalDolares, totalDolaresPrev)}
           subLabel="vs. mes anterior"
           icon={<DollarSign className="w-4 h-4" />}

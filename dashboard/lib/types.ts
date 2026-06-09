@@ -503,6 +503,10 @@ export interface Expense {
    *  monthly_fixed, el status del mes corriente se computa solo a
    *  partir de hoy vs payment_day. */
   paymentDay?: number | null;
+  /** Cuenta bancaria desde la que se debita. Migración 059. NULL para
+   *  egresos no bancarios (efectivo, cripto). Cuando está seteado, el
+   *  sistema mantiene un movimiento de egreso asociado en esa cuenta. */
+  cuentaId?: string | null;
 }
 
 /** Entry del calendario de pago variable de un cliente.

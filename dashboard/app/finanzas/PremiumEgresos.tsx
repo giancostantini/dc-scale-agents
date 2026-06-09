@@ -27,6 +27,7 @@ import {
   getExpenses,
   updateExpense,
 } from "@/lib/storage";
+import { listCuentas, type CuentaBancaria } from "@/lib/cuentas-bancarias";
 import {
   CURRENCIES,
   EXPENSE_CATEGORIES,
@@ -583,7 +584,17 @@ function ExpenseFormModal({
   const [paymentDay, setPaymentDay] = useState<string>(
     initial?.paymentDay ? String(initial.paymentDay) : "",
   );
+  /** Cuenta bancaria desde la que se debita — para egresos con
+   *  tarjeta / transferencia / cheque / MP. Auto-crea movimiento. */
+  const [cuentaId, setCuentaId] = useState<string>(initial?.cuentaId ?? "");
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    listCuentas().then((all) =>
+      setCuentas(all.filter((c) => c.is_active)),
+    );
+  }, []);
 
   const amountNumber = Number(amount) || 0;
   const ivaNumber = Number(ivaPct) || 0;
@@ -621,6 +632,20 @@ function ExpenseFormModal({
           ? Math.trunc(pdNum)
           : null;
 
+      // Cuenta bancaria: solo aplica si el medio de pago es bancario.
+      // Para efectivo / crypto / otro, ignoramos cualquier selección
+      // previa (el director no quiere movimiento bancario asociado).
+      const bankMethods: ExpensePaymentMethod[] = [
+        "tarjeta",
+        "transferencia",
+        "cheque",
+        "mp",
+      ];
+      const effectiveCuentaId =
+        paymentMethod && bankMethods.includes(paymentMethod as ExpensePaymentMethod)
+          ? cuentaId || null
+          : null;
+
       const patch = {
         date,
         concept: concept.trim(),
@@ -634,6 +659,7 @@ function ExpenseFormModal({
         invoiceUrl,
         status: effectiveStatus,
         paymentDay: validPaymentDay,
+        cuentaId: effectiveCuentaId,
       };
       if (isEdit && initial) {
         await updateExpense(initial.id, patch);
@@ -829,6 +855,31 @@ function ExpenseFormModal({
               ))}
             </Select>
           </Field>
+          {/* Cuenta bancaria: solo visible si el medio de pago es
+              bancario (tarjeta, transferencia, cheque, MP). Cuando
+              está seleccionada, el sistema crea/actualiza un
+              movimiento de egreso en esa cuenta automáticamente. */}
+          {(paymentMethod === "tarjeta" ||
+            paymentMethod === "transferencia" ||
+            paymentMethod === "cheque" ||
+            paymentMethod === "mp") && (
+            <Field
+              label="Cuenta bancaria"
+              hint="Si elegís cuenta, el sistema crea un movimiento de egreso en ella automáticamente."
+            >
+              <Select
+                value={cuentaId}
+                onChange={(e) => setCuentaId(e.target.value)}
+              >
+                <option value="">— No vincular —</option>
+                {cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.bank_name} · {c.account_name || "Cuenta"} · ****{c.last4} · {c.currency}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           {/* Estado solo aplica para egresos de "Único pago". Para los
               fijos mensuales el estado se gestiona por cada mes a
               medida que se va pagando (no por el master record).
