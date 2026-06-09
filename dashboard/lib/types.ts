@@ -498,6 +498,11 @@ export interface Expense {
   invoiceUrl?: string | null;
   /** Estado del egreso. */
   status?: ExpenseStatus;
+  /** Día del mes (1-31) en que se debita un fijo mensual (tarjeta,
+   *  débito automático, etc). Migración 056. Si está seteado para un
+   *  monthly_fixed, el status del mes corriente se computa solo a
+   *  partir de hoy vs payment_day. */
+  paymentDay?: number | null;
 }
 
 /** Entry del calendario de pago variable de un cliente.

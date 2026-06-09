@@ -81,22 +81,132 @@ export function PremiumEgresos() {
     let totalAnio = 0;
     let ivaPagado = 0;
     const anio = monthYYYYMM.slice(0, 4);
+    const today = new Date();
+    const todayDay = today.getDate();
+    const todayMonthKey = monthYYYYMM;
     for (const e of expenses) {
-      const inMonth = e.date?.startsWith(monthYYYYMM);
-      const inYear = e.date?.startsWith(anio);
       const amt = Number(e.amount);
       const ivaAmt = (amt * Number(e.ivaPct ?? 22)) / 100;
-      if (inMonth) {
-        if (e.status === "paid") pagadoMes += amt;
-        if (e.status === "pending") pendienteMes += amt;
-      }
-      if (inYear && e.status === "paid") {
-        totalAnio += amt;
-        ivaPagado += ivaAmt;
+
+      if (e.recurrence === "monthly_fixed") {
+        // Para fijos mensuales evaluamos si CORRE este mes (start <=
+        // ahora <= end). Si corre y tiene payment_day, el status se
+        // deriva: pending hasta que llegue el día, paid desde ahí.
+        // Sin payment_day, queda como pending (el director marca a
+        // mano cuando paga).
+        const startMonth = (e.date ?? "").slice(0, 7);
+        const endMonth = e.recurrenceEndDate?.slice(0, 7) ?? null;
+        const runsThisMonth =
+          startMonth <= todayMonthKey &&
+          (!endMonth || todayMonthKey <= endMonth);
+        if (runsThisMonth) {
+          const derived = effectiveStatusForMonth(
+            e.paymentDay ?? null,
+            todayDay,
+          );
+          if (derived === "paid") pagadoMes += amt;
+          else pendienteMes += amt;
+        }
+
+        // Año: sumamos cada mes pasado dentro del año en que ya se
+        // ejecutó (asumimos que un fijo mensual pasado se pagó —
+        // el track manual queda como TODO).
+        if (startMonth.startsWith(anio)) {
+          // Cantidad de meses dentro del año actual que ya pasaron
+          // o están en curso (con payment_day cumplido).
+          const monthsRunInYear = monthsRunWithinYear(
+            e.date,
+            e.recurrenceEndDate ?? null,
+            e.paymentDay ?? null,
+            anio,
+            today,
+          );
+          totalAnio += amt * monthsRunInYear;
+          ivaPagado += ivaAmt * monthsRunInYear;
+        }
+      } else {
+        // Único pago: comportamiento original.
+        const inMonth = e.date?.startsWith(monthYYYYMM);
+        const inYear = e.date?.startsWith(anio);
+        if (inMonth) {
+          if (e.status === "paid") pagadoMes += amt;
+          if (e.status === "pending") pendienteMes += amt;
+        }
+        if (inYear && e.status === "paid") {
+          totalAnio += amt;
+          ivaPagado += ivaAmt;
+        }
       }
     }
     return { pagadoMes, pendienteMes, totalAnio, ivaPagado };
   }, [expenses, monthYYYYMM]);
+
+  /**
+   * Derive el status efectivo de un egreso fijo mensual para el mes
+   * en curso. Sin payment_day, queda pending. Con payment_day,
+   * pending si hoy < day, paid si hoy >= day.
+   */
+  function effectiveStatusForMonth(
+    paymentDay: number | null,
+    todayDay: number,
+  ): "paid" | "pending" {
+    if (paymentDay == null) return "pending";
+    return todayDay >= paymentDay ? "paid" : "pending";
+  }
+
+  /**
+   * Cuenta cuántos meses YA SE PAGARON de un fijo mensual dentro del
+   * año actual (usado para sumar al "totalAnio").
+   *
+   *   · Meses 100% pasados dentro del rango [start, end] cuentan.
+   *   · El mes en curso cuenta solo si hoy >= payment_day (o si no
+   *     hay payment_day y el director ya marcó algo — simplificamos:
+   *     sin payment_day, no contamos el mes en curso para evitar
+   *     inflado).
+   *   · Meses futuros del año no cuentan.
+   */
+  function monthsRunWithinYear(
+    startIso: string,
+    endIso: string | null,
+    paymentDay: number | null,
+    year: string,
+    today: Date,
+  ): number {
+    const yearStart = `${year}-01`;
+    const yearEnd = `${year}-12`;
+    const rangeStart =
+      startIso.slice(0, 7) > yearStart ? startIso.slice(0, 7) : yearStart;
+    const rangeEnd =
+      endIso == null
+        ? yearEnd
+        : endIso.slice(0, 7) < yearEnd
+          ? endIso.slice(0, 7)
+          : yearEnd;
+    if (rangeStart > rangeEnd) return 0;
+
+    const todayMonthKey = today.toISOString().slice(0, 7);
+    const todayDay = today.getDate();
+
+    let count = 0;
+    const [ys, ms] = rangeStart.split("-").map(Number);
+    const [ye, me] = rangeEnd.split("-").map(Number);
+    let y = ys;
+    let m = ms;
+    while (y < ye || (y === ye && m <= me)) {
+      const mk = `${y}-${String(m).padStart(2, "0")}`;
+      if (mk < todayMonthKey) {
+        count++;
+      } else if (mk === todayMonthKey) {
+        if (paymentDay != null && todayDay >= paymentDay) count++;
+      }
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+    return count;
+  }
 
   function openNew() {
     setEditing(null);
@@ -194,12 +304,32 @@ export function PremiumEgresos() {
     {
       key: "status",
       header: "Estado",
-      cell: (e) => (
-        <Pill tone={statusTone(e.status ?? "paid")}>
-          {statusLabel(e.status ?? "paid")}
-        </Pill>
-      ),
-      width: "110px",
+      cell: (e) => {
+        // Para monthly_fixed con payment_day, derivamos el estado del
+        // mes en curso. El master record queda en "pending" en DB,
+        // pero el pill refleja la realidad: "Pagado" si ya pasó el
+        // día de débito, "Pendiente" si todavía no.
+        const effective = (() => {
+          if (e.recurrence !== "monthly_fixed") return e.status ?? "paid";
+          if (e.paymentDay == null) return "pending";
+          const today = new Date();
+          return today.getDate() >= e.paymentDay ? "paid" : "pending";
+        })() as ExpenseStatus;
+        return (
+          <Pill tone={statusTone(effective)}>
+            {statusLabel(effective)}
+            {e.recurrence === "monthly_fixed" && e.paymentDay && (
+              <span
+                className="ml-1 text-2xs opacity-70"
+                title={`Débito automático día ${e.paymentDay} de cada mes`}
+              >
+                ·{e.paymentDay}
+              </span>
+            )}
+          </Pill>
+        );
+      },
+      width: "130px",
     },
   ];
 
@@ -354,6 +484,12 @@ function ExpenseFormModal({
   const [recurrence, setRecurrence] = useState<ExpenseRecurrence>(
     initial?.recurrence ?? "one_time",
   );
+  /** Día del mes (1-31) en que se debita. Solo aplica a monthly_fixed.
+   *  Cuando hay payment_day el sistema deriva el status del mes
+   *  automáticamente: pending si hoy < day, paid si hoy >= day. */
+  const [paymentDay, setPaymentDay] = useState<string>(
+    initial?.paymentDay ? String(initial.paymentDay) : "",
+  );
   const [saving, setSaving] = useState(false);
 
   const amountNumber = Number(amount) || 0;
@@ -381,6 +517,17 @@ function ExpenseFormModal({
       const effectiveStatus: ExpenseStatus =
         recurrence === "monthly_fixed" ? "pending" : status;
 
+      // Parsear payment_day: solo aplica para monthly_fixed.
+      // Validamos rango 1-31; cualquier otro valor se guarda como null.
+      const pdNum = Number(paymentDay);
+      const validPaymentDay =
+        recurrence === "monthly_fixed" &&
+        Number.isFinite(pdNum) &&
+        pdNum >= 1 &&
+        pdNum <= 31
+          ? Math.trunc(pdNum)
+          : null;
+
       const patch = {
         date,
         concept: concept.trim(),
@@ -393,6 +540,7 @@ function ExpenseFormModal({
         ivaPct: ivaNumber,
         invoiceUrl,
         status: effectiveStatus,
+        paymentDay: validPaymentDay,
       };
       if (isEdit && initial) {
         await updateExpense(initial.id, patch);
@@ -605,6 +753,25 @@ function ExpenseFormModal({
                   </option>
                 ))}
               </Select>
+            </Field>
+          )}
+          {/* Día de débito — solo monthly_fixed. Si está seteado, el
+              sistema calcula el status del mes en curso solo:
+              pending hasta que llegue el día, paid desde el día. */}
+          {recurrence === "monthly_fixed" && (
+            <Field
+              label="Día de débito del mes"
+              hint='Cuándo se debita (ej "5" para el 5 de cada mes). Si lo dejás vacío, vas a tener que marcar el pago a mano cada mes.'
+            >
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                step={1}
+                value={paymentDay}
+                onChange={(e) => setPaymentDay(e.target.value)}
+                placeholder="Ej: 5"
+              />
             </Field>
           )}
         </div>

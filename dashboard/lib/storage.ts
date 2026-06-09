@@ -1093,6 +1093,7 @@ interface ExpenseRow {
   iva_pct: number | string | null;
   invoice_url: string | null;
   status: string | null;
+  payment_day: number | null;
 }
 
 function expenseFromRow(r: ExpenseRow): Expense {
@@ -1125,6 +1126,7 @@ function expenseFromRow(r: ExpenseRow): Expense {
           : r.iva_pct,
     invoiceUrl: r.invoice_url ?? null,
     status: (r.status as "paid" | "pending" | "cancelled" | null) ?? "paid",
+    paymentDay: r.payment_day ?? null,
   };
 }
 
@@ -1156,6 +1158,7 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
       iva_pct: data.ivaPct ?? 22,
       invoice_url: data.invoiceUrl ?? null,
       status: data.status ?? "paid",
+      payment_day: data.paymentDay ?? null,
     })
     .select()
     .single();
@@ -1187,6 +1190,7 @@ export async function updateExpense(
   if (patch.ivaPct !== undefined) dbPatch.iva_pct = patch.ivaPct;
   if (patch.invoiceUrl !== undefined) dbPatch.invoice_url = patch.invoiceUrl;
   if (patch.status !== undefined) dbPatch.status = patch.status;
+  if (patch.paymentDay !== undefined) dbPatch.payment_day = patch.paymentDay;
 
   const { data, error } = await supabase
     .from("expenses")
