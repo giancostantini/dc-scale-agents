@@ -20,6 +20,7 @@ export default function PortalTendenciasPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [items, setItems] = useState<TrendItem[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [bodyMd, setBodyMd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,10 +58,12 @@ export default function PortalTendenciasPage() {
             const data = (await res.json()) as {
               items: TrendItem[];
               generatedAt: string | null;
+              bodyMd: string | null;
             };
             if (active) {
               setItems(data.items ?? []);
               setGeneratedAt(data.generatedAt ?? null);
+              setBodyMd(data.bodyMd ?? null);
             }
           }
         }
@@ -94,7 +97,7 @@ export default function PortalTendenciasPage() {
           </div>
         </section>
 
-        <SectorTrendsView items={items} />
+        <SectorTrendsView items={items} fallbackMarkdown={bodyMd} />
       </main>
     </>
   );
