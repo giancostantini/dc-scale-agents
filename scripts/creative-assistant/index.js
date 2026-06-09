@@ -294,6 +294,31 @@ Idioma: ${brief.voice.language || "es"}
 Nota: generar el texto de narracion optimizado para este estilo de voz.`;
   }
 
+  // Opt-in: prompt listo para pegar en una IA generativa. La herramienta sale
+  // del brief (aiPromptTool) o de las instrucciones; si no hay, genérico.
+  const aiTool = (brief.aiPromptTool || "").trim();
+  const aiPromptBlock = brief.generateAiPrompt
+    ? `--- TAREA EXTRA: PROMPT PARA IA GENERATIVA ---
+Además de todo lo anterior, agregá al final una sección titulada exactamente:
+
+## Prompt para IA de imagen/video (copiar y pegar)
+
+Objetivo: que la CM/editor copie ese prompt, lo pegue en una IA generativa y obtenga el visual.
+- Herramienta destino: ${
+        aiTool
+          ? `**${aiTool}** — escribí el/los prompt(s) en el formato y estilo que mejor le rinde a esa herramienta.`
+          : `no se especificó una; escribí un prompt en lenguaje natural GENÉRICO que sirva para cualquier IA (ChatGPT/DALL·E, Midjourney, Sora, etc.). Si las instrucciones de arriba mencionan una herramienta puntual, usá esa.`
+      }
+- ${
+        brief.pieceType === "reel"
+          ? "Para este REEL: un prompt por cada SHOT/escena clave (2-4 prompts), con sujeto, acción, encuadre, cámara/movimiento, iluminación, mood y duración aproximada. Aclarar relación de aspecto 9:16 (vertical)."
+          : "Para esta pieza ESTÁTICA: un prompt por imagen, con sujeto, composición/layout, estilo, iluminación, fondo y relación de aspecto (1:1 o 4:5)."
+      }
+- Anclá cada prompt a la MARCA del cliente: paleta (hex del brandbook), tipografías, estilo fotográfico y restricciones de arriba. Si falta un dato de marca (vault incompleto), escribí "FALTA INFO: <qué>" en vez de inventarlo.
+- Poné cada prompt en su propio bloque de código para copiar fácil, y escribilo LISTO para usar (sin placeholders tipo [X]).
+- Sumá a la sección Metadata una línea: ai_prompt_tool: ${aiTool || "genérico"}.`
+    : "";
+
   return `Eres el Asistente Creativo de D&C Scale Partners.
 
 Tu trabajo es generar BRIEFS CREATIVOS para que la Community Manager (CM) y el editor de video del equipo produzcan el contenido. NO producís el video ni el static vos mismo — generás la idea, el ángulo, el copy listo y la dirección creativa completa para que un humano lo ejecute con criterio. Sos el apoyo creativo del equipo: les ahorrás el 70% del trabajo mental (qué postear, por qué, con qué hook, qué copy) y ellos ponen la ejecución y el toque final.
@@ -388,7 +413,9 @@ TEMPLATES DE HOOK TEXTUAL (<7 palabras):
 
 ---
 
-${brief.pieceType === "reel" ? REEL_OUTPUT_FORMAT : STATIC_OUTPUT_FORMAT}`;
+${brief.pieceType === "reel" ? REEL_OUTPUT_FORMAT : STATIC_OUTPUT_FORMAT}
+
+${aiPromptBlock}`;
 }
 
 const REEL_OUTPUT_FORMAT = `GENERA LO SIGUIENTE (formato Markdown):
@@ -613,6 +640,9 @@ export async function createContent(briefInput) {
       angle: brief.angle ?? null,
       objective: brief.objective ?? null,
       status: "brief",
+      aiPrompt: brief.generateAiPrompt
+        ? { included: true, tool: brief.aiPromptTool || "generic" }
+        : null,
     },
   });
 
