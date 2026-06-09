@@ -45,6 +45,11 @@ export default function InviteUserModal({
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>("");
+  /** Link de invitación generado server-side cuando SMTP falla.
+   *  El director lo copia y se lo manda al usuario por otro medio. */
+  const [manualInviteLink, setManualInviteLink] = useState<string | null>(null);
+  const [smtpWarning, setSmtpWarning] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Cargar clientes solo si el director elige "Cliente del portal" (lazy)
   useEffect(() => {
@@ -95,12 +100,18 @@ export default function InviteUserModal({
     setClientId(initialClientId ?? "");
     setUserType(initialUserType);
     setError("");
+    setManualInviteLink(null);
+    setSmtpWarning(null);
+    setLinkCopied(false);
   }
 
   async function submit() {
     if (!canSubmit) return;
     setSending(true);
     setError("");
+    setManualInviteLink(null);
+    setSmtpWarning(null);
+    setLinkCopied(false);
 
     try {
       const supabase = getSupabase();
@@ -149,6 +160,16 @@ export default function InviteUserModal({
 
       if (!res.ok) {
         setError(`${data.error ?? "Error desconocido"}${data.hint ? `\n${data.hint}` : ""}`);
+        return;
+      }
+
+      // Si vino el inviteLink, NO cerramos el modal — mostramos el
+      // link al director para que lo copie manualmente. El cierre lo
+      // hace él con "Listo".
+      if (data.inviteLink) {
+        setManualInviteLink(data.inviteLink);
+        setSmtpWarning(data.smtpWarning ?? null);
+        onCreated?.();
         return;
       }
 
@@ -390,17 +411,115 @@ export default function InviteUserModal({
           </div>
         )}
 
-        <div className={styles.actions}>
-          <button className={styles.btnGhost} onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            className={styles.btnSolid}
-            onClick={submit}
-            disabled={!canSubmit}
+        {/* Link de invitación manual: aparece cuando el SMTP falló y
+            el server hizo fallback con generateLink. El director copia
+            el link y se lo manda al usuario por otro medio. */}
+        {manualInviteLink && (
+          <div
+            style={{
+              padding: 16,
+              background: "rgba(196,168,130,0.1)",
+              borderLeft: "3px solid var(--sand-dark)",
+              fontSize: 12,
+              marginTop: 10,
+              borderRadius: 4,
+            }}
           >
-            {sending ? "Enviando…" : isClient ? "Invitar al portal →" : "Invitar →"}
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: "var(--sand-dark)",
+                marginBottom: 6,
+              }}
+            >
+              Usuario creado · Compartí este link
+            </div>
+            <div
+              style={{
+                color: "var(--deep-green)",
+                lineHeight: 1.5,
+                marginBottom: 10,
+              }}
+            >
+              {smtpWarning ??
+                "El email no se pudo mandar. Copiale este link al usuario por WhatsApp / mail / etc para que setee su contraseña."}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "stretch",
+              }}
+            >
+              <input
+                readOnly
+                value={manualInviteLink}
+                onClick={(e) => e.currentTarget.select()}
+                style={{
+                  flex: 1,
+                  padding: "9px 11px",
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 4,
+                  background: "var(--white)",
+                  color: "var(--deep-green)",
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(manualInviteLink);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 2000);
+                  } catch {
+                    // ignore — el usuario puede copiar a mano
+                  }
+                }}
+                style={{
+                  padding: "9px 14px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: linkCopied ? "var(--green-ok)" : "var(--deep-green)",
+                  color: "var(--off-white)",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "0.04em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {linkCopied ? "✓ Copiado" : "Copiar link"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className={styles.actions}>
+          <button
+            className={styles.btnGhost}
+            onClick={() => {
+              if (manualInviteLink) reset();
+              onClose();
+            }}
+          >
+            {manualInviteLink ? "Listo" : "Cancelar"}
           </button>
+          {!manualInviteLink && (
+            <button
+              className={styles.btnSolid}
+              onClick={submit}
+              disabled={!canSubmit}
+            >
+              {sending ? "Enviando…" : isClient ? "Invitar al portal →" : "Invitar →"}
+            </button>
+          )}
         </div>
       </div>
     </div>

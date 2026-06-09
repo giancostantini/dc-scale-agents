@@ -154,22 +154,94 @@ export async function POST(req: NextRequest) {
       redirectTo,
     });
 
+  // Variable que vamos a tener al final del flujo: el userId nuevo.
+  // Se setea en el path normal (invite OK) o en el path de fallback
+  // (createUser + generateLink cuando SMTP falla).
+  let newUserId: string | undefined = invite?.user?.id;
+  let manualInviteLink: string | undefined;
+  let smtpWarning: string | undefined;
+
   if (inviteError) {
-    return NextResponse.json(
-      {
-        error: inviteError.message,
-        hint:
-          "Si dice 'A user with this email address has already been registered', el email ya existe. " +
-          "Buscá al usuario en Supabase → Authentication → Users.",
-      },
-      { status: 500 },
-    );
+    const msg = inviteError.message.toLowerCase();
+    const isEmailSendError =
+      msg.includes("error sending invite email") ||
+      msg.includes("error sending email") ||
+      msg.includes("smtp") ||
+      msg.includes("rate limit");
+    const isDuplicateError =
+      msg.includes("already been registered") ||
+      msg.includes("already exists") ||
+      msg.includes("duplicate key");
+
+    if (isEmailSendError) {
+      // Fallback: crear el usuario manualmente (sin enviar email)
+      // y generar un magic link de invite que el director pueda
+      // compartir por otro medio (WhatsApp, etc).
+      try {
+        const { data: created, error: createErr } =
+          await admin.auth.admin.createUser({
+            email,
+            email_confirm: false,
+            user_metadata: { name },
+          });
+        if (createErr) throw createErr;
+        newUserId = created.user?.id;
+
+        const { data: linkData, error: linkErr } =
+          await admin.auth.admin.generateLink({
+            type: "invite",
+            email,
+            options: { redirectTo },
+          });
+        if (linkErr) throw linkErr;
+
+        manualInviteLink =
+          (linkData as { properties?: { action_link?: string } })?.properties
+            ?.action_link;
+        smtpWarning =
+          "El SMTP de Supabase no está configurado o saturó el rate limit. El usuario se creó OK — copiale el link de invitación que aparece acá abajo y compartiselo por otro medio.";
+      } catch (fallbackErr) {
+        const fe = fallbackErr as { message?: string };
+        return NextResponse.json(
+          {
+            error: inviteError.message,
+            hint:
+              "El SMTP de Supabase no está configurado y el fallback también falló: " +
+              (fe.message ?? "error desconocido") +
+              ". Andá a Supabase → Authentication → Email Templates → SMTP Settings y configurá tu propio SMTP (Resend, SendGrid, etc).",
+          },
+          { status: 500 },
+        );
+      }
+    } else if (isDuplicateError) {
+      return NextResponse.json(
+        {
+          error: inviteError.message,
+          hint:
+            "El email ya existe en auth.users. Buscá al usuario en " +
+            "Supabase → Authentication → Users. Si ya tiene cuenta, " +
+            "podés invitarlo a este sistema desde Equipo → Editar (sin re-crearlo).",
+        },
+        { status: 500 },
+      );
+    } else {
+      return NextResponse.json(
+        {
+          error: inviteError.message,
+          hint:
+            "Error inesperado al invitar. Revisá los logs del servidor o " +
+            "creá el usuario manualmente desde Supabase → Authentication → Users.",
+        },
+        { status: 500 },
+      );
+    }
   }
 
   // ====== 4. Update profile con los campos extra ======
   // El trigger handle_new_user ya creó el profile con defaults.
-  // Acá pisamos los campos del wizard.
-  const newUserId = invite.user?.id;
+  // Acá pisamos los campos del wizard.  Si vinimos del path de
+  // fallback (manualInviteLink seteado), el trigger igual creó la
+  // fila — `newUserId` viene de createUser.
   if (newUserId) {
     if (targetRole === "client") {
       // Cliente final: profile con role='client', client_id seteado.
@@ -229,6 +301,15 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     userId: newUserId,
-    message: `Invitación enviada a ${email}.`,
+    // Si tuvimos que caer en el fallback porque SMTP falló, devolvemos
+    // el link de invitación armado por generateLink — el director lo
+    // tiene que copiar y compartir por otro medio (WhatsApp / mail
+    // personal / etc).  Sin esto, el usuario queda creado pero sin
+    // forma de setear su password.
+    inviteLink: manualInviteLink ?? null,
+    smtpWarning: smtpWarning ?? null,
+    message: manualInviteLink
+      ? `Usuario creado, pero NO se pudo mandar el email — copiale el link de invitación que aparece arriba y compartiselo a ${email}.`
+      : `Invitación enviada a ${email}.`,
   });
 }
