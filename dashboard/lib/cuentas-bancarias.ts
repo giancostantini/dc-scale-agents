@@ -326,9 +326,20 @@ function movFromRow(r: Record<string, unknown>): CuentaMovimiento {
   };
 }
 
-/** Formatea monto con símbolo según moneda. */
+/**
+ * Formatea monto con símbolo según moneda.
+ *
+ * IMPORTANTE: sin redondear — siempre devuelve 2 decimales. Para los
+ * movimientos de cuentas bancarias y los saldos, redondear hacía
+ * desaparecer los centavos y desfasaba el saldo real (un movimiento
+ * de USD 14,40 se veía como "USD 14" y la suma de varios redondeos
+ * podía dejar el saldo total descuadrado contra los bancos).
+ */
 export function formatCurrency(amount: number, currency: Currency): string {
-  const v = Math.round(amount).toLocaleString("es-AR");
+  const v = amount.toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   switch (currency) {
     case "ARS":
       return `$ ${v}`;
