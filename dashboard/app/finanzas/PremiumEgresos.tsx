@@ -305,15 +305,35 @@ export function PremiumEgresos() {
       key: "status",
       header: "Estado",
       cell: (e) => {
-        // Para monthly_fixed con payment_day, derivamos el estado del
-        // mes en curso. El master record queda en "pending" en DB,
-        // pero el pill refleja la realidad: "Pagado" si ya pasó el
-        // día de débito, "Pendiente" si todavía no.
+        // Para monthly_fixed con payment_day, el pill refleja si la
+        // ÚLTIMA carga programada ya pasó:
+        //   · Si ya ocurrió al menos un débito (desde el inicio del
+        //     contrato) → "Pagado".
+        //   · Si todavía no llegó el primer débito → "Pendiente".
+        // Las stats del mes en curso siguen su propia lógica (pending
+        // hasta que llegue payment_day del MES actual) — eso es para
+        // el "Pendiente del mes" del header.
         const effective = (() => {
           if (e.recurrence !== "monthly_fixed") return e.status ?? "paid";
           if (e.paymentDay == null) return "pending";
+          // Primer débito programado: el payment_day del mes de inicio
+          // si startDay <= paymentDay, sino el del mes siguiente.
+          const startDateObj = new Date(e.date);
+          const startDay = startDateObj.getDate();
+          const firstChargeDate =
+            startDay <= e.paymentDay
+              ? new Date(
+                  startDateObj.getFullYear(),
+                  startDateObj.getMonth(),
+                  e.paymentDay,
+                )
+              : new Date(
+                  startDateObj.getFullYear(),
+                  startDateObj.getMonth() + 1,
+                  e.paymentDay,
+                );
           const today = new Date();
-          return today.getDate() >= e.paymentDay ? "paid" : "pending";
+          return today >= firstChargeDate ? "paid" : "pending";
         })() as ExpenseStatus;
         return (
           <Pill tone={statusTone(effective)}>
