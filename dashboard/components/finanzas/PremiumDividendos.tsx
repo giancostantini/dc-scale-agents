@@ -60,6 +60,7 @@ import {
   getDividendConfig,
   listDividendDistributions,
   revenueMonthlyImpact,
+  setDividendDistributionStatus,
   updateDividendConfig,
   upsertDividendDistribution,
   type DividendConfig,
@@ -234,6 +235,41 @@ export function PremiumDividendos({
     }
   }
 
+  /**
+   * Toggle del estado de una distribución (pagada/pendiente).
+   * Si el mes no tiene snapshot persistido, primero lo creamos con
+   * los datos actuales y después seteamos el status. Esto permite
+   * marcar como "pagado" un mes que todavía no se había snapshoteado
+   * (ej el mes en curso).
+   */
+  async function handleToggleStatus(r: HistRow) {
+    if (!config) return;
+    const newStatus: "paid" | "pending" =
+      r.estado === "pagada" ? "pending" : "paid";
+    try {
+      // Asegurar que el snapshot exista antes de cambiar el status.
+      if (!distributionsByMonth.has(r.monthKey)) {
+        await upsertDividendDistribution(
+          r.monthKey,
+          r.net,
+          config,
+          true,
+        );
+      }
+      await setDividendDistributionStatus(r.monthKey, newStatus);
+      toast.success(
+        newStatus === "paid"
+          ? "Marcada como pagada"
+          : "Marcada como pendiente",
+      );
+      const fresh = await listDividendDistributions();
+      setDistributions(fresh);
+    } catch (err) {
+      const e = err as Error;
+      toast.error("No se pudo cambiar el estado", { description: e.message });
+    }
+  }
+
   useEffect(() => {
     refresh();
   }, []);
@@ -384,8 +420,16 @@ export function PremiumDividendos({
       const [yy, mm] = mk.split("-").map(Number);
       const lastDay = new Date(yy, mm, 0).getDate();
       const fechaCierre = `${String(lastDay).padStart(2, "0")}/${String(mm).padStart(2, "0")}/${yy}`;
-      // Estado: cerrado/pagada si el mes ya pasó, pendiente si es el mes en curso
-      const estado: "pagada" | "pendiente" = mk < curMonth ? "pagada" : "pendiente";
+      // Estado: prioridad al snapshot persistido. Si no hay snapshot
+      // (mes en curso o aún no se generó), default: pagada si el mes
+      // ya pasó, pendiente si es el actual.
+      const estado: "pagada" | "pendiente" = snap
+        ? snap.status === "paid"
+          ? "pagada"
+          : "pendiente"
+        : mk < curMonth
+          ? "pagada"
+          : "pendiente";
       const sociosCount =
         (Number(config.partner_a_pct) > 0 ? 1 : 0) +
         (Number(config.partner_b_pct) > 0 ? 1 : 0) +
@@ -926,7 +970,20 @@ export function PremiumDividendos({
                     <td className="px-4 py-3 text-center text-ink-400 tabular-nums">{r.sociosCount}</td>
                     <td className="px-4 py-3 text-right text-ink tabular-nums">{formatUsd(r.saldoDisponible)}</td>
                     <td className="px-4 py-3">
-                      <EstadoPill estado={r.estado} />
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(r)}
+                        title="Click para alternar entre Pagada y Pendiente"
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          padding: 0,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        <EstadoPill estado={r.estado} />
+                      </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">

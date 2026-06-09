@@ -260,6 +260,8 @@ export interface DividendDistribution {
   notes: string | null;
   generated_by: string | null;
   generated_at: string;
+  /** Estado editable — migración 058. Default 'pending'. */
+  status: "paid" | "pending";
 }
 
 export async function listDividendDistributions(): Promise<
@@ -290,7 +292,25 @@ export async function listDividendDistributions(): Promise<
     notes: (r.notes as string | null) ?? null,
     generated_by: (r.generated_by as string | null) ?? null,
     generated_at: r.generated_at as string,
+    status: (r.status === "paid" ? "paid" : "pending") as "paid" | "pending",
   }));
+}
+
+/**
+ * Cambia el estado de una distribución (paid/pending). Si el
+ * snapshot del mes no existía, lo crea con los valores actuales y
+ * el status pedido. Idempotente.
+ */
+export async function setDividendDistributionStatus(
+  monthKey: string,
+  status: "paid" | "pending",
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("dividend_distributions")
+    .update({ status })
+    .eq("month_key", monthKey);
+  if (error) throw error;
 }
 
 /**
