@@ -157,6 +157,21 @@ export default function EditClientCoreModal({
             back_pct: Number(dividendBack) || 0,
           };
 
+      // Auto-promoción de fase: si es GP y el director destildó el
+      // flag de lanzamiento, y el cliente todavía está en
+      // status='onboarding', lo movemos a 'active' con la phase de
+      // ejecución.  Caso inverso: si activa el flag y el cliente
+      // estaba en active, lo movemos a onboarding (uso menos común).
+      let phaseUpdate: { status?: Client["status"]; phase?: string } = {};
+      if (isGp && !isBrandLaunch && client.status === "onboarding") {
+        phaseUpdate = { status: "active", phase: "Activo · Ejecución" };
+      } else if (isGp && isBrandLaunch && client.status === "active") {
+        phaseUpdate = {
+          status: "onboarding",
+          phase: "On-boarding · Diagnóstico",
+        };
+      }
+
       const updated = await updateClientCore(client.id, {
         name: name.trim(),
         // mantenemos el "sector · país" pattern del addClient original
@@ -173,6 +188,7 @@ export default function EditClientCoreModal({
         default_cuenta_id: defaultCuentaId || null,
         dividend_distribution: dividendDistribution,
         onboarding: onboardingMerged,
+        ...phaseUpdate,
       });
       onSaved(updated);
       onClose();

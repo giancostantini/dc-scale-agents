@@ -381,6 +381,10 @@ export interface UpdateClientCoreInput {
   default_cuenta_id?: string | null;
   dividend_distribution?: Client["dividend_distribution"] | null;
   onboarding?: ClientOnboarding | null;
+  /** Status y phase — para cambiar la fase del cliente
+   *  (ej onboarding → active cuando ya completó el lanzamiento). */
+  status?: Client["status"];
+  phase?: string;
 }
 
 export async function updateClientCore(

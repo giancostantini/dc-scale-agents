@@ -17,6 +17,7 @@ import {
   getClient,
   deleteClient,
   updateClientLogo,
+  updateClientCore,
   listClientContacts,
   addClientContact,
   updateClientContact,
@@ -252,6 +253,76 @@ export default function ConfiguracionPage({
           </p>
         </div>
       </div>
+
+      {/* ============== ESTADO / FASE ============== */}
+      {/* Si el cliente está en onboarding y el director ya lo dio
+          por activado, lo promovemos a 'active' con un click. Útil
+          para clientes históricos que se crearon como onboarding
+          y nunca se promovieron. */}
+      {client.status === "onboarding" && (
+        <div
+          className={ui.panel}
+          style={{
+            marginBottom: 24,
+            borderLeft: "3px solid var(--green-ok)",
+          }}
+        >
+          <div className={ui.panelHead}>
+            <div>
+              <div className={ui.panelTitle}>Estado del cliente</div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  marginTop: 4,
+                  lineHeight: 1.5,
+                }}
+              >
+                Hoy aparece como <strong>Onboarding</strong>. Si ya
+                terminó la fase de estrategia/branding y entró en
+                ejecución, marcalo como activo para que aparezca como{" "}
+                <strong>"● Growth"</strong> en el hub.
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                if (
+                  !confirm(
+                    "¿Marcar este cliente como activo (en ejecución)?",
+                  )
+                ) {
+                  return;
+                }
+                try {
+                  const updated = await updateClientCore(client.id, {
+                    status: "active",
+                    phase: "Activo · Ejecución",
+                  });
+                  setClient(updated);
+                } catch (err) {
+                  const e = err as Error;
+                  alert(`No se pudo actualizar:\n${e.message}`);
+                }
+              }}
+              style={{
+                padding: "10px 18px",
+                background: "var(--green-ok)",
+                color: "var(--off-white)",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textTransform: "uppercase",
+              }}
+            >
+              ✓ Activar cliente
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ============== EDITAR CREACIÓN ============== */}
       <div className={ui.panel} style={{ marginBottom: 24 }}>
