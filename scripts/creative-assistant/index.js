@@ -8,6 +8,10 @@ import {
   buildVaultGuardrailBlock,
 } from "../lib/vault-completeness.js";
 import {
+  fetchClientMemory,
+  buildClientMemoryBlock,
+} from "../lib/client-memory.js";
+import {
   logAgentRun,
   logAgentError,
   registerContentPiece,
@@ -118,7 +122,10 @@ function getTodayISO() {
 async function loadClientContext(client) {
   console.log(`Loading vault context for client: ${client}`);
 
-  const [clientRow] = await Promise.all([fetchClient(client)]);
+  const [clientRow, clientMemory] = await Promise.all([
+    fetchClient(client),
+    fetchClientMemory(client),
+  ]);
 
   // Brand: Content Creator necesita TODO el brandbook (genera piezas con
   // tono, voz, paleta, restricciones, formatos).
@@ -140,6 +147,7 @@ async function loadClientContext(client) {
     brand,
     brandBlock: buildBrandBlock(brand),
     vaultAssessment: assessClientVault(VAULT, client),
+    clientMemory,
   };
 
   const fileKeys = [
@@ -300,6 +308,8 @@ SOLICITADO POR: ${brief.source}
 ${buildVaultGuardrailBlock(ctx.vaultAssessment, brief.client)}
 
 ${directivesBlock}
+
+${buildClientMemoryBlock(ctx.clientMemory)}
 
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
