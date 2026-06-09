@@ -4,6 +4,10 @@ import { fileURLToPath } from "url";
 import { parseBrief, DEFAULT_BRIEF } from "./brief-schema.js";
 import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
 import {
+  assessClientVault,
+  buildVaultGuardrailBlock,
+} from "../lib/vault-completeness.js";
+import {
   logAgentRun,
   logAgentError,
   registerContentPiece,
@@ -135,6 +139,7 @@ async function loadClientContext(client) {
     contentLibrary: readVaultFile(`clients/${client}/content-library.md`),
     brand,
     brandBlock: buildBrandBlock(brand),
+    vaultAssessment: assessClientVault(VAULT, client),
   };
 
   const fileKeys = [
@@ -151,6 +156,12 @@ async function loadClientContext(client) {
   const loaded = fileKeys.filter((k) => context[k] !== null).length;
   console.log(`Vault context loaded: ${loaded}/${fileKeys.length} files found`);
   if (context.sector) console.log(`Client sector (from Supabase): ${context.sector}`);
+  if (!context.vaultAssessment.complete) {
+    console.warn(
+      `[${AGENT}] ⚠️ vault incompleto para ${client} — falta: ${context.vaultAssessment.missing.join(", ")}. ` +
+        `El prompt incluirá un guardrail anti-alucinación (no inventar, marcar FALTA INFO).`,
+    );
+  }
 
   return context;
 }
@@ -286,13 +297,15 @@ CLIENTE: ${brief.client}
 FECHA: ${getTodayFormatted()}
 SOLICITADO POR: ${brief.source}
 
+${buildVaultGuardrailBlock(ctx.vaultAssessment, brief.client)}
+
 ${directivesBlock}
 
 --- CONTEXTO DE LA AGENCIA ---
 ${ctx.agencyContext || "Sin contexto de agencia."}
 
 --- MARCA DEL CLIENTE (overview) ---
-${ctx.clientBrand || `Sin contexto de marca cargado. Sector: ${ctx.sector || "sin especificar"}. Usa buenas practicas genericas del sector.`}
+${ctx.clientBrand || `Sin contexto de marca cargado para este cliente (sector: ${ctx.sector || "sin especificar"}). NO inventes la identidad de marca: trabajá solo con lo que haya y marcá "FALTA INFO: <qué>" donde necesites datos de marca.`}
 
 ${ctx.brandBlock}
 
