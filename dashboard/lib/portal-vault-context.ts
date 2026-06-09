@@ -37,6 +37,7 @@ export interface PortalVaultContext {
   seoLibrary: string | null;
   metricsLog: string | null;
   performanceLog: string | null;
+  sectorTrends: string | null;
 }
 
 /**
@@ -61,6 +62,7 @@ export async function loadClientVaultForPortal(
     seoLibrary,
     metricsLog,
     performanceLog,
+    sectorTrends,
     brand,
   ] = await Promise.all([
     fetchVaultFile(`${base}/claude-client.md`).catch(() => null),
@@ -71,6 +73,7 @@ export async function loadClientVaultForPortal(
     fetchVaultFile(`${base}/seo-library.md`).catch(() => null),
     fetchVaultFile(`${base}/metrics-log.md`).catch(() => null),
     fetchVaultFile(`${base}/performance-log.md`).catch(() => null),
+    fetchVaultFile(`${base}/sector-trends.md`).catch(() => null),
     loadClientBrand(clientId).catch((err) => {
       console.warn(
         `[portal-vault-context] loadClientBrand falló para ${clientId}:`,
@@ -90,6 +93,7 @@ export async function loadClientVaultForPortal(
     seoLibrary,
     metricsLog,
     performanceLog,
+    sectorTrends,
   };
 }
 
@@ -128,6 +132,7 @@ export function buildPortalVaultBlock(
     { title: "Biblioteca SEO (seo-library.md)", body: vault.seoLibrary },
     { title: "Histórico de métricas (metrics-log.md)", body: vault.metricsLog },
     { title: "Histórico de performance (performance-log.md)", body: vault.performanceLog },
+    { title: "Tendencias del nicho (sector-trends.md)", body: vault.sectorTrends },
   ];
 
   const brandEntries = Object.entries(vault.brand)
@@ -218,6 +223,7 @@ export function vaultSignatureFragment(vault: PortalVaultContext): string {
     sl: fingerprint(vault.seoLibrary),
     ml: fingerprint(vault.metricsLog),
     pl: fingerprint(vault.performanceLog),
+    tr: fingerprint(vault.sectorTrends),
     brand: Object.entries(vault.brand)
       .map(([k, v]) => `${k}:${fingerprint(v)}`)
       .sort(),

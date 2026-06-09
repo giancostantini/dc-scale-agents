@@ -1,0 +1,83 @@
+name: Sector Trends
+
+# Semanal: martes 12:00 UTC = 9:00 AM Uruguay. Trae tendencias del nicho para
+# cada cliente Growth Partner activo, las escribe al vault (sector-trends.md) +
+# agent_outputs, commitea, y dispara el mail de tendencias.
+on:
+  schedule:
+    - cron: '0 12 * * 2'
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (opcional; si se pasa, corre solo ese)'
+        required: false
+
+jobs:
+  trends:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          # token con push para commitear sector-trends.md
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run sector-trends for active GP clients
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
+            exit 1
+          fi
+          MANUAL="${{ github.event.inputs.client }}"
+          if [ -n "$MANUAL" ]; then
+            slugs="[\"$MANUAL\"]"
+          else
+            # Solo clientes Growth Partner activos (los DEV quedan afuera).
+            resp=$(curl -fsS \
+              "${SUPABASE_URL}/rest/v1/clients?status=eq.active&type=eq.gp&select=id" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}")
+            slugs=$(echo "$resp" | jq -c '[.[] | .id]')
+          fi
+          echo "Clientes a procesar: $slugs"
+          # Secuencial (no matrix) para commitear el vault una sola vez sin race.
+          echo "$slugs" | jq -r '.[]' | while read -r slug; do
+            [ -z "$slug" ] && continue
+            echo "=== sector-trends: $slug ==="
+            printf '{ "client": "%s", "source": "scheduled" }' "$slug" > /tmp/brief.json
+            node scripts/sector-trends/index.js --brief /tmp/brief.json \
+              || echo "::warning::sector-trends falló para $slug (sigo con el resto)"
+          done
+
+      - name: Commit sector-trends.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/clients/*/sector-trends.md
+          git diff --cached --quiet || git commit -m "sector-trends: actualización semanal de tendencias"
+          git push
+
+      - name: Enviar mails de tendencias
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          DIGEST_CRON_SECRET: ${{ secrets.DIGEST_CRON_SECRET }}
+        run: |
+          if [ -z "${DASHBOARD_URL:-}" ] || [ -z "${DIGEST_CRON_SECRET:-}" ]; then
+            echo "::warning::DASHBOARD_URL o DIGEST_CRON_SECRET no seteados — se omite el envío de mails"
+            exit 0
+          fi
+          curl -fsS -X POST "${DASHBOARD_URL}/api/portal/trends/send-all" \
+            -H "Authorization: Bearer ${DIGEST_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            || echo "::warning::el endpoint send-all de tendencias falló"
