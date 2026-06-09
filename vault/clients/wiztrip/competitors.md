@@ -1,4 +1,4 @@
-# Competencia — WIZ-TRIP
+# Competencia — WizTrip
 
 Lista de competidores directos y piezas de referencia. El Competitor Scanner
 lee este archivo 3x por semana y registra cada pieza nueva en

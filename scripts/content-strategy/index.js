@@ -9,6 +9,14 @@ import {
   pushNotification,
 } from "../lib/supabase.js";
 import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
+import {
+  assessClientVault,
+  buildVaultGuardrailBlock,
+} from "../lib/vault-completeness.js";
+import {
+  fetchClientMemory,
+  buildClientMemoryBlock,
+} from "../lib/client-memory.js";
 import { createContent } from "../creative-assistant/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -184,6 +192,16 @@ async function run() {
   );
   const hookDatabase = readVaultFile("agents/content-creator/hook-database.md");
 
+  const vaultAssessment = assessClientVault(VAULT, CLIENT);
+  if (!vaultAssessment.complete) {
+    console.warn(
+      `[${AGENT}] ⚠️ vault incompleto para ${CLIENT} — falta: ${vaultAssessment.missing.join(", ")}. ` +
+        `El prompt incluirá guardrail anti-alucinación.`,
+    );
+  }
+
+  const clientMemory = await fetchClientMemory(CLIENT);
+
   const week = getWeekRange();
   const daysLabels = week.days.map((d) => d.label).join(", ");
   const daysJSON = week.days
@@ -200,6 +218,10 @@ Mapeo de dias a fechas ISO:
 {
 ${daysJSON}
 }
+
+${buildVaultGuardrailBlock(vaultAssessment, CLIENT)}
+
+${buildClientMemoryBlock(clientMemory)}
 
 --- CONTEXTO DE LA AGENCIA ---
 ${agencyContext || "Sin contexto de agencia."}
@@ -253,7 +275,7 @@ REGLAS DE PLANIFICACION:
 6. Si hay metricas reales, duplicar lo que funciona y descartar lo que no
 7. Incluir al menos 1 pieza de prueba social por semana
 8. Lunes y jueves: contenido educativo. Viernes y fines de semana: emocional/lifestyle
-9. Si no hay datos reales del cliente, genera un plan basado en mejores practicas para su nicho
+9. Si faltan datos reales del cliente (ver aviso "VAULT INCOMPLETO" arriba si aparece), NO inventes marca/estrategia como si fueran del cliente: armá un plan más conservador y marcá "FALTA INFO: <qué>" en las notas de las piezas que dependan de ese dato faltante
 
 ---
 

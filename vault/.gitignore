@@ -1,0 +1,11 @@
+# Media renderizada (video/audio) NO va en git.
+# Los entregables finales viven en OneDrive / Supabase storage.
+# El vault es solo contexto de TEXTO (estrategia, marca, logs).
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+*.mp3
+*.wav
+*.m4a
