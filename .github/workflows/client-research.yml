@@ -1,0 +1,51 @@
+name: Client Research
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug'
+        required: true
+
+  # Consultant Agent o Dashboard pueden disparar via API (/api/agents/run → repository_dispatch)
+  repository_dispatch:
+    types: [client-research]
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          # token con permiso de push para commitear el learning-log
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run client-research
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Brief completo desde el dashboard via repository_dispatch
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+          else
+            # Manual dispatch — solo el slug
+            echo '{ "client": "${{ inputs.client }}" }' > /tmp/brief.json
+          fi
+          node scripts/client-research/index.js --brief /tmp/brief.json
+
+      - name: Commit learning-log changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/clients/*/learning-log.md
+          git diff --cached --quiet || git commit -m "client-research: investigación para ${{ github.event.client_payload.brief.client || inputs.client }}"
+          git push
