@@ -186,6 +186,7 @@ export default function TendenciasInternasPage() {
                 </div>
                 <SectorTrendsView
                   items={ct.items}
+                  fallbackMarkdown={ct.bodyMd}
                   emptyLabel="Sin tendencias para este cliente todavía."
                 />
               </section>

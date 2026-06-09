@@ -18,6 +18,8 @@ export interface ClientTrends {
   sector: string | null;
   items: TrendItem[];
   generatedAt: string | null;
+  /** Markdown completo (fallback de render si items viene vacío). */
+  bodyMd: string | null;
 }
 
 interface TrendsStructured {
@@ -46,18 +48,22 @@ export async function getLatestSectorTrendsByClient(): Promise<ClientTrends[]> {
   // Traemos las salidas recientes y nos quedamos con la más nueva por cliente.
   const { data: outputs } = await admin
     .from("agent_outputs")
-    .select("client, structured, created_at")
+    .select("client, structured, body_md, created_at")
     .eq("output_type", "sector-trends")
     .in("client", ids)
     .order("created_at", { ascending: false })
     .limit(300);
 
-  const latestByClient = new Map<string, { structured: unknown; created_at: string }>();
+  const latestByClient = new Map<
+    string,
+    { structured: unknown; body_md: string | null; created_at: string }
+  >();
   for (const o of outputs ?? []) {
     const key = o.client as string;
     if (!latestByClient.has(key)) {
       latestByClient.set(key, {
         structured: o.structured,
+        body_md: (o.body_md as string | null) ?? null,
         created_at: o.created_at as string,
       });
     }
@@ -73,6 +79,7 @@ export async function getLatestSectorTrendsByClient(): Promise<ClientTrends[]> {
         sector: (c.sector as string | null) ?? null,
         items: Array.isArray(structured.items) ? structured.items : [],
         generatedAt: structured.generatedAt ?? o?.created_at ?? null,
+        bodyMd: o?.body_md ?? null,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -92,7 +99,7 @@ export async function getLatestSectorTrends(
 
   const { data: output } = await admin
     .from("agent_outputs")
-    .select("structured, created_at")
+    .select("structured, body_md, created_at")
     .eq("client", clientId)
     .eq("output_type", "sector-trends")
     .order("created_at", { ascending: false })
@@ -106,5 +113,6 @@ export async function getLatestSectorTrends(
     sector: (client.sector as string | null) ?? null,
     items: Array.isArray(structured.items) ? structured.items : [],
     generatedAt: structured.generatedAt ?? (output?.created_at as string) ?? null,
+    bodyMd: (output?.body_md as string | null) ?? null,
   };
 }

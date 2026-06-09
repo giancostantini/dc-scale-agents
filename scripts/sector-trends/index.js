@@ -39,8 +39,6 @@ const AGENT = "sector-trends";
 const MODEL = "claude-sonnet-4-6";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-const ITEMS_SEPARATOR = "---ITEMS_JSON---";
-
 // ---------------------------------------------------------------------------
 // Brief + vault helpers
 // ---------------------------------------------------------------------------
@@ -164,21 +162,114 @@ function extractTextAndSources(data) {
   return { text: text.trim(), sources };
 }
 
-/** Separa el markdown (parte 1) del JSON de items (parte 2). Tolerante a fallos. */
-function splitBodyAndItems(raw) {
-  const idx = raw.indexOf(ITEMS_SEPARATOR);
-  if (idx === -1) return { bodyMd: raw.trim(), items: [] };
-  const bodyMd = raw.slice(0, idx).trim();
-  let jsonPart = raw.slice(idx + ITEMS_SEPARATOR.length).trim();
-  jsonPart = jsonPart.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
-  let items = [];
+// ---------------------------------------------------------------------------
+// Estructura los ítems vía tool_use FORZADO (segunda llamada, sin web search).
+// La API valida el input contra el schema → el JSON no puede salir truncado ni
+// mal escapado (era la causa del "Unterminated string" / "0 items"). Si falla,
+// devuelve [] (non-fatal): el agente igual guarda el markdown + fuentes.
+// ---------------------------------------------------------------------------
+
+const REPORT_TOOL = {
+  name: "report_sector_trends",
+  description:
+    "Reporta las tendencias del nicho como ítems estructurados, extraídos del análisis provisto.",
+  input_schema: {
+    type: "object",
+    properties: {
+      items: {
+        type: "array",
+        description: "5 a 10 tendencias accionables del análisis.",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Título corto de la tendencia." },
+            summary: { type: "string", description: "1-2 frases accionables." },
+            category: {
+              type: "string",
+              enum: [
+                "contenido",
+                "trafico",
+                "ventas",
+                "noticias",
+                "publicidad",
+                "estacional",
+              ],
+            },
+            sourceTitle: { type: "string", description: "Nombre de la fuente." },
+            sourceUrl: { type: "string", description: "URL de la fuente." },
+          },
+          required: ["title"],
+        },
+      },
+    },
+    required: ["items"],
+  },
+};
+
+async function structureTrends(rawText, attempt = 1) {
+  const MAX_ATTEMPTS = 3;
+  if (!rawText || !rawText.trim()) return [];
+
+  let res;
   try {
-    const parsed = JSON.parse(jsonPart);
-    if (Array.isArray(parsed)) items = parsed.filter((i) => i && i.title);
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 4096,
+        tools: [REPORT_TOOL],
+        tool_choice: { type: "tool", name: "report_sector_trends" },
+        messages: [
+          {
+            role: "user",
+            content: `Extraé las tendencias del siguiente análisis como ítems estructurados (categoría correcta + fuente con su URL real cuando esté en el texto). NO inventes datos que no estén en el análisis.\n\n${rawText}`,
+          },
+        ],
+      }),
+    });
   } catch (err) {
-    console.warn(`[${AGENT}] no pude parsear items JSON (non-fatal): ${err.message}`);
+    if (attempt < MAX_ATTEMPTS) {
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[${AGENT}] structureTrends network error (attempt ${attempt}): ${err.message}. Retry en ${delay}ms...`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      return structureTrends(rawText, attempt + 1);
+    }
+    console.warn(`[${AGENT}] structureTrends falló (network) — sigo sin items: ${err.message}`);
+    return [];
   }
-  return { bodyMd, items };
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "(sin body)");
+    const isRetriable = res.status === 429 || res.status >= 500;
+    if (isRetriable && attempt < MAX_ATTEMPTS) {
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[${AGENT}] structureTrends ${res.status} (attempt ${attempt}). Retry en ${delay}ms...`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      return structureTrends(rawText, attempt + 1);
+    }
+    console.warn(`[${AGENT}] structureTrends API error ${res.status}: ${errText} — sigo sin items.`);
+    return [];
+  }
+
+  const data = await res.json();
+  const blocks = Array.isArray(data?.content) ? data.content : [];
+  const toolBlock = blocks.find(
+    (b) => b.type === "tool_use" && b.name === "report_sector_trends",
+  );
+  const items = toolBlock?.input?.items;
+  if (!Array.isArray(items)) return [];
+  return items.filter(
+    (i) => i && typeof i.title === "string" && i.title.trim(),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -222,9 +313,7 @@ REGLAS:
 - Si no encontrás señales reales para algo, escribilo ("Sin datos recientes para X") — NO inventes ni rellenes con genéricos.
 - Priorizá lo accionable para generar contenido y campañas esta semana.
 
-SALIDA — DOS partes separadas EXACTAMENTE por una línea con "${ITEMS_SEPARATOR}":
-
-PARTE 1 — Markdown legible (para el portal del cliente y el equipo). Omití una sección si no tiene datos reales:
+SALIDA — Markdown legible (para el portal del cliente y el equipo). Omití una sección si no tiene datos reales. En total 5 a 10 tendencias accionables, cada una con su fuente (link) inline:
 ## Tendencias del nicho — ${name} (${today})
 ### 🎬 Contenido que está funcionando
 - [tendencia] — por qué importa + plataforma · (fuente: <link>)
@@ -232,20 +321,7 @@ PARTE 1 — Markdown legible (para el portal del cliente y el equipo). Omití un
 ### 🛒 Ventas / conversión
 ### 📰 Noticias del sector
 ### 📣 Publicidad / campañas
-### 🗓️ Estacional / próximo
-
-${ITEMS_SEPARATOR}
-
-PARTE 2 — Array JSON válido (sin texto ni fences alrededor). 5 a 10 ítems, los más accionables, cada uno con su fuente real:
-[
-  {
-    "title": "título corto de la tendencia",
-    "summary": "1-2 frases accionables para el cliente",
-    "category": "contenido | trafico | ventas | noticias | publicidad | estacional",
-    "sourceTitle": "nombre de la fuente",
-    "sourceUrl": "https://..."
-  }
-]`;
+### 🗓️ Estacional / próximo`;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +349,7 @@ export async function run(briefInput) {
 
   const prompt = buildPrompt(client, clientRow, header, seed, today);
   const { text, sources } = await callClaudeWebSearch(prompt, {
-    maxTokens: 5000,
+    maxTokens: 6000,
     maxSearches: 6,
   });
 
@@ -283,7 +359,10 @@ export async function run(briefInput) {
     );
   }
 
-  const { bodyMd, items } = splitBodyAndItems(text);
+  // 2da llamada: estructurar los ítems con tool_use forzado (robusto). Si
+  // falla, items = [] y el portal igual muestra el markdown (body_md) + fuentes.
+  const bodyMd = text;
+  const items = await structureTrends(text);
   const displayName = clientRow?.name || client;
 
   const sourcesBlock = sources.length

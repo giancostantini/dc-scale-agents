@@ -36,12 +36,28 @@ const CATEGORY_ORDER = [
 
 export default function SectorTrendsView({
   items,
+  fallbackMarkdown,
   emptyLabel = "Todavía no hay tendencias cargadas. El agente las actualiza cada semana.",
 }: {
   items: TrendItem[];
+  fallbackMarkdown?: string | null;
   emptyLabel?: string;
 }) {
   if (!items || items.length === 0) {
+    if (fallbackMarkdown && fallbackMarkdown.trim()) {
+      return (
+        <div
+          style={{
+            whiteSpace: "pre-wrap",
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "var(--text-muted)",
+          }}
+        >
+          {fallbackMarkdown}
+        </div>
+      );
+    }
     return <p className={styles.empty}>{emptyLabel}</p>;
   }
 
