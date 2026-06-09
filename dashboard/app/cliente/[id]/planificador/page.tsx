@@ -288,15 +288,25 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   /** Eventos multi-día visibles en este mes (intersección con el mes
    *  visible). Cada evento puede empezar antes y terminar después del
    *  mes — lo recortamos al rango visible y devolvemos las "bandas"
-   *  que tienen que renderizarse. */
+   *  que tienen que renderizarse.
+   *
+   *  Filtramos los eventos auto-generados por seed-from-strategy
+   *  (marcados con "[Auto-estrategia]" en notes). En "Eventos y
+   *  producciones del mes" solo queremos lo que el director agendó
+   *  manualmente — los auto-eventos siguen visibles en las celdas
+   *  diarias del calendario pero no inflan la lista del header. */
   const visibleEvents = useMemo(() => {
     const startOfMonthIso = dayKey(1);
     const endOfMonthIso = dayKey(daysInMonth);
+    const AUTO_MARKER = "[Auto-estrategia]";
     return events.filter((ev) => {
       const evStart = ev.date;
       const evEnd = ev.end_date ?? ev.date;
       // intersección con el mes
-      return evStart <= endOfMonthIso && evEnd >= startOfMonthIso;
+      if (!(evStart <= endOfMonthIso && evEnd >= startOfMonthIso)) return false;
+      // descartar eventos auto-generados — solo manuales
+      if ((ev.notes ?? "").startsWith(AUTO_MARKER)) return false;
+      return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, year, month]);

@@ -276,6 +276,30 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     .single();
 
   if (error) throw error;
+
+  // Si el wizard cargó datos del contacto principal, también
+  // insertamos una fila en client_contacts (is_primary=true) para que
+  // ese contacto aparezca automáticamente en "Contactos de referencia".
+  // Antes solo vivía en clients.contact_* y el director tenía que
+  // recargarlo a mano si quería gestionarlo desde Configuración.
+  //
+  // Fire-and-forget en el sentido que si falla NO bloqueamos la
+  // creación del cliente — el director siempre puede agregar el
+  // contacto manualmente desde /configuracion.
+  if (data.contactName && data.contactName.trim()) {
+    try {
+      await supabase.from("client_contacts").insert({
+        client_id: id,
+        name: data.contactName.trim(),
+        email: data.contactEmail?.trim() || null,
+        phone: data.contactPhone?.trim() || null,
+        is_primary: true,
+      });
+    } catch (e) {
+      console.warn("auto-create client_contact failed:", e);
+    }
+  }
+
   return clientFromRow(inserted as ClientRow);
 }
 
@@ -536,7 +560,8 @@ export async function updateRoadmapMonthNote(
  */
 export async function updateClientExternalLinks(
   clientId: string,
-  patch: Partial<Client["external_links"] & object>,
+  /** Cada key puede ser undefined (no tocar) o null (limpiar). */
+  patch: Record<string, string | null | undefined>,
 ): Promise<void> {
   const supabase = getSupabase();
 

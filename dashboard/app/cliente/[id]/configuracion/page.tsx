@@ -25,9 +25,10 @@ import {
 } from "@/lib/storage";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { uploadFile } from "@/lib/upload";
-import type { Client, ClientContact } from "@/lib/types";
+import type { Client, ClientContact, OnboardingFile } from "@/lib/types";
 import InviteUserModal from "@/components/InviteUserModal";
 import EditClientCoreModal from "@/components/EditClientCoreModal";
+import LibraryUploadButton from "@/components/LibraryUploadButton";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ConfiguracionPage({
@@ -296,6 +297,28 @@ export default function ConfiguracionPage({
           onSaved={(updated) => setClient(updated)}
         />
       )}
+
+      {/* ============== CONTRATO ============== */}
+      {/* Se movió desde Biblioteca: el contrato es información
+          contractual, no documentación viva del cliente. Vive más
+          natural junto con el resto de los datos de Configuración. */}
+      <div className={ui.panel} style={{ marginBottom: 24 }}>
+        <div className={ui.panelHead}>
+          <div>
+            <div className={ui.panelTitle}>Contrato</div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginTop: 4,
+              }}
+            >
+              PDF firmado del contrato con el cliente.
+            </div>
+          </div>
+        </div>
+        <ContractPanel client={client} onChange={refresh} />
+      </div>
 
       {/* ============== LOGO ============== */}
       <div className={ui.panel} style={{ marginBottom: 24 }}>
@@ -848,3 +871,100 @@ const inputStyle: React.CSSProperties = {
   color: "var(--deep-green)",
   outline: "none",
 };
+
+// ============================================================
+// ContractPanel — visualizar + subir/reemplazar el contrato PDF
+// del cliente. El archivo se guarda en client.onboarding.contractFile
+// (string path o OnboardingFile). Se gestiona acá en Configuración
+// porque es información contractual, no documentación viva del
+// cliente.
+// ============================================================
+function ContractPanel({
+  client,
+  onChange,
+}: {
+  client: Client;
+  onChange: () => void;
+}) {
+  const contractFile = client.onboarding?.contractFile;
+  const fileName = !contractFile
+    ? null
+    : typeof contractFile === "string"
+      ? contractFile.split("/").pop() || contractFile
+      : (contractFile as OnboardingFile).name;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 18,
+        alignItems: "center",
+        flexWrap: "wrap",
+      }}
+    >
+      <div
+        style={{
+          width: 64,
+          height: 80,
+          background: "var(--ivory)",
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 24,
+          color: "var(--sand-dark)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          flexShrink: 0,
+        }}
+      >
+        📄
+      </div>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        {fileName ? (
+          <>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--deep-green)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={fileName}
+            >
+              {fileName}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                marginTop: 4,
+              }}
+            >
+              Reemplazá el archivo si necesitás actualizar el contrato.
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+            }}
+          >
+            Sin contrato cargado. Subí el PDF firmado para tenerlo
+            disponible cuando lo necesites.
+          </div>
+        )}
+      </div>
+      <LibraryUploadButton
+        client={client}
+        target="contract"
+        label={contractFile ? "↻ Reemplazar contrato" : "+ Subir contrato"}
+        accept=".pdf"
+        onUploaded={onChange}
+      />
+    </div>
+  );
+}

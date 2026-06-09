@@ -101,8 +101,8 @@ export default function BibliotecaPage({
   const counts = useMemo(() => {
     const ob = client?.onboarding;
     return {
-      onboarding:
-        (ob?.kickoffFile ? 1 : 0) + (ob?.contractFile ? 1 : 0),
+      // Contrato se removió de esta carpeta — vive en Configuración.
+      onboarding: ob?.kickoffFile ? 1 : 0,
       branding: ob?.brandingFiles?.length ?? 0,
       reportes: reports.filter(
         (r) => r.status === "approved" || r.status === "draft",
@@ -228,6 +228,10 @@ export default function BibliotecaPage({
 }
 
 // ============ FOLDER: Onboarding ============
+// El contrato se sacó de esta carpeta (ahora se gestiona desde
+// Configuración del cliente, junto con el resto de los datos
+// contractuales). Acá queda solo el kickoff — info estratégica que
+// alimenta a los agentes.
 function OnboardingFolder({
   client,
   canUpload,
@@ -241,30 +245,20 @@ function OnboardingFolder({
   const items: { name: string; file: OnboardingFile | string; tag: string }[] =
     [];
   if (ob?.kickoffFile) items.push({ name: "Kickoff", file: ob.kickoffFile, tag: "Kickoff" });
-  if (ob?.contractFile) items.push({ name: "Contrato", file: ob.contractFile, tag: "Contrato" });
 
   return (
     <FolderShell
       title="Onboarding"
-      emptyMsg={canUpload ? "" : "Todavía no se cargó kickoff ni contrato."}
+      emptyMsg={canUpload ? "" : "Todavía no se cargó el kickoff."}
       uploadButtons={
         canUpload ? (
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <LibraryUploadButton
-              client={client}
-              target="kickoff"
-              label={ob?.kickoffFile ? "↻ Reemplazar kickoff" : "+ Subir kickoff"}
-              accept=".pdf"
-              onUploaded={onChange}
-            />
-            <LibraryUploadButton
-              client={client}
-              target="contract"
-              label={ob?.contractFile ? "↻ Reemplazar contrato" : "+ Subir contrato"}
-              accept=".pdf"
-              onUploaded={onChange}
-            />
-          </div>
+          <LibraryUploadButton
+            client={client}
+            target="kickoff"
+            label={ob?.kickoffFile ? "↻ Reemplazar kickoff" : "+ Subir kickoff"}
+            accept=".pdf"
+            onUploaded={onChange}
+          />
         ) : null
       }
     >
@@ -707,14 +701,30 @@ function TeamsFolderBanner({
   async function save() {
     setSaving(true);
     try {
+      // Antes mandábamos `undefined` para limpiar — pero el spread del
+      // merge servidor-side lo ignora y queda el valor viejo. Mandar
+      // null para que sobreescriba.
       await updateClientExternalLinks(client.id, {
-        teams_folder_url: url.trim() === "" ? undefined : url.trim(),
+        teams_folder_url: url.trim() === "" ? null : url.trim(),
       });
       setEditing(false);
       onUpdated();
     } catch (err) {
-      const e = err as Error;
-      alert(`No se pudo guardar el link de OneDrive:\n${e.message}`);
+      // Logueamos el error completo para diagnosticar si es RLS,
+      // columna inexistente, etc.
+      console.error("updateClientExternalLinks failed:", err);
+      const e = err as {
+        message?: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      };
+      const parts = [e?.message, e?.details, e?.hint]
+        .filter((s) => typeof s === "string" && s.trim().length > 0)
+        .join(" · ");
+      alert(
+        `No se pudo guardar el link de OneDrive:\n${parts || "Error desconocido — revisá la consola del navegador."}`,
+      );
     } finally {
       setSaving(false);
     }
