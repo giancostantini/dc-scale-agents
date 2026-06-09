@@ -229,14 +229,110 @@ export function PremiumEgresos() {
     }
   }
 
-  const columns: Column<Expense>[] = [
+  /**
+   * Fila de display: para egresos one_time = 1 fila. Para
+   * monthly_fixed = 1 fila por mes desde startMonth hasta el mes
+   * en curso (o hasta recurrenceEndDate si está). Cada instancia
+   * tiene su propia fecha de débito y status derivado.
+   *
+   * Edit y delete actúan sobre el master Expense (mismo `.expense`).
+   */
+  type ExpenseRow = {
+    expense: Expense;
+    /** ID único de la fila (master.id para únicos, master.id + mes para fijos). */
+    rowKey: string;
+    /** Fecha real de débito de esta instancia (YYYY-MM-DD). */
+    displayDate: string;
+    /** Status derivado de esta instancia específica. */
+    derivedStatus: ExpenseStatus;
+  };
+
+  const displayRows: ExpenseRow[] = useMemo(() => {
+    const out: ExpenseRow[] = [];
+    const today = new Date();
+    const todayMonthKey = today.toISOString().slice(0, 7);
+    const todayDay = today.getDate();
+    for (const e of expenses) {
+      if (e.recurrence !== "monthly_fixed") {
+        out.push({
+          expense: e,
+          rowKey: e.id,
+          displayDate: e.date,
+          derivedStatus: e.status ?? "paid",
+        });
+        continue;
+      }
+      // Expandir: una fila por cada mes desde startMonth hasta
+      // currentMonth (inclusive), respetando recurrence_end_date.
+      const startMonth = (e.date ?? "").slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(startMonth)) {
+        out.push({
+          expense: e,
+          rowKey: e.id,
+          displayDate: e.date,
+          derivedStatus: "pending",
+        });
+        continue;
+      }
+      const endMonth =
+        e.recurrenceEndDate?.slice(0, 7) ?? null;
+      const lastMonthKey = endMonth && endMonth < todayMonthKey ? endMonth : todayMonthKey;
+      const monthsToShow: string[] = [];
+      let cursor = startMonth;
+      // Safety: max 60 meses (5 años) para evitar loops infinitos.
+      let safety = 0;
+      while (cursor <= lastMonthKey && safety < 60) {
+        monthsToShow.push(cursor);
+        // next month
+        const [y, m] = cursor.split("-").map(Number);
+        const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+        cursor = nextMonth;
+        safety++;
+      }
+      const paymentDay = e.paymentDay ?? null;
+      for (const mk of monthsToShow) {
+        const [y, m] = mk.split("-").map(Number);
+        // Day del débito: usar payment_day si está, si no usar el día
+        // del start date (manteniendo el mismo dom todos los meses).
+        const startDay = new Date(e.date).getDate();
+        const dayUsed = paymentDay ?? startDay;
+        // Clamp al último día del mes si el día no existe (ej 31 en feb)
+        const lastDayOfMonth = new Date(y, m, 0).getDate();
+        const clampedDay = Math.min(dayUsed, lastDayOfMonth);
+        const displayDate = `${y}-${String(m).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
+
+        // Status: para meses pasados → pagado.
+        // Para el mes en curso: si hoy.día >= dayUsed → pagado, si no → pendiente.
+        // Para meses futuros: pendiente.
+        let derived: ExpenseStatus;
+        if (mk < todayMonthKey) {
+          derived = "paid";
+        } else if (mk > todayMonthKey) {
+          derived = "pending";
+        } else {
+          derived = todayDay >= clampedDay ? "paid" : "pending";
+        }
+        out.push({
+          expense: e,
+          rowKey: `${e.id}-${mk}`,
+          displayDate,
+          derivedStatus: derived,
+        });
+      }
+    }
+    // Ordenar por fecha desc
+    return out.sort((a, b) => b.displayDate.localeCompare(a.displayDate));
+  }, [expenses]);
+
+  const columns: Column<ExpenseRow>[] = [
     {
       key: "date",
       header: "Fecha",
       sortable: true,
-      cell: (e) => (
+      sortValue: (r) => r.displayDate,
+      cell: (r) => (
         <span className="text-sm font-medium text-ink tabular-nums">
-          {e.date}
+          {r.displayDate}
         </span>
       ),
       width: "110px",
@@ -245,12 +341,20 @@ export function PremiumEgresos() {
       key: "concept",
       header: "Concepto",
       sortable: true,
-      cell: (e) => (
+      sortValue: (r) => r.expense.concept,
+      cell: (r) => (
         <div>
-          <div className="text-sm font-medium text-ink">{e.concept}</div>
-          {e.providerName && (
+          <div className="text-sm font-medium text-ink">
+            {r.expense.concept}
+            {r.expense.recurrence === "monthly_fixed" && (
+              <span className="ml-2 text-2xs text-ink-300 font-normal">
+                · fijo mensual
+              </span>
+            )}
+          </div>
+          {r.expense.providerName && (
             <div className="text-2xs text-ink-300 mt-0.5">
-              Proveedor: {e.providerName}
+              Proveedor: {r.expense.providerName}
             </div>
           )}
         </div>
@@ -259,26 +363,27 @@ export function PremiumEgresos() {
     {
       key: "category",
       header: "Categoría",
-      cell: (e) => (
+      cell: (r) => (
         <Pill tone="sand">
-          {EXPENSE_CATEGORY_LABEL[e.category] ?? e.category}
+          {EXPENSE_CATEGORY_LABEL[r.expense.category] ?? r.expense.category}
         </Pill>
       ),
     },
     {
       key: "assigned_to",
       header: "Asignado",
-      cell: (e) => (
-        <span className="text-sm text-ink-500">{e.assignedTo}</span>
+      cell: (r) => (
+        <span className="text-sm text-ink-500">{r.expense.assignedTo}</span>
       ),
     },
     {
       key: "payment_method",
       header: "Método",
-      cell: (e) => (
+      cell: (r) => (
         <span className="text-sm text-ink-500">
-          {e.paymentMethod
-            ? PAYMENT_METHOD_LABEL[e.paymentMethod] ?? e.paymentMethod
+          {r.expense.paymentMethod
+            ? PAYMENT_METHOD_LABEL[r.expense.paymentMethod] ??
+              r.expense.paymentMethod
             : "—"}
         </span>
       ),
@@ -288,14 +393,14 @@ export function PremiumEgresos() {
       header: "Monto",
       align: "right",
       sortable: true,
-      sortValue: (e) => Number(e.amount),
-      cell: (e) => (
+      sortValue: (r) => Number(r.expense.amount),
+      cell: (r) => (
         <div className="text-right">
           <div className="text-sm font-semibold text-danger tabular-nums">
-            −USD {Number(e.amount).toLocaleString()}
+            −USD {Number(r.expense.amount).toLocaleString()}
           </div>
           <div className="text-2xs text-ink-300">
-            IVA {Number(e.ivaPct ?? 22)}%
+            IVA {Number(r.expense.ivaPct ?? 22)}%
           </div>
         </div>
       ),
@@ -304,51 +409,19 @@ export function PremiumEgresos() {
     {
       key: "status",
       header: "Estado",
-      cell: (e) => {
-        // Para monthly_fixed con payment_day, el pill refleja si la
-        // ÚLTIMA carga programada ya pasó:
-        //   · Si ya ocurrió al menos un débito (desde el inicio del
-        //     contrato) → "Pagado".
-        //   · Si todavía no llegó el primer débito → "Pendiente".
-        // Las stats del mes en curso siguen su propia lógica (pending
-        // hasta que llegue payment_day del MES actual) — eso es para
-        // el "Pendiente del mes" del header.
-        const effective = (() => {
-          if (e.recurrence !== "monthly_fixed") return e.status ?? "paid";
-          if (e.paymentDay == null) return "pending";
-          // Primer débito programado: el payment_day del mes de inicio
-          // si startDay <= paymentDay, sino el del mes siguiente.
-          const startDateObj = new Date(e.date);
-          const startDay = startDateObj.getDate();
-          const firstChargeDate =
-            startDay <= e.paymentDay
-              ? new Date(
-                  startDateObj.getFullYear(),
-                  startDateObj.getMonth(),
-                  e.paymentDay,
-                )
-              : new Date(
-                  startDateObj.getFullYear(),
-                  startDateObj.getMonth() + 1,
-                  e.paymentDay,
-                );
-          const today = new Date();
-          return today >= firstChargeDate ? "paid" : "pending";
-        })() as ExpenseStatus;
-        return (
-          <Pill tone={statusTone(effective)}>
-            {statusLabel(effective)}
-            {e.recurrence === "monthly_fixed" && e.paymentDay && (
-              <span
-                className="ml-1 text-2xs opacity-70"
-                title={`Débito automático día ${e.paymentDay} de cada mes`}
-              >
-                ·{e.paymentDay}
-              </span>
-            )}
-          </Pill>
-        );
-      },
+      cell: (r) => (
+        <Pill tone={statusTone(r.derivedStatus)}>
+          {statusLabel(r.derivedStatus)}
+          {r.expense.recurrence === "monthly_fixed" && r.expense.paymentDay && (
+            <span
+              className="ml-1 text-2xs opacity-70"
+              title={`Débito automático día ${r.expense.paymentDay} de cada mes`}
+            >
+              ·{r.expense.paymentDay}
+            </span>
+          )}
+        </Pill>
+      ),
       width: "130px",
     },
   ];
@@ -395,9 +468,9 @@ export function PremiumEgresos() {
       </div>
 
       <DataTable
-        data={expenses}
+        data={displayRows}
         columns={columns}
-        rowKey={(e) => e.id}
+        rowKey={(r) => r.rowKey}
         searchPlaceholder="Buscar por concepto, proveedor, categoría…"
         exportFilename={`egresos-${new Date().toISOString().slice(0, 10)}`}
         loading={loading}
@@ -412,11 +485,11 @@ export function PremiumEgresos() {
             </Button>
           ),
         }}
-        rowActions={(e) => (
+        rowActions={(r) => (
           <div className="flex items-center gap-1">
-            {e.invoiceUrl && (
+            {r.expense.invoiceUrl && (
               <a
-                href={e.invoiceUrl}
+                href={r.expense.invoiceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1.5 text-ink-300 hover:text-ink rounded-premium-sm hover:bg-paper-200 transition-colors"
@@ -428,7 +501,7 @@ export function PremiumEgresos() {
             )}
             <button
               type="button"
-              onClick={() => openEdit(e)}
+              onClick={() => openEdit(r.expense)}
               className="p-1.5 text-ink-300 hover:text-ink rounded-premium-sm hover:bg-paper-200 transition-colors"
               title="Editar"
             >
@@ -436,7 +509,7 @@ export function PremiumEgresos() {
             </button>
             <button
               type="button"
-              onClick={() => handleDelete(e)}
+              onClick={() => handleDelete(r.expense)}
               className="p-1.5 text-ink-300 hover:text-danger rounded-premium-sm hover:bg-danger/5 transition-colors"
               title="Eliminar"
             >
