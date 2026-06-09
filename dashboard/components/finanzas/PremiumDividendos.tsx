@@ -440,6 +440,12 @@ export function PremiumDividendos({
     const monthsInPeriod = monthsBetween(period.from, period.to);
     const curMonth = new Date().toISOString().slice(0, 7);
     for (const mk of monthsInPeriod) {
+      // Solo meses CERRADOS — la distribución se genera cuando el
+      // mes ya terminó. El mes en curso y los futuros NO se incluyen
+      // en el historial (los fijos mensuales harían que aparezcan
+      // todos los meses del año con "deuda" anticipada, lo cual no
+      // tiene sentido contable).
+      if (mk >= curMonth) continue;
       // Solo contamos meses con ACTIVIDAD REAL DE CASH:
       //   - al menos 1 payment 'paid' del mes
       //   - O al menos 1 expense del mes
