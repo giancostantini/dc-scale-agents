@@ -12,7 +12,7 @@ import type {
 } from "./supabase/auth";
 
 const PROFILE_COLS =
-  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions, reports_to_id";
+  "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, email_on_new_request, email_on_task_assigned, email_on_client_assigned, email_on_payment_received, email_on_content_approved, outlook_email, outlook_connected_at, avatar_url";
 
 // ============ PROFILES ============
 
@@ -47,6 +47,8 @@ export interface UpdateProfileInput {
   payment_amount?: number | null;
   payment_currency?: string | null;
   payment_type?: Profile["payment_type"];
+  /** Día del mes 1-31 en que se le paga al funcional. NULL = sin día. */
+  payment_day?: number | null;
   start_date?: string | null;
   phone?: string | null;
   notes?: string | null;
@@ -56,6 +58,15 @@ export interface UpdateProfileInput {
   client_id?: string | null;
   /** Manager directo (FK a profiles.id). NULL = sin jefe directo. */
   reports_to_id?: string | null;
+  // Migración 047
+  email_on_new_request?: boolean;
+  email_on_task_assigned?: boolean;
+  email_on_client_assigned?: boolean;
+  email_on_payment_received?: boolean;
+  email_on_content_approved?: boolean;
+  /** Migración 051. Public URL al avatar del usuario en el bucket
+   *  "avatars" de Storage. NULL = sin foto, el UI usa iniciales. */
+  avatar_url?: string | null;
 }
 
 export async function updateProfile(
@@ -82,6 +93,9 @@ export interface AssignmentInput {
   since?: string;
   until?: string | null;
   notes?: string | null;
+  /** Keys de menús del sidebar del cliente que verá este miembro.
+   *  NULL = todos (default). Ver lib/client-menus.ts. */
+  visible_menus?: string[] | null;
 }
 
 export async function listAssignmentsForUser(
@@ -126,7 +140,40 @@ export async function addAssignment(input: AssignmentInput): Promise<void> {
     since: input.since ?? new Date().toISOString().slice(0, 10),
     until: input.until ?? null,
     notes: input.notes ?? null,
+    visible_menus: input.visible_menus ?? null,
   });
+  if (error) throw error;
+  // Fire-and-forget: notif al assignee
+  fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "client_assigned",
+      clientId: input.client_id,
+      userId: input.user_id,
+      roleInClient: input.role_in_client,
+    }),
+  }).catch((err) => console.warn("[addAssignment] notify failed:", err));
+}
+
+/**
+ * Actualiza los menús visibles de una asignación existente.
+ * Identificada por (client_id, user_id, role_in_client).
+ * Pasar null = "ver todos los menús" (default).
+ */
+export async function updateAssignmentMenus(
+  clientId: string,
+  userId: string,
+  roleInClient: string,
+  visibleMenus: string[] | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_assignments")
+    .update({ visible_menus: visibleMenus })
+    .eq("client_id", clientId)
+    .eq("user_id", userId)
+    .eq("role_in_client", roleInClient);
   if (error) throw error;
 }
 

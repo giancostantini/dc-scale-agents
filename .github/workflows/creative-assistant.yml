@@ -1,0 +1,86 @@
+name: Asistente Creativo
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug'
+        required: true
+      piece_type:
+        description: 'Piece type'
+        required: true
+        default: 'reel'
+        type: choice
+        options:
+          - reel
+          - static-ad
+          - social-review
+          - headline-ad
+          - collage-ad
+          - carousel
+      objective:
+        description: 'Objective (leave empty for auto)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - viral
+          - sales
+          - value
+          - branding
+      angle:
+        description: 'Content angle or topic (free text, leave empty for auto)'
+        required: false
+      instructions:
+        description: 'Additional instructions (free text)'
+        required: false
+
+  # El Consultor / Estrategia de Contenido / Dashboard disparan via API:
+  # POST /repos/{owner}/{repo}/dispatches con { event_type: "creative-assistant", client_payload: { brief: {...} } }
+  repository_dispatch:
+    types: [creative-assistant]
+
+jobs:
+  generate-brief:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generar brief creativo
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          # Si lo dispara el Consultor / Estrategia / Dashboard via repository_dispatch
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+            node scripts/creative-assistant/index.js --brief /tmp/brief.json
+          else
+            # Dispatch manual — armar brief desde inputs
+            cat > /tmp/brief.json << 'BRIEF_EOF'
+          {
+            "client": "${{ inputs.client }}",
+            "pieceType": "${{ inputs.piece_type }}",
+            "source": "dashboard",
+            "objective": "${{ inputs.objective }}",
+            "angle": "${{ inputs.angle }}",
+            "instructions": "${{ inputs.instructions }}"
+          }
+          BRIEF_EOF
+            node scripts/creative-assistant/index.js --brief /tmp/brief.json
+          fi
+
+      - name: Commit content-library update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Asistente Creativo: brief para ${{ inputs.client || github.event.client_payload.brief.client }}"
+          git push

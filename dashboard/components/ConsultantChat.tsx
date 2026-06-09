@@ -14,15 +14,6 @@ interface ChatMessage {
     agent: string;
     status: "success" | "error";
     summary: string | null;
-    /** Si el output tiene video (pieza de Content Creator con produceVideo true). */
-    videoPieceId?: string | null;
-    /** Si produceVideo falló, mensaje de error legible. */
-    videoError?: string | null;
-    /** stderr crudo del bundler/render (sin ANSI). El TSX en sí no viaja al
-     *  chat por tamaño; solo el flag indica que hay disponible. */
-    videoErrorStderr?: string | null;
-    /** Indica si el output tiene compositionTsx para abrir desde el drawer. */
-    hasCompositionTsx?: boolean;
   } | null;
 }
 
@@ -154,45 +145,6 @@ export default function ConsultantChat({
   useEffect(() => {
     if (!hydrated) return;
 
-    async function enrichWithVideoInfo(runId: number): Promise<{
-      videoPieceId: string | null;
-      videoError: string | null;
-      videoErrorStderr: string | null;
-      hasCompositionTsx: boolean;
-    }> {
-      const fallback = {
-        videoPieceId: null,
-        videoError: null,
-        videoErrorStderr: null,
-        hasCompositionTsx: false,
-      };
-      try {
-        const res = await fetch(`/api/agents/runs/${runId}/output`);
-        if (!res.ok) return fallback;
-        const data = await res.json();
-        const structured = data?.output?.structured;
-        if (!structured || typeof structured !== "object") return fallback;
-
-        const pieceId =
-          typeof structured.pieceId === "string" ? structured.pieceId : null;
-        const videoPieceId = pieceId && structured.videoPath ? pieceId : null;
-        const videoError =
-          typeof structured.videoError === "string"
-            ? structured.videoError
-            : null;
-        const videoErrorStderr =
-          typeof structured.videoErrorStderr === "string"
-            ? structured.videoErrorStderr
-            : null;
-        const hasCompositionTsx =
-          typeof structured.compositionTsx === "string" &&
-          structured.compositionTsx.length > 0;
-        return { videoPieceId, videoError, videoErrorStderr, hasCompositionTsx };
-      } catch {
-        return fallback;
-      }
-    }
-
     for (const run of runs) {
       const isTracked = dispatchedRunIdsRef.current.has(run.id);
       const alreadyShown = completedShownRef.current.has(run.id);
@@ -201,22 +153,19 @@ export default function ConsultantChat({
 
       completedShownRef.current.add(run.id);
 
-      void enrichWithVideoInfo(run.id).then((enriched) => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "system",
-            content: "",
-            completion: {
-              runId: run.id,
-              agent: run.agent,
-              status: run.status as "success" | "error",
-              summary: run.summary ?? null,
-              ...enriched,
-            },
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "system",
+          content: "",
+          completion: {
+            runId: run.id,
+            agent: run.agent,
+            status: run.status as "success" | "error",
+            summary: run.summary ?? null,
           },
-        ]);
-      });
+        },
+      ]);
     }
   }, [runs, hydrated]);
 
@@ -458,7 +407,6 @@ export default function ConsultantChat({
           <Bubble
             key={i}
             message={m}
-            clientId={clientId}
             onViewRun={handleViewRun}
           />
         ))}
@@ -551,15 +499,13 @@ export default function ConsultantChat({
 
 function Bubble({
   message,
-  clientId,
   onViewRun,
 }: {
   message: ChatMessage;
-  clientId: string;
   onViewRun: (runId: number) => void;
 }) {
   if (message.role === "system" && message.completion) {
-    return <CompletionBubble completion={message.completion} clientId={clientId} onViewRun={onViewRun} />;
+    return <CompletionBubble completion={message.completion} onViewRun={onViewRun} />;
   }
 
   const isUser = message.role === "user";
@@ -622,11 +568,9 @@ function Bubble({
 
 function CompletionBubble({
   completion,
-  clientId,
   onViewRun,
 }: {
   completion: NonNullable<ChatMessage["completion"]>;
-  clientId: string;
   onViewRun: (runId: number) => void;
 }) {
   const isSuccess = completion.status === "success";
@@ -634,10 +578,6 @@ function CompletionBubble({
   const bg = isSuccess
     ? "rgba(58,139,92,0.06)"
     : "rgba(176,75,58,0.08)";
-
-  const videoUrl = completion.videoPieceId
-    ? `/api/clients/${clientId}/videos/${completion.videoPieceId}`
-    : null;
 
   return (
     <div
@@ -674,82 +614,7 @@ function CompletionBubble({
           {completion.summary}
         </div>
       )}
-      {completion.videoError && (
-        <details
-          style={{
-            fontSize: 11,
-            color: "var(--red-warn)",
-            lineHeight: 1.5,
-            background: "rgba(176,75,58,0.06)",
-            padding: "6px 10px",
-            borderLeft: "2px solid var(--red-warn)",
-          }}
-        >
-          <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-            ⚠ Video falló: {completion.videoError.slice(0, 240)}
-            {completion.videoError.length > 240 ? "…" : ""}
-          </summary>
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              marginTop: 8,
-              fontFamily: "ui-monospace, monospace",
-              fontSize: 10,
-              maxHeight: 280,
-              overflow: "auto",
-              padding: "6px 8px",
-              background: "rgba(176,75,58,0.04)",
-            }}
-          >
-            {completion.videoError}
-            {completion.videoErrorStderr
-              ? "\n\n--- stderr ---\n" + completion.videoErrorStderr
-              : ""}
-          </pre>
-        </details>
-      )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-        {videoUrl ? (
-          <>
-            <a
-              href={videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: "6px 12px",
-                background: "var(--deep-green)",
-                color: "var(--off-white)",
-                border: "1px solid var(--deep-green)",
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                textDecoration: "none",
-                fontFamily: "inherit",
-              }}
-            >
-              ▶ Reproducir video MP4
-            </a>
-            <a
-              href={`${videoUrl}?download=1`}
-              style={{
-                padding: "6px 12px",
-                background: "transparent",
-                color: "var(--deep-green)",
-                border: "1px solid rgba(10,26,12,0.15)",
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                textDecoration: "none",
-                fontFamily: "inherit",
-              }}
-            >
-              ↓ Descargar MP4
-            </a>
-          </>
-        ) : null}
         <button
           type="button"
           onClick={() => onViewRun(completion.runId)}
@@ -766,31 +631,8 @@ function CompletionBubble({
             fontFamily: "inherit",
           }}
         >
-          📄 Abrir script generado
+          → Ver brief y output
         </button>
-        {completion.hasCompositionTsx && (
-          <button
-            type="button"
-            onClick={() => onViewRun(completion.runId)}
-            title="Ver el TSX que generó Claude y el stderr completo de Remotion"
-            style={{
-              padding: "6px 12px",
-              background: "transparent",
-              color: completion.videoError
-                ? "var(--red-warn)"
-                : "var(--sand-dark)",
-              border: `1px solid ${completion.videoError ? "rgba(176,75,58,0.4)" : "rgba(10,26,12,0.15)"}`,
-              fontSize: 10,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            🔧 Ver TSX y stderr
-          </button>
-        )}
       </div>
     </div>
   );

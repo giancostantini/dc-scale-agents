@@ -26,7 +26,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { listProfiles } from "@/lib/team";
+import { listAllAssignments, listProfiles } from "@/lib/team";
+import {
+  computeMonthlyMrr,
+  effectiveFeeForMonth,
+  listClientMktBudgets,
+  setClientMktBudget,
+} from "@/lib/storage";
 import type { Profile } from "@/lib/supabase/auth";
 import {
   createManualRevenue,
@@ -36,6 +42,7 @@ import {
   listManualRevenues,
   revenueMonthlyImpact,
   updateDividendConfig,
+  updateManualRevenue,
   type CreateManualRevenueInput,
   type DividendConfig,
   type ManualRevenue,
@@ -43,6 +50,8 @@ import {
 } from "@/lib/finanzas";
 import type {
   Client,
+  ClientFeeSchedule,
+  ClientMktBudget,
   Expense,
   InvoicePayment,
   Lead,
@@ -50,15 +59,705 @@ import type {
 import styles from "./finanzas.module.css";
 
 // ============================================================
-// TeamCostView — costo del equipo
+// DashboardView — Panel principal con KPIs + gráficos
+// ============================================================
+//
+// Layout (tipo dashboard ejecutivo):
+//   Row 1: 4 KPI cards con delta vs mes anterior
+//     MRR · Egresos del mes · Resultado neto · Pipeline
+//   Row 2: 3 cards de gráficos
+//     Donut "Distribución MRR" (GP vs Dev)
+//     Bar "Ingresos por mes" (últimos 6 meses)
+//     Bar "Resultado neto por mes" (últimos 6 meses, verde/rojo)
+//   Row 3: 2 cards
+//     Donut "Egresos por categoría"
+//     Bar horizontal "Top 5 clientes por fee"
+// ============================================================
+
+const DASH_COLORS = {
+  green:   "#2f7d4f",
+  red:     "#b04b3a",
+  deepGreen: "#0A1A0C",
+  forest:  "#1E3A28",
+  forest2: "#2d5036",
+  sand:    "#C4A882",
+  sandDark:"#9B8259",
+  blue:    "#3A8B5C",
+  yellow:  "#C9A14A",
+  textMuted: "#7A8A7E",
+};
+
+const PIE_PALETTE = [
+  DASH_COLORS.deepGreen,
+  DASH_COLORS.sand,
+  DASH_COLORS.sandDark,
+  DASH_COLORS.forest2,
+  DASH_COLORS.blue,
+  DASH_COLORS.yellow,
+  DASH_COLORS.red,
+];
+
+const EXPENSE_CATEGORY_LABEL: Record<string, string> = {
+  equipo: "Equipo",
+  tools: "Tools",
+  ia: "IA",
+  produccion: "Producción",
+  otros: "Otros",
+};
+
+const MONTHS_SHORT_ES = [
+  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+];
+
+export function DashboardView({
+  clients,
+  expenses,
+  payments,
+  manualRevs,
+  leads,
+  mrr,
+  totalExpenses,
+  netResult,
+  marginPct,
+  pipelineValue,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
+  leads: Lead[];
+  mrr: number;
+  totalExpenses: number;
+  netResult: number;
+  marginPct: number;
+  pipelineValue: number;
+}) {
+  // Mes actual + mes anterior (para deltas)
+  const now = new Date();
+  const curMonth = now.toISOString().slice(0, 7);
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = prevDate.toISOString().slice(0, 7);
+
+  // Calcular ingresos / egresos / net REALES de un mes.
+  //
+  // Antes este cálculo usaba el MRR actual (sum de fees de hoy) para
+  // TODOS los meses históricos — eso pintaba ingresos falsos en meses
+  // donde el cliente todavía no existía o no se había cobrado nada.
+  //
+  // Ahora se usa el principio de "cash real":
+  //   ingresos = Σ fee de cada cliente que tiene payment.status = 'paid'
+  //              en ese mes + impacto de ingresos manuales de ese mes
+  //   egresos = Σ expenses con fecha de ese mes
+  //
+  // Si no hay payments paid ni manual revenues ni egresos → todo 0.
+  // El director ve la verdad del cash, no proyecciones.
+  function netOfMonth(mk: string): {
+    ingresos: number;
+    egresos: number;
+    net: number;
+  } {
+    const feesPaid = clients.reduce((s, c) => {
+      const p = payments.find(
+        (pp) => pp.clientId === c.id && pp.month === mk,
+      );
+      if (p?.status !== "paid") return s;
+      // Respetamos amountOverride si está — el director cobró distinto
+      // al fee del contrato (descuento puntual, ajuste, extra).
+      const amt = p.amountOverride ?? c.fee;
+      return s + amt;
+    }, 0);
+    const mImpact = manualRevs.reduce(
+      (s, r) => s + revenueMonthlyImpact(r, mk),
+      0,
+    );
+    const mExpenses = expenses
+      .filter((e) => (e.date ?? "").startsWith(mk))
+      .reduce((s, e) => s + e.amount, 0);
+    const ingresos = feesPaid + mImpact;
+    return { ingresos, egresos: mExpenses, net: ingresos - mExpenses };
+  }
+  const cur = netOfMonth(curMonth);
+  const prev = netOfMonth(prevMonth);
+  const ingresoDelta = pctChange(cur.ingresos, prev.ingresos);
+  const egresoDelta = pctChange(cur.egresos, prev.egresos);
+  const netDelta = pctChange(cur.net, prev.net);
+
+  // Histórico últimos 6 meses
+  const last6: { mk: string; label: string; ingresos: number; egresos: number; net: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const label = MONTHS_SHORT_ES[d.getMonth()];
+    const v = netOfMonth(mk);
+    last6.push({ mk, label, ingresos: v.ingresos, egresos: v.egresos, net: v.net });
+  }
+
+  // Totales anuales reales = suma de los últimos 12 meses cerrados +
+  // mes en curso. Esto reemplaza los `mrr / totalExpenses / netResult`
+  // que venían de page.tsx, que estaban mal calculados (MRR actual vs
+  // egresos all-time mezclando años distintos).
+  const annual = (() => {
+    let ingresos = 0;
+    let egresos = 0;
+    for (let i = 0; i <= 11; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mk = d.toISOString().slice(0, 7);
+      const v = netOfMonth(mk);
+      ingresos += v.ingresos;
+      egresos += v.egresos;
+    }
+    const net = ingresos - egresos;
+    const margin =
+      ingresos > 0 ? Math.round((net / ingresos) * 100) : 0;
+    return { ingresos, egresos, net, margin };
+  })();
+
+  // Distribución MRR por tipo de cliente (GP vs Dev)
+  const gpRevenue = clients.filter((c) => c.type === "gp").reduce((s, c) => s + c.fee, 0);
+  const devRevenue = clients.filter((c) => c.type === "dev").reduce((s, c) => s + c.fee, 0);
+  const mrrSplit = [
+    { name: "Growth Partner", value: gpRevenue, color: DASH_COLORS.deepGreen },
+    { name: "Desarrollo",     value: devRevenue, color: DASH_COLORS.sand },
+  ].filter((s) => s.value > 0);
+
+  // Egresos por categoría — del mes actual
+  const expensesByCat = expenses
+    .filter((e) => (e.date ?? "").startsWith(curMonth))
+    .reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
+  const expenseCatData = Object.entries(expensesByCat)
+    .map(([k, v], i) => ({
+      name: EXPENSE_CATEGORY_LABEL[k] ?? k,
+      value: v,
+      color: PIE_PALETTE[i % PIE_PALETTE.length],
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Top 5 clientes por fee
+  const topClients = [...clients]
+    .sort((a, b) => b.fee - a.fee)
+    .slice(0, 5)
+    .map((c) => ({ name: c.name, value: c.fee }));
+
+  // Payments status del mes (para subtítulo de KPI MRR)
+  const paidCount = payments.filter((p) => p.month === curMonth && p.status === "paid").length;
+  const pendingCount = clients.length - paidCount;
+
+  // Leads en pipeline (para subtítulo)
+  const activeLeads = leads.length;
+
+  return (
+    <>
+      {/* Header inline (no usamos <Header> de page.tsx para no acoplar
+          archivos — replicamos el mismo layout de finanzas.module.css). */}
+      <div className={styles.head}>
+        <div>
+          <div className={styles.eyebrow}>Panel empresarial</div>
+          <h1>Finanzas</h1>
+        </div>
+        <div className={styles.metaLabel}>
+          Resultado neto (últimos 12m)
+          <span
+            className={styles.metaStrong}
+            style={{
+              color:
+                annual.net < 0
+                  ? DASH_COLORS.red
+                  : DASH_COLORS.deepGreen,
+            }}
+          >
+            US$ {annual.net.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Row 1 — 4 KPI cards con deltas */}
+      <div className={styles.kpis}>
+        <KpiCard
+          label="Ingresos cobrados del mes"
+          value={`US$ ${cur.ingresos.toLocaleString()}`}
+          sub={`${paidCount} pagado${paidCount === 1 ? "" : "s"} · ${pendingCount} pendiente${pendingCount === 1 ? "" : "s"} · MRR facturable US$ ${mrr.toLocaleString()}`}
+          delta={ingresoDelta}
+          positiveIsGood
+        />
+        <KpiCard
+          label="Egresos del mes"
+          value={`US$ ${cur.egresos.toLocaleString()}`}
+          sub={`Últimos 12m: US$ ${annual.egresos.toLocaleString()}`}
+          delta={egresoDelta}
+          positiveIsGood={false}
+        />
+        <KpiCard
+          label="Resultado neto"
+          value={`US$ ${cur.net.toLocaleString()}`}
+          sub={`Margen 12m ${annual.margin}% · objetivo 60%`}
+          delta={netDelta}
+          positiveIsGood
+          highlight={cur.net < 0 ? "danger" : "ok"}
+        />
+        <KpiCard
+          label="Pipeline"
+          value={`US$ ${pipelineValue.toLocaleString()}`}
+          sub={`${activeLeads} prospecto${activeLeads === 1 ? "" : "s"} activo${activeLeads === 1 ? "" : "s"}`}
+        />
+      </div>
+
+      {clients.length === 0 ? (
+        <EmptyStateInline
+          icon="◌"
+          title="Todavía no hay datos financieros"
+          desc="Creá clientes en el Hub y registrá egresos para empezar a ver tu panel financiero con datos reales."
+        />
+      ) : (
+        <>
+          {/* Row 2 — gráficos principales */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1.5fr 1.5fr",
+              gap: 20,
+              marginBottom: 24,
+            }}
+          >
+            <ChartCard title="Distribución MRR" subtitle="Por tipo de cliente">
+              {mrrSplit.length === 0 ? (
+                <ChartEmpty />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={mrrSplit}
+                      dataKey="value"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      label={(props) => {
+                        const { percent } = props as { percent?: number };
+                        return percent ? `${Math.round(percent * 100)}%` : "";
+                      }}
+                      labelLine={false}
+                    >
+                      {mrrSplit.map((s) => (
+                        <Cell key={s.name} fill={s.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Ingresos vs Egresos por mes"
+              subtitle="Últimos 6 meses · cash real"
+            >
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={last6} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                  <XAxis
+                    dataKey="label"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+                  />
+                  <YAxis
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                    }
+                  />
+                  <Tooltip
+                    formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    cursor={{ fill: "rgba(196,168,130,0.1)" }}
+                  />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                  />
+                  <Bar
+                    name="Ingresos"
+                    dataKey="ingresos"
+                    fill={DASH_COLORS.sand}
+                    radius={[3, 3, 0, 0]}
+                  />
+                  <Bar
+                    name="Egresos"
+                    dataKey="egresos"
+                    fill={DASH_COLORS.red}
+                    radius={[3, 3, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard
+              title="Resultado neto por mes"
+              subtitle="Últimos 6 meses · cash real"
+            >
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={last6} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                  <XAxis
+                    dataKey="label"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+                  />
+                  <YAxis
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v <= -1000 ? `-${(-v / 1000).toFixed(0)}k` : String(v)
+                    }
+                  />
+                  <Tooltip
+                    formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    cursor={{ fill: "rgba(196,168,130,0.1)" }}
+                  />
+                  <Bar dataKey="net" radius={[3, 3, 0, 0]}>
+                    {last6.map((m) => (
+                      <Cell
+                        key={m.mk}
+                        fill={m.net >= 0 ? DASH_COLORS.green : DASH_COLORS.red}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* Row 3 — egresos por categoría + top clientes */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 2fr",
+              gap: 20,
+              marginBottom: 24,
+            }}
+          >
+            <ChartCard
+              title="Egresos por categoría"
+              subtitle={`${MONTHS_SHORT_ES[now.getMonth()]} ${now.getFullYear()}`}
+            >
+              {expenseCatData.length === 0 ? (
+                <ChartEmpty />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={expenseCatData}
+                      dataKey="value"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      label={(props) => {
+                        const { percent } = props as { percent?: number };
+                        return percent && percent > 0.05
+                          ? `${Math.round(percent * 100)}%`
+                          : "";
+                      }}
+                      labelLine={false}
+                    >
+                      {expenseCatData.map((s) => (
+                        <Cell key={s.name} fill={s.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Top 5 clientes por fee"
+              subtitle="Concentración de MRR"
+            >
+              {topClients.length === 0 ? (
+                <ChartEmpty />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart
+                    data={topClients}
+                    layout="vertical"
+                    margin={{ top: 8, right: 16, left: 16, bottom: 0 }}
+                  >
+                    <XAxis
+                      type="number"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) =>
+                        v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                      }
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={120}
+                    />
+                    <Tooltip
+                      formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+                      cursor={{ fill: "rgba(196,168,130,0.1)" }}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill={DASH_COLORS.forest2}
+                      radius={[0, 3, 3, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/** % de cambio entre 2 valores. Devuelve null si el anterior es 0
+ *  (no se puede calcular cambio relativo desde cero). */
+function pctChange(curr: number, prev: number): number | null {
+  if (prev === 0) return null;
+  return Math.round(((curr - prev) / Math.abs(prev)) * 100);
+}
+
+/** KPI card con delta opcional vs mes anterior. */
+function KpiCard({
+  label,
+  value,
+  sub,
+  delta,
+  positiveIsGood = true,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  delta?: number | null;
+  positiveIsGood?: boolean;
+  highlight?: "ok" | "danger";
+}) {
+  // Color del delta: por default verde si positivo, rojo si negativo.
+  // Si positiveIsGood=false (ej: egresos), invertimos: subir es malo.
+  let deltaColor: string | undefined;
+  if (delta !== undefined && delta !== null) {
+    const isGood = positiveIsGood ? delta >= 0 : delta <= 0;
+    deltaColor = isGood ? DASH_COLORS.green : DASH_COLORS.red;
+  }
+  const valueColor =
+    highlight === "danger"
+      ? DASH_COLORS.red
+      : highlight === "ok"
+        ? DASH_COLORS.deepGreen
+        : undefined;
+
+  return (
+    <div className={styles.kpi}>
+      <div className={styles.kLabel}>{label}</div>
+      <div
+        className={styles.kValue}
+        style={valueColor ? { color: valueColor } : undefined}
+      >
+        {value}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+        {sub && <div className={styles.kSub}>{sub}</div>}
+        {delta !== undefined && delta !== null && (
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: deltaColor,
+              padding: "2px 6px",
+              background:
+                deltaColor === DASH_COLORS.green
+                  ? "rgba(47,125,79,0.10)"
+                  : "rgba(176,75,58,0.10)",
+              borderRadius: 3,
+            }}
+          >
+            {delta >= 0 ? "↑" : "↓"} {Math.abs(delta)}%
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Card que envuelve un gráfico con título + subtítulo. */
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: "var(--r-lg)",
+        boxShadow: "var(--shadow-card)",
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 14,
+          paddingBottom: 10,
+          borderBottom: "1px solid rgba(10,26,12,0.06)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--deep-green)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--sand-dark)",
+              marginTop: 3,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ChartEmpty() {
+  return (
+    <div
+      style={{
+        height: 220,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--text-muted)",
+        fontSize: 12,
+        fontStyle: "italic",
+      }}
+    >
+      Sin datos para mostrar
+    </div>
+  );
+}
+
+function EmptyStateInline({
+  icon,
+  title,
+  desc,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: 60,
+        textAlign: "center",
+        border: "1px dashed rgba(10,26,12,0.15)",
+        background: "var(--off-white)",
+        marginTop: 32,
+      }}
+    >
+      <div style={{ fontSize: 40, color: "var(--sand-dark)", opacity: 0.6, marginBottom: 20 }}>
+        {icon}
+      </div>
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 600,
+          color: "var(--deep-green)",
+          marginBottom: 10,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 440, margin: "0 auto" }}>
+        {desc}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// TeamCostView — costo del equipo + clientes asignados + cobros
+// ============================================================
+//
+// Vista detallada por miembro:
+//   - Para cada funcional muestra sus client_assignments activos
+//     (cliente + role_in_client + since)
+//   - Su payment_amount + payment_type
+//   - Su payment_day (día del mes en que se le paga) y los días que
+//     faltan hasta el próximo pago
+//   - KPIs globales: total mensual, próximos a cobrar, sin día
+//     configurado
 // ============================================================
 export function TeamCostView() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [assignments, setAssignments] = useState<
+    Array<{
+      client_id: string;
+      user_id: string;
+      role_in_client: string;
+      since: string;
+      until?: string | null;
+    }>
+  >([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listProfiles().then((list) => {
-      // Solo team (excluye clients y los que no tengan pago seteado).
+    Promise.all([
+      listProfiles(),
+      listAllAssignments(),
+      getClientsForFinanzas(),
+    ]).then(([list, asg, cls]) => {
       setProfiles(
         list.filter(
           (p) =>
@@ -67,26 +766,66 @@ export function TeamCostView() {
             Number(p.payment_amount) > 0,
         ),
       );
+      setAssignments(asg);
+      setClients(cls);
       setLoading(false);
     });
   }, []);
 
-  // Agrupar por posición
-  const byPosition = new Map<string, { profiles: Profile[]; total: number }>();
-  for (const p of profiles) {
-    const pos = p.position ?? "Sin posición";
-    const cur = byPosition.get(pos) ?? { profiles: [], total: 0 };
-    cur.profiles.push(p);
-    cur.total += Number(p.payment_amount ?? 0);
-    byPosition.set(pos, cur);
+  const today = new Date();
+  const todayDay = today.getDate();
+  const daysInMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0,
+  ).getDate();
+
+  /** Para un payment_day, calcula días hasta el próximo cobro. */
+  function daysUntilPayment(payDay: number | null | undefined): number | null {
+    if (!payDay) return null;
+    if (payDay >= todayDay) return payDay - todayDay;
+    // Próximo cobro es el mes que viene
+    return daysInMonth - todayDay + payDay;
   }
-  const grouped = Array.from(byPosition.entries()).sort(
-    (a, b) => b[1].total - a[1].total,
-  );
+
+  /** Para una persona, lista sus clients asignados (sin filtrar por until
+   *  pendiente de implementar — por ahora muestra todos los assignments
+   *  con until=null o futuro). */
+  function assignmentsFor(userId: string) {
+    return assignments.filter((a) => {
+      if (a.user_id !== userId) return false;
+      if (!a.until) return true;
+      return a.until >= today.toISOString().slice(0, 10);
+    });
+  }
+
+  /**
+   * Costo mensual EFECTIVO de un miembro según su payment_type.
+   *
+   * - fijo / por_proyecto / por_hora / mixto → payment_amount tal cual
+   *   (no tenemos tracking de proyectos ni horas todavía, así que el
+   *   amount cargado se trata como el costo base mensual).
+   * - por_cliente → payment_amount × cantidad de clientes activos
+   *   asignados. Si gana USD 200 por cliente y tiene 3 → USD 600/mes.
+   */
+  function effectiveMonthlyCost(p: Profile): number {
+    const base = Number(p.payment_amount ?? 0);
+    if (p.payment_type === "por_cliente") {
+      const clientCount = assignmentsFor(p.id).length;
+      return base * clientCount;
+    }
+    return base;
+  }
+
   const grandTotal = profiles.reduce(
-    (s, p) => s + Number(p.payment_amount ?? 0),
+    (s, p) => s + effectiveMonthlyCost(p),
     0,
   );
+  const withPayDay = profiles.filter((p) => p.payment_day != null);
+  const upcomingSoon = profiles.filter((p) => {
+    const d = daysUntilPayment(p.payment_day);
+    return d !== null && d <= 7;
+  });
 
   return (
     <>
@@ -105,15 +844,16 @@ export function TeamCostView() {
       <h1 style={h1Style}>Funcionales</h1>
       <p
         style={{
-          maxWidth: 700,
+          maxWidth: 720,
           color: "var(--text-muted)",
           fontSize: 14,
           lineHeight: 1.6,
           marginBottom: 28,
         }}
       >
-        Suma de los pagos definidos en /equipo, agrupada por posición.
-        Para cambiar montos, andá al detail de cada persona desde{" "}
+        Costo del equipo, clientes asignados y fechas de cobro. Para
+        cambiar montos, fechas o agregar clientes, andá al detail de
+        cada persona desde{" "}
         <Link href="/equipo" style={{ color: "var(--sand-dark)" }}>
           /equipo
         </Link>
@@ -140,91 +880,327 @@ export function TeamCostView() {
 
       {!loading && profiles.length > 0 && (
         <>
+          {/* KPIs */}
           <div className={styles.kpis}>
             <div className={styles.kpi}>
               <div className={styles.kLabel}>Total mensual</div>
               <div className={styles.kValue}>
                 US$ {grandTotal.toLocaleString()}
               </div>
+              <div className={styles.kSub}>{profiles.length} personas</div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kLabel}>Personas con pago</div>
-              <div className={styles.kValue}>{profiles.length}</div>
+              <div className={styles.kLabel}>Próximos 7 días</div>
+              <div
+                className={styles.kValue}
+                style={{
+                  color: upcomingSoon.length > 0 ? "#C9A14A" : undefined,
+                }}
+              >
+                {upcomingSoon.length}
+              </div>
+              <div className={styles.kSub}>
+                US${" "}
+                {upcomingSoon
+                  .reduce((s, p) => s + effectiveMonthlyCost(p), 0)
+                  .toLocaleString()}{" "}
+                a pagar
+              </div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kLabel}>Posiciones</div>
-              <div className={styles.kValue}>{grouped.length}</div>
+              <div className={styles.kLabel}>Sin fecha de cobro</div>
+              <div
+                className={styles.kValue}
+                style={{
+                  color:
+                    profiles.length - withPayDay.length > 0
+                      ? "#b04b3a"
+                      : undefined,
+                }}
+              >
+                {profiles.length - withPayDay.length}
+              </div>
+              <div className={styles.kSub}>Faltan configurar payment_day</div>
             </div>
             <div className={styles.kpi}>
               <div className={styles.kLabel}>Promedio/persona</div>
               <div className={styles.kValue}>
                 US${" "}
-                {profiles.length > 0
-                  ? Math.round(grandTotal / profiles.length).toLocaleString()
-                  : 0}
+                {Math.round(grandTotal / profiles.length).toLocaleString()}
               </div>
+              <div className={styles.kSub}>Costo mensual medio</div>
             </div>
           </div>
 
+          {/* Detalle por miembro */}
           <div className={styles.table}>
-            <h3>Desglose por posición</h3>
-            <div
-              className={`${styles.row} ${styles.rowHead}`}
-              style={{ gridTemplateColumns: "2fr 1fr 1fr" }}
+            <h3>Detalle por miembro</h3>
+            <p
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginBottom: 14,
+              }}
             >
-              <div>Posición</div>
-              <div>Personas</div>
-              <div>Costo mensual</div>
-            </div>
-            {grouped.map(([pos, info]) => (
-              <details key={pos}>
-                <summary
-                  className={styles.row}
-                  style={{
-                    gridTemplateColumns: "2fr 1fr 1fr",
-                    cursor: "pointer",
-                    listStyle: "none",
-                  }}
-                >
-                  <div>
-                    <strong>{pos}</strong>
-                  </div>
-                  <div className={styles.num}>{info.profiles.length}</div>
-                  <div className={`${styles.num} ${styles.pos}`}>
-                    US$ {info.total.toLocaleString()}
-                  </div>
-                </summary>
-                <div
-                  style={{
-                    padding: "8px 16px",
-                    background: "var(--off-white)",
-                  }}
-                >
-                  {info.profiles.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/equipo/${p.id}`}
+              Cada fila muestra el costo + clientes activos + tareas
+              asignadas + día de cobro.
+            </p>
+
+            {[...profiles]
+              .sort((a, b) => {
+                // Próximos a cobrar primero, después por nombre
+                const aDays = daysUntilPayment(a.payment_day) ?? 999;
+                const bDays = daysUntilPayment(b.payment_day) ?? 999;
+                if (aDays !== bDays) return aDays - bDays;
+                return a.name.localeCompare(b.name);
+              })
+              .map((p) => {
+                const userAsgs = assignmentsFor(p.id);
+                const daysToPay = daysUntilPayment(p.payment_day);
+                const payColor =
+                  daysToPay === null
+                    ? "var(--text-muted)"
+                    : daysToPay === 0
+                      ? "#b04b3a"
+                      : daysToPay <= 3
+                        ? "#C9A14A"
+                        : daysToPay <= 7
+                          ? "#9B8259"
+                          : "var(--text-muted)";
+
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      padding: "16px 0",
+                      borderBottom: "1px solid rgba(10,26,12,0.06)",
+                    }}
+                  >
+                    {/* Header de la fila */}
+                    <div
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        padding: "6px 0",
-                        fontSize: 12,
-                        textDecoration: "none",
-                        color: "inherit",
-                        borderBottom: "1px solid rgba(10,26,12,0.05)",
+                        display: "grid",
+                        gridTemplateColumns: "2fr 1.2fr 1.2fr 0.8fr",
+                        gap: 12,
+                        alignItems: "baseline",
                       }}
                     >
-                      <span>{p.name}</span>
-                      <span style={{ color: "var(--text-muted)" }}>
-                        {p.payment_currency ?? "USD"}{" "}
-                        {Number(p.payment_amount).toLocaleString()} (
-                        {p.payment_type ?? "fijo"})
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </details>
-            ))}
+                      <div>
+                        <Link
+                          href={`/equipo/${p.id}`}
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: "var(--deep-green)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {p.name}
+                        </Link>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {p.position ?? "Sin posición"} · {p.role}
+                        </div>
+                      </div>
+                      <div className={styles.num}>
+                        {/* Caso por_cliente: monto unitario + cantidad
+                            de clientes + multiplicación → costo final */}
+                        {p.payment_type === "por_cliente" ? (
+                          (() => {
+                            const unit = Number(p.payment_amount ?? 0);
+                            const cnt = assignmentsFor(p.id).length;
+                            const total = unit * cnt;
+                            return (
+                              <>
+                                <strong style={{ fontSize: 15 }}>
+                                  {p.payment_currency ?? "USD"}{" "}
+                                  {total.toLocaleString()}
+                                </strong>
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    color: "var(--text-muted)",
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {p.payment_currency ?? "USD"}{" "}
+                                  {unit.toLocaleString()} × {cnt}{" "}
+                                  {cnt === 1 ? "cliente" : "clientes"}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 9,
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    color: "#2f7d4f",
+                                    fontWeight: 700,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  POR CLIENTE
+                                </div>
+                              </>
+                            );
+                          })()
+                        ) : (
+                          <>
+                            <strong>
+                              {p.payment_currency ?? "USD"}{" "}
+                              {Number(p.payment_amount).toLocaleString()}
+                            </strong>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                color: "var(--text-muted)",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.1em",
+                                marginTop: 2,
+                              }}
+                            >
+                              {p.payment_type ?? "fijo"}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div>
+                        {p.payment_day ? (
+                          <>
+                            <strong style={{ color: payColor }}>
+                              Día {p.payment_day}
+                            </strong>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: payColor,
+                                marginTop: 2,
+                              }}
+                            >
+                              {daysToPay === 0
+                                ? "Hoy"
+                                : daysToPay === 1
+                                  ? "Mañana"
+                                  : `En ${daysToPay} día${daysToPay === 1 ? "" : "s"}`}
+                            </div>
+                          </>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--red-warn)",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Sin día configurado
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <Link
+                          href={`/equipo/${p.id}`}
+                          style={{
+                            fontSize: 11,
+                            color: "var(--sand-dark)",
+                            textDecoration: "none",
+                            border: "1px solid rgba(10,26,12,0.15)",
+                            padding: "4px 10px",
+                            borderRadius: "var(--r-sm)",
+                          }}
+                        >
+                          Editar →
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Clientes asignados */}
+                    {userAsgs.length > 0 ? (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px dashed rgba(10,26,12,0.08)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: "0.18em",
+                            textTransform: "uppercase",
+                            color: "var(--sand-dark)",
+                            fontWeight: 700,
+                            marginBottom: 6,
+                          }}
+                        >
+                          Clientes activos ({userAsgs.length})
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {userAsgs.map((a, i) => {
+                            const cli = clients.find(
+                              (c) => c.id === a.client_id,
+                            );
+                            return (
+                              <div
+                                key={`${a.client_id}-${i}`}
+                                style={{
+                                  padding: "6px 10px",
+                                  background: "var(--off-white)",
+                                  fontSize: 11,
+                                  borderLeft: "2px solid var(--sand-dark)",
+                                  borderRadius: "var(--r-sm)",
+                                }}
+                              >
+                                <strong style={{ color: "var(--deep-green)" }}>
+                                  {cli?.name ?? a.client_id}
+                                </strong>
+                                <span
+                                  style={{
+                                    color: "var(--text-muted)",
+                                    marginLeft: 6,
+                                  }}
+                                >
+                                  · {a.role_in_client}
+                                </span>
+                                <span
+                                  style={{
+                                    color: "var(--text-muted)",
+                                    marginLeft: 6,
+                                    fontSize: 10,
+                                  }}
+                                >
+                                  desde {a.since}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px dashed rgba(10,26,12,0.08)",
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Sin clientes asignados.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </>
       )}
@@ -232,14 +1208,1490 @@ export function TeamCostView() {
   );
 }
 
+// Helper: getClients re-export from /lib/storage (la importación
+// circular es OK porque solo se llama en runtime, no en módulo).
+async function getClientsForFinanzas(): Promise<Client[]> {
+  const { getClients } = await import("@/lib/storage");
+  return getClients();
+}
+
 // ============================================================
-// DividendosView — distribución del net profit
+// MktClientesView — presupuesto de marketing de cada cliente GP
+// ============================================================
+//
+// Para cada cliente GP muestra:
+//   - Presupuesto MENSUAL otorgado (editable)
+//   - Gastado del mes (= sum de expenses con mkt_budget_client_id=c.id
+//     y fecha en el mes actual)
+//   - Barra de progreso con % usado
+//   - Click en "Editar presupuesto" abre input para cambiarlo
+// ============================================================
+export function MktClientesView({
+  clients,
+  expenses,
+  onRefresh,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  onRefresh: () => void;
+}) {
+  const [budgets, setBudgets] = useState<ClientMktBudget[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  /** Si != null, mostramos el detail expandible con historial mensual
+   *  + form para cargar egresos. Si == null, vista de lista de clientes. */
+  const [detailClientId, setDetailClientId] = useState<string | null>(null);
+
+  const monthIso = new Date().toISOString().slice(0, 7);
+
+  async function refresh() {
+    setLoading(true);
+    setBudgets(await listClientMktBudgets());
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const gpClients = clients.filter((c) => c.type === "gp");
+
+  function startEdit(clientId: string) {
+    const b = budgets.find((bb) => bb.clientId === clientId);
+    setEditingClientId(clientId);
+    setEditAmount(b ? String(b.monthlyAmount) : "");
+    setEditNotes(b?.notes ?? "");
+  }
+  function cancelEdit() {
+    setEditingClientId(null);
+    setEditAmount("");
+    setEditNotes("");
+  }
+  async function saveEdit() {
+    if (!editingClientId) return;
+    const amt = Number(editAmount);
+    if (Number.isNaN(amt) || amt < 0) {
+      alert("Importe inválido.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setClientMktBudget(
+        editingClientId,
+        amt,
+        "USD",
+        undefined,
+        null,
+        editNotes.trim() || null,
+      );
+      cancelEdit();
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      alert(`Error: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /** Gastado del mes actual contra el presupuesto MKT del cliente. */
+  function spentThisMonth(clientId: string): number {
+    return expenses
+      .filter(
+        (e) =>
+          e.mktBudgetClientId === clientId &&
+          (e.date ?? "").startsWith(monthIso),
+      )
+      .reduce((s, e) => s + e.amount, 0);
+  }
+
+  /** Stats del mes para todos los presupuestos (totales). */
+  const totalBudget = budgets.reduce((s, b) => s + b.monthlyAmount, 0);
+  const totalSpent = budgets.reduce(
+    (s, b) => s + spentThisMonth(b.clientId),
+    0,
+  );
+
+  return (
+    <>
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          marginBottom: 8,
+        }}
+      >
+        Finanzas · Marketing por cliente
+      </div>
+      <h1 style={h1Style}>Mkt Clientes</h1>
+      <p
+        style={{
+          maxWidth: 720,
+          color: "var(--text-muted)",
+          fontSize: 14,
+          lineHeight: 1.6,
+          marginBottom: 24,
+        }}
+      >
+        Cada cliente Growth Partner otorga un presupuesto mensual de
+        marketing. Acá registrás el monto y ves cuánto se gastó. Los
+        egresos que tienen "Imputar al presupuesto MKT" descuentan
+        automáticamente de acá.
+      </p>
+
+      {/* KPIs globales */}
+      <div className={styles.kpis}>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Presupuesto MKT total</div>
+          <div className={styles.kValue}>
+            US$ {totalBudget.toLocaleString()}
+          </div>
+          <div className={styles.kSub}>
+            {budgets.length} cliente{budgets.length === 1 ? "" : "s"} con
+            presupuesto
+          </div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Gastado en {monthIso}</div>
+          <div
+            className={styles.kValue}
+            style={{
+              color: totalSpent > totalBudget ? "#b04b3a" : "#2f7d4f",
+            }}
+          >
+            US$ {totalSpent.toLocaleString()}
+          </div>
+          <div className={styles.kSub}>
+            {totalBudget > 0
+              ? `${Math.round((totalSpent / totalBudget) * 100)}% del total`
+              : "Sin presupuesto cargado"}
+          </div>
+        </div>
+        <div className={styles.kpi}>
+          <div className={styles.kLabel}>Disponible</div>
+          <div className={styles.kValue}>
+            US$ {Math.max(0, totalBudget - totalSpent).toLocaleString()}
+          </div>
+          <div className={styles.kSub}>Lo que queda del mes</div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div>Cargando…</div>
+      ) : gpClients.length === 0 ? (
+        <EmptyStateInlineCard
+          icon="◐"
+          title="Sin clientes GP todavía"
+          desc="Esta vista lista solo clientes type='gp'. Creá uno en el Hub para empezar."
+        />
+      ) : (
+        <div className={styles.table}>
+          <h3>Presupuesto por cliente · {monthIso}</h3>
+
+          {gpClients.map((c) => {
+            const budget = budgets.find((b) => b.clientId === c.id);
+            const monthly = budget?.monthlyAmount ?? 0;
+            const spent = spentThisMonth(c.id);
+            const remaining = Math.max(0, monthly - spent);
+            const pct = monthly > 0 ? Math.min(100, Math.round((spent / monthly) * 100)) : 0;
+            const overspent = spent > monthly && monthly > 0;
+            const isEditingThis = editingClientId === c.id;
+
+            return (
+              <div
+                key={c.id}
+                style={{
+                  padding: "16px 0",
+                  borderBottom: "1px solid rgba(10,26,12,0.06)",
+                  background: isEditingThis
+                    ? "rgba(196, 168, 130, 0.06)"
+                    : undefined,
+                }}
+              >
+                {/* Header de la fila: nombre + monto + acciones */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    gap: 16,
+                    marginBottom: 8,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <button
+                      onClick={() =>
+                        setDetailClientId(
+                          detailClientId === c.id ? null : c.id,
+                        )
+                      }
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          fontSize: 15,
+                          color: "var(--deep-green)",
+                          textDecoration: detailClientId === c.id ? "underline" : "none",
+                        }}
+                      >
+                        {detailClientId === c.id ? "▼ " : "▶ "}
+                        {c.name}
+                      </strong>
+                    </button>
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 10,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {c.sector}
+                    </span>
+                    {budget?.notes && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {budget.notes}
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingThis ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        flexDirection: "column",
+                        minWidth: 240,
+                      }}
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        autoFocus
+                        placeholder="Monto mensual USD"
+                        style={budgetInput}
+                      />
+                      <input
+                        type="text"
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        placeholder="Notas (opcional)"
+                        style={{ ...budgetInput, fontSize: 11 }}
+                      />
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          onClick={saveEdit}
+                          disabled={saving}
+                          style={solidBtn}
+                        >
+                          {saving ? "Guardando…" : "Guardar"}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={saving}
+                          style={ghostBtn}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color: "var(--deep-green)",
+                          }}
+                        >
+                          US$ {monthly.toLocaleString()}
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text-muted)",
+                              fontWeight: 400,
+                              marginLeft: 4,
+                            }}
+                          >
+                            /mes
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: overspent ? "#b04b3a" : "var(--text-muted)",
+                          }}
+                        >
+                          Gastado:{" "}
+                          <strong>US$ {spent.toLocaleString()}</strong> ·
+                          Queda:{" "}
+                          <strong>US$ {remaining.toLocaleString()}</strong>
+                          {overspent && " ⚠ excedido"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => startEdit(c.id)}
+                        style={ghostBtn}
+                      >
+                        ✎ Editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de progreso */}
+                {monthly > 0 && !isEditingThis && (
+                  <div
+                    style={{
+                      height: 10,
+                      background: "rgba(10,26,12,0.06)",
+                      borderRadius: 5,
+                      overflow: "hidden",
+                      position: "relative",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${Math.min(100, pct)}%`,
+                        background: overspent
+                          ? "#b04b3a"
+                          : pct > 80
+                            ? "#C9A14A"
+                            : "#2f7d4f",
+                        transition: "width 0.3s",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 6,
+                        top: -2,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: pct > 50 ? "#fff" : "var(--deep-green)",
+                        mixBlendMode: pct > 50 ? "difference" : "normal",
+                      }}
+                    >
+                      {pct}%
+                    </div>
+                  </div>
+                )}
+                {monthly === 0 && !isEditingThis && (
+                  <div
+                    style={{
+                      padding: 10,
+                      background: "var(--ivory)",
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontStyle: "italic",
+                      borderRadius: "var(--r-sm)",
+                    }}
+                  >
+                    Sin presupuesto cargado. Click en "Editar" para
+                    definirlo.
+                  </div>
+                )}
+
+                {/* Detail panel: historial mensual + form para cargar egreso */}
+                {detailClientId === c.id && (
+                  <MktClientDetail
+                    client={c}
+                    expenses={expenses}
+                    monthlyBudget={monthly}
+                    onRefresh={onRefresh}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ============================================================
+// MktClientDetail — historial mensual + form para cargar egreso
+// ============================================================
+function MktClientDetail({
+  client,
+  expenses,
+  monthlyBudget,
+  onRefresh,
+}: {
+  client: Client;
+  expenses: Expense[];
+  monthlyBudget: number;
+  onRefresh: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [newConcept, setNewConcept] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [newDate, setNewDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saving, setSaving] = useState(false);
+
+  // Egresos imputados al budget MKT de este cliente
+  const clientExpenses = expenses
+    .filter((e) => e.mktBudgetClientId === client.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  // Agrupar por mes para el historial
+  const byMonth = new Map<string, { total: number; items: Expense[] }>();
+  for (const e of clientExpenses) {
+    const mk = (e.date ?? "").slice(0, 7);
+    if (!mk) continue;
+    const cur = byMonth.get(mk) ?? { total: 0, items: [] };
+    cur.total += e.amount;
+    cur.items.push(e);
+    byMonth.set(mk, cur);
+  }
+  const months = Array.from(byMonth.entries()).sort((a, b) =>
+    b[0].localeCompare(a[0]),
+  );
+
+  async function addExpenseToBudget() {
+    if (!newConcept.trim() || !newAmount || Number(newAmount) <= 0) {
+      alert("Concepto y monto son obligatorios.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { addExpense } = await import("@/lib/storage");
+      await addExpense({
+        date: newDate,
+        concept: newConcept.trim(),
+        category: "mkt_interno",
+        assignedTo: client.name,
+        amount: Number(newAmount),
+        recurrence: "one_time",
+        recurrenceEndDate: null,
+        mktBudgetClientId: client.id,
+      });
+      setNewConcept("");
+      setNewAmount("");
+      setShowForm(false);
+      onRefresh();
+    } catch (err) {
+      const e = err as Error;
+      alert(`Error: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeOneExpense(id: string) {
+    if (!confirm("¿Eliminar este egreso?")) return;
+    const { deleteExpense } = await import("@/lib/storage");
+    await deleteExpense(id);
+    onRefresh();
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        padding: 16,
+        background: "rgba(196, 168, 130, 0.05)",
+        border: "1px solid rgba(196, 168, 130, 0.2)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+          }}
+        >
+          Historial de gastos · {client.name}
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            style={{
+              padding: "6px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+            }}
+          >
+            + Cargar egreso
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1fr auto auto",
+            gap: 8,
+            marginBottom: 16,
+            padding: 12,
+            background: "var(--white)",
+            borderRadius: "var(--r-sm)",
+            border: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          <input
+            placeholder="Concepto (ej: Meta Ads · campaña abril)"
+            value={newConcept}
+            onChange={(e) => setNewConcept(e.target.value)}
+            style={budgetInput}
+            autoFocus
+          />
+          <input
+            type="number"
+            placeholder="Monto USD"
+            min={0}
+            step="0.01"
+            value={newAmount}
+            onChange={(e) => setNewAmount(e.target.value)}
+            style={budgetInput}
+          />
+          <input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            style={budgetInput}
+          />
+          <button
+            onClick={addExpenseToBudget}
+            disabled={saving}
+            style={{
+              padding: "6px 12px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              cursor: saving ? "default" : "pointer",
+              fontFamily: "inherit",
+              borderRadius: "var(--r-sm)",
+              opacity: saving ? 0.5 : 1,
+            }}
+          >
+            {saving ? "…" : "Guardar"}
+          </button>
+          <button
+            onClick={() => {
+              setShowForm(false);
+              setNewConcept("");
+              setNewAmount("");
+            }}
+            disabled={saving}
+            style={ghostBtn}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {months.length === 0 ? (
+        <div
+          style={{
+            padding: 16,
+            background: "var(--white)",
+            fontSize: 12,
+            color: "var(--text-muted)",
+            fontStyle: "italic",
+            textAlign: "center",
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          Sin egresos imputados al presupuesto MKT todavía.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {months.map(([mk, info]) => {
+            const pct =
+              monthlyBudget > 0
+                ? Math.min(100, Math.round((info.total / monthlyBudget) * 100))
+                : 0;
+            const overspent =
+              monthlyBudget > 0 && info.total > monthlyBudget;
+            const remaining = Math.max(0, monthlyBudget - info.total);
+            return (
+              <div
+                key={mk}
+                style={{
+                  background: "var(--white)",
+                  border: "1px solid rgba(10,26,12,0.08)",
+                  borderRadius: "var(--r-sm)",
+                  padding: 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    marginBottom: 8,
+                  }}
+                >
+                  <strong style={{ fontSize: 13 }}>{mk}</strong>
+                  <div style={{ fontSize: 11, color: overspent ? "#b04b3a" : "var(--text-muted)" }}>
+                    Gastado:{" "}
+                    <strong>US$ {info.total.toLocaleString()}</strong>
+                    {monthlyBudget > 0 && (
+                      <>
+                        {" "}· Queda: <strong>US$ {remaining.toLocaleString()}</strong>
+                        {overspent && " ⚠ excedido"}
+                      </>
+                    )}
+                  </div>
+                </div>
+                {monthlyBudget > 0 && (
+                  <div
+                    style={{
+                      height: 6,
+                      background: "rgba(10,26,12,0.06)",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${pct}%`,
+                        background: overspent
+                          ? "#b04b3a"
+                          : pct > 80
+                            ? "#C9A14A"
+                            : "#2f7d4f",
+                      }}
+                    />
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {info.items.map((e) => (
+                    <div
+                      key={e.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "0.7fr 2fr 1fr 30px",
+                        gap: 8,
+                        padding: "6px 8px",
+                        fontSize: 12,
+                        background: "var(--off-white)",
+                        borderRadius: "var(--r-sm)",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ color: "var(--text-muted)" }}>
+                        {e.date}
+                      </span>
+                      <span>{e.concept}</span>
+                      <span style={{ color: "#b04b3a", textAlign: "right", fontWeight: 600 }}>
+                        −US$ {e.amount.toLocaleString()}
+                      </span>
+                      <button
+                        onClick={() => removeOneExpense(e.id)}
+                        style={{
+                          color: "var(--red-warn)",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 14,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyStateInlineCard({
+  icon,
+  title,
+  desc,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: 60,
+        textAlign: "center",
+        border: "1px dashed rgba(10,26,12,0.15)",
+        background: "var(--off-white)",
+      }}
+    >
+      <div style={{ fontSize: 40, color: "var(--sand-dark)", opacity: 0.6, marginBottom: 20 }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: "var(--deep-green)", marginBottom: 10 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 440, margin: "0 auto" }}>
+        {desc}
+      </div>
+    </div>
+  );
+}
+
+const budgetInput: React.CSSProperties = {
+  padding: "8px 12px",
+  border: "1px solid rgba(10,26,12,0.15)",
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  fontFamily: "inherit",
+  fontSize: 13,
+  outline: "none",
+  width: "100%",
+  borderRadius: "var(--r-sm)",
+};
+
+// ============================================================
+// MetricasView — Métricas del negocio (vista comprensiva)
+// ============================================================
+//
+// 4 secciones:
+//   1. Crecimiento: MRR, ARR, growth MoM, runway
+//   2. Cartera: clientes activos, ARPU, concentración, churn
+//   3. Comercial: pipeline, win rate, CAC, LTV, LTV/CAC ratio
+//   4. Operacional: margen bruto/neto, burn rate, cash, días cash
+// ============================================================
+export function MetricasView({
+  clients,
+  expenses,
+  payments,
+  manualRevs,
+  leads,
+  feeSchedules,
+}: {
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
+  leads: Lead[];
+  feeSchedules: ClientFeeSchedule[];
+}) {
+  const now = new Date();
+  const curMonth = now.toISOString().slice(0, 7);
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = prevDate.toISOString().slice(0, 7);
+
+  /** MRR EFECTIVO del mes — respeta calendario de tramos.
+   *  Si un cliente tiene tramo activo para curMonth, usa ese monto.
+   *  Si no, usa el client.fee del contrato. */
+  const mrr = computeMonthlyMrr(clients, feeSchedules, curMonth);
+
+  // ===== Cálculos base (cash real) =====
+  function netOfMonth(mk: string) {
+    const feesPaid = clients.reduce((s, c) => {
+      const p = payments.find(
+        (pp) => pp.clientId === c.id && pp.month === mk,
+      );
+      if (p?.status !== "paid") return s;
+      // Override del payment > scheduled fee > contract fee
+      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+      return s + (p.amountOverride ?? scheduled ?? c.fee);
+    }, 0);
+    const mImpact = manualRevs.reduce(
+      (s, r) => s + revenueMonthlyImpact(r, mk),
+      0,
+    );
+    const mExpenses = expenses
+      .filter((e) => (e.date ?? "").startsWith(mk))
+      .reduce((s, e) => s + e.amount, 0);
+    return {
+      ingresos: feesPaid + mImpact,
+      egresos: mExpenses,
+      net: feesPaid + mImpact - mExpenses,
+    };
+  }
+
+  // ===== 1. CRECIMIENTO =====
+  const cur = netOfMonth(curMonth);
+  const prev = netOfMonth(prevMonth);
+  const mrrGrowthPct = prev.ingresos > 0
+    ? Math.round(((cur.ingresos - prev.ingresos) / prev.ingresos) * 100)
+    : null;
+  const arr = mrr * 12;
+
+  // Net acumulado últimos 12m
+  let annual = { ingresos: 0, egresos: 0, net: 0 };
+  for (let i = 0; i <= 11; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const v = netOfMonth(mk);
+    annual.ingresos += v.ingresos;
+    annual.egresos += v.egresos;
+    annual.net += v.net;
+  }
+  const grossMarginPct =
+    annual.ingresos > 0 ? Math.round((annual.net / annual.ingresos) * 100) : 0;
+
+  // ===== Burn rate y runway =====
+  // Promedio mensual de egresos últimos 3 meses
+  let burn = 0;
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    burn += netOfMonth(mk).egresos;
+  }
+  const burnRate = Math.round(burn / 3);
+  // Cash actual (aproximado) = lo cobrado total - lo gastado total
+  const cashAprox = annual.ingresos - annual.egresos;
+  const runwayMonths = burnRate > 0 ? cashAprox / burnRate : null;
+
+  // ===== 2. CARTERA =====
+  const clientCount = clients.length;
+  const gpCount = clients.filter((c) => c.type === "gp").length;
+  const devCount = clients.filter((c) => c.type === "dev").length;
+  // ARPU = MRR / clientes activos
+  const arpu = clientCount > 0 ? Math.round(mrr / clientCount) : 0;
+
+  // Concentración: % del top 1 y top 3
+  const sortedByFee = [...clients].sort((a, b) => b.fee - a.fee);
+  const top1Pct =
+    sortedByFee[0] && mrr > 0
+      ? Math.round((sortedByFee[0].fee / mrr) * 100)
+      : 0;
+  const top3Sum = sortedByFee.slice(0, 3).reduce((s, c) => s + c.fee, 0);
+  const top3Pct = mrr > 0 ? Math.round((top3Sum / mrr) * 100) : 0;
+
+  // Churn (proxy): clientes que aparecían en payments del mes anterior
+  // pero NO tienen payment en el mes actual. No es perfecto sin
+  // tracking real de start/end de contrato pero da una señal.
+  const activeIdsThisMonth = new Set(
+    payments.filter((p) => p.month === curMonth).map((p) => p.clientId),
+  );
+  const activeIdsPrevMonth = new Set(
+    payments.filter((p) => p.month === prevMonth).map((p) => p.clientId),
+  );
+  const churnedThisMonth = [...activeIdsPrevMonth].filter(
+    (id) => !activeIdsThisMonth.has(id),
+  ).length;
+  const monthlyChurnPct =
+    activeIdsPrevMonth.size > 0
+      ? (churnedThisMonth / activeIdsPrevMonth.size) * 100
+      : 0;
+
+  // ===== 3. COMERCIAL =====
+  const totalLeads = leads.length;
+  const closedLeads = leads.filter((l) => l.stage === "cerrado").length;
+  const activeLeads = leads.filter((l) => l.stage !== "cerrado");
+  const winRate =
+    totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0;
+  const pipelineValue = activeLeads.reduce((s, l) => s + l.value, 0);
+  const avgDeal = totalLeads > 0
+    ? Math.round(leads.reduce((s, l) => s + l.value, 0) / totalLeads)
+    : 0;
+
+  // CAC: egresos de mkt_interno últimos 12m / clientes ganados (cerrados)
+  let mktSpend12m = 0;
+  for (let i = 0; i <= 11; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    mktSpend12m += expenses
+      .filter(
+        (e) =>
+          (e.date ?? "").startsWith(mk) && e.category === "mkt_interno",
+      )
+      .reduce((s, e) => s + e.amount, 0);
+  }
+  const cac = closedLeads > 0 ? Math.round(mktSpend12m / closedLeads) : null;
+
+  // LTV proxy: ARPU / churn rate mensual. Si churn=0, LTV indefinido.
+  // Usamos churn mensual como tasa. Si churn=0 → asumimos 24 meses
+  // por default (conservative) para no inflarlo a infinito.
+  const monthlyChurnDecimal = monthlyChurnPct / 100;
+  const ltv =
+    monthlyChurnDecimal > 0
+      ? Math.round(arpu / monthlyChurnDecimal)
+      : arpu * 24; // fallback 24 meses si no hubo churn aún
+
+  const ltvCacRatio =
+    cac && cac > 0 ? Number((ltv / cac).toFixed(2)) : null;
+
+  // ===== 4. CASH FLOW =====
+  // DSO (days sales outstanding) — proxy: cuántos días en promedio
+  // toma cobrar. Sin fechas reales de cobro vs facturación, usamos
+  // la proporción "cobrado del mes / facturado del mes" como señal.
+  const billedCurMonth = clients.reduce((s, c) => {
+    const p = payments.find(
+      (pp) => pp.clientId === c.id && pp.month === curMonth,
+    );
+    return s + (p?.amountOverride ?? c.fee);
+  }, 0);
+  const collectedCurMonth = clients.reduce((s, c) => {
+    const p = payments.find(
+      (pp) => pp.clientId === c.id && pp.month === curMonth,
+    );
+    if (p?.status !== "paid") return s;
+    return s + (p.amountOverride ?? c.fee);
+  }, 0);
+  const collectionRate =
+    billedCurMonth > 0
+      ? Math.round((collectedCurMonth / billedCurMonth) * 100)
+      : 0;
+  const pendingCash = billedCurMonth - collectedCurMonth;
+
+  // ===== Data para charts =====
+  const last12Months: {
+    mk: string;
+    label: string;
+    ingresos: number;
+    egresos: number;
+    net: number;
+    margen: number;
+  }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mk = d.toISOString().slice(0, 7);
+    const v = netOfMonth(mk);
+    last12Months.push({
+      mk,
+      label: d.toLocaleDateString("es-AR", { month: "short" }),
+      ingresos: v.ingresos,
+      egresos: v.egresos,
+      net: v.net,
+      margen:
+        v.ingresos > 0 ? Math.round((v.net / v.ingresos) * 100) : 0,
+    });
+  }
+
+  return (
+    <>
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          marginBottom: 8,
+        }}
+      >
+        Finanzas · Métricas
+      </div>
+      <h1 style={h1Style}>Métricas del negocio</h1>
+      <p
+        style={{
+          maxWidth: 720,
+          color: "var(--text-muted)",
+          fontSize: 14,
+          lineHeight: 1.6,
+          marginBottom: 32,
+        }}
+      >
+        Indicadores estructurales para decisiones de fondo. Crecimiento, cartera,
+        comercial y cash flow. Calculado sobre data real, no proyecciones.
+      </p>
+
+      {/* ===== 1. CRECIMIENTO ===== */}
+      <SectionTitle>1 · Crecimiento</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="MRR"
+          value={`US$ ${mrr.toLocaleString()}`}
+          sub={`${clientCount} cliente${clientCount === 1 ? "" : "s"}`}
+        />
+        <MetricCell
+          label="ARR"
+          value={`US$ ${arr.toLocaleString()}`}
+          sub="MRR × 12 (proyección anual)"
+        />
+        <MetricCell
+          label="Growth MoM"
+          value={
+            mrrGrowthPct !== null
+              ? `${mrrGrowthPct >= 0 ? "+" : ""}${mrrGrowthPct}%`
+              : "—"
+          }
+          sub={`vs ${prevMonth}`}
+          color={
+            mrrGrowthPct === null
+              ? undefined
+              : mrrGrowthPct >= 0
+                ? "#2f7d4f"
+                : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Runway"
+          value={
+            runwayMonths !== null && Number.isFinite(runwayMonths)
+              ? `${runwayMonths.toFixed(1)}m`
+              : "∞"
+          }
+          sub={`Cash US$ ${cashAprox.toLocaleString()} · burn US$ ${burnRate.toLocaleString()}/m`}
+          color={
+            runwayMonths !== null && runwayMonths < 6
+              ? "#b04b3a"
+              : runwayMonths !== null && runwayMonths < 12
+                ? "#C9A14A"
+                : "#2f7d4f"
+          }
+        />
+      </div>
+
+      {/* Chart: net mensual últimos 12m */}
+      <ChartCardLocal
+        title="Resultado neto últimos 12 meses"
+        subtitle="Cash real · ingresos cobrados menos egresos"
+      >
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart
+            data={last12Months}
+            margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+          >
+            <XAxis
+              dataKey="label"
+              fontSize={10}
+              tickLine={false}
+              axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+            />
+            <YAxis
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) =>
+                v >= 1000
+                  ? `${(v / 1000).toFixed(0)}k`
+                  : v <= -1000
+                    ? `-${(-v / 1000).toFixed(0)}k`
+                    : String(v)
+              }
+            />
+            <Tooltip
+              formatter={(v: number) => `US$ ${v.toLocaleString()}`}
+              cursor={{ fill: "rgba(196,168,130,0.1)" }}
+            />
+            <Bar dataKey="net" radius={[3, 3, 0, 0]}>
+              {last12Months.map((m) => (
+                <Cell
+                  key={m.mk}
+                  fill={m.net >= 0 ? "#2f7d4f" : "#b04b3a"}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCardLocal>
+
+      {/* ===== 2. CARTERA ===== */}
+      <SectionTitle>2 · Cartera de clientes</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="Clientes activos"
+          value={String(clientCount)}
+          sub={`${gpCount} GP · ${devCount} Dev`}
+        />
+        <MetricCell
+          label="ARPU"
+          value={`US$ ${arpu.toLocaleString()}`}
+          sub="Average revenue per user/mes"
+        />
+        <MetricCell
+          label="Top 1 concentración"
+          value={`${top1Pct}%`}
+          sub={
+            sortedByFee[0]
+              ? sortedByFee[0].name
+              : "Sin clientes"
+          }
+          color={top1Pct > 40 ? "#b04b3a" : top1Pct > 25 ? "#C9A14A" : "#2f7d4f"}
+        />
+        <MetricCell
+          label="Top 3 concentración"
+          value={`${top3Pct}%`}
+          sub="Riesgo de dependencia"
+          color={top3Pct > 70 ? "#b04b3a" : top3Pct > 50 ? "#C9A14A" : "#2f7d4f"}
+        />
+      </div>
+
+      <div className={styles.kpis} style={{ marginTop: 16 }}>
+        <MetricCell
+          label="Churn mensual"
+          value={`${monthlyChurnPct.toFixed(1)}%`}
+          sub={`${churnedThisMonth} dejaron en ${curMonth}`}
+          color={
+            monthlyChurnPct > 5
+              ? "#b04b3a"
+              : monthlyChurnPct > 2
+                ? "#C9A14A"
+                : "#2f7d4f"
+          }
+        />
+        <MetricCell
+          label="LTV"
+          value={`US$ ${ltv.toLocaleString()}`}
+          sub={
+            monthlyChurnDecimal > 0
+              ? `ARPU / churn = US$ ${arpu.toLocaleString()} / ${monthlyChurnPct.toFixed(1)}%`
+              : "Sin churn — fallback 24m × ARPU"
+          }
+        />
+        <MetricCell
+          label="GP / Dev split"
+          value={
+            clientCount > 0
+              ? `${Math.round((gpCount / clientCount) * 100)}% / ${Math.round((devCount / clientCount) * 100)}%`
+              : "—"
+          }
+          sub="Mix por tipo de cliente"
+        />
+        <MetricCell
+          label="Anual ingresos cobrados"
+          value={`US$ ${annual.ingresos.toLocaleString()}`}
+          sub="Últimos 12m · cash"
+        />
+      </div>
+
+      {/* ===== 3. COMERCIAL ===== */}
+      <SectionTitle>3 · Comercial / sales</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="Pipeline activo"
+          value={`US$ ${pipelineValue.toLocaleString()}`}
+          sub={`${activeLeads.length} deals abiertos`}
+        />
+        <MetricCell
+          label="Win rate"
+          value={`${winRate}%`}
+          sub={`${closedLeads} / ${totalLeads} leads cerrados`}
+          color={winRate > 30 ? "#2f7d4f" : winRate > 15 ? "#C9A14A" : "#b04b3a"}
+        />
+        <MetricCell
+          label="Avg deal size"
+          value={`US$ ${avgDeal.toLocaleString()}`}
+          sub="MRR esperado por deal"
+        />
+        <MetricCell
+          label="Pipeline coverage"
+          value={
+            mrr > 0
+              ? `${(pipelineValue / mrr).toFixed(1)}×`
+              : "—"
+          }
+          sub="Pipeline / MRR (target 3-5×)"
+          color={
+            mrr > 0
+              ? pipelineValue / mrr > 3
+                ? "#2f7d4f"
+                : pipelineValue / mrr > 1.5
+                  ? "#C9A14A"
+                  : "#b04b3a"
+              : undefined
+          }
+        />
+      </div>
+
+      <div className={styles.kpis} style={{ marginTop: 16 }}>
+        <MetricCell
+          label="CAC"
+          value={
+            cac !== null
+              ? `US$ ${cac.toLocaleString()}`
+              : "—"
+          }
+          sub={`Mkt interno 12m US$ ${mktSpend12m.toLocaleString()} / ${closedLeads} ganados`}
+        />
+        <MetricCell
+          label="LTV / CAC"
+          value={
+            ltvCacRatio !== null
+              ? `${ltvCacRatio}×`
+              : "—"
+          }
+          sub="Salud unit economics (target ≥3×)"
+          color={
+            ltvCacRatio === null
+              ? undefined
+              : ltvCacRatio >= 3
+                ? "#2f7d4f"
+                : ltvCacRatio >= 1.5
+                  ? "#C9A14A"
+                  : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Payback CAC"
+          value={
+            cac !== null && arpu > 0
+              ? `${Math.round((cac / arpu) * 10) / 10}m`
+              : "—"
+          }
+          sub="Meses para recuperar adquisición"
+        />
+        <MetricCell
+          label="MKT spend (12m)"
+          value={`US$ ${mktSpend12m.toLocaleString()}`}
+          sub={`${((mktSpend12m / Math.max(annual.ingresos, 1)) * 100).toFixed(1)}% de revenue`}
+        />
+      </div>
+
+      {/* ===== 4. OPERACIONAL / CASH ===== */}
+      <SectionTitle>4 · Operacional + cash flow</SectionTitle>
+      <div className={styles.kpis}>
+        <MetricCell
+          label="Margen neto 12m"
+          value={`${grossMarginPct}%`}
+          sub={`Net US$ ${annual.net.toLocaleString()} · objetivo 60%`}
+          color={
+            grossMarginPct >= 60
+              ? "#2f7d4f"
+              : grossMarginPct >= 40
+                ? "#C9A14A"
+                : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Burn rate"
+          value={`US$ ${burnRate.toLocaleString()}/m`}
+          sub="Promedio egresos 3m"
+        />
+        <MetricCell
+          label="Cobranza del mes"
+          value={`${collectionRate}%`}
+          sub={`US$ ${collectedCurMonth.toLocaleString()} / US$ ${billedCurMonth.toLocaleString()}`}
+          color={
+            collectionRate >= 80
+              ? "#2f7d4f"
+              : collectionRate >= 50
+                ? "#C9A14A"
+                : "#b04b3a"
+          }
+        />
+        <MetricCell
+          label="Cobranza pendiente"
+          value={`US$ ${pendingCash.toLocaleString()}`}
+          sub={`Cuentas por cobrar · ${curMonth}`}
+        />
+      </div>
+
+      {/* Chart: margen mensual % últimos 12m */}
+      <ChartCardLocal
+        title="Margen neto % últimos 12 meses"
+        subtitle="Net / ingresos cobrados por mes"
+      >
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart
+            data={last12Months}
+            margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+          >
+            <XAxis
+              dataKey="label"
+              fontSize={10}
+              tickLine={false}
+              axisLine={{ stroke: "rgba(10,26,12,0.08)" }}
+            />
+            <YAxis
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => `${v}%`}
+            />
+            <Tooltip
+              formatter={(v: number) => `${v}%`}
+              cursor={{ fill: "rgba(196,168,130,0.1)" }}
+            />
+            <Bar dataKey="margen" radius={[3, 3, 0, 0]}>
+              {last12Months.map((m) => (
+                <Cell
+                  key={m.mk}
+                  fill={
+                    m.margen >= 60
+                      ? "#2f7d4f"
+                      : m.margen >= 40
+                        ? "#C9A14A"
+                        : "#b04b3a"
+                  }
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCardLocal>
+    </>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      style={{
+        fontSize: 14,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color: "var(--sand-dark)",
+        fontWeight: 700,
+        marginTop: 32,
+        marginBottom: 14,
+        paddingBottom: 10,
+        borderBottom: "1px solid rgba(10,26,12,0.08)",
+      }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  color?: string;
+}) {
+  return (
+    <div className={styles.kpi}>
+      <div className={styles.kLabel}>{label}</div>
+      <div
+        className={styles.kValue}
+        style={color ? { color } : undefined}
+      >
+        {value}
+      </div>
+      {sub && <div className={styles.kSub}>{sub}</div>}
+    </div>
+  );
+}
+
+function ChartCardLocal({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: "var(--r-lg)",
+        boxShadow: "var(--shadow-card)",
+        padding: 20,
+        marginTop: 20,
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 14,
+          paddingBottom: 10,
+          borderBottom: "1px solid rgba(10,26,12,0.06)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--deep-green)",
+          }}
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--sand-dark)",
+              marginTop: 3,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ============================================================
+// DividendosView — distribución del net profit a mes vencido
+// ============================================================
+//
+// Los dividendos se calculan sobre el RESULTADO NETO DEL MES VENCIDO
+// (mes anterior cerrado), no el mes en curso. El director elige qué
+// mes quiere ver con el selector — por default abre el mes anterior.
+//
+// Default split: 30% socio A + 30% socio B + 40% inversiones.
+// La fila "back de empresa" queda en 0 (legacy de la migración 025)
+// y solo se muestra si el director la setea explícitamente > 0 en
+// modo edición.
 // ============================================================
 export function DividendosView({
-  monthlyNet,
+  clients,
+  expenses,
+  payments,
+  manualRevs,
 }: {
-  /** Net profit calculado del mes actual: ingresos − egresos. */
-  monthlyNet: number;
+  clients: Client[];
+  expenses: Expense[];
+  payments: InvoicePayment[];
+  manualRevs: ManualRevenue[];
 }) {
   const [config, setConfig] = useState<DividendConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,12 +2699,18 @@ export function DividendosView({
   const [editForm, setEditForm] = useState({
     partner_a_pct: 30,
     partner_b_pct: 30,
-    inversiones_pct: 15,
-    back_pct: 25,
+    inversiones_pct: 40,
+    back_pct: 0,
     partner_a_name: "Federico Dearmas",
     partner_b_name: "Gianluca Costantini",
   });
   const [saving, setSaving] = useState(false);
+  /** Mes seleccionado (YYYY-MM). Default = mes anterior cerrado. */
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 7);
+  });
 
   async function refresh() {
     setLoading(true);
@@ -274,6 +2732,148 @@ export function DividendosView({
   useEffect(() => {
     refresh();
   }, []);
+
+  // Calcular net REAL del mes seleccionado — cash cobrado:
+  //   ingresos = fees de clientes con payment paid + manual revenues
+  //   egresos = todos los gastos del mes
+  //   net = ingresos - egresos
+  //
+  // No usamos MRR actual (sería proyección, no realidad).
+  const feesPaidSelected = clients.reduce((s, c) => {
+    const p = payments.find(
+      (pp) => pp.clientId === c.id && pp.month === selectedMonth,
+    );
+    if (p?.status !== "paid") return s;
+    const amt = p.amountOverride ?? c.fee;
+    return s + amt;
+  }, 0);
+  const manualRevImpact = manualRevs.reduce(
+    (s, r) => s + revenueMonthlyImpact(r, selectedMonth),
+    0,
+  );
+  const monthExpenses = expenses
+    .filter((e) => (e.date ?? "").startsWith(selectedMonth))
+    .reduce((s, e) => s + e.amount, 0);
+  const monthlyNet = feesPaidSelected + manualRevImpact - monthExpenses;
+
+  // Generamos opciones de mes para el selector: últimos 12 meses
+  // empezando por el mes anterior cerrado.
+  const monthOptions: { value: string; label: string }[] = [];
+  {
+    const now = new Date();
+    for (let i = 1; i <= 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString("es-AR", {
+        month: "long",
+        year: "numeric",
+      });
+      monthOptions.push({ value, label });
+    }
+    // Mes actual (en curso) último, marcado como "en curso"
+    const cur = now.toISOString().slice(0, 7);
+    const curLabel = now.toLocaleDateString("es-AR", {
+      month: "long",
+      year: "numeric",
+    });
+    monthOptions.unshift({ value: cur, label: `${curLabel} (en curso)` });
+  }
+
+  /** Historial: solo meses con actividad real.
+   *
+   *  Un mes "tiene actividad" si tiene al menos uno de:
+   *  - 1 payment registrado (status paid o no)
+   *  - 1 expense con fecha de ese mes
+   *  - 1 manual revenue con impacto > 0 en ese mes
+   *
+   *  Esto evita mostrar 12 meses de "fantasmas" cuando el negocio
+   *  arrancó hace 1-2 meses. El director ve solo lo que pasó de verdad.
+   *
+   *  Usamos solo cash real cobrado (payments con status='paid') para
+   *  calcular el net, igual que el resto del dashboard. */
+  const history = (() => {
+    if (!config) return [] as Array<{
+      monthKey: string;
+      label: string;
+      net: number;
+      partnerA: number;
+      partnerB: number;
+      inversiones: number;
+      back: number;
+    }>;
+    const now = new Date();
+    const rows: Array<{
+      monthKey: string;
+      label: string;
+      net: number;
+      partnerA: number;
+      partnerB: number;
+      inversiones: number;
+      back: number;
+    }> = [];
+    // Buscamos hasta 24 meses hacia atrás pero solo agregamos los que
+    // tienen actividad — así si el negocio arrancó hace 3 meses, solo
+    // muestra esos 3.
+    for (let i = 1; i <= 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mk = d.toISOString().slice(0, 7);
+
+      // Detectar actividad
+      const hasPayment = payments.some((p) => p.month === mk);
+      const hasExpense = expenses.some((e) =>
+        (e.date ?? "").startsWith(mk),
+      );
+      const mImpact = manualRevs.reduce(
+        (s, r) => s + revenueMonthlyImpact(r, mk),
+        0,
+      );
+      const hasRevenue = mImpact > 0;
+
+      if (!hasPayment && !hasExpense && !hasRevenue) continue;
+
+      // Net real: solo fees de clientes con payment paid
+      const feesPaid = clients.reduce((s, c) => {
+        const p = payments.find(
+          (pp) => pp.clientId === c.id && pp.month === mk,
+        );
+        if (p?.status !== "paid") return s;
+        const amt = p.amountOverride ?? c.fee;
+        return s + amt;
+      }, 0);
+      const mExpenses = expenses
+        .filter((e) => (e.date ?? "").startsWith(mk))
+        .reduce((s, e) => s + e.amount, 0);
+      const net = feesPaid + mImpact - mExpenses;
+
+      const label = d.toLocaleDateString("es-AR", {
+        month: "long",
+        year: "numeric",
+      });
+      const dist = distributeDividends(net, config);
+      rows.push({
+        monthKey: mk,
+        label,
+        net,
+        partnerA: dist.partnerA,
+        partnerB: dist.partnerB,
+        inversiones: dist.inversiones,
+        back: dist.back,
+      });
+    }
+    return rows;
+  })();
+
+  /** Acumulados de los últimos 12 meses. */
+  const accumulated = history.reduce(
+    (acc, r) => ({
+      net: acc.net + r.net,
+      partnerA: acc.partnerA + r.partnerA,
+      partnerB: acc.partnerB + r.partnerB,
+      inversiones: acc.inversiones + r.inversiones,
+      back: acc.back + r.back,
+    }),
+    { net: 0, partnerA: 0, partnerB: 0, inversiones: 0, back: 0 },
+  );
 
   async function save() {
     const total =
@@ -371,16 +2971,55 @@ export function DividendosView({
           color: "var(--text-muted)",
           fontSize: 14,
           lineHeight: 1.6,
-          marginBottom: 28,
+          marginBottom: 20,
         }}
       >
-        Cómo se divide el resultado neto del mes entre socios,
-        reinversiones y back de la empresa.
+        Distribución a <strong style={{ color: "var(--deep-green)" }}>mes vencido</strong>:
+        el resultado neto del mes cerrado se reparte entre los dos socios
+        (30% c/u) y queda 40% para invertir en la empresa. Elegí el mes
+        que querés liquidar.
       </p>
+
+      {/* Selector de mes */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 24,
+          padding: "12px 16px",
+          background: "var(--off-white)",
+          borderLeft: "3px solid var(--sand)",
+          borderRadius: "var(--r-md)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+          }}
+        >
+          Mes a liquidar
+        </div>
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{ ...inputStyle, minWidth: 200, textTransform: "capitalize" }}
+        >
+          {monthOptions.map((m) => (
+            <option key={m.value} value={m.value} style={{ textTransform: "capitalize" }}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className={styles.kpis}>
         <div className={styles.kpi}>
-          <div className={styles.kLabel}>Net profit del mes</div>
+          <div className={styles.kLabel}>Resultado neto del mes</div>
           <div
             className={styles.kValue}
             style={{
@@ -388,6 +3027,9 @@ export function DividendosView({
             }}
           >
             US$ {monthlyNet.toLocaleString()}
+          </div>
+          <div className={styles.kSub}>
+            Ingresos − egresos · {selectedMonth}
           </div>
         </div>
         <div className={styles.kpi}>
@@ -405,19 +3047,23 @@ export function DividendosView({
           <div className={styles.kLabel}>{config.partner_b_pct}%</div>
         </div>
         <div className={styles.kpi}>
-          <div className={styles.kLabel}>Inversiones</div>
+          <div className={styles.kLabel}>Inversión en la empresa</div>
           <div className={styles.kValue}>
             US$ {dist.inversiones.toLocaleString()}
           </div>
           <div className={styles.kLabel}>{config.inversiones_pct}%</div>
         </div>
-        <div className={styles.kpi}>
-          <div className={styles.kLabel}>Back de empresa</div>
-          <div className={styles.kValue}>
-            US$ {dist.back.toLocaleString()}
+        {/* Back de empresa solo se muestra si está configurado > 0 —
+            por default está oculto (legacy). */}
+        {Number(config.back_pct) > 0 && (
+          <div className={styles.kpi}>
+            <div className={styles.kLabel}>Back de empresa</div>
+            <div className={styles.kValue}>
+              US$ {dist.back.toLocaleString()}
+            </div>
+            <div className={styles.kLabel}>{config.back_pct}%</div>
           </div>
-          <div className={styles.kLabel}>{config.back_pct}%</div>
-        </div>
+        )}
       </div>
 
       {dist.remainder !== 0 && (
@@ -450,8 +3096,199 @@ export function DividendosView({
         </div>
       )}
 
+      {/* Historial de los últimos 12 meses + acumulados */}
+      <div className={styles.table} style={{ marginTop: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginBottom: 18,
+            paddingBottom: 14,
+            borderBottom: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0, padding: 0, border: "none" }}>
+              Historial de dividendos
+            </h3>
+            <p
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginTop: 6,
+                marginBottom: 0,
+              }}
+            >
+              Últimos 12 meses cerrados. Los valores se recalculan con la
+              config actual ({config.partner_a_pct}/{config.partner_b_pct}/
+              {config.inversiones_pct}
+              {Number(config.back_pct) > 0 ? `/${config.back_pct}` : ""}).
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={`${styles.row} ${styles.rowHead}`}
+          style={{
+            gridTemplateColumns:
+              Number(config.back_pct) > 0
+                ? "1.4fr 1fr 1fr 1fr 1fr 1fr"
+                : "1.4fr 1fr 1fr 1fr 1fr",
+          }}
+        >
+          <div>Mes</div>
+          <div style={{ textAlign: "right" }}>Neto</div>
+          <div style={{ textAlign: "right" }}>{config.partner_a_name.split(" ")[0]}</div>
+          <div style={{ textAlign: "right" }}>{config.partner_b_name.split(" ")[0]}</div>
+          <div style={{ textAlign: "right" }}>Inversión</div>
+          {Number(config.back_pct) > 0 && (
+            <div style={{ textAlign: "right" }}>Back</div>
+          )}
+        </div>
+
+        {history.length === 0 ? (
+          <div style={{ padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
+            Sin historial todavía.
+          </div>
+        ) : (
+          history.map((r) => {
+            const isSelected = r.monthKey === selectedMonth;
+            return (
+              <div
+                key={r.monthKey}
+                className={styles.row}
+                style={{
+                  gridTemplateColumns:
+                    Number(config.back_pct) > 0
+                      ? "1.4fr 1fr 1fr 1fr 1fr 1fr"
+                      : "1.4fr 1fr 1fr 1fr 1fr",
+                  background: isSelected
+                    ? "rgba(196, 168, 130, 0.10)"
+                    : undefined,
+                  cursor: "pointer",
+                }}
+                onClick={() => setSelectedMonth(r.monthKey)}
+                title="Ver este mes arriba"
+              >
+                <div style={{ textTransform: "capitalize" }}>
+                  {r.label}
+                  {isSelected && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 9,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      · ACTUAL
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={styles.num}
+                  style={{
+                    textAlign: "right",
+                    color:
+                      r.net < 0 ? "var(--red-warn)" : "var(--deep-green)",
+                  }}
+                >
+                  US$ {r.net.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ textAlign: "right" }}>
+                  US$ {r.partnerA.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ textAlign: "right" }}>
+                  US$ {r.partnerB.toLocaleString()}
+                </div>
+                <div className={styles.num} style={{ textAlign: "right" }}>
+                  US$ {r.inversiones.toLocaleString()}
+                </div>
+                {Number(config.back_pct) > 0 && (
+                  <div className={styles.num} style={{ textAlign: "right" }}>
+                    US$ {r.back.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+
+        {/* Fila de acumulados */}
+        {history.length > 0 && (
+          <div
+            className={styles.row}
+            style={{
+              gridTemplateColumns:
+                Number(config.back_pct) > 0
+                  ? "1.4fr 1fr 1fr 1fr 1fr 1fr"
+                  : "1.4fr 1fr 1fr 1fr 1fr",
+              borderTop: "2px solid rgba(10,26,12,0.15)",
+              borderBottom: "none",
+              fontWeight: 700,
+              background: "var(--off-white)",
+              paddingTop: 12,
+              paddingBottom: 12,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+              }}
+            >
+              Acumulado 12m
+            </div>
+            <div
+              className={styles.num}
+              style={{
+                textAlign: "right",
+                color:
+                  accumulated.net < 0
+                    ? "var(--red-warn)"
+                    : "var(--deep-green)",
+                fontWeight: 700,
+              }}
+            >
+              US$ {accumulated.net.toLocaleString()}
+            </div>
+            <div
+              className={styles.num}
+              style={{ textAlign: "right", fontWeight: 700 }}
+            >
+              US$ {accumulated.partnerA.toLocaleString()}
+            </div>
+            <div
+              className={styles.num}
+              style={{ textAlign: "right", fontWeight: 700 }}
+            >
+              US$ {accumulated.partnerB.toLocaleString()}
+            </div>
+            <div
+              className={styles.num}
+              style={{ textAlign: "right", fontWeight: 700 }}
+            >
+              US$ {accumulated.inversiones.toLocaleString()}
+            </div>
+            {Number(config.back_pct) > 0 && (
+              <div
+                className={styles.num}
+                style={{ textAlign: "right", fontWeight: 700 }}
+              >
+                US$ {accumulated.back.toLocaleString()}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Edit form */}
-      <div className={styles.table}>
+      <div className={styles.table} style={{ marginTop: 24 }}>
         <h3>Configuración actual</h3>
         {!editing && (
           <>
@@ -460,10 +3297,14 @@ export function DividendosView({
               <div style={{ textAlign: "right" }}>{config.partner_a_pct}%</div>
               <div>{config.partner_b_name}</div>
               <div style={{ textAlign: "right" }}>{config.partner_b_pct}%</div>
-              <div>Inversiones</div>
+              <div>Inversión en la empresa</div>
               <div style={{ textAlign: "right" }}>{config.inversiones_pct}%</div>
-              <div>Back de empresa</div>
-              <div style={{ textAlign: "right" }}>{config.back_pct}%</div>
+              {Number(config.back_pct) > 0 && (
+                <>
+                  <div>Back de empresa</div>
+                  <div style={{ textAlign: "right" }}>{config.back_pct}%</div>
+                </>
+              )}
             </div>
             <button
               onClick={() => setEditing(true)}
@@ -510,7 +3351,7 @@ export function DividendosView({
                 onChange={(v) => setEditForm({ ...editForm, partner_b_pct: v })}
               />
 
-              <div style={{ paddingLeft: 10, fontSize: 13 }}>Inversiones</div>
+              <div style={{ paddingLeft: 10, fontSize: 13 }}>Inversión en la empresa</div>
               <PctInput
                 value={editForm.inversiones_pct}
                 onChange={(v) =>
@@ -518,11 +3359,18 @@ export function DividendosView({
                 }
               />
 
-              <div style={{ paddingLeft: 10, fontSize: 13 }}>Back de empresa</div>
-              <PctInput
-                value={editForm.back_pct}
-                onChange={(v) => setEditForm({ ...editForm, back_pct: v })}
-              />
+              {/* Back de empresa solo aparece si ya tenía valor > 0 (legacy).
+                  Para uso nuevo el % de back debería quedar siempre en 0 —
+                  todo lo no repartido va a inversiones. */}
+              {editForm.back_pct > 0 && (
+                <>
+                  <div style={{ paddingLeft: 10, fontSize: 13 }}>Back de empresa</div>
+                  <PctInput
+                    value={editForm.back_pct}
+                    onChange={(v) => setEditForm({ ...editForm, back_pct: v })}
+                  />
+                </>
+              )}
             </div>
             <div
               style={{
@@ -610,11 +3458,21 @@ export function EstadosView({
 }: {
   clients: Client[];
   expenses: Expense[];
-  payments: { clientId: string; month: string; status: string }[];
+  /** Payments completos (con amount_override si tiene). Hacemos cast
+   *  porque page.tsx pasa solo { clientId, month, status } pero
+   *  nosotros necesitamos también amountOverride / note. */
+  payments: Array<{
+    clientId: string;
+    month: string;
+    status: string;
+    amountOverride?: number | null;
+    note?: string | null;
+  }>;
   monthYYYYMM: string;
 }) {
   const [revenues, setRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     listManualRevenues().then((r) => {
@@ -623,63 +3481,263 @@ export function EstadosView({
     });
   }, []);
 
-  // Estado de Resultados (Income Statement) — del mes seleccionado.
-  const feesBilled = clients.reduce((s, c) => s + c.fee, 0);
+  // ===== Cálculos del mes (devengado) =====
+  function effectiveFeeFor(clientId: string, mk: string, baseFee: number): number {
+    const p = payments.find((pp) => pp.clientId === clientId && pp.month === mk);
+    return p?.amountOverride != null ? p.amountOverride : baseFee;
+  }
+
+  const feesBilled = clients.reduce(
+    (s, c) => s + effectiveFeeFor(c.id, monthYYYYMM, c.fee),
+    0,
+  );
   const feesPaid = clients.reduce((s, c) => {
     const p = payments.find(
       (p) => p.clientId === c.id && p.month === monthYYYYMM,
     );
-    return s + (p?.status === "paid" ? c.fee : 0);
+    if (p?.status !== "paid") return s;
+    return s + effectiveFeeFor(c.id, monthYYYYMM, c.fee);
   }, 0);
   const manualRevImpact = revenues.reduce(
     (s, r) => s + revenueMonthlyImpact(r, monthYYYYMM),
     0,
   );
-  const totalIngresos = feesBilled + manualRevImpact; // base devengado
+  const totalIngresos = feesBilled + manualRevImpact;
   const monthExpenses = expenses
     .filter((e) => (e.date ?? "").startsWith(monthYYYYMM))
     .reduce((s, e) => s + e.amount, 0);
   const netResult = totalIngresos - monthExpenses;
-
-  // Estado de Situación Financiera — simplificado.
-  // Activos = cobrado del mes + facturado pendiente (cuentas por cobrar)
-  // Sin pasivos modelados aún (próxima iteración).
   const cuentasPorCobrar = feesBilled - feesPaid;
+
+  // ===== Libro Mayor: TODOS los movimientos =====
+  // Cada movimiento tiene: fecha · tipo · concepto · cliente · categoría · monto
+  type LedgerRow = {
+    fecha: string;
+    tipo: "ingreso" | "egreso";
+    concepto: string;
+    cliente: string;
+    categoria: string;
+    monto: number;
+    estado: string;
+    nota: string;
+  };
+
+  const ledger: LedgerRow[] = (() => {
+    const rows: LedgerRow[] = [];
+
+    // 1. Cobros de fees mensuales — uno por (cliente, mes) que tenga payment registrado
+    for (const p of payments) {
+      const c = clients.find((cc) => cc.id === p.clientId);
+      if (!c) continue;
+      const fee = p.amountOverride ?? c.fee;
+      rows.push({
+        fecha: `${p.month}-01`,
+        tipo: "ingreso",
+        concepto:
+          p.amountOverride != null
+            ? `Fee mensual ${c.name} (override)`
+            : `Fee mensual ${c.name}`,
+        cliente: c.name,
+        categoria: "Fee recurrente",
+        monto: fee,
+        estado: p.status,
+        nota: p.note ?? "",
+      });
+    }
+
+    // 2. Manual revenues — uno por (rev, mes) que aplique.
+    //    Para fijos: aplica en cada mes entre start_date y end_date (o vigente).
+    //    Para one-time: aplica solo en el mes de su `date`.
+    for (const r of revenues) {
+      if (r.kind === "one_time" && r.date) {
+        rows.push({
+          fecha: r.date,
+          tipo: "ingreso",
+          concepto: r.description,
+          cliente: r.client_id
+            ? clients.find((c) => c.id === r.client_id)?.name ?? r.client_id
+            : "Corporativo",
+          categoria: r.category ?? "One-time",
+          monto: Number(r.amount),
+          estado: "registrado",
+          nota: r.notes ?? "",
+        });
+      } else if (r.kind === "fijo" && r.start_date) {
+        // Generar uno por cada mes en el rango [start_date, end_date or current]
+        const startD = new Date(r.start_date);
+        const endD = r.end_date
+          ? new Date(r.end_date)
+          : new Date(); // hasta ahora
+        const cur = new Date(startD.getFullYear(), startD.getMonth(), 1);
+        while (cur <= endD) {
+          const mk = cur.toISOString().slice(0, 7);
+          rows.push({
+            fecha: `${mk}-01`,
+            tipo: "ingreso",
+            concepto: r.description,
+            cliente: r.client_id
+              ? clients.find((c) => c.id === r.client_id)?.name ?? r.client_id
+              : "Corporativo",
+            categoria: r.category ?? "Fijo recurrente",
+            monto: Number(r.amount),
+            estado: "registrado",
+            nota: r.notes ?? "",
+          });
+          cur.setMonth(cur.getMonth() + 1);
+        }
+      }
+    }
+
+    // 3. Egresos
+    for (const e of expenses) {
+      rows.push({
+        fecha: e.date,
+        tipo: "egreso",
+        concepto: e.concept,
+        cliente: e.assignedTo,
+        categoria: e.category,
+        monto: e.amount,
+        estado: "pagado",
+        nota: "",
+      });
+    }
+
+    // Sort desc por fecha
+    rows.sort((a, b) => b.fecha.localeCompare(a.fecha));
+    return rows;
+  })();
+
+  // Stats del libro mayor (toda la historia)
+  const allIngresos = ledger
+    .filter((r) => r.tipo === "ingreso")
+    .reduce((s, r) => s + r.monto, 0);
+  const allEgresos = ledger
+    .filter((r) => r.tipo === "egreso")
+    .reduce((s, r) => s + r.monto, 0);
+  const allNet = allIngresos - allEgresos;
+
+  function exportCsv() {
+    setExporting(true);
+    try {
+      const header = [
+        "Fecha",
+        "Tipo",
+        "Concepto",
+        "Cliente / Asignado",
+        "Categoría",
+        "Monto USD",
+        "Estado",
+        "Nota",
+      ];
+      // Escape CSV: cualquier campo con coma, comilla o salto de línea va
+      // entre comillas dobles, y las comillas internas se duplican.
+      const esc = (s: string) =>
+        /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      const lines = [
+        header.join(","),
+        ...ledger.map((r) =>
+          [
+            r.fecha,
+            r.tipo === "ingreso" ? "Ingreso" : "Egreso",
+            r.concepto,
+            r.cliente,
+            r.categoria,
+            r.monto.toFixed(2),
+            r.estado,
+            r.nota,
+          ]
+            .map((v) => esc(String(v ?? "")))
+            .join(","),
+        ),
+      ];
+      const csv = lines.join("\n");
+      // BOM para que Excel detecte UTF-8 con acentos
+      const blob = new Blob(["﻿" + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `Estados Financieros D&C ${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo generar el CSV:\n${e.message}`);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <>
       <div
         style={{
-          fontSize: 11,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color: "var(--sand-dark)",
-          fontWeight: 600,
-          marginBottom: 8,
-        }}
-      >
-        Finanzas · Estados
-      </div>
-      <h1 style={h1Style}>Estados financieros</h1>
-      <p
-        style={{
-          maxWidth: 700,
-          color: "var(--text-muted)",
-          fontSize: 14,
-          lineHeight: 1.6,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
           marginBottom: 28,
         }}
       >
-        Mes corriente · {monthYYYYMM}
-      </p>
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 600,
+              marginBottom: 8,
+            }}
+          >
+            Finanzas · Estados
+          </div>
+          <h1 style={h1Style}>Estados financieros</h1>
+          <p
+            style={{
+              maxWidth: 700,
+              color: "var(--text-muted)",
+              fontSize: 14,
+              lineHeight: 1.6,
+              marginTop: 8,
+            }}
+          >
+            Mes corriente: <strong>{monthYYYYMM}</strong> · Libro mayor abajo
+            con todos los movimientos de la historia.
+          </p>
+        </div>
+        <button
+          onClick={exportCsv}
+          disabled={exporting || ledger.length === 0}
+          style={{
+            background: "var(--deep-green)",
+            color: "var(--off-white)",
+            border: "none",
+            padding: "12px 22px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: exporting || ledger.length === 0 ? "default" : "pointer",
+            fontFamily: "inherit",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            opacity: exporting || ledger.length === 0 ? 0.5 : 1,
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          {exporting ? "Generando…" : "↓ Exportar CSV"}
+        </button>
+      </div>
 
       {loading && <div>Cargando…</div>}
 
       {!loading && (
         <>
-          {/* ESTADO DE RESULTADOS */}
+          {/* ESTADO DE RESULTADOS — mes corriente */}
           <div className={styles.table}>
-            <h3>Estado de resultados</h3>
+            <h3>Estado de resultados · {monthYYYYMM}</h3>
             <div
               className={`${styles.row} ${styles.rowHead}`}
               style={{ gridTemplateColumns: "2fr 1fr" }}
@@ -687,7 +3745,6 @@ export function EstadosView({
               <div>Concepto</div>
               <div>Monto</div>
             </div>
-
             <RowLine label="Fees de clientes facturados" value={feesBilled} kind="ingreso" />
             <RowLine
               label="Ingresos manuales (fijos + one-time)"
@@ -715,12 +3772,11 @@ export function EstadosView({
 
           {/* ESTADO DE SITUACIÓN FINANCIERA (simplificado) */}
           <div className={styles.table} style={{ marginTop: 24 }}>
-            <h3>Estado de situación financiera</h3>
+            <h3>Estado de situación financiera · {monthYYYYMM}</h3>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
               Vista simplificada. Pasivos y patrimonio requieren modelar
               deudas y capital social — viene en próxima iteración.
             </p>
-
             <div style={{ marginBottom: 16 }}>
               <div
                 style={{
@@ -751,6 +3807,128 @@ export function EstadosView({
                 bold
               />
             </div>
+          </div>
+
+          {/* LIBRO MAYOR — todos los movimientos */}
+          <div className={styles.table} style={{ marginTop: 24 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                marginBottom: 14,
+                paddingBottom: 14,
+                borderBottom: "1px solid rgba(10,26,12,0.08)",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, padding: 0, border: "none" }}>
+                  Libro mayor — todos los movimientos
+                </h3>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, marginBottom: 0 }}>
+                  {ledger.length} movimiento{ledger.length === 1 ? "" : "s"}
+                  registrado{ledger.length === 1 ? "" : "s"} ·
+                  Ingresos US$ {allIngresos.toLocaleString()} ·
+                  Egresos US$ {allEgresos.toLocaleString()} ·
+                  Net <strong style={{ color: allNet >= 0 ? "#2f7d4f" : "#b04b3a" }}>US$ {allNet.toLocaleString()}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`${styles.row} ${styles.rowHead}`}
+              style={{
+                gridTemplateColumns:
+                  "0.7fr 0.5fr 2fr 1fr 0.9fr 0.9fr 0.7fr",
+              }}
+            >
+              <div>Fecha</div>
+              <div>Tipo</div>
+              <div>Concepto</div>
+              <div>Cliente/Asig.</div>
+              <div>Categoría</div>
+              <div style={{ textAlign: "right" }}>Monto</div>
+              <div>Estado</div>
+            </div>
+
+            {ledger.length === 0 ? (
+              <div
+                style={{
+                  padding: 24,
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                  fontStyle: "italic",
+                }}
+              >
+                Sin movimientos registrados todavía.
+              </div>
+            ) : (
+              // Limitamos render a 200 filas para no congelar el browser.
+              // El CSV tiene todas. Si querés ver más, exportá.
+              ledger.slice(0, 200).map((r, i) => (
+                <div
+                  key={`${r.fecha}-${i}`}
+                  className={styles.row}
+                  style={{
+                    gridTemplateColumns:
+                      "0.7fr 0.5fr 2fr 1fr 0.9fr 0.9fr 0.7fr",
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ color: "var(--text-muted)" }}>{r.fecha}</div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: r.tipo === "ingreso" ? "#2f7d4f" : "#b04b3a",
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      fontSize: 10,
+                    }}
+                  >
+                    {r.tipo === "ingreso" ? "↑ In" : "↓ Out"}
+                  </div>
+                  <div>
+                    {r.concepto}
+                    {r.nota && (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {r.nota}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ color: "var(--text-muted)" }}>{r.cliente}</div>
+                  <div style={{ color: "var(--text-muted)" }}>{r.categoria}</div>
+                  <div
+                    className={`${styles.num} ${r.tipo === "ingreso" ? styles.pos : styles.neg}`}
+                    style={{ textAlign: "right", fontWeight: 600 }}
+                  >
+                    {r.tipo === "ingreso" ? "" : "−"}US$ {r.monto.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "capitalize" }}>
+                    {r.estado}
+                  </div>
+                </div>
+              ))
+            )}
+            {ledger.length > 200 && (
+              <div
+                style={{
+                  padding: 14,
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  textAlign: "center",
+                  borderTop: "1px solid rgba(10,26,12,0.05)",
+                }}
+              >
+                Mostrando los primeros 200 de {ledger.length} movimientos.
+                Descargá el CSV para ver todos.
+              </div>
+            )}
           </div>
         </>
       )}
@@ -793,10 +3971,13 @@ function RowLine({
 // ============================================================
 // ManualRevenuesPanel — se inserta dentro de IngresosView
 // ============================================================
-export function ManualRevenuesPanel() {
+export function ManualRevenuesPanel({ clients }: { clients: Client[] }) {
   const [revenues, setRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  /** ID del ingreso que se está editando. Si != null, el form se
+   *  muestra pre-cargado y "Guardar" hace UPDATE en vez de INSERT. */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // form
   const [kind, setKind] = useState<ManualRevenueKind>("fijo");
@@ -807,7 +3988,11 @@ export function ManualRevenuesPanel() {
   const [end, setEnd] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
+  /** clientId asignado al ingreso. "" = corporativo / sin cliente. */
+  const [clientId, setClientId] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const isEditing = editingId !== null;
 
   async function refresh() {
     setLoading(true);
@@ -819,7 +4004,38 @@ export function ManualRevenuesPanel() {
     refresh();
   }, []);
 
-  async function add() {
+  /** Resetea el form a estado vacío y cierra el panel. */
+  function resetAndClose() {
+    setDescription("");
+    setAmount("");
+    setStart("");
+    setEnd("");
+    setDate("");
+    setCategory("");
+    setClientId("");
+    setKind("fijo");
+    setCurrency("USD");
+    setAdding(false);
+    setEditingId(null);
+  }
+
+  /** Abre el form en modo edición pre-cargando los valores del
+   *  ingreso seleccionado. */
+  function startEdit(r: ManualRevenue) {
+    setEditingId(r.id);
+    setKind(r.kind);
+    setDescription(r.description);
+    setAmount(String(r.amount));
+    setCurrency(r.currency ?? "USD");
+    setStart(r.start_date ?? "");
+    setEnd(r.end_date ?? "");
+    setDate(r.date ?? "");
+    setCategory(r.category ?? "");
+    setClientId(r.client_id ?? "");
+    setAdding(true);
+  }
+
+  async function save() {
     if (!description.trim() || !amount) {
       alert("Descripción y monto son obligatorios.");
       return;
@@ -843,16 +4059,14 @@ export function ManualRevenuesPanel() {
         start_date: kind === "fijo" ? start : null,
         end_date: kind === "fijo" ? end || null : null,
         date: kind === "one_time" ? date : null,
+        client_id: clientId || null,
       };
-      await createManualRevenue(input);
-      // Reset form
-      setDescription("");
-      setAmount("");
-      setStart("");
-      setEnd("");
-      setDate("");
-      setCategory("");
-      setAdding(false);
+      if (editingId) {
+        await updateManualRevenue(editingId, input);
+      } else {
+        await createManualRevenue(input);
+      }
+      resetAndClose();
       refresh();
     } catch (err) {
       const e = err as Error;
@@ -866,6 +4080,8 @@ export function ManualRevenuesPanel() {
     if (!confirm("¿Eliminar este ingreso?")) return;
     try {
       await deleteManualRevenue(id);
+      // Si estaba editando ese mismo ingreso, cerramos el form.
+      if (editingId === id) resetAndClose();
       refresh();
     } catch (err) {
       const e = err as Error;
@@ -916,7 +4132,7 @@ export function ManualRevenuesPanel() {
       {!loading && revenues.length > 0 && (
         <div
           className={`${styles.row} ${styles.rowHead}`}
-          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 50px" }}
+          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 90px" }}
         >
           <div>Descripción</div>
           <div>Tipo</div>
@@ -926,45 +4142,74 @@ export function ManualRevenuesPanel() {
         </div>
       )}
       {!loading &&
-        revenues.map((r) => (
-          <div
-            key={r.id}
-            className={styles.row}
-            style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 50px" }}
-          >
-            <div>
-              <strong>{r.description}</strong>
-              {r.category && (
-                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  {r.category}
-                </div>
-              )}
-            </div>
-            <div className={styles.num}>
-              {r.kind === "fijo" ? "Fijo /mes" : "One-time"}
-            </div>
-            <div className={styles.num} style={{ fontSize: 11 }}>
-              {r.kind === "fijo"
-                ? `${r.start_date} → ${r.end_date ?? "vigente"}`
-                : r.date}
-            </div>
-            <div className={`${styles.num} ${styles.pos}`}>
-              {r.currency} {Number(r.amount).toLocaleString()}
-            </div>
-            <button
-              onClick={() => remove(r.id)}
+        revenues.map((r) => {
+          const isEditingThis = editingId === r.id;
+          return (
+            <div
+              key={r.id}
+              className={styles.row}
               style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--red-warn)",
-                fontSize: 18,
-                cursor: "pointer",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr 90px",
+                background: isEditingThis
+                  ? "rgba(196, 168, 130, 0.08)"
+                  : undefined,
               }}
             >
-              ×
-            </button>
-          </div>
-        ))}
+              <div>
+                <strong>{r.description}</strong>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                  {r.client_id
+                    ? clients.find((c) => c.id === r.client_id)?.name ?? r.client_id
+                    : "Corporativo"}
+                  {r.category && <> · {r.category}</>}
+                </div>
+              </div>
+              <div className={styles.num}>
+                {r.kind === "fijo" ? "Fijo /mes" : "One-time"}
+              </div>
+              <div className={styles.num} style={{ fontSize: 11 }}>
+                {r.kind === "fijo"
+                  ? `${r.start_date} → ${r.end_date ?? "vigente"}`
+                  : r.date}
+              </div>
+              <div className={`${styles.num} ${styles.pos}`}>
+                {r.currency} {Number(r.amount).toLocaleString()}
+              </div>
+              <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => startEdit(r)}
+                  disabled={saving}
+                  title="Editar"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.15)",
+                    color: "var(--deep-green)",
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    cursor: saving ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => remove(r.id)}
+                  title="Eliminar"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--red-warn)",
+                    fontSize: 18,
+                    cursor: "pointer",
+                    width: 24,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
       {!loading && revenues.length === 0 && !adding && (
         <div
@@ -986,12 +4231,29 @@ export function ManualRevenuesPanel() {
           style={{
             marginTop: 14,
             padding: 16,
-            background: "var(--ivory)",
+            background: isEditing
+              ? "rgba(196, 168, 130, 0.12)"
+              : "var(--ivory)",
             display: "flex",
             flexDirection: "column",
             gap: 10,
+            borderLeft: isEditing
+              ? "3px solid var(--sand-dark)"
+              : undefined,
           }}
         >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 2,
+            }}
+          >
+            {isEditing ? "Editar ingreso" : "Nuevo ingreso"}
+          </div>
           <div style={{ display: "flex", gap: 8 }}>
             <select
               value={kind}
@@ -1008,6 +4270,36 @@ export function ManualRevenuesPanel() {
               onChange={(e) => setCategory(e.target.value)}
               style={{ ...inputStyle, flex: 1 }}
             />
+          </div>
+          {/* Selector de cliente — opcional. Si queda vacío, el ingreso
+              es corporativo (sin cliente asignado). Útil para alquileres,
+              premios o cualquier ingreso no atribuible. */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Asignar a cliente <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "var(--text-muted)" }}>(opcional)</span>
+            </label>
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— Sin cliente (corporativo) —</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <input
             type="text"
@@ -1061,10 +4353,14 @@ export function ManualRevenuesPanel() {
             />
           )}
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={add} disabled={saving} style={solidBtn}>
-              {saving ? "Guardando…" : "Guardar"}
+            <button onClick={save} disabled={saving} style={solidBtn}>
+              {saving
+                ? "Guardando…"
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Guardar"}
             </button>
-            <button onClick={() => setAdding(false)} style={ghostBtn}>
+            <button onClick={resetAndClose} disabled={saving} style={ghostBtn}>
               Cancelar
             </button>
           </div>
@@ -1164,7 +4460,8 @@ export function KPIsViewV2({
       const p = payments.find(
         (p) => p.clientId === c.id && p.month === monthYYYYMM,
       );
-      return s + (p?.status === "paid" ? c.fee : 0);
+      if (p?.status !== "paid") return s;
+      return s + (p.amountOverride ?? c.fee);
     }, 0);
   }, [clients, payments, monthYYYYMM]);
 
@@ -1208,10 +4505,12 @@ export function KPIsViewV2({
         year: "2-digit",
       });
 
-      // Ingresos = fees cobrados ese mes + manual revenues que aplican
+      // Ingresos = fees cobrados ese mes (con override si lo hay) +
+      // manual revenues que aplican
       const feesCobrados = clients.reduce((s, c) => {
         const p = payments.find((p) => p.clientId === c.id && p.month === ym);
-        return s + (p?.status === "paid" ? c.fee : 0);
+        if (p?.status !== "paid") return s;
+        return s + (p.amountOverride ?? c.fee);
       }, 0);
       const manualImpact = manualRevs.reduce(
         (s, r) => s + revenueMonthlyImpact(r, ym),

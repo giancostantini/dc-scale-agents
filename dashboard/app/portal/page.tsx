@@ -21,6 +21,7 @@ import ConsultorHistoryPanel from "@/components/ConsultorHistoryPanel";
 import PhaseRoadmap from "@/components/PhaseRoadmap";
 import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
 import LookerStudioCard from "@/components/LookerStudioCard";
+import TeamCard from "@/components/TeamCard";
 import type {
   CalEvent,
   Client,
@@ -201,7 +202,7 @@ export default function PortalPage() {
           <Lockup size="md" />
           <h2 className={styles.errorTitle}>Tu cuenta no está conectada a una empresa</h2>
           <p className={styles.errorBody}>
-            Avisale a tu account lead en Dearmas Costantini para que
+            Avisale a tu account lead en Dearmas & Costantini para que
             configure tu acceso. Tu cuenta existe pero falta vincularla
             a tu empresa.
           </p>
@@ -250,9 +251,6 @@ export default function PortalPage() {
             </div>
           </div>
           <nav className={styles.heroLinks} aria-label="Navegación principal del portal">
-            <Link href="/portal/calendario" className={styles.heroLink}>
-              Calendario →
-            </Link>
             <Link href="/portal/faq" className={styles.heroLink}>
               ¿Cómo funciona el portal? →
             </Link>
@@ -328,10 +326,16 @@ export default function PortalPage() {
               </div>
             )}
 
-            {/* Próximas reuniones */}
-            {upcomingEvents.length > 0 && (
-              <div className={styles.sidebarBlock}>
-                <div className={styles.sidebarLabel}>Próximas reuniones</div>
+            {/* Próximas reuniones — toda la card linkea al calendario */}
+            <Link
+              href="/portal/calendario"
+              className={`${styles.sidebarBlock} ${styles.sidebarLink}`}
+            >
+              <div className={styles.sidebarLinkHead}>
+                <span className={styles.sidebarLabel}>Próximas reuniones</span>
+                <span className={styles.sidebarLinkArrow}>Ver calendario →</span>
+              </div>
+              {upcomingEvents.length > 0 ? (
                 <div className={styles.eventList}>
                   {upcomingEvents.map((e) => (
                     <div key={e.id} className={styles.eventCompact}>
@@ -348,8 +352,16 @@ export default function PortalPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className={styles.eventEmpty}>
+                  Sin reuniones próximas. Conectá tu Outlook desde el
+                  calendario para verlas acá.
+                </div>
+              )}
+            </Link>
+
+            {/* Tu equipo D&C — account leads asignados + contacto directo */}
+            <TeamCard />
 
             {/* Estado de pago: ahora vive en el PortalHeader como CTA con
                 semáforo (verde / ámbar / rojo según fecha del mes). */}

@@ -80,11 +80,72 @@ export default function ClientLayout({
   }
 
   return (
+    <ClientLayoutInner client={client}>{children}</ClientLayoutInner>
+  );
+}
+
+// Layout interno con el toggle del sidebar.
+// La preferencia se persiste en localStorage para que al navegar entre
+// pantallas del cliente no se reinicie.
+function ClientLayoutInner({
+  client,
+  children,
+}: {
+  client: Client;
+  children: React.ReactNode;
+}) {
+  const [hidden, setHidden] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hidratar desde localStorage en el primer paint del cliente.
+  // Antes de hidratar, render con el default (sidebar visible) para
+  // evitar SSR mismatch.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("client_sidebar_hidden");
+      if (stored === "1") setHidden(true);
+    } catch {
+      // ignore
+    }
+    setHydrated(true);
+  }, []);
+
+  const toggle = () => {
+    setHidden((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("client_sidebar_hidden", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  return (
     <>
       <Topbar showPrimary={false} />
-      <div className={styles.layout}>
-        <ClientSidebar client={client} />
-        <main className={styles.main}>{children}</main>
+      <div
+        className={styles.layout}
+        style={{
+          gridTemplateColumns: hidden ? "1fr" : "260px 1fr",
+          transition: "grid-template-columns 0.2s ease",
+        }}
+      >
+        {!hidden && <ClientSidebar client={client} onHide={toggle} />}
+        <main className={styles.main} style={{ position: "relative" }}>
+          {hydrated && hidden && (
+            <button
+              type="button"
+              onClick={toggle}
+              className={styles.showSidebarBtn}
+              title="Mostrar menú lateral"
+            >
+              ☰ Mostrar menú
+            </button>
+          )}
+          {children}
+        </main>
       </div>
     </>
   );

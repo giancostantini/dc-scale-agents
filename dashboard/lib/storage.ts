@@ -7,6 +7,8 @@ import { getSupabase } from "./supabase/client";
 import { listProfiles } from "./team";
 import type {
   Client,
+  ClientFeeSchedule,
+  ClientMktBudget,
   ClientOnboarding,
   Lead,
   ProspectCampaign,
@@ -80,6 +82,19 @@ interface ClientRow {
   external_links: Client["external_links"] | null;
   looker_studio_url: string | null;
   content_frequency: Client["content_frequency"] | null;
+  content_mix: Client["content_mix"] | null;
+  roadmap_month_notes: Client["roadmap_month_notes"] | null;
+  tax_id?: string | null;
+  created_at?: string | null;
+  default_cuenta_id?: string | null;
+  logo_url?: string | null;
+  // Migración 052
+  dividend_distribution?: Client["dividend_distribution"];
+  // Migración 053
+  website_url?: string | null;
+  // Migración 054
+  razon_social?: string | null;
+  rut?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -101,6 +116,20 @@ function clientFromRow(r: ClientRow): Client {
     external_links: r.external_links ?? undefined,
     looker_studio_url: r.looker_studio_url,
     content_frequency: r.content_frequency ?? undefined,
+    content_mix: r.content_mix ?? undefined,
+    roadmap_month_notes: r.roadmap_month_notes ?? undefined,
+    contact_name: r.contact_name,
+    contact_email: r.contact_email,
+    contact_phone: r.contact_phone,
+    country: r.country,
+    tax_id: r.tax_id ?? null,
+    created_at: r.created_at ?? null,
+    default_cuenta_id: r.default_cuenta_id ?? null,
+    logo_url: r.logo_url ?? null,
+    dividend_distribution: r.dividend_distribution ?? null,
+    website_url: r.website_url ?? null,
+    razon_social: r.razon_social ?? null,
+    rut: r.rut ?? null,
   };
 }
 
@@ -145,6 +174,19 @@ export interface AddClientInput {
   feeVariable?: string;
   modules?: Partial<Client["modules"]>;
   onboarding?: ClientOnboarding;
+  /** Cuenta bancaria donde se acreditan los pagos (default).
+   *  Cuando se marca una factura como pagada, se crea un movimiento
+   *  ingreso automáticamente en esta cuenta. */
+  defaultCuentaId?: string | null;
+  /** Distribución de dividendos específica del cliente (migración 052).
+   *  Si está vacío, se aplica la config global. */
+  dividendDistribution?: Client["dividend_distribution"];
+  /** URL del sitio web del cliente (migración 053). Solo GP. */
+  websiteUrl?: string | null;
+  /** Razón social legal del cliente — migración 054. */
+  razonSocial?: string | null;
+  /** RUT / NIT del cliente — migración 054. */
+  rut?: string | null;
 }
 
 export async function addClient(data: AddClientInput): Promise<Client> {
@@ -171,17 +213,34 @@ export async function addClient(data: AddClientInput): Promise<Client> {
       ? { ...defaultGpModules, ...(data.modules ?? {}) }
       : null;
 
+  // Status + phase iniciales:
+  //   · DEV → "dev" / "En desarrollo · Sprint 1"
+  //   · GP en lanzamiento (isBrandLaunch=true) → "onboarding" /
+  //     "On-boarding · Diagnóstico" porque está pasando por la etapa
+  //     de estrategia y branding.
+  //   · GP no-launch → "active" / "Activo · Ejecución" directo. La
+  //     marca ya está operando y no tiene que pasar por onboarding.
+  //     Esto evita que en el hub aparezca como "Onboarding" cuando
+  //     en realidad va a ejecución directa.
+  const isGpLaunch =
+    data.type === "gp" && !!data.onboarding?.isBrandLaunch;
+  const initialStatus: "dev" | "onboarding" | "active" =
+    data.type === "dev" ? "dev" : isGpLaunch ? "onboarding" : "active";
+  const initialPhase =
+    data.type === "dev"
+      ? "En desarrollo · Sprint 1"
+      : isGpLaunch
+        ? "On-boarding · Diagnóstico"
+        : "Activo · Ejecución";
+
   const newRow: Partial<ClientRow> = {
     id,
     initials: makeInitials(data.name),
     name: data.name,
     sector: `${data.sector} · ${data.country}`,
     type: data.type,
-    status: data.type === "dev" ? "dev" : "onboarding",
-    phase:
-      data.type === "dev"
-        ? "En desarrollo · Sprint 1"
-        : "On-boarding · Diagnóstico",
+    status: initialStatus,
+    phase: initialPhase,
     fee: data.fee,
     method: data.method,
     modules: modulesValue,
@@ -203,6 +262,11 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     contact_phone: data.contactPhone ?? null,
     country: data.country,
     onboarding: data.onboarding ?? {},
+    default_cuenta_id: data.defaultCuentaId ?? null,
+    dividend_distribution: data.dividendDistribution ?? null,
+    website_url: data.websiteUrl ?? null,
+    razon_social: data.razonSocial ?? null,
+    rut: data.rut ?? null,
   };
 
   const { data: inserted, error } = await supabase
@@ -212,6 +276,30 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     .single();
 
   if (error) throw error;
+
+  // Si el wizard cargó datos del contacto principal, también
+  // insertamos una fila en client_contacts (is_primary=true) para que
+  // ese contacto aparezca automáticamente en "Contactos de referencia".
+  // Antes solo vivía en clients.contact_* y el director tenía que
+  // recargarlo a mano si quería gestionarlo desde Configuración.
+  //
+  // Fire-and-forget en el sentido que si falla NO bloqueamos la
+  // creación del cliente — el director siempre puede agregar el
+  // contacto manualmente desde /configuracion.
+  if (data.contactName && data.contactName.trim()) {
+    try {
+      await supabase.from("client_contacts").insert({
+        client_id: id,
+        name: data.contactName.trim(),
+        email: data.contactEmail?.trim() || null,
+        phone: data.contactPhone?.trim() || null,
+        is_primary: true,
+      });
+    } catch (e) {
+      console.warn("auto-create client_contact failed:", e);
+    }
+  }
+
   return clientFromRow(inserted as ClientRow);
 }
 
@@ -219,6 +307,183 @@ export async function deleteClient(id: string): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase.from("clients").delete().eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Actualiza el fee de contrato (base) del cliente. Este fee es el
+ * fallback cuando ningún tramo (client_fee_schedules) cubre el mes
+ * consultado. Se usa desde el modal "Editar acuerdo anual" en
+ * Finanzas → Clientes.
+ */
+export async function updateClientFee(
+  clientId: string,
+  fee: number,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ fee })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Cuenta bancaria default donde se acreditan los pagos del cliente.
+ * Pasar null para limpiar.
+ */
+export async function updateClientDefaultCuenta(
+  clientId: string,
+  cuentaId: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ default_cuenta_id: cuentaId })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/** Actualiza la URL del logo del cliente. */
+export async function updateClientLogo(
+  clientId: string,
+  logoUrl: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ logo_url: logoUrl })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Update genérico — solo los campos que vienen seteados se mandan al
+ * UPDATE.  Usado por la edición de "creación del cliente" desde
+ * Configuración (para corregir datos cargados en el wizard).
+ *
+ * NOTA: para mergear onboarding (JSONB), enviá el blob completo —
+ * el caller es responsable de hacer el merge previo.
+ */
+export interface UpdateClientCoreInput {
+  name?: string;
+  sector?: string;
+  country?: string | null;
+  method?: string;
+  fee?: number;
+  fee_variable?: string | null;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  website_url?: string | null;
+  /** Datos fiscales — migración 054. */
+  razon_social?: string | null;
+  rut?: string | null;
+  default_cuenta_id?: string | null;
+  dividend_distribution?: Client["dividend_distribution"] | null;
+  onboarding?: ClientOnboarding | null;
+  /** Status y phase — para cambiar la fase del cliente
+   *  (ej onboarding → active cuando ya completó el lanzamiento). */
+  status?: Client["status"];
+  phase?: string;
+}
+
+export async function updateClientCore(
+  clientId: string,
+  patch: UpdateClientCoreInput,
+): Promise<Client> {
+  const supabase = getSupabase();
+  // Si modifica nombre, recalculamos initials para mantener consistencia.
+  const dbPatch: Record<string, unknown> = { ...patch };
+  if (patch.name) {
+    dbPatch.initials = makeInitials(patch.name);
+  }
+  const { data, error } = await supabase
+    .from("clients")
+    .update(dbPatch)
+    .eq("id", clientId)
+    .select()
+    .single();
+  if (error) throw error;
+  return clientFromRow(data as ClientRow);
+}
+
+// ==================== CLIENT CONTACTS (migración 049) ====================
+
+/** Lista todos los contactos de un cliente. */
+export async function listClientContacts(
+  clientId: string,
+): Promise<import("./types").ClientContact[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_contacts")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("listClientContacts:", error);
+    return [];
+  }
+  return (data ?? []) as import("./types").ClientContact[];
+}
+
+export interface ClientContactInput {
+  name: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  is_primary?: boolean;
+}
+
+export async function addClientContact(
+  clientId: string,
+  input: ClientContactInput,
+): Promise<import("./types").ClientContact> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_contacts")
+    .insert({
+      client_id: clientId,
+      name: input.name.trim(),
+      role: input.role?.trim() || null,
+      email: input.email?.trim() || null,
+      phone: input.phone?.trim() || null,
+      notes: input.notes?.trim() || null,
+      is_primary: input.is_primary ?? false,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(`Error agregando contacto: ${error.message}`);
+  return data as import("./types").ClientContact;
+}
+
+export async function updateClientContact(
+  id: string,
+  patch: ClientContactInput,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_contacts")
+    .update({
+      name: patch.name.trim(),
+      role: patch.role?.trim() || null,
+      email: patch.email?.trim() || null,
+      phone: patch.phone?.trim() || null,
+      notes: patch.notes?.trim() || null,
+      is_primary: patch.is_primary ?? false,
+    })
+    .eq("id", id);
+  if (error) throw new Error(`Error actualizando contacto: ${error.message}`);
+}
+
+export async function deleteClientContact(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_contacts")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(`Error eliminando contacto: ${error.message}`);
 }
 
 /**
@@ -239,13 +504,68 @@ export async function updateClientContentFrequency(
 }
 
 /**
+ * Actualiza el mix porcentual de contenido (valor/oferta/engagement)
+ * por red. Reemplaza el JSONB completo. Usado desde el modal de
+ * Frecuencia, donde el director también edita el mix.
+ */
+export async function updateClientContentMix(
+  clientId: string,
+  mix: Client["content_mix"],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ content_mix: mix ?? {} })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Actualiza la nota de estrategia de un mes específico del roadmap.
+ * Merge sobre el JSONB actual (no reemplaza otros meses).
+ *
+ * monthKey: "YYYY-MM"
+ * text: markdown plain. Pasar string vacío "" o null para borrar la
+ *       nota de ese mes.
+ */
+export async function updateRoadmapMonthNote(
+  clientId: string,
+  monthKey: string,
+  text: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  // Leemos el actual y mergeamos. No usamos jsonb_set por simplicidad.
+  const { data: row, error: selErr } = await supabase
+    .from("clients")
+    .select("roadmap_month_notes")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  const current =
+    (row?.roadmap_month_notes as Record<string, string> | null) ?? {};
+  const next: Record<string, string> = { ...current };
+  if (!text || !text.trim()) {
+    delete next[monthKey];
+  } else {
+    next[monthKey] = text;
+  }
+  const { error } = await supabase
+    .from("clients")
+    .update({ roadmap_month_notes: next })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
  * Actualiza solo el campo external_links de un cliente (merge sobre
  * el JSONB actual). Usado desde la UI de Analítica (Espor.ai / Looker
- * Studio URL) y Biblioteca (Teams folder URL).
+ * Studio URL) y Biblioteca (carpeta de OneDrive — el campo se llama
+ * teams_folder_url en DB por razones históricas).
  */
 export async function updateClientExternalLinks(
   clientId: string,
-  patch: Partial<Client["external_links"] & object>,
+  /** Cada key puede ser undefined (no tocar) o null (limpiar). */
+  patch: Record<string, string | null | undefined>,
 ): Promise<void> {
   const supabase = getSupabase();
 
@@ -284,9 +604,22 @@ interface LeadRow {
   note: string | null;
   meeting_booked: boolean | null;
   created_at: string;
+  // Migración 042
+  stage_changed_at?: string | null;
+  lost_at?: string | null;
+  lost_reason?: string | null;
+  lost_from_stage?: PipelineStage | null;
+  // Migración 043 — cotización desglosada + referido
+  fee_mensual?: number | string | null;
+  bono?: number | string | null;
+  costo_produccion?: number | string | null;
+  costo_mantenimiento?: number | string | null;
+  referrer_name?: string | null;
 }
 
 function leadFromRow(r: LeadRow): Lead {
+  const num = (v: unknown) =>
+    v == null ? null : typeof v === "string" ? parseFloat(v) : Number(v);
   return {
     id: r.id,
     name: r.name,
@@ -299,43 +632,179 @@ function leadFromRow(r: LeadRow): Lead {
     note: r.note ?? undefined,
     meetingBooked: r.meeting_booked ?? undefined,
     createdAt: r.created_at,
+    stageChangedAt: r.stage_changed_at ?? r.created_at,
+    lostAt: r.lost_at ?? null,
+    lostReason: r.lost_reason ?? null,
+    lostFromStage: r.lost_from_stage ?? null,
+    feeMensual: num(r.fee_mensual),
+    bono: num(r.bono),
+    costoProduccion: num(r.costo_produccion),
+    costoMantenimiento: num(r.costo_mantenimiento),
+    referrerName: r.referrer_name ?? null,
   };
 }
 
+/** Leads activos (no descartados). */
 export async function getLeads(): Promise<Lead[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("leads")
     .select("*")
+    .is("lost_at", null)
     .order("created_at", { ascending: false });
+  if (error) {
+    // Fallback si la migración 042 no se aplicó aún
+    if (`${error.message ?? ""}`.toLowerCase().includes("lost_at")) {
+      const fallback = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (fallback.error) return [];
+      return (fallback.data as LeadRow[]).map(leadFromRow);
+    }
+    return [];
+  }
+  return (data as LeadRow[]).map(leadFromRow);
+}
+
+/** Leads marcados como perdidos. */
+export async function getLostLeads(): Promise<Lead[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("leads")
+    .select("*")
+    .not("lost_at", "is", null)
+    .order("lost_at", { ascending: false });
   if (error) return [];
   return (data as LeadRow[]).map(leadFromRow);
 }
 
 export async function addLead(data: Omit<Lead, "id" | "createdAt">): Promise<Lead> {
   const supabase = getSupabase();
+  // Mapeo completo (columnas que requieren migración 042/043).  Si
+  // alguna columna no existe en la DB (porque la migración no se
+  // aplicó), Postgres devuelve PGRST204 / 42703 y reintentamos con
+  // un payload mínimo compatible con el schema base.
+  const fullPayload: Record<string, unknown> = {
+    name: data.name,
+    company: data.company,
+    sector: data.sector,
+    type: data.type,
+    value: data.value ?? 0,
+    stage: data.stage,
+    source: data.source,
+    note: data.note ?? null,
+    meeting_booked: data.meetingBooked ?? false,
+    referrer_name: data.referrerName ?? null,
+  };
   const { data: inserted, error } = await supabase
     .from("leads")
-    .insert({
-      name: data.name,
-      company: data.company,
-      sector: data.sector,
-      type: data.type,
-      value: data.value,
-      stage: data.stage,
-      source: data.source,
-      note: data.note ?? null,
-      meeting_booked: data.meetingBooked ?? false,
-    })
+    .insert(fullPayload)
     .select()
     .single();
-  if (error) throw error;
-  return leadFromRow(inserted as LeadRow);
+  if (!error) return leadFromRow(inserted as LeadRow);
+  // Detectar errores de columna inexistente y reintentar sin el campo
+  // que falta.  PostgREST devuelve "Could not find the 'X' column".
+  const msg = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  const missingMatch = msg.match(/column ['"]?(\w+)['"]?/);
+  const missingCol = missingMatch?.[1];
+  if (missingCol && missingCol in fullPayload) {
+    console.warn(
+      `[addLead] columna '${missingCol}' no existe en DB — reintento sin ella. Aplicá migración 042/043.`,
+    );
+    const { [missingCol]: _drop, ...minimal } = fullPayload;
+    void _drop;
+    const retry = await supabase
+      .from("leads")
+      .insert(minimal)
+      .select()
+      .single();
+    if (retry.error) throw retry.error;
+    return leadFromRow(retry.data as LeadRow);
+  }
+  throw error;
 }
 
 export async function updateLeadStage(id: string, stage: PipelineStage): Promise<void> {
   const supabase = getSupabase();
+  // El trigger de DB ya actualiza stage_changed_at. Si la migración
+  // no está aplicada, lo dejamos pasar igual.
   await supabase.from("leads").update({ stage }).eq("id", id);
+}
+
+/** Actualizar el valor (cotización) del lead. */
+export async function updateLeadValue(id: string, value: number): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("leads").update({ value }).eq("id", id);
+}
+
+/**
+ * Guarda la cotización desglosada del lead al pasar a "propuesta".
+ *   · Growth Partner: fee_mensual + bono. value = fee_mensual.
+ *   · IA / Desarrollo: costo_produccion + costo_mantenimiento.
+ *     value = costo_mantenimiento.
+ *
+ * Pasar null para limpiar un campo.
+ */
+export interface UpdateLeadQuoteInput {
+  feeMensual?: number | null;
+  bono?: number | null;
+  costoProduccion?: number | null;
+  costoMantenimiento?: number | null;
+}
+
+export async function updateLeadQuote(
+  id: string,
+  type: "gp" | "dev",
+  patch: UpdateLeadQuoteInput,
+): Promise<void> {
+  const supabase = getSupabase();
+  // El "value" recurrente que alimenta los KPIs es:
+  //   GP  → fee_mensual
+  //   IA  → costo_mantenimiento
+  const recurring =
+    type === "gp"
+      ? (patch.feeMensual ?? 0)
+      : (patch.costoMantenimiento ?? 0);
+  await supabase
+    .from("leads")
+    .update({
+      fee_mensual: patch.feeMensual ?? null,
+      bono: patch.bono ?? null,
+      costo_produccion: patch.costoProduccion ?? null,
+      costo_mantenimiento: patch.costoMantenimiento ?? null,
+      value: recurring,
+    })
+    .eq("id", id);
+}
+
+/**
+ * Marca un lead como "perdido" en lugar de borrarlo. Queda
+ * archivado para verlo en el reporte de oportunidades descartadas.
+ */
+export async function markLeadLost(
+  id: string,
+  reason: string | null,
+  fromStage: PipelineStage,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase
+    .from("leads")
+    .update({
+      lost_at: new Date().toISOString(),
+      lost_reason: reason ?? null,
+      lost_from_stage: fromStage,
+    })
+    .eq("id", id);
+}
+
+/** Restaurar lead (sacarlo de "perdido"). */
+export async function restoreLead(id: string): Promise<void> {
+  const supabase = getSupabase();
+  await supabase
+    .from("leads")
+    .update({ lost_at: null, lost_reason: null, lost_from_stage: null })
+    .eq("id", id);
 }
 
 export async function deleteLead(id: string): Promise<void> {
@@ -507,6 +976,7 @@ interface EventRow {
   title: string;
   type: EventType;
   date: string;
+  end_date: string | null;
   time: string;
   duration: number;
   client_id: string | null;
@@ -523,6 +993,7 @@ function eventFromRow(r: EventRow): CalEvent {
     title: r.title,
     type: r.type,
     date: r.date,
+    end_date: r.end_date,
     time: r.time,
     duration: r.duration,
     clientId: r.client_id ?? undefined,
@@ -552,6 +1023,7 @@ export async function addEvent(data: Omit<CalEvent, "id">): Promise<CalEvent> {
       title: data.title,
       type: data.type,
       date: data.date,
+      end_date: data.end_date ?? null,
       time: data.time,
       duration: data.duration,
       client_id: data.clientId ?? null,
@@ -572,6 +1044,42 @@ export async function deleteEvent(id: string): Promise<void> {
   await supabase.from("cal_events").delete().eq("id", id);
 }
 
+/**
+ * Actualiza un evento existente. Pasa solo los campos que querés
+ * cambiar; los demás quedan como están.
+ */
+export async function updateEvent(
+  id: string,
+  patch: Partial<Omit<CalEvent, "id">>,
+): Promise<CalEvent> {
+  const supabase = getSupabase();
+  // Mapeo camelCase → snake_case para los campos que difieren
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.title !== undefined) dbPatch.title = patch.title;
+  if (patch.type !== undefined) dbPatch.type = patch.type;
+  if (patch.date !== undefined) dbPatch.date = patch.date;
+  if (patch.end_date !== undefined) dbPatch.end_date = patch.end_date;
+  if (patch.time !== undefined) dbPatch.time = patch.time;
+  if (patch.duration !== undefined) dbPatch.duration = patch.duration;
+  if (patch.clientId !== undefined) dbPatch.client_id = patch.clientId ?? null;
+  if (patch.clientLabel !== undefined) dbPatch.client_label = patch.clientLabel;
+  if (patch.participants !== undefined)
+    dbPatch.participants = patch.participants ?? null;
+  if (patch.notes !== undefined) dbPatch.notes = patch.notes ?? null;
+  if (patch.meetLink !== undefined)
+    dbPatch.meet_link = patch.meetLink ?? null;
+  if (patch.synced !== undefined) dbPatch.synced = patch.synced;
+
+  const { data, error } = await supabase
+    .from("cal_events")
+    .update(dbPatch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return eventFromRow(data as EventRow);
+}
+
 // ==================== EXPENSES ====================
 
 interface ExpenseRow {
@@ -581,6 +1089,15 @@ interface ExpenseRow {
   category: ExpenseCategory;
   assigned_to: string;
   amount: number | string;
+  recurrence: "one_time" | "monthly_fixed" | null;
+  recurrence_end_date: string | null;
+  mkt_budget_client_id: string | null;
+  provider_name: string | null;
+  payment_method: string | null;
+  iva_pct: number | string | null;
+  invoice_url: string | null;
+  status: string | null;
+  payment_day: number | null;
 }
 
 function expenseFromRow(r: ExpenseRow): Expense {
@@ -591,6 +1108,29 @@ function expenseFromRow(r: ExpenseRow): Expense {
     category: r.category,
     assignedTo: r.assigned_to,
     amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
+    recurrence: r.recurrence ?? "one_time",
+    recurrenceEndDate: r.recurrence_end_date ?? null,
+    mktBudgetClientId: r.mkt_budget_client_id ?? null,
+    providerName: r.provider_name ?? null,
+    paymentMethod:
+      (r.payment_method as
+        | "efectivo"
+        | "transferencia"
+        | "tarjeta"
+        | "cheque"
+        | "mp"
+        | "crypto"
+        | "otro"
+        | null) ?? null,
+    ivaPct:
+      r.iva_pct == null
+        ? 22
+        : typeof r.iva_pct === "string"
+          ? parseFloat(r.iva_pct)
+          : r.iva_pct,
+    invoiceUrl: r.invoice_url ?? null,
+    status: (r.status as "paid" | "pending" | "cancelled" | null) ?? "paid",
+    paymentDay: r.payment_day ?? null,
   };
 }
 
@@ -614,6 +1154,15 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
       category: data.category,
       assigned_to: data.assignedTo,
       amount: data.amount,
+      recurrence: data.recurrence ?? "one_time",
+      recurrence_end_date: data.recurrenceEndDate ?? null,
+      mkt_budget_client_id: data.mktBudgetClientId ?? null,
+      provider_name: data.providerName ?? null,
+      payment_method: data.paymentMethod ?? null,
+      iva_pct: data.ivaPct ?? 22,
+      invoice_url: data.invoiceUrl ?? null,
+      status: data.status ?? "paid",
+      payment_day: data.paymentDay ?? null,
     })
     .select()
     .single();
@@ -621,9 +1170,231 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
   return expenseFromRow(inserted as ExpenseRow);
 }
 
+/** Update parcial de un expense. */
+export async function updateExpense(
+  id: string,
+  patch: Partial<Omit<Expense, "id">>,
+): Promise<Expense> {
+  const supabase = getSupabase();
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.date !== undefined) dbPatch.date = patch.date;
+  if (patch.concept !== undefined) dbPatch.concept = patch.concept;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
+  if (patch.amount !== undefined) dbPatch.amount = patch.amount;
+  if (patch.recurrence !== undefined) dbPatch.recurrence = patch.recurrence;
+  if (patch.recurrenceEndDate !== undefined)
+    dbPatch.recurrence_end_date = patch.recurrenceEndDate;
+  if (patch.mktBudgetClientId !== undefined)
+    dbPatch.mkt_budget_client_id = patch.mktBudgetClientId;
+  if (patch.providerName !== undefined)
+    dbPatch.provider_name = patch.providerName;
+  if (patch.paymentMethod !== undefined)
+    dbPatch.payment_method = patch.paymentMethod;
+  if (patch.ivaPct !== undefined) dbPatch.iva_pct = patch.ivaPct;
+  if (patch.invoiceUrl !== undefined) dbPatch.invoice_url = patch.invoiceUrl;
+  if (patch.status !== undefined) dbPatch.status = patch.status;
+  if (patch.paymentDay !== undefined) dbPatch.payment_day = patch.paymentDay;
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .update(dbPatch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return expenseFromRow(data as ExpenseRow);
+}
+
 export async function deleteExpense(id: string): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("expenses").delete().eq("id", id);
+}
+
+// ==================== CLIENT MKT BUDGETS ====================
+
+interface MktBudgetRow {
+  client_id: string;
+  monthly_amount: number | string;
+  currency: string;
+  start_date: string;
+  end_date: string | null;
+  notes: string | null;
+  updated_at: string;
+}
+
+function mktBudgetFromRow(r: MktBudgetRow): ClientMktBudget {
+  return {
+    clientId: r.client_id,
+    monthlyAmount:
+      typeof r.monthly_amount === "string"
+        ? parseFloat(r.monthly_amount)
+        : r.monthly_amount,
+    currency: r.currency,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    notes: r.notes,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function listClientMktBudgets(): Promise<ClientMktBudget[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_mkt_budgets")
+    .select("*");
+  if (error) {
+    console.error("listClientMktBudgets:", error);
+    return [];
+  }
+  return (data as MktBudgetRow[]).map(mktBudgetFromRow);
+}
+
+// ==================== CLIENT FEE SCHEDULES ====================
+
+interface FeeScheduleRow {
+  id: string;
+  client_id: string;
+  start_month: string;
+  end_month: string | null;
+  amount: number | string;
+  currency: string;
+  notes: string | null;
+}
+
+function feeScheduleFromRow(r: FeeScheduleRow): ClientFeeSchedule {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    startMonth: r.start_month,
+    endMonth: r.end_month,
+    amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
+    currency: r.currency,
+    notes: r.notes,
+  };
+}
+
+export async function listFeeSchedules(): Promise<ClientFeeSchedule[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_fee_schedules")
+    .select("*")
+    .order("start_month", { ascending: true });
+  if (error) {
+    console.error("listFeeSchedules:", error);
+    return [];
+  }
+  return (data as FeeScheduleRow[]).map(feeScheduleFromRow);
+}
+
+export async function listFeeSchedulesForClient(
+  clientId: string,
+): Promise<ClientFeeSchedule[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_fee_schedules")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("start_month", { ascending: true });
+  if (error) return [];
+  return (data as FeeScheduleRow[]).map(feeScheduleFromRow);
+}
+
+/** Upsert por (client_id, start_month).
+ *  endMonth nullable: si está, el tramo se cierra ese mes; si no,
+ *  vigente sin cierre. */
+export async function upsertFeeSchedule(
+  clientId: string,
+  startMonth: string,
+  amount: number,
+  currency = "USD",
+  notes: string | null = null,
+  endMonth: string | null = null,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("client_fee_schedules").upsert(
+    {
+      client_id: clientId,
+      start_month: startMonth,
+      end_month: endMonth,
+      amount,
+      currency,
+      notes,
+    },
+    { onConflict: "client_id,start_month" },
+  );
+}
+
+export async function deleteFeeSchedule(id: string): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("client_fee_schedules").delete().eq("id", id);
+}
+
+/** Calcula el fee efectivo de un cliente para un mes específico
+ *  basado en su calendario de pago acotado.
+ *
+ *  Algoritmo:
+ *   - Filtra tramos del cliente donde startMonth <= yyyymm y
+ *     (endMonth IS NULL OR endMonth >= yyyymm) — sea contiene M.
+ *   - De los aplicables, gana el de startMonth más reciente.
+ *   - Si ninguno aplica → null (caller usa client.fee como fallback).
+ */
+export function effectiveFeeForMonth(
+  schedules: ClientFeeSchedule[],
+  clientId: string,
+  yyyymm: string,
+): number | null {
+  const applicable = schedules
+    .filter(
+      (s) =>
+        s.clientId === clientId &&
+        s.startMonth <= yyyymm &&
+        (!s.endMonth || s.endMonth >= yyyymm),
+    )
+    .sort((a, b) => b.startMonth.localeCompare(a.startMonth));
+  return applicable.length > 0 ? applicable[0].amount : null;
+}
+
+/** MRR efectivo del mes pasado por argumento.
+ *  Suma sobre todos los clientes el effective fee de ese mes.
+ *  Si no hay schedule para un cliente, usa client.fee del contrato. */
+export function computeMonthlyMrr(
+  clients: Client[],
+  schedules: ClientFeeSchedule[],
+  yyyymm: string,
+): number {
+  return clients.reduce((sum, c) => {
+    const scheduled = effectiveFeeForMonth(schedules, c.id, yyyymm);
+    return sum + (scheduled ?? c.fee);
+  }, 0);
+}
+
+/** Upsert: si existe el budget de ese cliente lo reemplaza con el
+ *  nuevo monto. Si pasás monthlyAmount=0 (o negativo) lo eliminamos. */
+export async function setClientMktBudget(
+  clientId: string,
+  monthlyAmount: number,
+  currency = "USD",
+  startDate?: string,
+  endDate?: string | null,
+  notes?: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  if (monthlyAmount <= 0) {
+    await supabase.from("client_mkt_budgets").delete().eq("client_id", clientId);
+    return;
+  }
+  await supabase.from("client_mkt_budgets").upsert(
+    {
+      client_id: clientId,
+      monthly_amount: monthlyAmount,
+      currency,
+      start_date: startDate ?? new Date().toISOString().slice(0, 10),
+      end_date: endDate ?? null,
+      notes: notes ?? null,
+    },
+    { onConflict: "client_id" },
+  );
 }
 
 // Genera expenses (categoría=equipo) para todos los miembros del equipo
@@ -687,6 +1458,9 @@ export async function generateTeamPayroll(monthYYYYMM: string): Promise<{
       category: "equipo",
       assignedTo: "Interno",
       amount: p.payment_amount as number,
+      recurrence: "monthly_fixed",
+      recurrenceEndDate: null,
+      mktBudgetClientId: null,
     });
     created++;
   }
@@ -700,13 +1474,40 @@ export async function getPayments(): Promise<InvoicePayment[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from("payments").select("*");
   if (error) return [];
-  return (data as Array<{ client_id: string; month: string; status: InvoicePayment["status"]; paid_date: string | null }>).map(
-    (r) => ({
-      clientId: r.client_id,
-      month: r.month,
-      status: r.status,
-      paidDate: r.paid_date ?? undefined,
-    }),
+  return (
+    data as Array<{
+      client_id: string;
+      month: string;
+      status: InvoicePayment["status"];
+      paid_date: string | null;
+      amount_override: number | null;
+      note: string | null;
+      pdf_url: string | null;
+    }>
+  ).map((r) => ({
+    clientId: r.client_id,
+    month: r.month,
+    status: r.status,
+    paidDate: r.paid_date ?? undefined,
+    amountOverride: r.amount_override ?? null,
+    note: r.note ?? null,
+    pdfUrl: r.pdf_url ?? null,
+  }));
+}
+
+/**
+ * Setea o limpia el URL del PDF subido manualmente para una factura
+ * (payment de un cliente para un mes). Migración 054.
+ */
+export async function setPaymentPdfUrl(
+  clientId: string,
+  month: string,
+  pdfUrl: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.from("payments").upsert(
+    { client_id: clientId, month, pdf_url: pdfUrl },
+    { onConflict: "client_id,month" },
   );
 }
 
@@ -721,6 +1522,154 @@ export async function setPaymentStatus(
     { client_id: clientId, month, status, paid_date },
     { onConflict: "client_id,month" },
   );
+  // Si el pago cambia a 'paid' y el cliente tiene cuenta default,
+  // creamos el movimiento de ingreso automáticamente (si no existía
+  // uno previo para este payment).
+  if (status === "paid") {
+    try {
+      await autoCreatePaymentMovement(clientId, month);
+    } catch (err) {
+      // No queremos romper el setPaymentStatus si la creación
+      // del movimiento falla — el director puede cargar a mano.
+      console.error("autoCreatePaymentMovement:", err);
+    }
+    // Fire-and-forget: notif al director por mail (si tiene la pref)
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "payment_received",
+        clientId,
+        month,
+      }),
+    }).catch((err) => console.warn("[setPaymentStatus] notify failed:", err));
+  }
+}
+
+/**
+ * Cuando una factura se marca como pagada, crea un movimiento de
+ * ingreso en la cuenta bancaria default del cliente (si tiene una
+ * configurada). Idempotente — usa una descripción canónica para
+ * evitar duplicar el movimiento si se marca pagada / no-pagada /
+ * pagada nuevamente.
+ *
+ * No-op si:
+ *   · El cliente no tiene default_cuenta_id configurado.
+ *   · Ya existe un movimiento con la descripción canónica.
+ */
+async function autoCreatePaymentMovement(
+  clientId: string,
+  month: string,
+): Promise<void> {
+  const supabase = getSupabase();
+
+  // 1. Datos del cliente: cuenta default + nombre
+  const { data: client, error: cliErr } = await supabase
+    .from("clients")
+    .select("name, default_cuenta_id, fee")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (cliErr || !client) return;
+  const cuentaId = (client as { default_cuenta_id?: string | null }).default_cuenta_id;
+  if (!cuentaId) return;
+
+  // 2. Importe del payment (override > schedule > fee base)
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("amount_override")
+    .eq("client_id", clientId)
+    .eq("month", month)
+    .maybeSingle();
+  const override = (payment as { amount_override?: number | string | null } | null)?.amount_override;
+  // Fee schedule efectivo para el mes
+  const schedules = await listFeeSchedulesForClient(clientId);
+  const scheduled = effectiveFeeForMonth(schedules, clientId, month);
+  const fee =
+    (override == null
+      ? null
+      : typeof override === "string"
+        ? parseFloat(override)
+        : Number(override)) ??
+    scheduled ??
+    (typeof client.fee === "string" ? parseFloat(client.fee) : Number(client.fee));
+  if (!fee || fee <= 0) return;
+
+  // 3. Descripción canónica + chequeo de existencia (idempotente)
+  const description = `Cobro factura ${month} · ${client.name}`;
+  const { data: existing } = await supabase
+    .from("cuenta_movimientos")
+    .select("id")
+    .eq("cuenta_id", cuentaId)
+    .eq("description", description)
+    .maybeSingle();
+  if (existing) return;
+
+  // 4. Crear el movimiento
+  const today = new Date().toISOString().slice(0, 10);
+  const { error: movErr } = await supabase.from("cuenta_movimientos").insert({
+    cuenta_id: cuentaId,
+    fecha: today,
+    description,
+    category: "ingreso",
+    entry_amount: fee,
+    exit_amount: 0,
+  });
+  if (movErr) {
+    console.error("autoCreatePaymentMovement insert:", movErr);
+  }
+}
+
+/**
+ * Actualiza el importe del cobro de un mes (override del fee del
+ * contrato) y/o la nota libre. Si pasás amountOverride=null se elimina
+ * el override y se vuelve a usar el client.fee.
+ *
+ * Idempotente: si no existe el row del payment todavía, lo crea con
+ * status='pending'.
+ */
+export async function setPaymentAmount(
+  clientId: string,
+  month: string,
+  amountOverride: number | null,
+  note?: string | null,
+): Promise<void> {
+  const supabase = getSupabase();
+  // Leer status actual para no resetearlo
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("status, paid_date")
+    .eq("client_id", clientId)
+    .eq("month", month)
+    .maybeSingle();
+  await supabase.from("payments").upsert(
+    {
+      client_id: clientId,
+      month,
+      status: existing?.status ?? "pending",
+      paid_date: existing?.paid_date ?? null,
+      amount_override: amountOverride,
+      note: note ?? null,
+    },
+    { onConflict: "client_id,month" },
+  );
+}
+
+/**
+ * Elimina por completo el registro de payment de un cliente para un
+ * mes específico. Vuelve a estado "sin registro" (= 'pending' por
+ * default cuando se calculan KPIs). Útil cuando el director quiere
+ * "borrar" un cobro mal cargado.
+ */
+export async function deletePayment(
+  clientId: string,
+  month: string,
+): Promise<void> {
+  const supabase = getSupabase();
+  await supabase
+    .from("payments")
+    .delete()
+    .eq("client_id", clientId)
+    .eq("month", month);
 }
 
 // ==================== OBJECTIVES ====================
@@ -877,6 +1826,18 @@ export async function getTasks(clientId: string): Promise<DevTask[]> {
   return (data as TaskRow[]).map(taskFromRow);
 }
 
+/** Trae TODAS las tareas (sin filtrar por cliente). Usado por el
+ *  calendario para mostrar las que tienen dueDate. */
+export async function getAllTasks(): Promise<DevTask[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("dev_tasks")
+    .select("*")
+    .order("due_date", { ascending: true });
+  if (error) return [];
+  return (data as TaskRow[]).map(taskFromRow);
+}
+
 export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<DevTask> {
   const supabase = getSupabase();
   const { data: inserted, error } = await supabase
@@ -897,7 +1858,32 @@ export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<
     .select()
     .single();
   if (error) throw error;
-  return taskFromRow(inserted as TaskRow);
+  const task = taskFromRow(inserted as TaskRow);
+  // Fire-and-forget: notif por email al assignee si está habilitado.
+  // El campo "assignee" es texto libre — el endpoint trata de resolver
+  // el user_id buscando matching name/email en profiles.
+  if (task.assignee) {
+    // Resolver assignee → profile.id
+    supabase
+      .from("profiles")
+      .select("id")
+      .or(`name.eq.${task.assignee},email.eq.${task.assignee}`)
+      .maybeSingle()
+      .then(({ data: prof }) => {
+        const userId = (prof as { id?: string } | null)?.id;
+        if (!userId) return;
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "task_assigned",
+            taskId: task.id,
+            assigneeUserId: userId,
+          }),
+        }).catch((err) => console.warn("[addTask] notify failed:", err));
+      });
+  }
+  return task;
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus): Promise<void> {
@@ -997,7 +1983,7 @@ interface ContentRow {
   id: string;
   client_id: string;
   date: string;
-  time: string;
+  time: string | null;
   network: ContentNetwork;
   format: ContentFormat;
   brief: string;
@@ -1005,18 +1991,30 @@ interface ContentRow {
   status: ContentStatus;
   source: "ai" | "manual";
   created_at: string;
+  // Migración 045
+  idea?: string | null;
+  cta?: string | null;
+  assigned_to?: string | null;
+  influencer?: string | null;
+  // Migración 050 — código persistente por cliente.
+  code?: number | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
   return {
     id: r.id,
     clientId: r.client_id,
+    code: r.code ?? null,
     date: r.date,
     time: r.time,
     network: r.network,
     format: r.format,
     brief: r.brief,
-    copy: r.copy ?? undefined,
+    idea: r.idea ?? null,
+    copy: r.copy ?? null,
+    cta: r.cta ?? null,
+    influencer: r.influencer ?? null,
+    assignedTo: r.assigned_to ?? null,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -1043,11 +2041,15 @@ export async function addContent(
     .insert({
       client_id: data.clientId,
       date: data.date,
-      time: data.time,
+      time: data.time ?? null,
       network: data.network,
       format: data.format,
       brief: data.brief,
+      idea: data.idea ?? null,
       copy: data.copy ?? null,
+      cta: data.cta ?? null,
+      influencer: data.influencer ?? null,
+      assigned_to: data.assignedTo ?? null,
       status: data.status,
       source: data.source,
     })
@@ -1055,6 +2057,53 @@ export async function addContent(
     .single();
   if (error) throw error;
   return contentFromRow(inserted as ContentRow);
+}
+
+/**
+ * Actualiza campos editables de una pieza (idea, copy, cta, fecha,
+ * formato, red, influencer, assigned_to, brief). Solo se mandan los
+ * campos definidos en el patch.
+ */
+export interface UpdateContentInput {
+  date?: string;
+  time?: string | null;
+  network?: ContentNetwork;
+  format?: ContentFormat;
+  brief?: string;
+  idea?: string | null;
+  copy?: string | null;
+  cta?: string | null;
+  influencer?: string | null;
+  assignedTo?: string | null;
+  status?: ContentStatus;
+}
+
+export async function updateContent(
+  id: string,
+  patch: UpdateContentInput,
+): Promise<ContentPost | null> {
+  const supabase = getSupabase();
+  // Mapear camelCase → snake_case
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.date !== undefined) dbPatch.date = patch.date;
+  if (patch.time !== undefined) dbPatch.time = patch.time;
+  if (patch.network !== undefined) dbPatch.network = patch.network;
+  if (patch.format !== undefined) dbPatch.format = patch.format;
+  if (patch.brief !== undefined) dbPatch.brief = patch.brief;
+  if (patch.idea !== undefined) dbPatch.idea = patch.idea;
+  if (patch.copy !== undefined) dbPatch.copy = patch.copy;
+  if (patch.cta !== undefined) dbPatch.cta = patch.cta;
+  if (patch.influencer !== undefined) dbPatch.influencer = patch.influencer;
+  if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
+  if (patch.status !== undefined) dbPatch.status = patch.status;
+  const { data, error } = await supabase
+    .from("content_posts")
+    .update(dbPatch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return contentFromRow(data as ContentRow);
 }
 
 export async function deleteContent(id: string): Promise<void> {

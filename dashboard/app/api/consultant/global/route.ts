@@ -38,10 +38,11 @@ import {
   type CallerContext,
 } from "@/lib/consultant-global-context";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
 export const dynamic = "force-dynamic";
 
-const MODEL = "claude-opus-4-7";
+const MODEL = CLAUDE_MODEL_OPUS;
 const MAX_TOKENS = 2048;
 
 const DISPATCHABLE_AGENTS = [

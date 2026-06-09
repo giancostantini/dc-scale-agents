@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
-import { getClient, getProdCampaigns } from "@/lib/storage";
+import { getClient, getProdCampaigns, getPayments } from "@/lib/storage";
 import { listPhaseReports } from "@/lib/phases";
 import { getDownloadUrl, formatBytes } from "@/lib/upload";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import LibraryUploadButton from "@/components/LibraryUploadButton";
 import { updateClientExternalLinks } from "@/lib/storage";
+import type { InvoicePayment } from "@/lib/types";
 import type {
   Client,
   ContentPieceRow,
@@ -22,7 +23,8 @@ type FolderKey =
   | "branding"
   | "reportes"
   | "contenidos"
-  | "campanas";
+  | "campanas"
+  | "facturas";
 
 interface FolderDef {
   key: FolderKey;
@@ -35,7 +37,7 @@ const FOLDERS: FolderDef[] = [
   {
     key: "onboarding",
     name: "Onboarding",
-    desc: "Kickoff y contrato cargados al crear el cliente",
+    desc: "Kickoff cargado al crear el cliente (el contrato vive en Configuración)",
     icon: "⚑",
   },
   {
@@ -62,6 +64,12 @@ const FOLDERS: FolderDef[] = [
     desc: "Piezas resultantes de cada campaña de producción",
     icon: "◎",
   },
+  {
+    key: "facturas",
+    name: "Facturas",
+    desc: "PDFs de las facturas emitidas al cliente",
+    icon: "$",
+  },
 ];
 
 export default function BibliotecaPage({
@@ -74,6 +82,7 @@ export default function BibliotecaPage({
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [pieces, setPieces] = useState<ContentPieceRow[]>([]);
   const [reports, setReports] = useState<PhaseReport[]>([]);
+  const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [folder, setFolder] = useState<FolderKey>("onboarding");
   const [isDirector, setIsDirector] = useState(false);
 
@@ -86,6 +95,9 @@ export default function BibliotecaPage({
     refreshClient();
     getProdCampaigns(id).then(setCampaigns);
     listPhaseReports(id).then(setReports);
+    getPayments().then((all) =>
+      setPayments(all.filter((p) => p.clientId === id && !!p.pdfUrl)),
+    );
     getCurrentProfile().then((p) =>
       setIsDirector(p?.role === "director" || p?.role === "team"),
     );
@@ -101,16 +113,17 @@ export default function BibliotecaPage({
   const counts = useMemo(() => {
     const ob = client?.onboarding;
     return {
-      onboarding:
-        (ob?.kickoffFile ? 1 : 0) + (ob?.contractFile ? 1 : 0),
+      // Contrato se removió de esta carpeta — vive en Configuración.
+      onboarding: ob?.kickoffFile ? 1 : 0,
       branding: ob?.brandingFiles?.length ?? 0,
       reportes: reports.filter(
         (r) => r.status === "approved" || r.status === "draft",
       ).length,
       contenidos: pieces.length,
       campanas: campaigns.length,
+      facturas: payments.length,
     } as Record<FolderKey, number>;
-  }, [client, reports, pieces, campaigns]);
+  }, [client, reports, pieces, campaigns, payments]);
 
   if (!client) return null;
 
@@ -123,7 +136,11 @@ export default function BibliotecaPage({
         </div>
       </div>
 
-      {/* Acceso directo a carpeta de Teams (toda la docu viva del cliente) */}
+      {/* Acceso directo a la carpeta de OneDrive (toda la docu viva
+          del cliente). El nombre interno del banner sigue siendo
+          "TeamsFolderBanner" y el campo en DB es `teams_folder_url`
+          por razones históricas — para evitar una migración. Visualmente
+          el cliente ve "OneDrive". */}
       <TeamsFolderBanner
         client={client}
         isDirector={isDirector}
@@ -219,11 +236,18 @@ export default function BibliotecaPage({
       {folder === "campanas" && (
         <CampanasFolder campaigns={campaigns} />
       )}
+      {folder === "facturas" && (
+        <FacturasFolder client={client} payments={payments} />
+      )}
     </>
   );
 }
 
 // ============ FOLDER: Onboarding ============
+// El contrato se sacó de esta carpeta (ahora se gestiona desde
+// Configuración del cliente, junto con el resto de los datos
+// contractuales). Acá queda solo el kickoff — info estratégica que
+// alimenta a los agentes.
 function OnboardingFolder({
   client,
   canUpload,
@@ -237,30 +261,20 @@ function OnboardingFolder({
   const items: { name: string; file: OnboardingFile | string; tag: string }[] =
     [];
   if (ob?.kickoffFile) items.push({ name: "Kickoff", file: ob.kickoffFile, tag: "Kickoff" });
-  if (ob?.contractFile) items.push({ name: "Contrato", file: ob.contractFile, tag: "Contrato" });
 
   return (
     <FolderShell
       title="Onboarding"
-      emptyMsg={canUpload ? "" : "Todavía no se cargó kickoff ni contrato."}
+      emptyMsg={canUpload ? "" : "Todavía no se cargó el kickoff."}
       uploadButtons={
         canUpload ? (
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <LibraryUploadButton
-              client={client}
-              target="kickoff"
-              label={ob?.kickoffFile ? "↻ Reemplazar kickoff" : "+ Subir kickoff"}
-              accept=".pdf"
-              onUploaded={onChange}
-            />
-            <LibraryUploadButton
-              client={client}
-              target="contract"
-              label={ob?.contractFile ? "↻ Reemplazar contrato" : "+ Subir contrato"}
-              accept=".pdf"
-              onUploaded={onChange}
-            />
-          </div>
+          <LibraryUploadButton
+            client={client}
+            target="kickoff"
+            label={ob?.kickoffFile ? "↻ Reemplazar kickoff" : "+ Subir kickoff"}
+            accept=".pdf"
+            onUploaded={onChange}
+          />
         ) : null
       }
     >
@@ -546,6 +560,154 @@ function CampanasFolder({ campaigns }: { campaigns: ProductionCampaign[] }) {
   );
 }
 
+// ============ FOLDER: Facturas ============
+// Las facturas se cargan desde Finanzas → Facturación → "Cargar
+// factura" (subiendo el PDF). Acá se listan automáticamente todas
+// las que tienen pdf_url. El listado se ordena por mes desc.
+function FacturasFolder({
+  client,
+  payments,
+}: {
+  client: Client;
+  payments: InvoicePayment[];
+}) {
+  const sorted = [...payments].sort((a, b) => b.month.localeCompare(a.month));
+  return (
+    <FolderShell
+      title="Facturas"
+      emptyMsg="Sin facturas con PDF. Cargá una desde Finanzas → Facturación."
+    >
+      {sorted.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {sorted.map((p) => (
+            <FacturaRow key={`${p.clientId}-${p.month}`} payment={p} clientName={client.name} />
+          ))}
+        </div>
+      )}
+    </FolderShell>
+  );
+}
+
+function FacturaRow({
+  payment,
+  clientName,
+}: {
+  payment: InvoicePayment;
+  clientName: string;
+}) {
+  const monthLabel = (() => {
+    const [y, m] = payment.month.split("-");
+    const date = new Date(Number(y), Number(m) - 1, 1);
+    return date.toLocaleDateString("es-AR", {
+      month: "long",
+      year: "numeric",
+    });
+  })();
+  const statusTone =
+    payment.status === "paid"
+      ? "var(--green-ok)"
+      : payment.status === "late"
+        ? "#B91C1C"
+        : "var(--sand-dark)";
+  const statusLabel =
+    payment.status === "paid"
+      ? "Pagada"
+      : payment.status === "pending"
+        ? "Pendiente"
+        : payment.status === "late"
+          ? "Vencida"
+          : "Cancelada";
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "12px 14px",
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: 6,
+      }}
+    >
+      <div
+        style={{
+          width: 40,
+          height: 50,
+          background: "var(--ivory)",
+          borderRadius: 4,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 18,
+          color: "var(--sand-dark)",
+          flexShrink: 0,
+        }}
+      >
+        📄
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--deep-green)",
+            textTransform: "capitalize",
+          }}
+        >
+          Factura {clientName} · {monthLabel}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            marginTop: 2,
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <span>
+            US${" "}
+            {(payment.amountOverride ?? 0).toLocaleString() || "—"}
+          </span>
+          <span
+            style={{
+              padding: "2px 8px",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              borderRadius: 999,
+              background: `${statusTone}1A`,
+              color: statusTone,
+            }}
+          >
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+      <a
+        href={payment.pdfUrl ?? "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          padding: "8px 14px",
+          background: "transparent",
+          border: "1px solid rgba(10,26,12,0.15)",
+          color: "var(--deep-green)",
+          borderRadius: 4,
+          fontSize: 11,
+          fontWeight: 600,
+          textDecoration: "none",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Abrir PDF ↗
+      </a>
+    </div>
+  );
+}
+
 // ============ Helpers ============
 function FolderShell({
   title,
@@ -676,9 +838,12 @@ function FilesList({
 }
 
 // ============================================================
-// TeamsFolderBanner — acceso directo a la carpeta de Microsoft Teams
-// del cliente. Vive en client.external_links.teams_folder_url. El
-// director lo configura inline; el resto del equipo lo abre.
+// TeamsFolderBanner — acceso directo a la carpeta de OneDrive del
+// cliente. (El nombre del componente y el campo `teams_folder_url`
+// quedaron del pasado cuando usábamos Microsoft Teams para esto.
+// Internamente se mantienen para no migrar; visualmente decimos
+// OneDrive.) El director lo configura inline; el resto del equipo
+// lo abre.
 // ============================================================
 function TeamsFolderBanner({
   client,
@@ -700,14 +865,30 @@ function TeamsFolderBanner({
   async function save() {
     setSaving(true);
     try {
+      // Antes mandábamos `undefined` para limpiar — pero el spread del
+      // merge servidor-side lo ignora y queda el valor viejo. Mandar
+      // null para que sobreescriba.
       await updateClientExternalLinks(client.id, {
-        teams_folder_url: url.trim() === "" ? undefined : url.trim(),
+        teams_folder_url: url.trim() === "" ? null : url.trim(),
       });
       setEditing(false);
       onUpdated();
     } catch (err) {
-      const e = err as Error;
-      alert(`No se pudo guardar el link de Teams:\n${e.message}`);
+      // Logueamos el error completo para diagnosticar si es RLS,
+      // columna inexistente, etc.
+      console.error("updateClientExternalLinks failed:", err);
+      const e = err as {
+        message?: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      };
+      const parts = [e?.message, e?.details, e?.hint]
+        .filter((s) => typeof s === "string" && s.trim().length > 0)
+        .join(" · ");
+      alert(
+        `No se pudo guardar el link de OneDrive:\n${parts || "Error desconocido — revisá la consola del navegador."}`,
+      );
     } finally {
       setSaving(false);
     }
@@ -745,7 +926,7 @@ function TeamsFolderBanner({
             marginBottom: 6,
           }}
         >
-          Carpeta del cliente · Microsoft Teams
+          Carpeta del cliente · OneDrive
         </div>
         <div
           style={{
@@ -755,7 +936,7 @@ function TeamsFolderBanner({
           }}
         >
           Toda la documentación viva del cliente (contratos, briefings, archivos
-          compartidos, notas de reuniones) vive en Teams. Click abre la carpeta
+          compartidos, notas de reuniones) vive en OneDrive. Click abre la carpeta
           en una pestaña nueva.
         </div>
       </div>
@@ -765,7 +946,7 @@ function TeamsFolderBanner({
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://teams.microsoft.com/..."
+            placeholder="https://onedrive.live.com/... o https://...sharepoint.com/..."
             autoFocus
             disabled={saving}
             style={{
@@ -833,7 +1014,7 @@ function TeamsFolderBanner({
               whiteSpace: "nowrap",
             }}
           >
-            Abrir carpeta Teams ↗
+            Abrir carpeta OneDrive ↗
           </a>
           {isDirector && (
             <button
@@ -867,7 +1048,7 @@ function TeamsFolderBanner({
             whiteSpace: "nowrap",
           }}
         >
-          + Configurar carpeta Teams
+          + Configurar carpeta OneDrive
         </button>
       ) : (
         <div

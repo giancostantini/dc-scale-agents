@@ -17,8 +17,15 @@ import {
   makeInitialsFromName,
 } from "@/lib/team";
 import { getClients } from "@/lib/storage";
+import { getSupabase } from "@/lib/supabase/client";
 import type { Client } from "@/lib/types";
 import styles from "./perfil.module.css";
+
+interface OutlookStatus {
+  connected: boolean;
+  email?: string | null;
+  connected_at?: string | null;
+}
 
 export default function PerfilPage() {
   const router = useRouter();
@@ -96,8 +103,15 @@ export default function PerfilPage() {
       <Topbar showPrimary={false} />
 
       <main className={styles.wrap}>
-        <div className={styles.head}>
-          <div>
+        <div
+          className={styles.head}
+          style={{ display: "flex", alignItems: "center", gap: 22 }}
+        >
+          <AvatarEditor
+            profile={profile}
+            onUpdated={(p) => setProfile(p)}
+          />
+          <div style={{ flex: 1 }}>
             <div className={styles.eyebrow}>Mi perfil</div>
             <h1>{profile.name}</h1>
             <div className={styles.email}>{profile.email}</div>
@@ -223,8 +237,35 @@ export default function PerfilPage() {
           </div>
         )}
 
-        {/* ===== Clientes asignados — solo equipo/director (no aplica a clientes) ===== */}
-        {!isClient && (
+        {/* ===== Clientes asignados — solo team (los directores ven
+             todo por su rol y no necesitan asignaciones explícitas) ===== */}
+        {!isClient && profile.role === "director" && (
+          <div className={styles.panel}>
+            <div className={styles.panelHead}>
+              <div className={styles.panelTitle}>
+                Acceso a clientes
+              </div>
+            </div>
+            <div
+              style={{
+                padding: 18,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+                fontSize: 13,
+                color: "var(--deep-green)",
+                lineHeight: 1.6,
+                borderRadius: "0 6px 6px 0",
+              }}
+            >
+              Como <strong>director</strong>, tenés acceso global a{" "}
+              <strong>todos los clientes</strong> del sistema. No necesitás
+              asignaciones explícitas para verlos o trabajar con ellos.
+              Las asignaciones se usan para distribuir el trabajo entre el
+              equipo (saber quién es responsable de qué).
+            </div>
+          </div>
+        )}
+        {!isClient && profile.role !== "director" && (
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <div className={styles.panelTitle}>
@@ -266,6 +307,18 @@ export default function PerfilPage() {
           </div>
         )}
 
+        {/* ===== Notificaciones por email ===== */}
+        <EmailPreferencesPanel
+          profile={profile}
+          onUpdated={(p) => setProfile(p)}
+        />
+
+        {/* ===== Conexión Outlook ===== */}
+        <OutlookPanel profile={profile} onChanged={async () => {
+          const p = await getCurrentProfile();
+          if (p) setProfile(p);
+        }} />
+
         {profile.notes && isDirector && (
           <div className={styles.panel}>
             <div className={styles.panelHead}>
@@ -279,11 +332,561 @@ export default function PerfilPage() {
   );
 }
 
+// ============================================================
+// EmailPreferencesPanel
+// ============================================================
+function EmailPreferencesPanel({
+  profile,
+  onUpdated,
+}: {
+  profile: Profile;
+  onUpdated: (p: Profile) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const PREFS: {
+    key:
+      | "email_on_new_request"
+      | "email_on_task_assigned"
+      | "email_on_client_assigned"
+      | "email_on_payment_received"
+      | "email_on_content_approved";
+    label: string;
+    desc: string;
+    directorOnly?: boolean;
+  }[] = [
+    {
+      key: "email_on_new_request",
+      label: "Nuevas solicitudes del cliente",
+      desc: "Cuando un cliente sube una solicitud al portal.",
+    },
+    {
+      key: "email_on_task_assigned",
+      label: "Tareas asignadas",
+      desc: "Cuando me asignan una tarea nueva.",
+    },
+    {
+      key: "email_on_client_assigned",
+      label: "Cliente asignado",
+      desc: "Cuando me asignan a trabajar con un cliente.",
+    },
+    {
+      key: "email_on_payment_received",
+      label: "Cobros recibidos",
+      desc: "Cuando una factura se marca como pagada.",
+      directorOnly: true,
+    },
+    {
+      key: "email_on_content_approved",
+      label: "Contenido aprobado",
+      desc: "Cuando una idea de contenido pasa al calendario.",
+    },
+  ];
+  async function toggle(
+    key: typeof PREFS[number]["key"],
+    value: boolean,
+  ) {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const updated = await updateProfile(profile.id, { [key]: value } as Record<string, unknown>);
+      if (updated) onUpdated(updated);
+    } catch (err) {
+      console.error("update pref:", err);
+      alert("No se pudo guardar la preferencia.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  const visible = PREFS.filter((p) => !p.directorOnly || profile.role === "director");
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <div className={styles.panelTitle}>Notificaciones por email</div>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
+        Elegí qué eventos del sistema te llegan por mail. Default = todo activado.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {visible.map((p) => {
+          const current = (profile[p.key] as boolean | undefined) ?? true;
+          return (
+            <label
+              key={p.key}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "12px 14px",
+                background: current ? "var(--off-white)" : "transparent",
+                border: `1px solid ${current ? "var(--sand)" : "rgba(10,26,12,0.1)"}`,
+                borderRadius: 6,
+                cursor: saving ? "wait" : "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={current}
+                disabled={saving}
+                onChange={(e) => toggle(p.key, e.target.checked)}
+                style={{ width: "auto", marginTop: 3 }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--deep-green)" }}>
+                  {p.label}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                  {p.desc}
+                </div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// OutlookPanel — conectar/desconectar Outlook
+// ============================================================
+function OutlookPanel({
+  profile,
+  onChanged,
+}: {
+  profile: Profile;
+  onChanged: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  // Detectar query params del callback (?outlook=connected|error&msg=...)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    const ol = p.get("outlook");
+    if (ol === "connected") {
+      setStatusMsg("✓ Outlook conectado correctamente.");
+      onChanged();
+      // limpiar URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("outlook");
+      url.searchParams.delete("email");
+      url.searchParams.delete("msg");
+      window.history.replaceState({}, "", url.toString());
+    } else if (ol === "error") {
+      setStatusMsg(`⚠ Error: ${p.get("msg") ?? "no se pudo conectar"}`);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleConnect() {
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setStatusMsg("Sesión expirada. Volvé a entrar.");
+        return;
+      }
+      const res = await fetch("/api/integrations/outlook/connect", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusMsg(`⚠ ${data.error ?? "error"}: ${data.detail ?? ""}`);
+        return;
+      }
+      window.location.href = data.auth_url;
+    } catch (err) {
+      const e = err as Error;
+      setStatusMsg(`⚠ ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!confirm("¿Desconectar tu cuenta de Outlook? Vas a poder reconectar después.")) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/integrations/outlook/disconnect", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({} as { error?: string }));
+        setStatusMsg(`⚠ ${d.error ?? "error"}`);
+        return;
+      }
+      setStatusMsg("Outlook desconectado.");
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const connected = !!profile.outlook_connected_at;
+
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <div className={styles.panelTitle}>Calendario de Outlook</div>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.5 }}>
+        Conectá tu cuenta de Outlook personal para que el sistema pueda
+        sincronizar eventos a tu calendario (deadlines de tareas, reuniones
+        con clientes, fechas de entrega). El acceso queda guardado de
+        forma segura y se renueva automáticamente.
+      </div>
+      {connected ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            padding: 16,
+            background: "rgba(47,125,79,0.08)",
+            border: "1px solid rgba(47,125,79,0.2)",
+            borderRadius: 6,
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              background: "#0078D4",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: 14,
+              borderRadius: 6,
+            }}
+          >
+            O
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--deep-green)" }}>
+              Conectado: {profile.outlook_email ?? "Outlook"}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+              Desde{" "}
+              {profile.outlook_connected_at
+                ? new Date(profile.outlook_connected_at).toLocaleDateString("es-AR")
+                : "—"}
+            </div>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={busy}
+            style={{
+              padding: "8px 14px",
+              background: "transparent",
+              border: "1px solid rgba(176,75,58,0.2)",
+              borderRadius: 6,
+              fontSize: 12,
+              cursor: busy ? "wait" : "pointer",
+              color: "#B91C1C",
+              fontFamily: "inherit",
+            }}
+          >
+            Desconectar
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={handleConnect}
+          disabled={busy}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 20px",
+            background: "#0078D4",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: busy ? "wait" : "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-flex",
+              width: 20,
+              height: 20,
+              background: "white",
+              color: "#0078D4",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: 11,
+              borderRadius: 3,
+            }}
+          >
+            O
+          </span>
+          {busy ? "Conectando…" : "Conectar Outlook"}
+        </button>
+      )}
+      {statusMsg && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 10,
+            background: statusMsg.startsWith("⚠")
+              ? "rgba(176,75,58,0.08)"
+              : "rgba(47,125,79,0.08)",
+            border: `1px solid ${
+              statusMsg.startsWith("⚠")
+                ? "rgba(176,75,58,0.2)"
+                : "rgba(47,125,79,0.2)"
+            }`,
+            borderRadius: 4,
+            fontSize: 12,
+            color: statusMsg.startsWith("⚠") ? "#B91C1C" : "var(--deep-green)",
+          }}
+        >
+          {statusMsg}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KV({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className={styles.kv}>
       <div className={styles.kvLabel}>{label}</div>
       <div className={styles.kvValue}>{value}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// AvatarEditor — circulito con foto + botón para subir/cambiar.
+// El path en Storage es {user_id}/avatar.{ext}; al actualizar se
+// reemplaza el anterior (upsert).
+// ============================================================
+function AvatarEditor({
+  profile,
+  onUpdated,
+}: {
+  profile: Profile;
+  onUpdated: (p: Profile) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Máximo 2 MB.");
+      return;
+    }
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      setError("Formato no soportado. Usá JPG, PNG, WEBP o GIF.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const supabase = getSupabase();
+      // Mantenemos un nombre estable por usuario para que cada upload
+      // reemplace el anterior (upsert: true). Extraemos extensión
+      // del MIME para soportar gif/webp además de jpg/png.
+      const extByMime: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+      };
+      const ext = extByMime[file.type] ?? "jpg";
+      const path = `${profile.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, {
+          upsert: true,
+          contentType: file.type,
+          cacheControl: "3600",
+        });
+      if (upErr) throw upErr;
+
+      // Obtener URL pública. Le agregamos cache-bust con timestamp
+      // porque el CDN cachea por path y al reemplazar el archivo
+      // necesitamos forzar refresh en los avatars que ya se mostraron.
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const cacheBusted = `${pub.publicUrl}?t=${Date.now()}`;
+
+      const updated = await updateProfile(profile.id, {
+        avatar_url: cacheBusted,
+      });
+      if (updated) onUpdated(updated);
+    } catch (err) {
+      const e = err as Error;
+      setError(`No se pudo subir: ${e.message}`);
+    } finally {
+      setUploading(false);
+      // Reset el input para permitir subir el mismo archivo otra vez
+      // (Chrome no dispara onChange si el filename no cambia).
+      e.target.value = "";
+    }
+  }
+
+  async function handleRemove() {
+    if (!profile.avatar_url) return;
+    if (!confirm("¿Quitar tu foto de perfil?")) return;
+    setUploading(true);
+    setError(null);
+    try {
+      // Borrar el blob — intentamos las 4 extensiones porque no
+      // sabemos cuál subió.
+      const supabase = getSupabase();
+      const tryPaths = ["jpg", "png", "webp", "gif"].map(
+        (ext) => `${profile.id}/avatar.${ext}`,
+      );
+      await supabase.storage.from("avatars").remove(tryPaths);
+      const updated = await updateProfile(profile.id, { avatar_url: null });
+      if (updated) onUpdated(updated);
+    } catch (err) {
+      const e = err as Error;
+      setError(`No se pudo borrar: ${e.message}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <div
+        style={{
+          width: 86,
+          height: 86,
+          borderRadius: "50%",
+          background: profile.avatar_url ? "var(--off-white)" : "var(--deep-green)",
+          color: "var(--sand)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 700,
+          fontSize: 26,
+          overflow: "hidden",
+          border: "1px solid var(--hairline)",
+          letterSpacing: "0.05em",
+        }}
+      >
+        {profile.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.avatar_url}
+            alt={profile.name}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          profile.initials
+        )}
+      </div>
+
+      {/* Botón flotante de cambiar — abajo a la derecha del círculo */}
+      <label
+        style={{
+          position: "absolute",
+          bottom: -2,
+          right: -2,
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          background: "var(--deep-green)",
+          color: "var(--off-white)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          cursor: uploading ? "default" : "pointer",
+          border: "2px solid var(--white)",
+          opacity: uploading ? 0.6 : 1,
+        }}
+        title={profile.avatar_url ? "Cambiar foto" : "Subir foto"}
+      >
+        {uploading ? "…" : "✎"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleFile}
+          disabled={uploading}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0,
+            cursor: uploading ? "default" : "pointer",
+          }}
+        />
+      </label>
+
+      {profile.avatar_url && !uploading && (
+        <button
+          type="button"
+          onClick={handleRemove}
+          style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            background: "var(--white)",
+            color: "#B91C1C",
+            border: "1px solid rgba(176,75,58,0.2)",
+            cursor: "pointer",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "inherit",
+            padding: 0,
+            lineHeight: 1,
+          }}
+          title="Quitar foto"
+        >
+          ×
+        </button>
+      )}
+
+      {error && (
+        <div
+          style={{
+            position: "absolute",
+            left: 100,
+            top: "50%",
+            transform: "translateY(-50%)",
+            fontSize: 11,
+            color: "#B91C1C",
+            background: "rgba(176,75,58,0.08)",
+            border: "1px solid rgba(176,75,58,0.2)",
+            padding: "5px 9px",
+            borderRadius: 4,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {error}
+        </div>
+      )}
     </div>
   );
 }

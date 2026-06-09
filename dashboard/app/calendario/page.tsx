@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import NewEventModal from "@/components/NewEventModal";
-import { getEvents, deleteEvent } from "@/lib/storage";
+import OutlookConnectionCard from "@/components/OutlookConnectionCard";
+import { getEvents, deleteEvent, getAllTasks, getClients } from "@/lib/storage";
 import { hasSession } from "@/lib/supabase/auth";
-import type { CalEvent, EventType } from "@/lib/types";
+import type { CalEvent, Client, DevTask, EventType } from "@/lib/types";
 import styles from "./calendario.module.css";
 
 const MONTHS_ES = [
@@ -24,12 +25,16 @@ const TYPE_STYLE: Record<
   reporte:   { className: "calEventReporte",   label: "Reportes",   color: "var(--sand)" },
   dev:       { className: "calEventDev",       label: "Dev",        color: "var(--sand-dark)" },
   contenido: { className: "calEventContenido", label: "Contenido",  color: "var(--forest-2)" },
+  pauta:     { className: "calEventPauta",     label: "Pauta",      color: "#b04b3a" },
 };
 
 export default function CalendarioPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
   const [events, setEvents] = useState<CalEvent[]>([]);
+  const [tasks, setTasks] = useState<DevTask[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [showTasks, setShowTasks] = useState(true);
 
   // Mes actual
   const today = new Date();
@@ -37,11 +42,12 @@ export default function CalendarioPage() {
   const [month, setMonth] = useState(today.getMonth());
 
   const [modal, setModal] = useState<{ open: boolean; date?: string }>({ open: false });
-  const [googleConnected, setGoogleConnected] = useState(true);
   const [filter, setFilter] = useState<EventType | "all">("all");
 
   const refresh = useCallback(() => {
     getEvents().then(setEvents);
+    getAllTasks().then(setTasks);
+    getClients().then(setClients);
   }, []);
 
   useEffect(() => {
@@ -114,12 +120,6 @@ export default function CalendarioPage() {
           </div>
           <div className={styles.actions}>
             <button
-              className={styles.btn}
-              onClick={() => setGoogleConnected(!googleConnected)}
-            >
-              {googleConnected ? "Desconectar Google" : "Conectar Google"}
-            </button>
-            <button
               className={styles.btnSolid}
               onClick={() =>
                 setModal({ open: true, date: new Date().toISOString().slice(0, 10) })
@@ -130,37 +130,11 @@ export default function CalendarioPage() {
           </div>
         </div>
 
-        {/* Google Calendar banner */}
-        <div
-          className={`${styles.googleBanner} ${
-            !googleConnected ? styles.googleBannerOff : ""
-          }`}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div className={styles.gLogo}>G</div>
-            <div>
-              <div className={styles.gLabel}>
-                {googleConnected
-                  ? "● Google Calendar conectado"
-                  : "◌ Google Calendar desconectado"}
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>
-                {googleConnected
-                  ? "Sincronización bidireccional activa · Los eventos aparecen en ambos lados"
-                  : "Conectá tu cuenta para sincronizar eventos automáticamente"}
-              </div>
-            </div>
-          </div>
-          {googleConnected && (
-            <div style={{ fontSize: 12, color: "rgba(232,228,220,0.6)" }}>
-              {events.filter((e) => e.synced).length} / {events.length} eventos
-              sincronizados
-            </div>
-          )}
-        </div>
+        {/* Outlook sync — cada user conecta su propia cuenta */}
+        <OutlookConnectionCard returnTo="/calendario" />
 
         {/* Filtros */}
-        {events.length > 0 && (
+        {(events.length > 0 || tasks.length > 0) && (
           <div className={styles.filters}>
             <button
               className={`${styles.filterBtn} ${filter === "all" ? styles.active : ""}`}
@@ -187,6 +161,19 @@ export default function CalendarioPage() {
                 </button>
               );
             })}
+            {/* Toggle de tareas: overlay sobre el calendario con las
+                dev_tasks que tienen dueDate y no están "done". */}
+            {tasks.filter((t) => t.dueDate && t.status !== "done").length > 0 && (
+              <button
+                className={`${styles.filterBtn} ${showTasks ? styles.active : ""}`}
+                onClick={() => setShowTasks(!showTasks)}
+                style={{ marginLeft: 12, borderLeft: "1px solid rgba(10,26,12,0.1)", paddingLeft: 16 }}
+              >
+                <span style={{ marginRight: 4 }}>⊡</span>
+                Tareas ·{" "}
+                {tasks.filter((t) => t.dueDate && t.status !== "done").length}
+              </button>
+            )}
           </div>
         )}
 
@@ -231,6 +218,12 @@ export default function CalendarioPage() {
                 const d = i + 1;
                 const key = dayKey(d);
                 const dayEvents = visibleEvents.filter((e) => e.date === key);
+                const dayTasks = showTasks
+                  ? tasks.filter(
+                      (t) =>
+                        t.dueDate === key && t.status !== "done",
+                    )
+                  : [];
                 const isToday = isCurrentMonth && d === today.getDate();
                 return (
                   <div
@@ -272,6 +265,54 @@ export default function CalendarioPage() {
                         +{dayEvents.length - 3} más
                       </span>
                     )}
+                    {dayTasks.slice(0, 2).map((t) => {
+                      const cli = clients.find((c) => c.id === t.clientId);
+                      const prioColor =
+                        t.priority === "critica"
+                          ? "#b04b3a"
+                          : t.priority === "alta"
+                            ? "#C9A14A"
+                            : t.priority === "media"
+                              ? "#9B8259"
+                              : "#7A8A7E";
+                      return (
+                        <span
+                          key={t.id}
+                          onClick={(ev) => ev.stopPropagation()}
+                          title={`Tarea: ${t.title} · ${cli?.name ?? t.clientId} · ${t.assignee}`}
+                          style={{
+                            display: "block",
+                            fontSize: 10,
+                            padding: "2px 6px",
+                            marginTop: 3,
+                            background: `${prioColor}1A`,
+                            color: prioColor,
+                            border: `1px dashed ${prioColor}`,
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            cursor: "default",
+                            borderRadius: 2,
+                          }}
+                        >
+                          ⊡ {t.title.slice(0, 22)}
+                        </span>
+                      );
+                    })}
+                    {dayTasks.length > 2 && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          color: "var(--text-muted)",
+                          marginTop: 2,
+                          display: "block",
+                        }}
+                      >
+                        +{dayTasks.length - 2} tarea
+                        {dayTasks.length - 2 === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -281,6 +322,54 @@ export default function CalendarioPage() {
           {/* Upcoming */}
           <div className={styles.upcoming}>
             <h4>Próximos eventos</h4>
+            {/* Mostramos también tareas que vencen pronto */}
+            {showTasks &&
+              tasks
+                .filter((t) => t.dueDate && t.status !== "done" && t.dueDate >= todayKey)
+                .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
+                .slice(0, 5)
+                .map((t) => {
+                  const cli = clients.find((c) => c.id === t.clientId);
+                  const fd = formatUpcomingDate(t.dueDate as string);
+                  const prioColor =
+                    t.priority === "critica"
+                      ? "#b04b3a"
+                      : t.priority === "alta"
+                        ? "#C9A14A"
+                        : "#9B8259";
+                  return (
+                    <div
+                      key={`task-${t.id}`}
+                      className={styles.eventItem}
+                      style={{ borderLeft: `3px solid ${prioColor}` }}
+                    >
+                      <div className={styles.eventDate}>
+                        <div className="d">{fd.day}</div>
+                        <div className="m">{fd.month}</div>
+                      </div>
+                      <div className={styles.eventInfo}>
+                        <div className="eName">
+                          ⊡ {t.title}
+                          <span
+                            style={{
+                              fontSize: 9,
+                              color: prioColor,
+                              letterSpacing: "0.1em",
+                              textTransform: "uppercase",
+                              marginLeft: 6,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {t.priority}
+                          </span>
+                        </div>
+                        <div className="eClient">
+                          {cli?.name ?? t.clientId} · {t.assignee}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             {upcoming.length === 0 ? (
               <div className={styles.emptyUpcoming}>
                 No hay eventos agendados. Hacé click en un día del calendario
@@ -338,7 +427,6 @@ export default function CalendarioPage() {
       <NewEventModal
         open={modal.open}
         initialDate={modal.date}
-        googleConnected={googleConnected}
         onClose={() => setModal({ open: false })}
         onCreated={refresh}
       />

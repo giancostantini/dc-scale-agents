@@ -41,8 +41,9 @@ import {
   loadClientVaultForPortal,
   buildPortalVaultBlock,
 } from "@/lib/portal-vault-context";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
-const MODEL = "claude-opus-4-7";
+const MODEL = CLAUDE_MODEL_OPUS;
 
 const SYSTEM_PROMPT = `Sos D&C Advisor, el asistente IA del portal de Dearmas Costantini para un cliente específico. Hablás directamente con el dueño del negocio del cliente. Cuando te presentás, decí "D&C Advisor" — nunca "Consultor IA" ni variantes.
 

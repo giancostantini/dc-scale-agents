@@ -15,6 +15,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
 // System prompt: voz de marca D&C — estable, se cachea automáticamente
 const SYSTEM_PROMPT = `You are the prospection agent for Dearmas & Costantini (D&C), a Business Growth Partners firm operating in LATAM and Spain.
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: CLAUDE_MODEL_OPUS,
       max_tokens: 2000,
       system: [
         {

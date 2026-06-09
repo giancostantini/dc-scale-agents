@@ -35,7 +35,7 @@ create table if not exists content_pieces (
   piece_id         text        not null,               -- e.g. "001", "002"
   piece_type       text        not null,               -- "reel" | "static-ad" | "carousel" | ...
   source           text        not null,               -- "cli" | "strategy-agent" | "consultant-agent" | "dashboard"
-  status           text        not null default 'draft' check (status in ('draft', 'produced', 'published', 'archived')),
+  status           text        not null default 'brief' check (status in ('brief', 'draft', 'produced', 'published', 'archived')),
   objective        text,
   angle            text,
   script_format    text,

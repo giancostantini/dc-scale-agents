@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getClient,
@@ -10,10 +10,12 @@ import {
 } from "@/lib/storage";
 import { listRequestsForClient } from "@/lib/requests";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { getDownloadUrl } from "@/lib/upload";
 import type {
   Client,
   ClientObjectives,
   ClientRequest,
+  OnboardingFile,
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
@@ -65,6 +67,7 @@ export default function ClienteDashboard({
       client={client}
       objectives={objectives}
       campaigns={campaigns}
+      tasks={tasks}
       isDirector={isDirector}
       pendingRequests={pendingRequests}
     />
@@ -83,16 +86,25 @@ function GPDashboard({
   client,
   objectives,
   campaigns,
+  tasks,
   isDirector,
   pendingRequests,
 }: {
   client: Client;
   objectives?: ClientObjectives;
   campaigns: ProductionCampaign[];
+  tasks: DevTask[];
   isDirector: boolean;
   pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
+  // Tareas pendientes del cliente (no done). Vencidas se calculan
+  // contra hoy.  Las usamos para la card "Tareas pendientes" abajo.
+  const today = new Date().toISOString().slice(0, 10);
+  const pendingTasks = tasks.filter((t) => t.status !== "done");
+  const overdueTasks = pendingTasks.filter(
+    (t) => t.dueDate && t.dueDate < today,
+  );
   // Las métricas de paid media y el presupuesto se sacaron del dashboard:
   // el primero vive ahora en Espor.ai + Looker Studio (Analítica),
   // el segundo en /campanas. Acá quedan: header, briefing,
@@ -117,6 +129,11 @@ function GPDashboard({
         </span>
       </WelcomeBanner>
 
+      {/* Datos fiscales — sutiles, solo aparecen si están cargados.
+          Importantes para que el equipo tenga la razón social/RUT a
+          mano sin entrar a Configuración. */}
+      <BillingInfoBar client={client} />
+
       {/* El morning briefing dejó de ser un panel por-cliente. Ahora vive
           en el widget global del consultor (bottom-right): es por user,
           personalizado por rol (director/team) y se entrega como mensaje
@@ -128,6 +145,87 @@ function GPDashboard({
         clientId={client.id}
         requests={pendingRequests}
       />
+
+      {/* Card "Tareas pendientes" — solo aparece si hay tareas no done.
+          Linkea al módulo Tareas del cliente. Las vencidas se destacan
+          en rojo para que el equipo las priorice. */}
+      {pendingTasks.length > 0 && (
+        <button
+          type="button"
+          onClick={() => router.push(`/cliente/${client.id}/tareas`)}
+          className={ui.panel}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            cursor: "pointer",
+            marginBottom: 20,
+            borderLeft: overdueTasks.length > 0
+              ? "3px solid var(--red-warn)"
+              : "3px solid var(--sand)",
+            fontFamily: "inherit",
+            background: "var(--white)",
+            border: "1px solid rgba(10,26,12,0.08)",
+            padding: 18,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 28,
+              color: overdueTasks.length > 0 ? "var(--red-warn)" : "var(--sand-dark)",
+              flexShrink: 0,
+              lineHeight: 1,
+            }}
+          >
+            {overdueTasks.length > 0 ? "🚨" : "✓"}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: overdueTasks.length > 0 ? "var(--red-warn)" : "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 6,
+              }}
+            >
+              {overdueTasks.length > 0
+                ? "Atención requerida"
+                : "Tareas en curso"}
+            </div>
+            <div style={{ fontSize: 14, color: "var(--deep-green)", lineHeight: 1.5 }}>
+              <strong style={{ fontSize: 17, fontWeight: 700 }}>
+                {pendingTasks.length}
+              </strong>{" "}
+              tarea{pendingTasks.length === 1 ? "" : "s"} pendiente
+              {pendingTasks.length === 1 ? "" : "s"}
+              {overdueTasks.length > 0 && (
+                <>
+                  {" "}·{" "}
+                  <span style={{ color: "var(--red-warn)", fontWeight: 700 }}>
+                    {overdueTasks.length} vencida
+                    {overdueTasks.length === 1 ? "" : "s"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--deep-green)",
+              letterSpacing: "0.04em",
+              flexShrink: 0,
+            }}
+          >
+            Ver tareas →
+          </div>
+        </button>
+      )}
 
       <div>
         <div className={ui.panel}>
@@ -269,6 +367,9 @@ function DevDashboard({
   const progress =
     tasks.length > 0 ? Math.round((done / tasks.length) * 100) : 0;
 
+  const projectFile = client.onboarding?.devProjectFile;
+  const deliveryDate = client.onboarding?.devDeliveryDate;
+
   return (
     <>
       <WelcomeBanner
@@ -279,6 +380,8 @@ function DevDashboard({
       >
         <span className={ui.phaseBadge}>{client.phase}</span>
       </WelcomeBanner>
+
+      <BillingInfoBar client={client} />
 
       <PendingRequestsPanel
         clientId={client.id}
@@ -390,52 +493,65 @@ function DevDashboard({
           <div className={ui.panelHead}>
             <div className={ui.panelTitle}>Definición</div>
           </div>
-          <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-            <div style={{ marginBottom: 14 }}>
-              <strong
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Temporizador hacia la fecha de entrega */}
+            {deliveryDate ? (
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 600,
+                    marginBottom: 8,
+                  }}
+                >
+                  Entrega del proyecto
+                </div>
+                <DeliveryCountdown deliveryDate={deliveryDate} />
+              </div>
+            ) : (
+              <div
                 style={{
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  display: "block",
-                  marginBottom: 4,
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
+                  padding: "8px 0",
                 }}
               >
-                Método
-              </strong>
-              {client.method}
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <strong
+                Sin fecha de entrega definida en el onboarding.
+              </div>
+            )}
+
+            {/* Botón Proyecto — link al PDF del onboarding */}
+            {projectFile ? (
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 600,
+                    marginBottom: 8,
+                  }}
+                >
+                  Documento del proyecto
+                </div>
+                <ProyectoButton file={projectFile} />
+              </div>
+            ) : (
+              <div
                 style={{
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  display: "block",
-                  marginBottom: 4,
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
                 }}
               >
-                Fee mensual
-              </strong>
-              US$ {client.fee.toLocaleString()}
-            </div>
-            <div>
-              <strong
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  display: "block",
-                  marginBottom: 4,
-                }}
-              >
-                Sector
-              </strong>
-              {client.sector}
-            </div>
+                Sin documento de proyecto cargado.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -617,6 +733,245 @@ function PendingRequestsPanel({
         >
           + {requests.length - 5} más. Click "Ver todas" para gestionarlas.
         </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// ProyectoButton
+// ============================================================
+// Botón "Proyecto" que abre el PDF del proyecto de desarrollo
+// (devProjectFile del onboarding) en una nueva pestaña. Genera la
+// signed URL al hacer click — no preloadeamos para evitar quemar
+// links si el usuario no lo abre.
+function ProyectoButton({ file }: { file: OnboardingFile | string }) {
+  const [loading, setLoading] = useState(false);
+  const path = typeof file === "string" ? file : file.path;
+  const name =
+    typeof file === "string"
+      ? file.split("/").pop() ?? "Proyecto"
+      : file.name;
+
+  async function open() {
+    setLoading(true);
+    try {
+      const url = await getDownloadUrl(path);
+      if (!url) {
+        alert("No se pudo generar el link al PDF.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      disabled={loading}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 16px",
+        background: "var(--deep-green)",
+        color: "var(--off-white)",
+        border: "none",
+        borderRadius: "var(--r-sm)",
+        fontFamily: "inherit",
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        cursor: loading ? "default" : "pointer",
+        opacity: loading ? 0.6 : 1,
+      }}
+      title={name}
+    >
+      <span style={{ fontSize: 14 }}>📄</span>
+      {loading ? "Abriendo…" : "Proyecto"}
+    </button>
+  );
+}
+
+// ============================================================
+// DeliveryCountdown
+// ============================================================
+// Cuenta atrás hacia la fecha de entrega del proyecto. Se refresca
+// cada minuto — para días/horas/min basta con eso, sin segundos
+// (no necesitamos parpadeo). Si la fecha ya pasó, muestra los días
+// vencidos en rojo.
+function DeliveryCountdown({ deliveryDate }: { deliveryDate: string }) {
+  // Estado del tick — solo para forzar re-render cada minuto.
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const target = useMemo(() => {
+    // Interpretamos YYYY-MM-DD como fin del día (23:59 local) para
+    // que "faltan X días" no salte un día antes por timezone.
+    const d = new Date(deliveryDate + "T23:59:59");
+    return d.getTime();
+  }, [deliveryDate]);
+
+  const now = Date.now();
+  const diffMs = target - now;
+  const overdue = diffMs < 0;
+  const absMs = Math.abs(diffMs);
+  const totalHours = Math.floor(absMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const minutes = Math.floor((absMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  const human = new Date(deliveryDate + "T00:00:00").toLocaleDateString(
+    "es-UY",
+    { day: "numeric", month: "long", year: "numeric" },
+  );
+
+  return (
+    <div
+      style={{
+        background: overdue ? "rgba(176,75,58,0.08)" : "var(--ivory)",
+        border: `1px solid ${overdue ? "rgba(176,75,58,0.3)" : "rgba(196,168,130,0.35)"}`,
+        borderRadius: "var(--r-md)",
+        padding: "12px 14px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          color: "var(--text-muted)",
+          marginBottom: 8,
+        }}
+      >
+        {overdue ? "Plazo vencido el" : "Fecha objetivo"} ·{" "}
+        <strong style={{ color: "var(--deep-green)" }}>{human}</strong>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 14,
+          alignItems: "baseline",
+          color: overdue ? "#B91C1C" : "var(--deep-green)",
+        }}
+      >
+        <CountdownUnit value={days} label={days === 1 ? "día" : "días"} big />
+        <CountdownUnit value={hours} label={hours === 1 ? "hora" : "horas"} />
+        <CountdownUnit
+          value={minutes}
+          label={minutes === 1 ? "min" : "min"}
+        />
+      </div>
+      {overdue && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#B91C1C",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          Entrega vencida
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountdownUnit({
+  value,
+  label,
+  big,
+}: {
+  value: number;
+  label: string;
+  big?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <span
+        style={{
+          fontSize: big ? 28 : 20,
+          fontWeight: 800,
+          letterSpacing: "-0.02em",
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </span>
+      <span
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+          marginTop: 4,
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ============================================================
+// BillingInfoBar — chips con razón social + RUT del cliente.
+// Solo aparece si alguno está cargado. Si no, no mete ruido visual.
+// Las facturas se auto-rellenan con estos datos.
+// ============================================================
+function BillingInfoBar({ client }: { client: Client }) {
+  const razon = client.razon_social?.trim();
+  const rut = client.rut?.trim();
+  if (!razon && !rut) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 10,
+        marginBottom: 20,
+        padding: "10px 14px",
+        background: "var(--off-white)",
+        border: "1px solid var(--hairline)",
+        borderRadius: "var(--r-md)",
+        fontSize: 12,
+        alignItems: "center",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 700,
+        }}
+      >
+        Datos fiscales
+      </span>
+      {razon && (
+        <span style={{ color: "var(--deep-green)" }}>
+          <strong style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+            Razón social:
+          </strong>{" "}
+          {razon}
+        </span>
+      )}
+      {rut && (
+        <span style={{ color: "var(--deep-green)" }}>
+          <strong style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+            RUT:
+          </strong>{" "}
+          <span style={{ fontFamily: "monospace" }}>{rut}</span>
+        </span>
       )}
     </div>
   );

@@ -99,6 +99,20 @@ export interface ClientOnboarding {
 
   // Dev
   devProjectType?: string;
+  /** Costo one-time de producción de la herramienta (USD). */
+  devProductionCost?: number;
+  /** Mantenimiento mensual recurrente (USD). Se usa como `fee`
+   *  cuando el cliente es de tipo dev — alimenta el MRR. */
+  devMaintenanceCost?: number;
+  /** PDF con el documento del proyecto de desarrollo. Separado del
+   *  kickoffFile (que se usa solo para GP). */
+  devProjectFile?: OnboardingFile | string;
+  /** Fecha objetivo de entrega del producto (YYYY-MM-DD). */
+  devDeliveryDate?: string;
+  /** IDs (auth.users.id) de los miembros del equipo asignados al
+   *  proyecto de desarrollo. Al crear el cliente se inserta una
+   *  fila por usuario en client_assignments. */
+  devAssignedUserIds?: string[];
 
   // Si true, es un lanzamiento de marca (negocio nuevo sin canales
   // activos). El reporte de Diagnóstico se adapta: 9 secciones en
@@ -122,7 +136,10 @@ export interface ClientExternalLinks {
   espor_ai_url?: string;
   /** URL del Looker Studio con métricas generales del negocio. */
   looker_studio_url?: string;
-  /** URL de la carpeta de Microsoft Teams con docs del cliente. */
+  /** URL de la carpeta de OneDrive (o SharePoint) con docs del cliente.
+   *  El nombre del campo `teams_folder_url` quedó del pasado cuando
+   *  usábamos Microsoft Teams para esto — lo dejamos sin renombrar
+   *  para no migrar la columna en DB. */
   teams_folder_url?: string;
 }
 
@@ -164,6 +181,31 @@ export type ContentSlotKey =
 
 export type ContentFrequency = Partial<Record<ContentSlotKey, number>>;
 
+/** Red social a nivel network (sin formato). Es el subset de
+ *  ContentSlotKey que representa solo la red.  */
+export type ContentNetworkKey = "ig" | "tt" | "in" | "fb" | "yt";
+
+/** Mix porcentual de tipos de contenido para una red. Los 3 valores
+ *  deberían sumar 100 pero no se valida estrictamente — el calendario
+ *  normaliza si no llegan a 100. */
+export interface ContentTypeMix {
+  /** Contenido de VALOR: educativo, informativo, expertise. */
+  valor?: number;
+  /** Contenido de OFERTA: comercial, promo, descuento, CTA directo. */
+  oferta?: number;
+  /** Contenido de ENGAGEMENT: conversacional, behind-the-scenes,
+   *  polls, UGC, comunidad. */
+  engagement?: number;
+}
+
+/** Distribución de tipos de contenido por red. Estructura del JSONB en
+ *  clients.content_mix. */
+export type ContentMix = Partial<Record<ContentNetworkKey, ContentTypeMix>>;
+
+/** Notas de estrategia por mes. Key = "YYYY-MM", value = markdown.
+ *  Aparecen en el PDF del roadmap como página intercalada. */
+export type RoadmapMonthNotes = Record<string, string>;
+
 export interface Client {
   id: string;
   initials: string;
@@ -179,7 +221,7 @@ export interface Client {
   progress?: number;
   sprints?: Sprint[];
   onboarding?: ClientOnboarding;
-  /** URLs a herramientas externas (Espor.ai, Looker Studio, Teams).
+  /** URLs a herramientas externas (Espor.ai, Looker Studio, OneDrive).
    *  Las configura el director desde Analítica / Biblioteca. */
   external_links?: ClientExternalLinks;
   /** URL pública del dashboard Looker Studio del cliente. El portal lo
@@ -188,6 +230,71 @@ export interface Client {
   /** Frecuencia semanal de publicación por red. El planificador la
    *  usa para marcar los días "sugeridos" en el calendario. */
   content_frequency?: ContentFrequency;
+  /** Mix % de tipos de contenido (valor/oferta/engagement) por red.
+   *  El calendario lo usa para auto-asignar el tipo de cada posteo
+   *  sugerido (chip V/O/E). */
+  content_mix?: ContentMix;
+  /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
+   *  value = markdown. Aparece en el PDF del roadmap. */
+  roadmap_month_notes?: RoadmapMonthNotes;
+  /** Contacto principal del cliente (cargado desde el onboarding). */
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  country?: string | null;
+  /** Identificador fiscal (CUIT/RUT/NIT) — migración 039.
+   *  Mantenemos por compat; los datos nuevos van a `rut`. */
+  tax_id?: string | null;
+  /** Razón social legal del cliente — puede diferir del nombre
+   *  comercial (`name`). Se usa en facturación. Migración 054. */
+  razon_social?: string | null;
+  /** RUT / NIT del cliente — migración 054. Se muestra en el perfil
+   *  del cliente y se auto-rellena al crear una factura. */
+  rut?: string | null;
+  /** URL del sitio web del cliente (migración 053). Usada como contexto
+   *  adicional para los agentes (asistente creativo, estrategia). */
+  website_url?: string | null;
+  /** Fecha de creación (ISO) del cliente. */
+  created_at?: string | null;
+  /** Cuenta bancaria default donde se acreditan los pagos del cliente
+   *  (migración 044). Cuando se marca un payment como 'paid', se
+   *  crea un movimiento de entrada automáticamente. */
+  default_cuenta_id?: string | null;
+  /** URL pública del logo del cliente (migración 048).
+   *  NULL = fallback a iniciales. */
+  logo_url?: string | null;
+  /** Distribución de dividendos específica para este cliente
+   *  (migración 052). Si está NULL o `use_default=true`, se usa la
+   *  config global de `dividend_config`. */
+  dividend_distribution?: ClientDividendDistribution | null;
+}
+
+/** Distribución de dividendos a aplicar sobre el net profit que viene
+ *  de este cliente. Los 4 porcentajes deberían sumar 100 — el UI
+ *  alerta si no, pero no bloquea (puede haber lógica intencional). */
+export interface ClientDividendDistribution {
+  /** Si true, ignorar los % y usar la config global de dividend_config.
+   *  Cuando se setea en true, el resto de los campos pueden quedar
+   *  como referencia histórica pero no afectan al cálculo. */
+  use_default: boolean;
+  partner_a_pct: number;
+  partner_b_pct: number;
+  inversiones_pct: number;
+  back_pct: number;
+}
+
+/** Contacto del cliente (migración 049 — uno-a-muchos). */
+export interface ClientContact {
+  id: string;
+  client_id: string;
+  name: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // ==================== PIPELINE / CRM ====================
@@ -199,7 +306,15 @@ export type PipelineStage =
   | "negociacion"
   | "cerrado";
 
-export type LeadSource = "linkedin" | "email" | "manual" | "referido";
+export type LeadSource =
+  | "linkedin"
+  | "email"
+  | "manual"
+  | "referido"
+  | "sitio_web"
+  | "redes_sociales"
+  | "eventos"
+  | "otro";
 
 export interface Lead {
   id: string;
@@ -207,12 +322,27 @@ export interface Lead {
   company: string;
   sector: string;
   type: ClientType;
-  value: number;              // USD/mes
+  /** USD/mes — recurrente mensual (= fee_mensual si GP, costo_mantenimiento
+   *  si IA). 0 cuando el lead está en prospección/contactado. */
+  value: number;
   stage: PipelineStage;
   source: LeadSource;
   note?: string;
   createdAt: string;          // ISO
   meetingBooked?: boolean;
+  /** Cuándo entró a la etapa actual — para alertas por tiempo */
+  stageChangedAt?: string;
+  /** Si el lead se descartó: fecha + razón + etapa de descarte */
+  lostAt?: string | null;
+  lostReason?: string | null;
+  lostFromStage?: PipelineStage | null;
+  /** Cotización desglosada — se completa al pasar a "propuesta" */
+  feeMensual?: number | null;       // GP recurrente
+  bono?: number | null;             // GP success fee
+  costoProduccion?: number | null;  // IA one-time
+  costoMantenimiento?: number | null; // IA recurrente
+  /** Quién refirió el lead (solo si source === 'referido') */
+  referrerName?: string | null;
 }
 
 // Seniority alineado con Apollo.io
@@ -279,13 +409,23 @@ export interface ProspectCampaign {
 
 // ==================== CALENDAR ====================
 
-export type EventType = "reunion" | "cobro" | "reporte" | "dev" | "contenido";
+export type EventType =
+  | "reunion"
+  | "cobro"
+  | "reporte"
+  | "dev"
+  | "contenido"
+  | "pauta";
 
 export interface CalEvent {
   id: string;
   title: string;
   type: EventType;
-  date: string;               // YYYY-MM-DD
+  date: string;               // YYYY-MM-DD (start)
+  /** Fecha de fin (inclusiva). Si está, el evento es multi-día y se
+   *  renderiza como banda horizontal en el calendario. NULL/undefined
+   *  → evento de 1 solo día. */
+  end_date?: string | null;
   time: string;               // HH:mm
   duration: number;           // minutos
   clientId?: string;          // referencia a client.id
@@ -298,7 +438,40 @@ export interface CalEvent {
 
 // ==================== FINANZAS ====================
 
-export type ExpenseCategory = "equipo" | "tools" | "ia" | "produccion" | "otros";
+export type ExpenseCategory =
+  | "equipo"        // funcionales (sueldos / contractors)
+  | "tools"         // SaaS, software
+  | "ia"            // créditos / suscripciones de IA
+  | "produccion"    // contenido, creatives de ads, eventos
+  | "impuestos"     // impuestos pagados
+  | "mkt_interno"   // ads para D&C, branding propio
+  | "otros";
+
+/** Labels canónicos para mostrar en UI. */
+export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  equipo: "Funcionales",
+  tools: "Tools",
+  ia: "IA",
+  produccion: "Producción",
+  impuestos: "Impuestos",
+  mkt_interno: "Mkt interno",
+  otros: "Varios",
+};
+
+/** Tipo de recurrencia del egreso. */
+export type ExpenseRecurrence = "one_time" | "monthly_fixed";
+
+/** Métodos de pago compartidos con manual_revenues. */
+export type ExpensePaymentMethod =
+  | "efectivo"
+  | "transferencia"
+  | "tarjeta"
+  | "cheque"
+  | "mp"
+  | "crypto"
+  | "otro";
+
+export type ExpenseStatus = "paid" | "pending" | "cancelled";
 
 export interface Expense {
   id: string;
@@ -307,13 +480,79 @@ export interface Expense {
   category: ExpenseCategory;
   assignedTo: string;         // "Interno" o clientId o nombre miembro
   amount: number;             // positivo; se trata como egreso
+  /** Si el egreso es único (default) o se repite cada mes. */
+  recurrence: ExpenseRecurrence;
+  /** Solo aplica si recurrence='monthly_fixed'. Hasta qué mes corre.
+   *  NULL = vigente sin fin. */
+  recurrenceEndDate?: string | null;
+  /** Si el egreso se carga contra el presupuesto MKT de un cliente,
+   *  acá va el clientId. NULL = corporativo / no asignado a MKT. */
+  mktBudgetClientId?: string | null;
+  /** Nombre del proveedor (texto libre por ahora). */
+  providerName?: string | null;
+  /** Método de pago. */
+  paymentMethod?: ExpensePaymentMethod | null;
+  /** % de IVA (default 22% UY). */
+  ivaPct?: number;
+  /** URL a la factura adjunta. */
+  invoiceUrl?: string | null;
+  /** Estado del egreso. */
+  status?: ExpenseStatus;
+  /** Día del mes (1-31) en que se debita un fijo mensual (tarjeta,
+   *  débito automático, etc). Migración 056. Si está seteado para un
+   *  monthly_fixed, el status del mes corriente se computa solo a
+   *  partir de hoy vs payment_day. */
+  paymentDay?: number | null;
+}
+
+/** Entry del calendario de pago variable de un cliente.
+ *
+ *  Define un TRAMO con monto vigente entre startMonth y endMonth
+ *  (ambos inclusive). Si endMonth es null, vigente sin cierre.
+ *
+ *  Resolución del fee de un mes M (ver effectiveFeeForMonth):
+ *    - busca el tramo donde M está dentro del rango [start, end]
+ *    - si hay varios, gana el de startMonth más reciente
+ *    - si no hay ninguno aplicable → fallback a client.fee
+ */
+export interface ClientFeeSchedule {
+  id: string;
+  clientId: string;
+  /** YYYY-MM — inicio del tramo (inclusive). */
+  startMonth: string;
+  /** YYYY-MM — fin del tramo (inclusive). NULL = sin cierre. */
+  endMonth?: string | null;
+  amount: number;
+  currency: string;
+  notes?: string | null;
+}
+
+/** Presupuesto mensual de marketing que otorga un cliente GP.
+ *  Singleton por cliente — al editar se reemplaza el monto. */
+export interface ClientMktBudget {
+  clientId: string;
+  monthlyAmount: number;
+  currency: string;
+  startDate: string;          // YYYY-MM-DD
+  endDate?: string | null;    // null = vigente
+  notes?: string | null;
+  updatedAt: string;
 }
 
 export interface InvoicePayment {
   clientId: string;
   month: string;              // YYYY-MM
-  status: "paid" | "pending" | "late";
+  status: "paid" | "pending" | "late" | "cancelled";
   paidDate?: string;
+  /** Importe del cobro de este mes. Si está, sobreescribe el
+   *  client.fee — sirve para descuentos puntuales, ajustes o extras
+   *  cuando el director cobra distinto al contrato. */
+  amountOverride?: number | null;
+  /** Nota libre del director (motivo del override / extras / etc). */
+  note?: string | null;
+  /** URL pública al PDF de la factura subida manualmente
+   *  (migración 054). NULL = sin PDF cargado. */
+  pdfUrl?: string | null;
 }
 
 // ==================== OBJETIVOS DEL CLIENTE ====================
@@ -397,18 +636,41 @@ export interface ProductionCampaign {
 // ==================== CONTENIDO PROGRAMADO ====================
 
 export type ContentNetwork = "ig" | "tt" | "in" | "fb";
-export type ContentFormat = "reel" | "post" | "carrusel" | "story";
+export type ContentFormat =
+  | "reel"
+  | "post"
+  | "carrusel"
+  | "story"
+  | "ugc"
+  | "anuncio";
 export type ContentStatus = "draft" | "scheduled" | "published";
 
 export interface ContentPost {
   id: string;
   clientId: string;
+  /** Número secuencial PERSISTENTE por cliente (1, 2, 3…). Se muestra
+   *  como "C-XXXX" en la UI. Lo asigna un trigger en DB al insertar
+   *  (max(code) por client_id + 1) y nunca se reusa: si borrás una
+   *  pieza, las posteriores conservan su número y la próxima nueva
+   *  tomará un valor mayor a TODOS los que ya existieron, no el del
+   *  hueco. Ver migración 050. */
+  code?: number | null;
   date: string;
-  time: string;
+  time: string | null;
   network: ContentNetwork;
   format: ContentFormat;
+  /** Brief operativo / instrucciones de producción. */
   brief: string;
-  copy?: string;
+  /** Idea central de la pieza (concepto creativo). */
+  idea?: string | null;
+  /** Copy completo listo para publicar. */
+  copy?: string | null;
+  /** Call-to-action (típicamente para anuncios). */
+  cta?: string | null;
+  /** Influencer asignado cuando format=ugc. */
+  influencer?: string | null;
+  /** Miembro del equipo responsable de producir la pieza. */
+  assignedTo?: string | null;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;

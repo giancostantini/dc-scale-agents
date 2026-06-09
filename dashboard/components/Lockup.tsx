@@ -1,14 +1,13 @@
 // Lockup oficial de la marca · Brand Board 2026
 // ---------------------------------------------
-// La firma visual de Dearmas Costantini es el contraste tipográfico:
+// La firma visual de Dearmas & Costantini lleva el "&" como elemento
+// gráfico central. Brand Board 2026: "El & es la firma. No se negocia."
 //   "Dearmas"     → Inter Bold 700
+//   "&"           → DM Sans 200, color sand (var(--sand))
 //   "Costantini"  → Inter Light 300 con 55% de opacidad (mismo color base)
 //
-// El & ya no es la firma de marca: se usa solo como conector lingüístico
-// ocasional (ej "Captación & ventas") con la clase utilitaria .amp.
-//
 // Para espacios chicos (favicon, avatar, app icon, sello) usar el isotipo
-// "DC" via <Lockup variant="monogram" />.
+// "D&C" via <Lockup variant="monogram" />.
 
 import styles from "./Lockup.module.css";
 
@@ -41,7 +40,7 @@ export default function Lockup({
         className={`${styles.monogram} ${styles[`size-${size}`]} ${className}`}
         style={color ? { color } : undefined}
       >
-        DC
+        D<span className={styles.amp}>&amp;</span>C
       </span>
     );
   }
@@ -55,7 +54,8 @@ export default function Lockup({
       } ${className}`}
       style={color ? { color } : undefined}
     >
-      <span className={styles.dearmas}>Dearmas</span>
+      <span className={styles.dearmas}>Dearmas</span>{" "}
+      <span className={styles.amp}>&amp;</span>
       {stacked ? <br /> : " "}
       <span className={styles.costantini}>Costantini</span>
       {tagline && (

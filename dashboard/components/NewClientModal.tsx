@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addClient } from "@/lib/storage";
+import { addClient, upsertFeeSchedule } from "@/lib/storage";
+import {
+  listCuentas,
+  type CuentaBancaria,
+} from "@/lib/cuentas-bancarias";
+import { addAssignment, listProfiles } from "@/lib/team";
+import type { Profile } from "@/lib/supabase/auth";
 import { deleteFile, makeWizardSessionId } from "@/lib/upload";
 import Dropzone from "./Dropzone";
 import type {
@@ -44,7 +50,7 @@ const STEP_LABELS = [
   "Servicio",
   "Datos",
   "Contrato + Fees",
-  "Kickoff + Branding",
+  "Proyecto",
   "Alcance",
   "Confirmar",
 ];
@@ -107,12 +113,27 @@ export default function NewClientModal({
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
   const [country, setCountry] = useState("Uruguay");
+  /** Sitio web del cliente (solo GP). Se guarda en clients.website_url
+   *  y queda accesible para los agentes (asistente creativo / estrategia). */
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  /** Datos fiscales — para facturación. Migración 054. */
+  const [razonSocial, setRazonSocial] = useState("");
+  const [rut, setRut] = useState("");
+  /** Pago calendarizado por mes — opcional. Cuando está activo, el
+   *  director define un fee distinto para cada mes del contrato.
+   *  Se persiste en client_fee_schedules después del addClient. */
+  const [hasSchedule, setHasSchedule] = useState(false);
+  const [scheduleTiers, setScheduleTiers] = useState<
+    Array<{ startMonth: string; amount: string; note: string }>
+  >([]);
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
 
   // Step 3 — contrato + fees
   const [fee, setFee] = useState("");
+  const [defaultCuentaId, setDefaultCuentaId] = useState<string>("");
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [method, setMethod] = useState("Método completo");
   const [isBrandLaunch, setIsBrandLaunch] = useState(false);
   const [contractDuration, setContractDuration] = useState<string>("12");
@@ -129,6 +150,17 @@ export default function NewClientModal({
   const [budgetMarketingPct, setBudgetMarketingPct] = useState("");
   const [budgetProduccionFixed, setBudgetProduccionFixed] = useState("");
   const [budgetProduccionPct, setBudgetProduccionPct] = useState("");
+
+  // Step 3 — distribución de dividendos específica del cliente.
+  // Default: usar la config global de Finanzas. Si el director marca
+  // "Específica para este cliente", aparecen 4 inputs (% partner A,
+  // % partner B, % inversiones, % back). El UI alerta si no suman
+  // 100 pero no bloquea.
+  const [dividendUseDefault, setDividendUseDefault] = useState(true);
+  const [dividendPartnerA, setDividendPartnerA] = useState("50");
+  const [dividendPartnerB, setDividendPartnerB] = useState("50");
+  const [dividendInversiones, setDividendInversiones] = useState("0");
+  const [dividendBack, setDividendBack] = useState("0");
 
   // Step 4 — kickoff + branding (uploads reales a Supabase Storage)
   // El wizardId es un folder único por modal-abierto. Si el usuario
@@ -149,8 +181,27 @@ export default function NewClientModal({
   const [modules, setModules] = useState<ModulesState>(DEFAULT_MODULES);
   const [devProjectType, setDevProjectType] = useState<string>("");
 
+  // Step 3/4/5 — dev específico
+  const [devProductionCost, setDevProductionCost] = useState("");
+  const [devMaintenanceCost, setDevMaintenanceCost] = useState("");
+  const [devProjectFile, setDevProjectFile] = useState<OnboardingFile | null>(null);
+  const [devDeliveryDate, setDevDeliveryDate] = useState("");
+  const [devAssignedUserIds, setDevAssignedUserIds] = useState<string[]>([]);
+  const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
+
   // Confirm
   const [saving, setSaving] = useState(false);
+
+  // Cargar cuentas bancarias + miembros del equipo al abrir el modal
+  useEffect(() => {
+    if (open) {
+      listCuentas().then(setCuentas);
+      listProfiles().then((profs) => {
+        // Solo director + team — los clients no aplican como asignados
+        setTeamMembers(profs.filter((p) => p.role !== "client"));
+      });
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -162,10 +213,16 @@ export default function NewClientModal({
     setName("");
     setSector("");
     setCountry("Uruguay");
+    setWebsiteUrl("");
+    setRazonSocial("");
+    setRut("");
+    setHasSchedule(false);
+    setScheduleTiers([]);
     setContactName("");
     setContactEmail("");
     setContactPhone("");
     setFee("");
+    setDefaultCuentaId("");
     setMethod("Método completo");
     setIsBrandLaunch(false);
     setContractDuration("12");
@@ -178,6 +235,11 @@ export default function NewClientModal({
     setBudgetMarketingPct("");
     setBudgetProduccionFixed("");
     setBudgetProduccionPct("");
+    setDividendUseDefault(true);
+    setDividendPartnerA("50");
+    setDividendPartnerB("50");
+    setDividendInversiones("0");
+    setDividendBack("0");
     setWizardId(makeWizardSessionId());
     setKickoffFile(null);
     setBrandingFiles([]);
@@ -188,6 +250,11 @@ export default function NewClientModal({
     setBrandbookPdfProgress(null);
     setModules(DEFAULT_MODULES);
     setDevProjectType("");
+    setDevProductionCost("");
+    setDevMaintenanceCost("");
+    setDevProjectFile(null);
+    setDevDeliveryDate("");
+    setDevAssignedUserIds([]);
   }
 
   function updateTier(idx: number, value: string) {
@@ -210,16 +277,49 @@ export default function NewClientModal({
   function canAdvance(): boolean {
     if (step === 1) return !!type;
     if (step === 2) return name.trim().length > 0 && sector.trim().length > 0;
-    if (step === 3) return fee.trim() !== "" && Number(fee) > 0;
+    if (step === 3) {
+      // Dev: precio producción + mantenimiento.  Solo requerimos que al
+      // menos uno tenga valor (mantenimiento será el `fee` recurrente).
+      if (type === "dev") {
+        const prod = Number(devProductionCost) || 0;
+        const mant = Number(devMaintenanceCost) || 0;
+        return prod > 0 || mant > 0;
+      }
+      return fee.trim() !== "" && Number(fee) > 0;
+    }
     return true;
+  }
+
+  /**
+   * Hook para saltear steps según el tipo de cliente. Hoy todos los
+   * steps aplican a ambos tipos:
+   *   · GP: step 4 = Kickoff + Branding (upload de info para los agentes).
+   *   · DEV: step 4 = Proyecto (PDF + fecha de entrega).
+   *
+   * Antes este hook saltaba el step 4 para GP no-launch, pero el upload
+   * de kickoff/branding alimenta a los agentes para CUALQUIER cliente
+   * GP (no solo los que están en fase de lanzamiento), así que ya no
+   * se saltea. El flag isBrandLaunch sigue afectando otras cosas (el
+   * menú Estrategia en el sidebar y el redirect post-create).
+   */
+  function shouldSkipStep(_s: number): boolean {
+    return false;
   }
 
   function next() {
     if (!canAdvance()) return;
-    setStep((s) => Math.min(s + 1, STEP_LABELS.length));
+    setStep((s) => {
+      let nxt = s + 1;
+      while (nxt < STEP_LABELS.length && shouldSkipStep(nxt)) nxt += 1;
+      return Math.min(nxt, STEP_LABELS.length);
+    });
   }
   function prev() {
-    setStep((s) => Math.max(s - 1, 1));
+    setStep((s) => {
+      let p = s - 1;
+      while (p > 1 && shouldSkipStep(p)) p -= 1;
+      return Math.max(p, 1);
+    });
   }
 
   // Cleanup: si el usuario cierra sin finalizar, borrar los archivos
@@ -229,6 +329,7 @@ export default function NewClientModal({
   function handleClose() {
     const orphanPaths: string[] = [];
     if (kickoffFile?.path) orphanPaths.push(kickoffFile.path);
+    if (devProjectFile?.path) orphanPaths.push(devProjectFile.path);
     for (const f of brandingFiles) orphanPaths.push(f.path);
     if (orphanPaths.length > 0) {
       Promise.allSettled(orphanPaths.map((p) => deleteFile(p))).catch(() => {});
@@ -248,28 +349,75 @@ export default function NewClientModal({
         feeVariableTiers: hasVariable
           ? variableTiers.map((t) => t.trim()).filter(Boolean)
           : undefined,
-        kickoffFile: kickoffFile ?? undefined,
-        brandingFiles: brandingFiles.length ? brandingFiles : undefined,
-        budgetMarketing: makeBudgetTier(budgetMarketingFixed, budgetMarketingPct),
-        budgetProduccion: makeBudgetTier(budgetProduccionFixed, budgetProduccionPct),
+        // Para GP: kickoff + branding.  Para dev: solo el PDF del proyecto.
+        kickoffFile: type === "gp" ? (kickoffFile ?? undefined) : undefined,
+        brandingFiles:
+          type === "gp" && brandingFiles.length ? brandingFiles : undefined,
+        budgetMarketing:
+          type === "gp"
+            ? makeBudgetTier(budgetMarketingFixed, budgetMarketingPct)
+            : undefined,
+        budgetProduccion:
+          type === "gp"
+            ? makeBudgetTier(budgetProduccionFixed, budgetProduccionPct)
+            : undefined,
         devProjectType:
           type === "dev" && devProjectType ? devProjectType : undefined,
+        devProductionCost:
+          type === "dev" && devProductionCost
+            ? Number(devProductionCost)
+            : undefined,
+        devMaintenanceCost:
+          type === "dev" && devMaintenanceCost
+            ? Number(devMaintenanceCost)
+            : undefined,
+        devProjectFile:
+          type === "dev" ? (devProjectFile ?? undefined) : undefined,
+        devDeliveryDate:
+          type === "dev" && devDeliveryDate ? devDeliveryDate : undefined,
+        devAssignedUserIds:
+          type === "dev" && devAssignedUserIds.length > 0
+            ? devAssignedUserIds
+            : undefined,
         isBrandLaunch: isBrandLaunch || undefined,
       };
 
-      const feeVariableSummary = hasVariable
-        ? variableTiers
-            .map((t) => t.trim())
-            .filter(Boolean)
-            .join(" · ") || undefined
-        : undefined;
+      const feeVariableSummary =
+        type === "gp" && hasVariable
+          ? variableTiers
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .join(" · ") || undefined
+          : undefined;
+
+      // El `fee` recurrente mensual:
+      //   GP → fee del contrato (input "Fee mensual")
+      //   Dev → mantenimiento mensual (devMaintenanceCost)
+      const recurringFee =
+        type === "dev"
+          ? Number(devMaintenanceCost) || 0
+          : Number(fee);
+
+      // Distribución de dividendos específica del cliente — solo se
+      // manda si el director optó por "específica". Si dejó "default",
+      // mandamos undefined → la columna queda NULL en DB y el cálculo
+      // cae a la config global de dividend_config.
+      const dividendDistribution = dividendUseDefault
+        ? undefined
+        : {
+            use_default: false,
+            partner_a_pct: Number(dividendPartnerA) || 0,
+            partner_b_pct: Number(dividendPartnerB) || 0,
+            inversiones_pct: Number(dividendInversiones) || 0,
+            back_pct: Number(dividendBack) || 0,
+          };
 
       const newClient = await addClient({
         name: name.trim(),
         sector: sector.trim(),
         country,
         type,
-        fee: Number(fee),
+        fee: recurringFee,
         method,
         contactName,
         contactEmail,
@@ -277,7 +425,64 @@ export default function NewClientModal({
         feeVariable: feeVariableSummary,
         modules: type === "gp" ? modules : undefined,
         onboarding,
+        defaultCuentaId: defaultCuentaId || null,
+        dividendDistribution,
+        // Solo GP carga sitio web. Para DEV no aplica.
+        websiteUrl:
+          type === "gp" && websiteUrl.trim()
+            ? websiteUrl.trim()
+            : undefined,
+        // Datos fiscales — aplican a ambos tipos. Opcionales.
+        razonSocial: razonSocial.trim() || undefined,
+        rut: rut.trim() || undefined,
       });
+
+      // Si hay tramos de pago calendarizado, los persistimos en
+      // client_fee_schedules. Cada tramo es un upsert por (client_id,
+      // start_month). El end_month queda implícito (vigente hasta el
+      // próximo tramo).  Si falla algún upsert, NO bloqueamos al
+      // director — los tramos los puede cargar a mano después.
+      if (type === "gp" && hasSchedule && scheduleTiers.length > 0) {
+        const validTiers = scheduleTiers
+          .map((t) => ({
+            startMonth: t.startMonth.trim(),
+            amount: Number(t.amount),
+            note: t.note.trim() || null,
+          }))
+          .filter(
+            (t) =>
+              /^\d{4}-\d{2}$/.test(t.startMonth) &&
+              !Number.isNaN(t.amount) &&
+              t.amount > 0,
+          );
+        await Promise.allSettled(
+          validTiers.map((t) =>
+            upsertFeeSchedule(
+              newClient.id,
+              t.startMonth,
+              t.amount,
+              "USD",
+              t.note,
+              null,
+            ),
+          ),
+        );
+      }
+
+      // Si el cliente es de tipo dev y se asignaron personas, creamos
+      // las filas en client_assignments. No bloqueamos si falla — el
+      // director puede asignar después desde la ficha del cliente.
+      if (type === "dev" && devAssignedUserIds.length > 0) {
+        await Promise.allSettled(
+          devAssignedUserIds.map((userId) =>
+            addAssignment({
+              client_id: newClient.id,
+              user_id: userId,
+              role_in_client: "Desarrollo",
+            }),
+          ),
+        );
+      }
 
       // Fire-and-forget: scaffold del vault folder en background.
       fetch("/api/clients/bootstrap", {
@@ -333,7 +538,18 @@ export default function NewClientModal({
       reset();
       onClose();
       onCreated?.();
-      router.push(`/cliente/${newClient.id}/fases`);
+      // Redirección post-create:
+      //   · GP en lanzamiento → /fases (van a generar la estrategia).
+      //   · GP no-launch → dashboard del cliente directo (saltean el
+      //     paso de estrategia/onboarding).
+      //   · DEV → dashboard del cliente (no tienen módulo de Fases).
+      const redirectTo =
+        type === "dev"
+          ? `/cliente/${newClient.id}`
+          : isBrandLaunch
+            ? `/cliente/${newClient.id}/fases`
+            : `/cliente/${newClient.id}`;
+      router.push(redirectTo);
     } catch (err) {
       const e = err as { code?: string; message?: string; details?: string; hint?: string };
       console.error(
@@ -382,11 +598,14 @@ export default function NewClientModal({
             const idx = i + 1;
             const active = step === idx;
             const done = step > idx;
+            const skipped = shouldSkipStep(idx);
             return (
               <button
                 key={label}
                 type="button"
-                onClick={() => setStep(idx)}
+                onClick={() => !skipped && setStep(idx)}
+                disabled={skipped}
+                title={skipped ? "Este paso no aplica a este tipo de cliente" : undefined}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -402,12 +621,15 @@ export default function NewClientModal({
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                   fontWeight: 600,
-                  color: active
+                  color: skipped
+                    ? "rgba(10,26,12,0.25)"
+                    : active
                     ? "var(--deep-green)"
                     : done
                     ? "var(--sand-dark)"
                     : "var(--text-muted)",
-                  cursor: "pointer",
+                  textDecoration: skipped ? "line-through" : undefined,
+                  cursor: skipped ? "not-allowed" : "pointer",
                   fontFamily: "inherit",
                   textAlign: "center",
                 }}
@@ -487,6 +709,56 @@ export default function NewClientModal({
               </div>
             </div>
 
+            {/* Sitio web — solo GP. Para los agentes (asistente
+                creativo, estrategia) es contexto valioso. */}
+            {type === "gp" && (
+              <div className={styles.field}>
+                <label>Sitio web del cliente (opcional)</label>
+                <input
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://www.empresa.com"
+                />
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginTop: 4,
+                    fontStyle: "italic",
+                  }}
+                >
+                  Los agentes (asistente creativo, estrategia) lo usan como
+                  contexto para entender el negocio del cliente.
+                </div>
+              </div>
+            )}
+
+            {/* Datos fiscales — aplican a GP y DEV.  Se usan para
+                auto-rellenar la factura cuando se genera un comprobante
+                desde Facturación. */}
+            <div className={styles.sectionLabel}>
+              Datos fiscales (para facturación)
+            </div>
+            <div className={styles.fieldGrid2}>
+              <div className={styles.field}>
+                <label>Razón social</label>
+                <input
+                  value={razonSocial}
+                  onChange={(e) => setRazonSocial(e.target.value)}
+                  placeholder="Ej: Propiedades RealValue S.A."
+                />
+              </div>
+              <div className={styles.field}>
+                <label>RUT / NIT / Identificador fiscal</label>
+                <input
+                  value={rut}
+                  onChange={(e) => setRut(e.target.value)}
+                  placeholder="Ej: 215123450014"
+                />
+              </div>
+            </div>
+
             <div className={styles.sectionLabel}>
               Contacto principal del cliente
             </div>
@@ -523,89 +795,437 @@ export default function NewClientModal({
         {/* ===== STEP 3 — CONTRATO + FEES ===== */}
         {step === 3 && (
           <>
-            <div className={styles.sectionLabel}>Fee mensual fijo</div>
-            <div className={styles.fieldGrid2}>
-              <div className={styles.field}>
-                <label>Fee mensual (USD)</label>
-                <input
-                  type="number"
-                  value={fee}
-                  onChange={(e) => setFee(e.target.value)}
-                  placeholder="3500"
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Duración del contrato</label>
-                <select
-                  value={contractDuration}
-                  onChange={(e) => setContractDuration(e.target.value)}
+            {type === "dev" ? (
+              // ===== DEV: precio de producción + mantenimiento mensual =====
+              <>
+                <div className={styles.sectionLabel}>
+                  Precio del desarrollo
+                </div>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: -8,
+                    marginBottom: 14,
+                  }}
                 >
-                  <option value="6">6 meses</option>
-                  <option value="12">12 meses</option>
-                  <option value="18">18 meses</option>
-                  <option value="24">24 meses</option>
-                  <option value="open">Sin plazo fijo</option>
-                </select>
-              </div>
-            </div>
+                  El precio se desglosa en producción (one-time, cobrado al
+                  arranque) + mantenimiento mensual recurrente. El
+                  mantenimiento alimenta el MRR.
+                </p>
+                <div className={styles.fieldGrid2}>
+                  <div className={styles.field}>
+                    <label>Precio producción (USD · one-time)</label>
+                    <input
+                      type="number"
+                      value={devProductionCost}
+                      onChange={(e) => setDevProductionCost(e.target.value)}
+                      placeholder="12000"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Mantenimiento mensual (USD)</label>
+                    <input
+                      type="number"
+                      value={devMaintenanceCost}
+                      onChange={(e) => setDevMaintenanceCost(e.target.value)}
+                      placeholder="500"
+                    />
+                  </div>
+                </div>
 
+                <div className={styles.fieldGrid2}>
+                  <div className={styles.field}>
+                    <label>Duración del contrato de mantenimiento</label>
+                    <select
+                      value={contractDuration}
+                      onChange={(e) => setContractDuration(e.target.value)}
+                    >
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                      <option value="18">18 meses</option>
+                      <option value="24">24 meses</option>
+                      <option value="open">Sin plazo fijo</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // ===== GP: fee mensual + método =====
+              <>
+                <div className={styles.sectionLabel}>Fee mensual fijo</div>
+                <div className={styles.fieldGrid2}>
+                  <div className={styles.field}>
+                    <label>Fee mensual (USD)</label>
+                    <input
+                      type="number"
+                      value={fee}
+                      onChange={(e) => setFee(e.target.value)}
+                      placeholder="3500"
+                      disabled={hasSchedule}
+                    />
+                    {hasSchedule && (
+                      <div
+                        style={{
+                          fontSize: 10.5,
+                          color: "var(--text-muted)",
+                          marginTop: 4,
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Sobreescrito por el pago calendarizado de abajo.
+                        El fee fijo queda como fallback.
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.field}>
+                    <label>Duración del contrato</label>
+                    <select
+                      value={contractDuration}
+                      onChange={(e) => setContractDuration(e.target.value)}
+                    >
+                      <option value="6">6 meses</option>
+                      <option value="12">12 meses</option>
+                      <option value="18">18 meses</option>
+                      <option value="24">24 meses</option>
+                      <option value="open">Sin plazo fijo</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label>Método / modalidad</label>
+                  <select
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value)}
+                  >
+                    <option>Método completo</option>
+                    <option>Solo Ads</option>
+                    <option>eCommerce full</option>
+                    <option>Contenido + SEO</option>
+                    <option>Generación de leads</option>
+                    <option>Personalizado</option>
+                  </select>
+                </div>
+
+                {/* ===== Pago calendarizado (opcional) =====
+                    Para contratos donde el fee varía mes a mes (ej
+                    ramp-up: $2.000 los primeros 3 meses, después
+                    $3.500). Cada tramo se persiste en
+                    client_fee_schedules y el cálculo de cobros usa
+                    el tramo que cubra el mes consultado. */}
+                <div style={{ marginTop: 18 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 14px",
+                      border: `1px solid ${hasSchedule ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                      background: hasSchedule
+                        ? "rgba(196,168,130,0.1)"
+                        : "var(--white)",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={hasSchedule}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setHasSchedule(on);
+                        if (on && scheduleTiers.length === 0) {
+                          // Pre-cargar un tramo vacío que arranque
+                          // en el startDate o en este mes.
+                          const seed = startDate
+                            ? startDate.slice(0, 7)
+                            : new Date().toISOString().slice(0, 7);
+                          setScheduleTiers([
+                            { startMonth: seed, amount: fee || "", note: "" },
+                          ]);
+                        }
+                      }}
+                      style={{ width: "auto" }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        Pago calendarizado por mes
+                      </div>
+                      <div
+                        style={{ fontSize: 11, color: "var(--text-muted)" }}
+                      >
+                        Definí un fee distinto para cada mes del contrato
+                        (ramp-up, descuentos por escalado, etc).
+                      </div>
+                    </div>
+                  </label>
+
+                  {hasSchedule && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: 14,
+                        background: "var(--off-white)",
+                        border: "1px solid rgba(196,168,130,0.3)",
+                        borderRadius: 6,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1.2fr auto",
+                          gap: 8,
+                          fontSize: 10,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          color: "var(--sand-dark)",
+                          fontWeight: 600,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div>Desde el mes</div>
+                        <div>Fee (USD)</div>
+                        <div>Nota (opcional)</div>
+                        <div />
+                      </div>
+                      {scheduleTiers.map((tier, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr 1.2fr auto",
+                            gap: 8,
+                            marginBottom: 6,
+                            alignItems: "center",
+                          }}
+                        >
+                          <input
+                            type="month"
+                            value={tier.startMonth}
+                            onChange={(e) =>
+                              setScheduleTiers((prev) =>
+                                prev.map((t, j) =>
+                                  j === i ? { ...t, startMonth: e.target.value } : t,
+                                ),
+                              )
+                            }
+                            style={{
+                              padding: "7px 9px",
+                              fontSize: 12,
+                              border: "1px solid rgba(10,26,12,0.15)",
+                              borderRadius: 4,
+                              background: "var(--white)",
+                              color: "var(--deep-green)",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <input
+                            type="number"
+                            value={tier.amount}
+                            onChange={(e) =>
+                              setScheduleTiers((prev) =>
+                                prev.map((t, j) =>
+                                  j === i ? { ...t, amount: e.target.value } : t,
+                                ),
+                              )
+                            }
+                            placeholder="3500"
+                            style={{
+                              padding: "7px 9px",
+                              fontSize: 12,
+                              border: "1px solid rgba(10,26,12,0.15)",
+                              borderRadius: 4,
+                              background: "var(--white)",
+                              color: "var(--deep-green)",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <input
+                            type="text"
+                            value={tier.note}
+                            onChange={(e) =>
+                              setScheduleTiers((prev) =>
+                                prev.map((t, j) =>
+                                  j === i ? { ...t, note: e.target.value } : t,
+                                ),
+                              )
+                            }
+                            placeholder='Ej: "ramp-up", "fee post-onboarding"'
+                            style={{
+                              padding: "7px 9px",
+                              fontSize: 12,
+                              border: "1px solid rgba(10,26,12,0.15)",
+                              borderRadius: 4,
+                              background: "var(--white)",
+                              color: "var(--deep-green)",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setScheduleTiers((prev) =>
+                                prev.filter((_, j) => j !== i),
+                              )
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              background: "transparent",
+                              border: "1px solid rgba(176,75,58,0.2)",
+                              color: "#B91C1C",
+                              fontSize: 12,
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                            title="Eliminar tramo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Próximo tramo: arrancar 1 mes después del último.
+                          const last = scheduleTiers[scheduleTiers.length - 1];
+                          const next = last
+                            ? (() => {
+                                const [y, m] = last.startMonth
+                                  .split("-")
+                                  .map(Number);
+                                const d = new Date(y, m, 1); // m+1 sin -1
+                                return d.toISOString().slice(0, 7);
+                              })()
+                            : new Date().toISOString().slice(0, 7);
+                          setScheduleTiers((prev) => [
+                            ...prev,
+                            { startMonth: next, amount: "", note: "" },
+                          ]);
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "transparent",
+                          border: "1px dashed var(--sand-dark)",
+                          color: "var(--sand-dark)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        + Agregar tramo
+                      </button>
+                      <div
+                        style={{
+                          fontSize: 10.5,
+                          color: "var(--text-muted)",
+                          marginTop: 10,
+                          fontStyle: "italic",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        Cada tramo es vigente desde "Desde el mes" hasta
+                        que arranque el siguiente. Para el cálculo de
+                        cobros se busca el tramo que cubre el mes que se
+                        está facturando. Si no hay tramo definido para
+                        un mes, se cae al fee fijo de arriba.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Medio de pago: la cuenta bancaria donde acreditamos los
+                cobros de este cliente. Cuando marquemos una factura
+                como pagada en Finanzas → Facturación, se crea
+                automáticamente un movimiento de ingreso en esta cuenta. */}
             <div className={styles.field}>
-              <label>Método / modalidad</label>
+              <label>Medio de pago</label>
               <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
+                value={defaultCuentaId}
+                onChange={(e) => setDefaultCuentaId(e.target.value)}
               >
-                <option>Método completo</option>
-                <option>Solo Ads</option>
-                <option>eCommerce full</option>
-                <option>Contenido + SEO</option>
-                <option>Generación de leads</option>
-                <option>Personalizado</option>
+                <option value="">— Sin cuenta default (cargar manual) —</option>
+                {cuentas.length === 0 ? (
+                  <option value="" disabled>
+                    No hay cuentas cargadas. Cargá una en Finanzas → Cuentas
+                    Bancarias.
+                  </option>
+                ) : (
+                  cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.bank_name} ····{c.last4} ({c.currency})
+                    </option>
+                  ))
+                )}
               </select>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 6,
+                  lineHeight: 1.5,
+                }}
+              >
+                Cuando una factura de este cliente se marca como
+                <strong> Pagada</strong>, se registra automáticamente un
+                ingreso en esta cuenta — sin tener que cargarlo a mano
+                desde Cuentas Bancarias.
+              </div>
             </div>
 
             {/* Tipo de cliente: lanzamiento de marca vs negocio operando.
+                Solo aplica a GP — para dev no tiene sentido.
                 Cuando es lanzamiento, el reporte de Diagnóstico se adapta
                 (sin Estado de canales, sin Oportunidades de crecimiento,
                 sin Roadmap a 90 días — esos no aplican). */}
-            <div
-              style={{
-                marginBottom: 24,
-                padding: 18,
-                background: "var(--off-white)",
-                borderLeft: "3px solid var(--sand-dark)",
-              }}
-            >
-              <label
+            {type === "gp" && (
+              <div
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  cursor: "pointer",
-                  fontSize: 13,
+                  marginBottom: 24,
+                  padding: 18,
+                  background: "var(--off-white)",
+                  borderLeft: "3px solid var(--sand-dark)",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={isBrandLaunch}
-                  onChange={(e) => setIsBrandLaunch(e.target.checked)}
-                  style={{ width: "auto", marginTop: 3 }}
-                />
-                <span>
-                  <strong>Es un lanzamiento de marca</strong>
-                  <br />
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    Negocio nuevo que recién arranca. Aún no tiene canales
-                    digitales activos, ventas históricas ni performance que
-                    medir. El reporte de Diagnóstico se adapta: omite
-                    Estado de canales, Oportunidades de crecimiento y
-                    Roadmap a 90 días (no aplican antes de lanzar).
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isBrandLaunch}
+                    onChange={(e) => setIsBrandLaunch(e.target.checked)}
+                    style={{ width: "auto", marginTop: 3 }}
+                  />
+                  <span>
+                    <strong>Es un lanzamiento de marca</strong>
+                    <br />
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Negocio nuevo que recién arranca. Aún no tiene canales
+                      digitales activos, ventas históricas ni performance que
+                      medir. El reporte de Diagnóstico se adapta: omite
+                      Estado de canales, Oportunidades de crecimiento y
+                      Roadmap a 90 días (no aplican antes de lanzar).
+                    </span>
                   </span>
-                </span>
-              </label>
-            </div>
+                </label>
+              </div>
+            )}
 
-            {/* Fee variable por tramos escalonados */}
+            {/* Fee variable por tramos escalonados — solo GP */}
+            {type === "gp" && (
             <div
               style={{
                 marginTop: 4,
@@ -746,6 +1366,7 @@ export default function NewClientModal({
                 </div>
               )}
             </div>
+            )}
 
             <div className={styles.sectionLabel}>Fechas de vigencia</div>
             <div className={styles.fieldGrid2}>
@@ -826,43 +1447,49 @@ export default function NewClientModal({
               )}
             </div>
 
-            {/* Presupuestos (movidos del step 4 — son contractuales) */}
-            <div className={styles.sectionLabel}>
-              Presupuestos default del cliente
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                marginBottom: 16,
-                lineHeight: 1.5,
-              }}
-            >
-              Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
-              Si el negocio escala, el presupuesto crece automáticamente con el
-              revenue manteniendo el mínimo garantizado.
-            </div>
+            {/* Presupuestos default — solo GP. Dev no necesita
+                budget marketing/producción. */}
+            {type === "gp" && (
+              <>
+                <div className={styles.sectionLabel}>
+                  Presupuestos default del cliente
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginBottom: 16,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Cada presupuesto soporta <strong>piso fijo + % sobre revenue</strong>.
+                  Si el negocio escala, el presupuesto crece automáticamente con el
+                  revenue manteniendo el mínimo garantizado.
+                </div>
 
-            <BudgetField
-              label="Presupuesto marketing (ads mensual)"
-              fixed={budgetMarketingFixed}
-              setFixed={setBudgetMarketingFixed}
-              pct={budgetMarketingPct}
-              setPct={setBudgetMarketingPct}
-              fixedPlaceholder="5000"
-              pctPlaceholder="10"
-            />
+                <BudgetField
+                  label="Presupuesto marketing (ads mensual)"
+                  fixed={budgetMarketingFixed}
+                  setFixed={setBudgetMarketingFixed}
+                  pct={budgetMarketingPct}
+                  setPct={setBudgetMarketingPct}
+                  fixedPlaceholder="5000"
+                  pctPlaceholder="10"
+                />
 
-            <BudgetField
-              label="Presupuesto producción/campañas"
-              fixed={budgetProduccionFixed}
-              setFixed={setBudgetProduccionFixed}
-              pct={budgetProduccionPct}
-              setPct={setBudgetProduccionPct}
-              fixedPlaceholder="1500"
-              pctPlaceholder="3"
-            />
+                <BudgetField
+                  label="Presupuesto producción/campañas"
+                  fixed={budgetProduccionFixed}
+                  setFixed={setBudgetProduccionFixed}
+                  pct={budgetProduccionPct}
+                  setPct={setBudgetProduccionPct}
+                  fixedPlaceholder="1500"
+                  pctPlaceholder="3"
+                />
+              </>
+            )}
 
+            {/* Resumen total — adapta el monto según el tipo */}
             <div
               style={{
                 marginTop: 20,
@@ -886,11 +1513,23 @@ export default function NewClientModal({
                     textTransform: "uppercase",
                   }}
                 >
-                  Total MRR esperado
+                  {type === "dev"
+                    ? "Resumen del proyecto"
+                    : "Total MRR esperado"}
                 </div>
                 <div style={{ fontSize: 14 }}>
-                  Fee fijo: <strong>${fee || 0}</strong>
-                  {hasVariable ? " + variable estimado" : ""}
+                  {type === "dev" ? (
+                    <>
+                      Producción: <strong>${devProductionCost || 0}</strong>
+                      {" "}+ Mantenimiento mensual:{" "}
+                      <strong>${devMaintenanceCost || 0}</strong>
+                    </>
+                  ) : (
+                    <>
+                      Fee fijo: <strong>${fee || 0}</strong>
+                      {hasVariable ? " + variable estimado" : ""}
+                    </>
+                  )}
                 </div>
               </div>
               <div
@@ -900,14 +1539,231 @@ export default function NewClientModal({
                   color: "var(--sand)",
                 }}
               >
-                ${(parseFloat(fee) || 0).toLocaleString()}/mes
+                {type === "dev"
+                  ? `$${(parseFloat(devMaintenanceCost) || 0).toLocaleString()}/mes`
+                  : `$${(parseFloat(fee) || 0).toLocaleString()}/mes`}
+              </div>
+            </div>
+
+            {/* ===== Distribución de dividendos (financial config) ===== */}
+            <div style={{ marginTop: 28 }}>
+              <div className={styles.sectionLabel}>
+                Distribución de dividendos
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 4,
+                  marginBottom: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                Algunos clientes tienen acuerdos específicos. Si dejás el
+                default, se usan los porcentajes globales configurados en
+                Finanzas. Si elegís personalizado, los porcentajes acá
+                aplican solo a este cliente.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  marginTop: 6,
+                }}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 14px",
+                    border: `1px solid ${dividendUseDefault ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                    background: dividendUseDefault
+                      ? "rgba(196,168,130,0.1)"
+                      : "var(--white)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="dividend_mode"
+                    checked={dividendUseDefault}
+                    onChange={() => setDividendUseDefault(true)}
+                    style={{ width: "auto" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      Usar la distribución por defecto (global de Finanzas)
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Recomendado para la mayoría de los clientes.
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 14px",
+                    border: `1px solid ${!dividendUseDefault ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                    background: !dividendUseDefault
+                      ? "rgba(196,168,130,0.1)"
+                      : "var(--white)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="dividend_mode"
+                    checked={!dividendUseDefault}
+                    onChange={() => setDividendUseDefault(false)}
+                    style={{ width: "auto" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      Distribución específica para este cliente
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Definí los porcentajes a aplicar sobre la utilidad del cliente.
+                    </div>
+                  </div>
+                </label>
+
+                {!dividendUseDefault && (
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      background: "var(--off-white)",
+                      border: "1px solid rgba(196,168,130,0.3)",
+                      borderRadius: 6,
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                    }}
+                  >
+                    <DividendInput
+                      label="Socio A (%)"
+                      value={dividendPartnerA}
+                      onChange={setDividendPartnerA}
+                    />
+                    <DividendInput
+                      label="Socio B (%)"
+                      value={dividendPartnerB}
+                      onChange={setDividendPartnerB}
+                    />
+                    <DividendInput
+                      label="Inversiones (%)"
+                      value={dividendInversiones}
+                      onChange={setDividendInversiones}
+                    />
+                    <DividendInput
+                      label="Back (reservas) (%)"
+                      value={dividendBack}
+                      onChange={setDividendBack}
+                    />
+
+                    {/* Suma de control */}
+                    {(() => {
+                      const sum =
+                        (Number(dividendPartnerA) || 0) +
+                        (Number(dividendPartnerB) || 0) +
+                        (Number(dividendInversiones) || 0) +
+                        (Number(dividendBack) || 0);
+                      const ok = Math.abs(sum - 100) < 0.01;
+                      return (
+                        <div
+                          style={{
+                            gridColumn: "1 / -1",
+                            marginTop: 4,
+                            padding: "8px 12px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            background: ok
+                              ? "rgba(47,125,79,0.1)"
+                              : "rgba(176,75,58,0.08)",
+                            color: ok ? "var(--green-ok)" : "#B91C1C",
+                            border: `1px solid ${ok ? "rgba(47,125,79,0.25)" : "rgba(176,75,58,0.25)"}`,
+                            borderRadius: 4,
+                          }}
+                        >
+                          Total: {sum.toFixed(2)}%{" "}
+                          {ok ? "✓" : "— debería sumar 100"}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           </>
         )}
 
-        {/* ===== STEP 4 — KICKOFF + BRANDING ===== */}
-        {step === 4 && (
+        {/* ===== STEP 4 — KICKOFF + BRANDING (GP) / PROYECTO DEV ===== */}
+        {step === 4 && type === "dev" && (
+          <>
+            <div
+              style={{
+                background: "var(--deep-green)",
+                color: "var(--off-white)",
+                padding: 24,
+                marginBottom: 24,
+                borderLeft: "3px solid var(--sand)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "var(--sand)",
+                  fontWeight: 600,
+                  marginBottom: 10,
+                }}
+              >
+                ⚑ Proyecto de desarrollo · Documento maestro
+              </div>
+              <div
+                style={{
+                  fontSize: 15,
+                  lineHeight: 1.6,
+                  color: "rgba(232,228,220,0.9)",
+                }}
+              >
+                Subí el PDF con el alcance del desarrollo: arquitectura,
+                features, stack, integraciones, criterios de aceptación. Es la
+                fuente de verdad del proyecto — los desarrolladores
+                asignados van a referenciarla durante todo el sprint.
+              </div>
+            </div>
+
+            <div className={styles.sectionLabel}>
+              Proyecto de desarrollo (PDF)
+            </div>
+            <Dropzone
+              folder={`${wizardId}/dev-project`}
+              accept=".pdf,.doc,.docx"
+              icon="▢"
+              emptyTitle="Arrastrá el PDF con el proyecto o hacé click"
+              emptyHint="Alcance funcional · arquitectura · features · stack"
+              files={devProjectFile ? [devProjectFile] : []}
+              onAdd={(uploaded) => setDevProjectFile(uploaded[0] ?? null)}
+              onRemove={() => {
+                if (devProjectFile?.path) {
+                  deleteFile(devProjectFile.path).catch(() => {});
+                }
+                setDevProjectFile(null);
+              }}
+            />
+          </>
+        )}
+
+        {step === 4 && type === "gp" && (
           <>
             <div
               style={{
@@ -1264,42 +2120,198 @@ export default function NewClientModal({
                 </div>
               </>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 12,
-                }}
-              >
-                {DEV_PROJECT_TYPES.map((t) => {
-                  const selected = devProjectType === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setDevProjectType(t)}
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 12,
+                  }}
+                >
+                  {DEV_PROJECT_TYPES.map((t) => {
+                    const selected = devProjectType === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setDevProjectType(t)}
+                        style={{
+                          padding: 20,
+                          border: `2px solid ${
+                            selected ? "var(--sand)" : "rgba(10,26,12,0.1)"
+                          }`,
+                          background: selected
+                            ? "var(--off-white)"
+                            : "var(--white)",
+                          cursor: "pointer",
+                          textAlign: "center",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          fontFamily: "inherit",
+                          color: "var(--deep-green)",
+                        }}
+                      >
+                        {selected ? "✓ " : ""}
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Fecha objetivo de entrega del producto */}
+                <div style={{ marginTop: 24 }}>
+                  <div className={styles.sectionLabel}>
+                    Fecha objetivo de entrega
+                  </div>
+                  <div className={styles.field}>
+                    <label>
+                      ¿Cuándo deberíamos tener listo el producto?
+                    </label>
+                    <input
+                      type="date"
+                      value={devDeliveryDate}
+                      onChange={(e) => setDevDeliveryDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Asignación de personas al proyecto */}
+                <div style={{ marginTop: 24 }}>
+                  <div className={styles.sectionLabel}>
+                    Asignar personas al proyecto
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginBottom: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Seleccioná los miembros del equipo que van a trabajar en
+                    este desarrollo. Quedan registrados como asignados al
+                    cliente y aparecen en el detalle del proyecto.
+                  </div>
+                  {teamMembers.length === 0 ? (
+                    <div
                       style={{
-                        padding: 20,
-                        border: `2px solid ${
-                          selected ? "var(--sand)" : "rgba(10,26,12,0.1)"
-                        }`,
-                        background: selected
-                          ? "var(--off-white)"
-                          : "var(--white)",
-                        cursor: "pointer",
-                        textAlign: "center",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        fontFamily: "inherit",
-                        color: "var(--deep-green)",
+                        padding: 16,
+                        background: "var(--off-white)",
+                        borderLeft: "3px solid var(--sand)",
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        fontStyle: "italic",
                       }}
                     >
-                      {selected ? "✓ " : ""}
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
+                      No hay miembros del equipo cargados. Invitá personas
+                      desde <strong>/equipo</strong>.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, 1fr)",
+                        gap: 8,
+                      }}
+                    >
+                      {teamMembers.map((m) => {
+                        const selected = devAssignedUserIds.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setDevAssignedUserIds((prev) =>
+                                prev.includes(m.id)
+                                  ? prev.filter((x) => x !== m.id)
+                                  : [...prev, m.id],
+                              );
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: 12,
+                              border: `2px solid ${
+                                selected ? "var(--sand)" : "rgba(10,26,12,0.1)"
+                              }`,
+                              background: selected
+                                ? "var(--off-white)"
+                                : "var(--white)",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontFamily: "inherit",
+                              borderRadius: 6,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                background: selected
+                                  ? "var(--sand)"
+                                  : "var(--off-white)",
+                                color: "var(--deep-green)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: "50%",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {m.initials || m.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: "var(--deep-green)",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {selected ? "✓ " : ""}
+                                {m.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  color: "var(--text-muted)",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                {m.role === "director" ? "Director" : "Equipo"}
+                                {m.position ? ` · ${m.position}` : ""}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {devAssignedUserIds.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        fontSize: 11,
+                        color: "var(--deep-green)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {devAssignedUserIds.length}{" "}
+                      {devAssignedUserIds.length === 1
+                        ? "persona asignada"
+                        : "personas asignadas"}{" "}
+                      al proyecto.
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </>
         )}
@@ -1361,83 +2373,131 @@ export default function NewClientModal({
                   </div>
                 </SummaryCell>
 
-                <SummaryCell label="Contrato">
-                  <div>
-                    <strong>${fee || 0}/mes</strong>
-                    {hasVariable ? " + variable" : ""}
-                  </div>
-                  <div
-                    style={{ color: "var(--text-muted)", fontSize: 12 }}
-                  >
-                    {contractDuration === "open"
-                      ? "Sin plazo fijo"
-                      : `${contractDuration} meses`}{" "}
-                    {contractFile
-                      ? "· Contrato adjunto ✓"
-                      : "· ⚠ Sin contrato"}
-                  </div>
-                  {hasVariable && variableTiers.filter((t) => t.trim()).length > 0 && (
-                    <div
-                      style={{
-                        color: "var(--text-muted)",
-                        fontSize: 11,
-                        marginTop: 6,
-                        fontStyle: "italic",
-                      }}
-                    >
-                      Tramos:{" "}
-                      {variableTiers
-                        .map((t) => t.trim())
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  )}
-                </SummaryCell>
+                {type === "gp" ? (
+                  <>
+                    <SummaryCell label="Contrato">
+                      <div>
+                        <strong>US$ {Number(fee || 0).toLocaleString()}/mes</strong>
+                        {hasVariable ? " + variable" : ""}
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                        {contractDuration === "open"
+                          ? "Sin plazo fijo"
+                          : `${contractDuration} meses`}{" "}
+                        {contractFile
+                          ? "· Contrato adjunto ✓"
+                          : "· ⚠ Sin contrato"}
+                      </div>
+                      {hasVariable &&
+                        variableTiers.filter((t) => t.trim()).length > 0 && (
+                          <div
+                            style={{
+                              color: "var(--text-muted)",
+                              fontSize: 11,
+                              marginTop: 6,
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Tramos:{" "}
+                            {variableTiers
+                              .map((t) => t.trim())
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                        )}
+                    </SummaryCell>
 
-                <SummaryCell label="Kickoff">
-                  <div>
-                    {kickoffFile ? "✓ Kickoff cargado" : "⚠ Sin kickoff"} ·{" "}
-                    {brandingFiles.length} archivo
-                    {brandingFiles.length === 1 ? "" : "s"} de branding
-                  </div>
-                  <div
-                    style={{ color: "var(--text-muted)", fontSize: 12 }}
-                  >
-                    Agentes serán alimentados con esta info
-                  </div>
-                </SummaryCell>
+                    <SummaryCell label="Kickoff + Branding">
+                      <div>
+                        {kickoffFile ? "✓ Kickoff cargado" : "⚠ Sin kickoff"} ·{" "}
+                        {brandingFiles.length} archivo
+                        {brandingFiles.length === 1 ? "" : "s"} de branding
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                        Los agentes usan esta info para entender el cliente.
+                      </div>
+                    </SummaryCell>
 
-                <SummaryCell label="Presupuestos">
-                  <div>
-                    Marketing:{" "}
-                    <strong>
-                      {formatBudget(budgetMarketingFixed, budgetMarketingPct)}
-                    </strong>
-                  </div>
-                  <div>
-                    Producción:{" "}
-                    <strong>
-                      {formatBudget(budgetProduccionFixed, budgetProduccionPct)}
-                    </strong>
-                  </div>
-                </SummaryCell>
+                    <SummaryCell label="Presupuestos">
+                      <div>
+                        Marketing:{" "}
+                        <strong>
+                          {formatBudget(budgetMarketingFixed, budgetMarketingPct)}
+                        </strong>
+                      </div>
+                      <div>
+                        Producción:{" "}
+                        <strong>
+                          {formatBudget(budgetProduccionFixed, budgetProduccionPct)}
+                        </strong>
+                      </div>
+                    </SummaryCell>
 
-                <SummaryCell
-                  label={
-                    type === "gp" ? "Módulos activos" : "Tipo de proyecto"
-                  }
-                >
-                  {type === "gp" ? (
-                    <div>
-                      {Object.entries(modules)
-                        .filter(([, on]) => on)
-                        .map(([k]) => k)
-                        .join(" · ") || "—"}
-                    </div>
-                  ) : (
-                    <div>{devProjectType || "—"}</div>
-                  )}
-                </SummaryCell>
+                    <SummaryCell label="Módulos activos">
+                      <div>
+                        {Object.entries(modules)
+                          .filter(([, on]) => on)
+                          .map(([k]) => k)
+                          .join(" · ") || "—"}
+                      </div>
+                    </SummaryCell>
+                  </>
+                ) : (
+                  /* ===== Resumen DEV — sin kickoff/branding ni presupuestos ===== */
+                  <>
+                    <SummaryCell label="Acuerdo comercial">
+                      <div>
+                        Producción:{" "}
+                        <strong>
+                          US$ {Number(devProductionCost || 0).toLocaleString()}
+                        </strong>{" "}
+                        (one-time)
+                      </div>
+                      <div>
+                        Mantenimiento:{" "}
+                        <strong>
+                          US$ {Number(devMaintenanceCost || 0).toLocaleString()}/mes
+                        </strong>
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
+                        {contractDuration === "open"
+                          ? "Sin plazo fijo"
+                          : `${contractDuration} meses`}{" "}
+                        {contractFile
+                          ? "· Contrato adjunto ✓"
+                          : "· ⚠ Sin contrato"}
+                      </div>
+                    </SummaryCell>
+
+                    <SummaryCell label="Tipo de proyecto">
+                      <div>{devProjectType || "—"}</div>
+                      {devDeliveryDate && (
+                        <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
+                          Entrega: {devDeliveryDate}
+                        </div>
+                      )}
+                    </SummaryCell>
+
+                    <SummaryCell label="Documento del proyecto">
+                      <div>
+                        {devProjectFile
+                          ? "✓ PDF cargado"
+                          : "⚠ Sin documento de proyecto"}
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+                        Accesible desde el dashboard del cliente.
+                      </div>
+                    </SummaryCell>
+
+                    <SummaryCell label="Equipo asignado">
+                      <div>
+                        {devAssignedUserIds.length === 0
+                          ? "Sin asignar"
+                          : `${devAssignedUserIds.length} persona${devAssignedUserIds.length === 1 ? "" : "s"}`}
+                      </div>
+                    </SummaryCell>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1678,4 +2738,52 @@ function formatBudget(fixedStr: string, pctStr: string): string {
   if (!Number.isNaN(fixed)) parts.push(`US$ ${fixed.toLocaleString()}`);
   if (!Number.isNaN(pct)) parts.push(`${pct}% revenue`);
   return parts.length === 0 ? "—" : parts.join(" + ");
+}
+
+// Input compacto para porcentajes de dividendos (step 3 del wizard).
+function DividendInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          display: "block",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </label>
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "8px 10px",
+          fontSize: 13,
+          fontFamily: "inherit",
+          border: "1px solid rgba(10,26,12,0.15)",
+          borderRadius: 4,
+          background: "var(--white)",
+          color: "var(--deep-green)",
+          outline: "none",
+        }}
+      />
+    </div>
+  );
 }

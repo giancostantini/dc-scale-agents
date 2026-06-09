@@ -22,7 +22,17 @@ export interface Profile {
   position?: string | null;
   payment_amount?: number | null;
   payment_currency?: string | null;
-  payment_type?: "fijo" | "por_proyecto" | "por_hora" | "mixto" | null;
+  payment_type?:
+    | "fijo"
+    | "por_proyecto"
+    | "por_hora"
+    | "por_cliente"
+    | "mixto"
+    | null;
+  /** Día del mes (1-31) en que se le paga al funcional. NULL = sin
+   *  día configurado. Usado en Finanzas/Funcionales para calcular
+   *  próximos pagos. */
+  payment_day?: number | null;
   start_date?: string | null;
   phone?: string | null;
   notes?: string | null;
@@ -31,6 +41,18 @@ export interface Profile {
   permissions?: ProfilePermissions | null;
   // Migration 024: jerarquía organizacional
   reports_to_id?: string | null;
+  // Migración 047: preferencias granulares de email
+  email_on_new_request?: boolean;
+  email_on_task_assigned?: boolean;
+  email_on_client_assigned?: boolean;
+  email_on_payment_received?: boolean;
+  email_on_content_approved?: boolean;
+  // Migración 047: integración Outlook
+  outlook_email?: string | null;
+  outlook_connected_at?: string | null;
+  // Migración 051: foto de perfil. Public URL del bucket "avatars".
+  // Si está vacía, el UI cae a las iniciales coloreadas (default).
+  avatar_url?: string | null;
 }
 
 export type TeamPosition =
@@ -75,6 +97,10 @@ export interface ClientAssignment {
   until?: string | null;
   notes?: string | null;
   created_at: string;
+  /** Lista de keys del catálogo CLIENT_MENUS_GP/DEV (lib/client-menus)
+   *  que este miembro puede ver en el sidebar del cliente. NULL =
+   *  ver todos los menús (default, backward-compatible). */
+  visible_menus?: string[] | null;
 }
 
 // ==================== ROLE HELPERS (client-side) ====================
@@ -132,13 +158,30 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, start_date, phone, notes, client_id, permissions, reports_to_id",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, avatar_url",
     )
     .eq("id", user.id)
     .single();
 
   if (error || !data) {
-    // Fallback: el trigger debería haber creado el profile, pero por si falla
+    // El SELECT principal falló (típicamente porque una columna nueva
+    // no existe — migración pendiente). En vez de inventar un fallback
+    // como "team" — que oculta menús al director silenciosamente —
+    // hacemos un SELECT mínimo con columnas garantizadas y devolvemos
+    // ese. Si TAMBIÉN falla, recién ahí usamos el fallback team.
+    console.warn(
+      "[getCurrentProfile] SELECT principal falló:",
+      error?.message,
+    );
+    const { data: fallbackData } = await supabase
+      .from("profiles")
+      .select("id, email, name, role, initials")
+      .eq("id", user.id)
+      .single();
+    if (fallbackData) {
+      return fallbackData as Profile;
+    }
+    // Último recurso: profile no existe en absoluto.
     return {
       id: user.id,
       email: user.email ?? "",

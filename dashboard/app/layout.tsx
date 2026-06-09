@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import ConsultantWidgetMount from "@/components/ConsultantWidgetMount";
+import { Toaster } from "@/components/premium/Toaster";
 
 // Fuentes oficiales de la marca
 const inter = Inter({
@@ -17,9 +18,9 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Dearmas Costantini · Scale",
+  title: "Dearmas & Costantini · Scale",
   description:
-    "Dearmas Costantini — Business Growth Partners en LATAM. Sistema interno de gestión.",
+    "Dearmas & Costantini — Business Growth Partners en LATAM. Sistema interno de gestión.",
 };
 
 export default function RootLayout({
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body>
         {children}
         <ConsultantWidgetMount />
+        <Toaster />
       </body>
     </html>
   );

@@ -408,6 +408,38 @@ export default function FaseDetailPage({
     }
   }
 
+  /** Destraba un reporte que quedó en status='generating' por timeout
+   *  de la función serverless. El endpoint chequea el umbral de 5 min
+   *  por default; pasamos force=true cuando el director confirma. */
+  async function resetStuck(force: boolean) {
+    if (busy) return;
+    const label = meta?.reportName ?? phaseKey;
+    if (!force) {
+      if (
+        !confirm(
+          `¿Destrabar el reporte de ${label}?\n\n` +
+            `Esto vuelve el status a "pendiente" (o "borrador" si ya había contenido previo).\n` +
+            `Si la generación todavía está corriendo en el server, podés interrumpirla.`,
+        )
+      )
+        return;
+    }
+    setBusy(true);
+    try {
+      await callPhaseEndpoint("/api/phases/reset-stuck", {
+        clientId: id,
+        phase: phaseKey,
+        force,
+      });
+      setReloadFlag((f) => f + 1);
+    } catch (err) {
+      const e = err as Error;
+      alert(`No se pudo destrabar:\n${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function approve() {
     if (busy) return;
     if (!confirm(`Confirmar el reporte de ${meta.reportName}?\n\nUna vez aprobado se desbloquea la siguiente fase.`)) return;
@@ -1149,29 +1181,72 @@ export default function FaseDetailPage({
         </div>
 
         {isGenerating ? (
-          <div
-            style={{
-              padding: 64,
-              textAlign: "center",
-              color: "var(--text-muted)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 32,
-                color: "var(--sand)",
-                marginBottom: 12,
-              }}
-            >
-              ⏳
-            </div>
-            <div style={{ fontSize: 14, marginBottom: 6 }}>
-              Generando con Claude…
-            </div>
-            <div style={{ fontSize: 12 }}>
-              Esto tarda 30-60 segundos. La página se actualiza sola.
-            </div>
-          </div>
+          (() => {
+            // Mostramos el botón de "destrabar" cuando lleva más que
+            // el tiempo esperado de generación. La estrategia tarda
+            // 2-5 min, así que después de ~3 min asumimos que la
+            // función serverless se murió por timeout y el row quedó
+            // colgado.
+            const updatedAt = report?.updated_at
+              ? new Date(report.updated_at).getTime()
+              : null;
+            const ageSec = updatedAt
+              ? Math.floor((Date.now() - updatedAt) / 1000)
+              : 0;
+            // Mostramos el botón temprano (60s) para no dejar al director
+            // mirando un loader sin salida si la función ya murió. El
+            // endpoint protege el caso real con su propio threshold de 5 min,
+            // y agrega force=true cuando el director confirma.
+            const showReset = ageSec > 60;
+            const forceReset = ageSec > 300;
+            return (
+              <div
+                style={{
+                  padding: 64,
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 32,
+                    color: "var(--sand)",
+                    marginBottom: 12,
+                  }}
+                >
+                  ⏳
+                </div>
+                <div style={{ fontSize: 14, marginBottom: 6 }}>
+                  Generando con Claude…
+                </div>
+                <div style={{ fontSize: 12 }}>
+                  {ageSec > 0
+                    ? `Llevamos ${Math.floor(ageSec / 60)}m ${ageSec % 60}s. La estrategia tarda 2-5 min.`
+                    : "Esto tarda 2-5 min para reportes largos. La página se actualiza sola."}
+                </div>
+                {showReset && isDirector && (
+                  <div style={{ marginTop: 24 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--red-warn, #b04b3a)",
+                        marginBottom: 10,
+                      }}
+                    >
+                      Lleva mucho tiempo — puede ser que la función se haya cortado.
+                    </div>
+                    <button
+                      className={ui.btnGhost}
+                      onClick={() => resetStuck(forceReset)}
+                      disabled={busy}
+                    >
+                      {busy ? "Destrabando…" : "Destrabar y reintentar"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()
         ) : !hasContent ? (
           <div
             style={{

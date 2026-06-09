@@ -24,11 +24,12 @@ import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext, buildVaultBlock } from "@/lib/vault-loader";
+import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 
-const MODEL = "claude-opus-4-7";
+const MODEL = CLAUDE_MODEL_OPUS;
 
 const DISPATCHABLE_AGENTS = [
-  "content-creator",
+  "creative-assistant",
   "content-strategy",
   "reporting-performance",
   "morning-briefing",
@@ -54,7 +55,7 @@ Reglas:
 - Respuestas cortas por default (2-4 oraciones). El dueño está ocupado.
 
 Agentes que podés dispatchar:
-- content-creator: genera piezas (reel, static-ad, social-review, etc). Brief mínimo: pieceType, angle. Para pieceType="reel" el video MP4 se renderiza por default (produceVideo true) y aparece después en /cliente/<slug>/biblioteca con preview y descarga. Si el dueño pide expresamente "solo el script" o "solo el guion", agregá produceVideo:false al brief; si no lo pide, NO toques ese flag.
+- creative-assistant: el Asistente Creativo. Genera BRIEFS de contenido (idea + ángulo + copy + dirección visual) para que la CM y el editor produzcan. NO produce videos. Brief mínimo: pieceType, angle.
 - content-strategy: calendario semanal. Brief mínimo: ninguno (usa contexto del vault).
 - reporting-performance: analytics (daily, weekly, monthly, insights, query). Brief: mode, y si es query también question.
 - morning-briefing: briefing matutino. Brief: ninguno.
@@ -201,7 +202,7 @@ export async function POST(req: NextRequest) {
               brief: {
                 type: "object",
                 description:
-                  "Agent-specific brief. Include only the fields the agent needs (e.g. pieceType + angle for content-creator, mode + question for reporting-performance query).",
+                  "Agent-specific brief. Include only the fields the agent needs (e.g. pieceType + angle for creative-assistant, mode + question for reporting-performance query).",
               },
               reason: {
                 type: "string",
@@ -282,8 +283,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Brief enrichment basado en datos históricos del cliente. Cada agente
-      // recibe lo que le sirve: content-creator y content-strategy reciben
-      // `prioritize` (top hooks/formats/angles); content-creator también
+      // recibe lo que le sirve: creative-assistant y content-strategy reciben
+      // `prioritize` (top hooks/formats/angles); creative-assistant también
       // recibe `examples[]` con piezas de competencia. social-media-metrics
       // recibe `historicalBaseline` para detectar outliers.
       const enrichedBrief = await enrichBriefForAgent(
@@ -575,7 +576,7 @@ async function loadCompetitorExamples(
 /**
  * Enriquece el brief de un agente con datos históricos del cliente.
  *
- * - content-creator    → prioritize (top hooks/formats/angles) + examples[]
+ * - creative-assistant → prioritize (top hooks/formats/angles) + examples[]
  *                        (piezas de competencia)
  * - content-strategy   → prioritize (qué formatos / horarios funcionaron mejor)
  * - social-media-metrics → historicalBaseline (score promedio para outliers)
@@ -592,7 +593,7 @@ async function enrichBriefForAgent(
 ): Promise<Record<string, unknown>> {
   const enriched: Record<string, unknown> = { ...brief };
 
-  if (agent === "content-creator") {
+  if (agent === "creative-assistant") {
     const [prioritize, competitorExamples] = await Promise.all([
       loadPrioritizeFromInsights(supabase, clientId),
       loadCompetitorExamples(supabase, clientId),

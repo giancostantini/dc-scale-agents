@@ -1,0 +1,31 @@
+{
+  "client": "<client-slug>",
+  "pieceType": "reel",
+  "source": "consultant-agent",
+  "objective": "value",
+  "scriptFormat": "direct-value",
+  "emotionalTrigger": "awe",
+  "hookStyle": "hook de ejemplo — reemplazar por el del cliente",
+  "tone": "tono de ejemplo — reemplazar por el del cliente",
+  "angle": "angulo de ejemplo — reemplazar por el del cliente",
+  "targetAudience": "audiencia de ejemplo — reemplazar por la del cliente",
+  "cta": "CTA de ejemplo — reemplazar",
+  "voice": {
+    "style": "conversational",
+    "language": "es"
+  },
+  "visual": {
+    "style": "según brandbook",
+    "aspectRatio": "9:16"
+  },
+  "examples": [
+    {
+      "type": "video",
+      "url": "https://www.instagram.com/reel/example123/",
+      "notes": "Copiar el ritmo de edicion de los primeros 3 segundos"
+    }
+  ],
+  "instructions": "Reemplazar por instrucciones concretas del Consultor / dashboard. El output es un brief para la CM/editor, no el contenido final.",
+  "calendarEntryId": null,
+  "crossPost": []
+}

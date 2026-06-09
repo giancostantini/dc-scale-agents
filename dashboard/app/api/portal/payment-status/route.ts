@@ -1,16 +1,14 @@
 /**
  * GET /api/portal/payment-status
  *
- * Devuelve el estado de pago del mes corriente del cliente autenticado.
- * Lo consume <PaymentCTA /> en el PortalHeader y lo refresca cada 5 min.
+ * Estado de pago del mes corriente del cliente autenticado. Lo consume
+ * <PaymentCTA /> en el PortalHeader (barra de progreso + popover).
  *
- * Reglas de pago:
- *   - Ventana de cobro: día 4 al 9 de cada mes (fijo para todos los clientes
- *     por ahora; configurable en futuro vía clients.fee_due_day).
- *   - status='paid'  → verde, "Pago de [mes] · al día".
- *   - Antes del día 4 con status pendiente → neutro, "Próximo pago: 4–9 [mes]".
- *   - Día 4–9 con status pendiente → ámbar, "Vence en N día(s)".
- *   - Después del día 9 con status pendiente o 'late' → rojo, "Vencido hace N día(s)".
+ * Ventana de cobro fija: día 4 al 9 de cada mes.
+ *   - status='paid'  → verde.
+ *   - antes del día 4 (pendiente) → neutral, "Próximo pago".
+ *   - día 4–9 (pendiente) → ámbar, "Vence en N días".
+ *   - después del día 9 (pendiente / late) → rojo, "Vencido hace N días".
  *
  * Auth: Bearer token del cliente (role='client', con client_id).
  *
@@ -19,10 +17,15 @@
  *     status: 'paid' | 'pending',
  *     color: 'green' | 'neutral' | 'amber' | 'red',
  *     label: string,
- *     daysToDue: number,      // positivo = días hasta el 9; negativo = días vencido
- *     month: string,          // YYYY-MM
- *     monthLabel: string,     // "mayo"
- *     fee: number | null      // USD/mes desde clients.fee
+ *     daysToDue: number,       // hasta el día 9 (negativo si vencido)
+ *     daysOverdue: number,     // 0 si no vencido; >0 días pasados del 9
+ *     dayOfMonth: number,      // día actual (1-31)
+ *     dueRangeStart: number,   // 4
+ *     dueRangeEnd: number,     // 9
+ *     progress: number,        // 0-1, avance del ciclo de pago del mes
+ *     month: string,           // YYYY-MM
+ *     monthLabel: string,      // "mayo"
+ *     fee: number | null
  *   }
  */
 
@@ -31,7 +34,6 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-// Ventana de cobro fija por ahora — día 4 al 9 del mes
 const DUE_RANGE_START = 4;
 const DUE_RANGE_END = 9;
 
@@ -90,12 +92,8 @@ export async function GET(req: NextRequest) {
 
   const clientId = profile.client_id as string;
 
-  // Mes corriente en UY (UTC-3). En esquema, payments.month es YYYY-MM string
-  // calculado del lado del cliente — para evitar drift de timezone, usamos
-  // la fecha del servidor (UTC) pero ajustamos manualmente a UY si hace falta.
-  // En la práctica, las migraciones siempre han usado UTC.toISOString().slice(0,7).
   const now = new Date();
-  const monthIso = now.toISOString().slice(0, 7); // YYYY-MM
+  const monthIso = now.toISOString().slice(0, 7);
   const monthNum = now.getUTCMonth();
   const monthLabel = MONTH_LABELS[monthNum];
   const dayOfMonth = now.getUTCDate();
@@ -107,48 +105,61 @@ export async function GET(req: NextRequest) {
       .eq("client_id", clientId)
       .eq("month", monthIso)
       .maybeSingle(),
-    admin
-      .from("clients")
-      .select("fee")
-      .eq("id", clientId)
-      .maybeSingle(),
+    admin.from("clients").select("fee, name").eq("id", clientId).maybeSingle(),
   ]);
 
   const fee = clientRow?.fee ? Number(clientRow.fee) : null;
+  const clientName = (clientRow?.name as string | undefined) ?? null;
   const paymentStatus = (paymentRow?.status ?? "pending") as
     | "paid"
     | "pending"
     | "late";
 
-  // Si está pagado, mostramos verde sin importar la fecha
+  // Campos comunes a todos los estados
+  const base = {
+    dayOfMonth,
+    dueRangeStart: DUE_RANGE_START,
+    dueRangeEnd: DUE_RANGE_END,
+    month: monthIso,
+    monthLabel,
+    fee,
+    clientName,
+  };
+
+  // PAGADO → verde, barra llena
   if (paymentStatus === "paid") {
     return Response.json({
+      ...base,
       status: "paid",
       color: "green",
       label: `Pago de ${monthLabel} · al día`,
       daysToDue: 0,
-      month: monthIso,
-      monthLabel,
-      fee,
+      daysOverdue: 0,
+      progress: 1,
     });
   }
 
-  // No pagado — calculamos semáforo por fecha
+  // ANTES DEL RANGO → neutral, barra baja
   if (dayOfMonth < DUE_RANGE_START) {
     return Response.json({
+      ...base,
       status: "pending",
       color: "neutral",
       label: `Próximo pago: ${DUE_RANGE_START}–${DUE_RANGE_END} ${monthLabel}`,
       daysToDue: DUE_RANGE_END - dayOfMonth,
-      month: monthIso,
-      monthLabel,
-      fee,
+      daysOverdue: 0,
+      // Progreso del mes hacia el inicio del rango (día 4)
+      progress: Math.max(0, Math.min(dayOfMonth / DUE_RANGE_START, 1)) * 0.5,
     });
   }
 
+  // EN VENTANA (4–9) → ámbar, barra alta
   if (dayOfMonth >= DUE_RANGE_START && dayOfMonth <= DUE_RANGE_END) {
     const daysLeft = DUE_RANGE_END - dayOfMonth;
+    const windowSpan = DUE_RANGE_END - DUE_RANGE_START; // 5
+    const intoWindow = (dayOfMonth - DUE_RANGE_START) / windowSpan; // 0..1
     return Response.json({
+      ...base,
       status: "pending",
       color: "amber",
       label:
@@ -158,15 +169,16 @@ export async function GET(req: NextRequest) {
             ? "Vence mañana"
             : `Vence en ${daysLeft} días`,
       daysToDue: daysLeft,
-      month: monthIso,
-      monthLabel,
-      fee,
+      daysOverdue: 0,
+      // De 0.5 (día 4) a 1.0 (día 9)
+      progress: 0.5 + intoWindow * 0.5,
     });
   }
 
-  // dayOfMonth > 9 — vencido
+  // VENCIDO (>9) → rojo, barra llena
   const daysOverdue = dayOfMonth - DUE_RANGE_END;
   return Response.json({
+    ...base,
     status: "pending",
     color: "red",
     label:
@@ -174,8 +186,7 @@ export async function GET(req: NextRequest) {
         ? "Vencido hace 1 día"
         : `Vencido hace ${daysOverdue} días`,
     daysToDue: -daysOverdue,
-    month: monthIso,
-    monthLabel,
-    fee,
+    daysOverdue,
+    progress: 1,
   });
 }
