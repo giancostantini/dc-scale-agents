@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addClient } from "@/lib/storage";
+import { addClient, upsertFeeSchedule } from "@/lib/storage";
 import {
   listCuentas,
   type CuentaBancaria,
@@ -119,6 +119,13 @@ export default function NewClientModal({
   /** Datos fiscales — para facturación. Migración 054. */
   const [razonSocial, setRazonSocial] = useState("");
   const [rut, setRut] = useState("");
+  /** Pago calendarizado por mes — opcional. Cuando está activo, el
+   *  director define un fee distinto para cada mes del contrato.
+   *  Se persiste en client_fee_schedules después del addClient. */
+  const [hasSchedule, setHasSchedule] = useState(false);
+  const [scheduleTiers, setScheduleTiers] = useState<
+    Array<{ startMonth: string; amount: string; note: string }>
+  >([]);
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -209,6 +216,8 @@ export default function NewClientModal({
     setWebsiteUrl("");
     setRazonSocial("");
     setRut("");
+    setHasSchedule(false);
+    setScheduleTiers([]);
     setContactName("");
     setContactEmail("");
     setContactPhone("");
@@ -427,6 +436,38 @@ export default function NewClientModal({
         razonSocial: razonSocial.trim() || undefined,
         rut: rut.trim() || undefined,
       });
+
+      // Si hay tramos de pago calendarizado, los persistimos en
+      // client_fee_schedules. Cada tramo es un upsert por (client_id,
+      // start_month). El end_month queda implícito (vigente hasta el
+      // próximo tramo).  Si falla algún upsert, NO bloqueamos al
+      // director — los tramos los puede cargar a mano después.
+      if (type === "gp" && hasSchedule && scheduleTiers.length > 0) {
+        const validTiers = scheduleTiers
+          .map((t) => ({
+            startMonth: t.startMonth.trim(),
+            amount: Number(t.amount),
+            note: t.note.trim() || null,
+          }))
+          .filter(
+            (t) =>
+              /^\d{4}-\d{2}$/.test(t.startMonth) &&
+              !Number.isNaN(t.amount) &&
+              t.amount > 0,
+          );
+        await Promise.allSettled(
+          validTiers.map((t) =>
+            upsertFeeSchedule(
+              newClient.id,
+              t.startMonth,
+              t.amount,
+              "USD",
+              t.note,
+              null,
+            ),
+          ),
+        );
+      }
 
       // Si el cliente es de tipo dev y se asignaron personas, creamos
       // las filas en client_assignments. No bloqueamos si falla — el
@@ -821,7 +862,21 @@ export default function NewClientModal({
                       value={fee}
                       onChange={(e) => setFee(e.target.value)}
                       placeholder="3500"
+                      disabled={hasSchedule}
                     />
+                    {hasSchedule && (
+                      <div
+                        style={{
+                          fontSize: 10.5,
+                          color: "var(--text-muted)",
+                          marginTop: 4,
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Sobreescrito por el pago calendarizado de abajo.
+                        El fee fijo queda como fallback.
+                      </div>
+                    )}
                   </div>
                   <div className={styles.field}>
                     <label>Duración del contrato</label>
@@ -851,6 +906,237 @@ export default function NewClientModal({
                     <option>Generación de leads</option>
                     <option>Personalizado</option>
                   </select>
+                </div>
+
+                {/* ===== Pago calendarizado (opcional) =====
+                    Para contratos donde el fee varía mes a mes (ej
+                    ramp-up: $2.000 los primeros 3 meses, después
+                    $3.500). Cada tramo se persiste en
+                    client_fee_schedules y el cálculo de cobros usa
+                    el tramo que cubra el mes consultado. */}
+                <div style={{ marginTop: 18 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 14px",
+                      border: `1px solid ${hasSchedule ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                      background: hasSchedule
+                        ? "rgba(196,168,130,0.1)"
+                        : "var(--white)",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={hasSchedule}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setHasSchedule(on);
+                        if (on && scheduleTiers.length === 0) {
+                          // Pre-cargar un tramo vacío que arranque
+                          // en el startDate o en este mes.
+                          const seed = startDate
+                            ? startDate.slice(0, 7)
+                            : new Date().toISOString().slice(0, 7);
+                          setScheduleTiers([
+                            { startMonth: seed, amount: fee || "", note: "" },
+                          ]);
+                        }
+                      }}
+                      style={{ width: "auto" }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        Pago calendarizado por mes
+                      </div>
+                      <div
+                        style={{ fontSize: 11, color: "var(--text-muted)" }}
+                      >
+                        Definí un fee distinto para cada mes del contrato
+                        (ramp-up, descuentos por escalado, etc).
+                      </div>
+                    </div>
+                  </label>
+
+                  {hasSchedule && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: 14,
+                        background: "var(--off-white)",
+                        border: "1px solid rgba(196,168,130,0.3)",
+                        borderRadius: 6,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1.2fr auto",
+                          gap: 8,
+                          fontSize: 10,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          color: "var(--sand-dark)",
+                          fontWeight: 600,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div>Desde el mes</div>
+                        <div>Fee (USD)</div>
+                        <div>Nota (opcional)</div>
+                        <div />
+                      </div>
+                      {scheduleTiers.map((tier, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr 1.2fr auto",
+                            gap: 8,
+                            marginBottom: 6,
+                            alignItems: "center",
+                          }}
+                        >
+                          <input
+                            type="month"
+                            value={tier.startMonth}
+                            onChange={(e) =>
+                              setScheduleTiers((prev) =>
+                                prev.map((t, j) =>
+                                  j === i ? { ...t, startMonth: e.target.value } : t,
+                                ),
+                              )
+                            }
+                            style={{
+                              padding: "7px 9px",
+                              fontSize: 12,
+                              border: "1px solid rgba(10,26,12,0.15)",
+                              borderRadius: 4,
+                              background: "var(--white)",
+                              color: "var(--deep-green)",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <input
+                            type="number"
+                            value={tier.amount}
+                            onChange={(e) =>
+                              setScheduleTiers((prev) =>
+                                prev.map((t, j) =>
+                                  j === i ? { ...t, amount: e.target.value } : t,
+                                ),
+                              )
+                            }
+                            placeholder="3500"
+                            style={{
+                              padding: "7px 9px",
+                              fontSize: 12,
+                              border: "1px solid rgba(10,26,12,0.15)",
+                              borderRadius: 4,
+                              background: "var(--white)",
+                              color: "var(--deep-green)",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <input
+                            type="text"
+                            value={tier.note}
+                            onChange={(e) =>
+                              setScheduleTiers((prev) =>
+                                prev.map((t, j) =>
+                                  j === i ? { ...t, note: e.target.value } : t,
+                                ),
+                              )
+                            }
+                            placeholder='Ej: "ramp-up", "fee post-onboarding"'
+                            style={{
+                              padding: "7px 9px",
+                              fontSize: 12,
+                              border: "1px solid rgba(10,26,12,0.15)",
+                              borderRadius: 4,
+                              background: "var(--white)",
+                              color: "var(--deep-green)",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setScheduleTiers((prev) =>
+                                prev.filter((_, j) => j !== i),
+                              )
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              background: "transparent",
+                              border: "1px solid rgba(176,75,58,0.2)",
+                              color: "#B91C1C",
+                              fontSize: 12,
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                            title="Eliminar tramo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Próximo tramo: arrancar 1 mes después del último.
+                          const last = scheduleTiers[scheduleTiers.length - 1];
+                          const next = last
+                            ? (() => {
+                                const [y, m] = last.startMonth
+                                  .split("-")
+                                  .map(Number);
+                                const d = new Date(y, m, 1); // m+1 sin -1
+                                return d.toISOString().slice(0, 7);
+                              })()
+                            : new Date().toISOString().slice(0, 7);
+                          setScheduleTiers((prev) => [
+                            ...prev,
+                            { startMonth: next, amount: "", note: "" },
+                          ]);
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "transparent",
+                          border: "1px dashed var(--sand-dark)",
+                          color: "var(--sand-dark)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        + Agregar tramo
+                      </button>
+                      <div
+                        style={{
+                          fontSize: 10.5,
+                          color: "var(--text-muted)",
+                          marginTop: 10,
+                          fontStyle: "italic",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        Cada tramo es vigente desde "Desde el mes" hasta
+                        que arranque el siguiente. Para el cálculo de
+                        cobros se busca el tramo que cubre el mes que se
+                        está facturando. Si no hay tramo definido para
+                        un mes, se cae al fee fijo de arriba.
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}

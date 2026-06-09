@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
-import { getClient, getProdCampaigns } from "@/lib/storage";
+import { getClient, getProdCampaigns, getPayments } from "@/lib/storage";
 import { listPhaseReports } from "@/lib/phases";
 import { getDownloadUrl, formatBytes } from "@/lib/upload";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import LibraryUploadButton from "@/components/LibraryUploadButton";
 import { updateClientExternalLinks } from "@/lib/storage";
+import type { InvoicePayment } from "@/lib/types";
 import type {
   Client,
   ContentPieceRow,
@@ -22,7 +23,8 @@ type FolderKey =
   | "branding"
   | "reportes"
   | "contenidos"
-  | "campanas";
+  | "campanas"
+  | "facturas";
 
 interface FolderDef {
   key: FolderKey;
@@ -35,7 +37,7 @@ const FOLDERS: FolderDef[] = [
   {
     key: "onboarding",
     name: "Onboarding",
-    desc: "Kickoff y contrato cargados al crear el cliente",
+    desc: "Kickoff cargado al crear el cliente (el contrato vive en Configuración)",
     icon: "⚑",
   },
   {
@@ -62,6 +64,12 @@ const FOLDERS: FolderDef[] = [
     desc: "Piezas resultantes de cada campaña de producción",
     icon: "◎",
   },
+  {
+    key: "facturas",
+    name: "Facturas",
+    desc: "PDFs de las facturas emitidas al cliente",
+    icon: "$",
+  },
 ];
 
 export default function BibliotecaPage({
@@ -74,6 +82,7 @@ export default function BibliotecaPage({
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [pieces, setPieces] = useState<ContentPieceRow[]>([]);
   const [reports, setReports] = useState<PhaseReport[]>([]);
+  const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [folder, setFolder] = useState<FolderKey>("onboarding");
   const [isDirector, setIsDirector] = useState(false);
 
@@ -86,6 +95,9 @@ export default function BibliotecaPage({
     refreshClient();
     getProdCampaigns(id).then(setCampaigns);
     listPhaseReports(id).then(setReports);
+    getPayments().then((all) =>
+      setPayments(all.filter((p) => p.clientId === id && !!p.pdfUrl)),
+    );
     getCurrentProfile().then((p) =>
       setIsDirector(p?.role === "director" || p?.role === "team"),
     );
@@ -109,8 +121,9 @@ export default function BibliotecaPage({
       ).length,
       contenidos: pieces.length,
       campanas: campaigns.length,
+      facturas: payments.length,
     } as Record<FolderKey, number>;
-  }, [client, reports, pieces, campaigns]);
+  }, [client, reports, pieces, campaigns, payments]);
 
   if (!client) return null;
 
@@ -222,6 +235,9 @@ export default function BibliotecaPage({
       )}
       {folder === "campanas" && (
         <CampanasFolder campaigns={campaigns} />
+      )}
+      {folder === "facturas" && (
+        <FacturasFolder client={client} payments={payments} />
       )}
     </>
   );
@@ -541,6 +557,154 @@ function CampanasFolder({ campaigns }: { campaigns: ProductionCampaign[] }) {
         ))}
       </div>
     </FolderShell>
+  );
+}
+
+// ============ FOLDER: Facturas ============
+// Las facturas se cargan desde Finanzas → Facturación → "Cargar
+// factura" (subiendo el PDF). Acá se listan automáticamente todas
+// las que tienen pdf_url. El listado se ordena por mes desc.
+function FacturasFolder({
+  client,
+  payments,
+}: {
+  client: Client;
+  payments: InvoicePayment[];
+}) {
+  const sorted = [...payments].sort((a, b) => b.month.localeCompare(a.month));
+  return (
+    <FolderShell
+      title="Facturas"
+      emptyMsg="Sin facturas con PDF. Cargá una desde Finanzas → Facturación."
+    >
+      {sorted.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {sorted.map((p) => (
+            <FacturaRow key={`${p.clientId}-${p.month}`} payment={p} clientName={client.name} />
+          ))}
+        </div>
+      )}
+    </FolderShell>
+  );
+}
+
+function FacturaRow({
+  payment,
+  clientName,
+}: {
+  payment: InvoicePayment;
+  clientName: string;
+}) {
+  const monthLabel = (() => {
+    const [y, m] = payment.month.split("-");
+    const date = new Date(Number(y), Number(m) - 1, 1);
+    return date.toLocaleDateString("es-AR", {
+      month: "long",
+      year: "numeric",
+    });
+  })();
+  const statusTone =
+    payment.status === "paid"
+      ? "var(--green-ok)"
+      : payment.status === "late"
+        ? "#B91C1C"
+        : "var(--sand-dark)";
+  const statusLabel =
+    payment.status === "paid"
+      ? "Pagada"
+      : payment.status === "pending"
+        ? "Pendiente"
+        : payment.status === "late"
+          ? "Vencida"
+          : "Cancelada";
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "12px 14px",
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: 6,
+      }}
+    >
+      <div
+        style={{
+          width: 40,
+          height: 50,
+          background: "var(--ivory)",
+          borderRadius: 4,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 18,
+          color: "var(--sand-dark)",
+          flexShrink: 0,
+        }}
+      >
+        📄
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--deep-green)",
+            textTransform: "capitalize",
+          }}
+        >
+          Factura {clientName} · {monthLabel}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            marginTop: 2,
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <span>
+            US${" "}
+            {(payment.amountOverride ?? 0).toLocaleString() || "—"}
+          </span>
+          <span
+            style={{
+              padding: "2px 8px",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              borderRadius: 999,
+              background: `${statusTone}1A`,
+              color: statusTone,
+            }}
+          >
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+      <a
+        href={payment.pdfUrl ?? "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          padding: "8px 14px",
+          background: "transparent",
+          border: "1px solid rgba(10,26,12,0.15)",
+          color: "var(--deep-green)",
+          borderRadius: 4,
+          fontSize: 11,
+          fontWeight: 600,
+          textDecoration: "none",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Abrir PDF ↗
+      </a>
+    </div>
   );
 }
 

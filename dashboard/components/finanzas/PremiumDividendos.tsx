@@ -38,6 +38,7 @@ import {
   DollarSign,
   Wallet,
   Info,
+  Trash2,
 } from "lucide-react";
 import {
   Bar,
@@ -54,8 +55,10 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import {
+  addDividendHistoryExclude,
   distributeDividends,
   getDividendConfig,
+  listDividendHistoryExcludes,
   revenueMonthlyImpact,
   updateDividendConfig,
   type DividendConfig,
@@ -160,22 +163,48 @@ export function PremiumDividendos({
   // Modal detalle de un mes del historial
   const [detailRow, setDetailRow] = useState<HistRow | null>(null);
 
+  // Meses excluidos del historial (migración 055). Set para lookup
+  // rápido en el filter del history useMemo.
+  const [excludedMonths, setExcludedMonths] = useState<Set<string>>(new Set());
+
   function refresh() {
     setLoading(true);
-    getDividendConfig().then((c) => {
-      setConfig(c);
-      if (c) {
-        setEditForm({
-          partner_a_pct: Number(c.partner_a_pct),
-          partner_b_pct: Number(c.partner_b_pct),
-          inversiones_pct: Number(c.inversiones_pct),
-          back_pct: Number(c.back_pct),
-          partner_a_name: c.partner_a_name,
-          partner_b_name: c.partner_b_name,
-        });
-      }
-      setLoading(false);
-    });
+    Promise.all([getDividendConfig(), listDividendHistoryExcludes()]).then(
+      ([c, excludes]) => {
+        setConfig(c);
+        setExcludedMonths(new Set(excludes.map((e) => e.month_key)));
+        if (c) {
+          setEditForm({
+            partner_a_pct: Number(c.partner_a_pct),
+            partner_b_pct: Number(c.partner_b_pct),
+            inversiones_pct: Number(c.inversiones_pct),
+            back_pct: Number(c.back_pct),
+            partner_a_name: c.partner_a_name,
+            partner_b_name: c.partner_b_name,
+          });
+        }
+        setLoading(false);
+      },
+    );
+  }
+
+  /** Excluye un mes del historial. Pide confirmación. */
+  async function handleDeleteRow(r: HistRow) {
+    if (
+      !confirm(
+        `¿Eliminar la distribución de ${r.fecha} del historial?\n\nLos datos del mes (payments, expenses, etc) NO se borran — solo se oculta este mes del listado.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await addDividendHistoryExclude(r.monthKey, null);
+      toast.success("Distribución eliminada del historial");
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error("No se pudo eliminar", { description: e.message });
+    }
   }
 
   useEffect(() => {
@@ -291,6 +320,9 @@ export function PremiumDividendos({
           revenueMonthlyImpact(r, mk) > 0,
       );
       if (!hasPaidPayment && !hasExpense && !hasPaidManual) continue;
+      // Si el director "eliminó" esta distribución del historial,
+      // lo saltamos (migración 055).
+      if (excludedMonths.has(mk)) continue;
       const net = monthNet(mk);
       const dist = distributeDividends(net, config);
       const importeDistribuido = dist.partnerA + dist.partnerB;
@@ -322,7 +354,7 @@ export function PremiumDividendos({
       });
     }
     return out.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-  }, [config, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules]);
+  }, [config, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules, excludedMonths]);
 
   // ===== KPIs del período =====
   // Utilidades = sum REAL de nets (puede ser negativo si hubo pérdida).
@@ -829,6 +861,13 @@ export function PremiumDividendos({
                           title="Editar configuración"
                         >
                           <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRow(r)}
+                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-danger hover:bg-danger/10 transition-colors"
+                          title="Eliminar del historial (no borra los datos transaccionales)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
