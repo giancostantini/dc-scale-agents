@@ -307,6 +307,9 @@ export default function PerfilPage() {
           </div>
         )}
 
+        {/* ===== Cambiar contraseña ===== */}
+        <ChangePasswordPanel />
+
         {/* ===== Notificaciones por email ===== */}
         <EmailPreferencesPanel
           profile={profile}
@@ -667,6 +670,159 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
     <div className={styles.kv}>
       <div className={styles.kvLabel}>{label}</div>
       <div className={styles.kvValue}>{value}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// ChangePasswordPanel — permite que cualquier usuario logueado
+// cambie su propia contraseña sin tener que pasar por el email de
+// recovery.  Usa supabase.auth.updateUser({ password }) — funciona
+// para director, team y client por igual.
+// ============================================================
+function ChangePasswordPanel() {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    if (newPassword.length < 8) {
+      setError("La contraseña tiene que tener al menos 8 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const supabase = getSupabase();
+      const { error: updErr } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updErr) throw updErr;
+      setSuccess(true);
+      setNewPassword("");
+      setConfirmPassword("");
+      // El "success" se limpia solo después de unos segundos.
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (err) {
+      const e = err as Error;
+      setError(e.message || "No se pudo cambiar la contraseña.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <div className={styles.panelTitle}>Cambiar contraseña</div>
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--text-muted)",
+          marginBottom: 14,
+          lineHeight: 1.5,
+        }}
+      >
+        Setea una nueva contraseña para tu cuenta. Mínimo 8 caracteres.
+      </div>
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 12,
+          alignItems: "end",
+        }}
+      >
+        <div className={styles.field}>
+          <label>Nueva contraseña</label>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            disabled={saving}
+          />
+        </div>
+        <div className={styles.field}>
+          <label>Confirmar contraseña</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            disabled={saving}
+          />
+        </div>
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="submit"
+            disabled={saving || !newPassword || !confirmPassword}
+            style={{
+              padding: "10px 20px",
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              cursor:
+                saving || !newPassword || !confirmPassword
+                  ? "default"
+                  : "pointer",
+              fontFamily: "inherit",
+              opacity: saving || !newPassword || !confirmPassword ? 0.5 : 1,
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar nueva contraseña"}
+          </button>
+          {error && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "#B91C1C",
+                flex: 1,
+                minWidth: 200,
+              }}
+            >
+              ⚠ {error}
+            </span>
+          )}
+          {success && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--green-ok)",
+                fontWeight: 600,
+              }}
+            >
+              ✓ Contraseña actualizada
+            </span>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
