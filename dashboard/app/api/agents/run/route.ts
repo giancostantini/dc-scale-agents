@@ -53,6 +53,22 @@ const FAST_AGENTS: Record<string, { module: string; exportName?: string }> = {
   },
 };
 
+/**
+ * Agentes de marketing/growth que NO aplican a clientes de Desarrollo (type='dev').
+ * Un cliente DEV se opera por sprints/tareas, no por contenido/ads/SEO. El cron ya
+ * los excluye (filtra status='active'; los DEV tienen status='dev'); este set cubre
+ * el dispatch manual / del consultor, que pasa siempre por este endpoint.
+ */
+const GROWTH_ONLY_AGENTS = new Set([
+  "creative-assistant",
+  "content-strategy",
+  "reporting-performance",
+  "seo",
+  "social-media-metrics",
+  "stock",
+  "logistics",
+]);
+
 function resolveFastAgent(agent: string, brief: Record<string, unknown>) {
   // direct match (e.g. "morning-briefing")
   if (FAST_AGENTS[agent]) return { key: agent, spec: FAST_AGENTS[agent] };
@@ -109,6 +125,25 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getSupabaseAdmin();
+
+  // Guardrail: los clientes de Desarrollo (type='dev') no usan agentes de
+  // marketing/growth. Cortamos ANTES de abrir el agent_run para no dejar una
+  // corrida "running" colgada.
+  if (GROWTH_ONLY_AGENTS.has(agent)) {
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("type, name")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (clientRow?.type === "dev") {
+      return Response.json(
+        {
+          error: `El agente '${agent}' es de marketing/growth y no aplica a un cliente de Desarrollo (${clientRow.name ?? clientId}).`,
+        },
+        { status: 422 },
+      );
+    }
+  }
 
   const { data: run, error: insertError } = await supabase
     .from("agent_runs")

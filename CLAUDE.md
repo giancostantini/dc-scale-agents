@@ -50,6 +50,8 @@ Nota: la pipeline de producción de video (Remotion / ElevenLabs / Blotato) fue 
 - Loggea a Supabase (`agent_runs`, `agent_outputs`, `notifications`)
 - No tiene defaults de cliente hardcodeados
 
+**Clientes DEV (`type='dev'`):** no usan agentes de marketing/growth (`creative-assistant`, `content-strategy`, `reporting-performance`, `seo`, `social-media-metrics`, `stock`, `logistics`). Se operan por sprints/tareas. Enforcement en dos capas: el cron filtra `status='active'` (los DEV son `status='dev'`, quedan fuera) y `/api/agents/run` rechaza (422) esos agentes si el cliente es `type='dev'`.
+
 ## Cliente actual: WizTrip
 
 `vault/clients/wiztrip/` (cliente de prueba — agencia de viajes Uruguay).
