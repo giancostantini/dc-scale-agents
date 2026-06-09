@@ -319,38 +319,138 @@ export default function HubPage() {
             </div>
           </div>
 
-          {/* Actividad reciente — solo el mensaje del asistente.
-              El listado de items (solicitudes/clientes/tareas done) se
-              sacó: era ruido y no aportaba sobre el resumen del día. */}
-          <div
-            style={{
-              background: "var(--white)",
-              border: "1px solid var(--hairline)",
-              borderRadius: "var(--r-lg)",
-              padding: "20px 22px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
+          {/* Columna derecha del hero: stack vertical con Actividad
+              reciente arriba y Tu desempeño abajo. Director pidió
+              mover Desempeño acá para que el bloque inferior quede
+              solo con Tareas pendientes a ancho completo. */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Actividad reciente — solo el mensaje del asistente. */}
             <div
               style={{
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 14,
+                background: "var(--white)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "var(--r-lg)",
+                padding: "20px 22px",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              Actividad reciente
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}
+              >
+                Actividad reciente
+              </div>
+              <AgentDailySummary
+                userFirstName={userFirstName}
+                clients={clients}
+                tasks={tasks}
+                requests={requests}
+                leads={leads}
+              />
             </div>
-            <AgentDailySummary
-              userFirstName={userFirstName}
-              clients={clients}
-              tasks={tasks}
-              requests={requests}
-              leads={leads}
-            />
+
+            {/* Tu desempeño (movido desde el bloque inferior) */}
+            <div
+              style={{
+                background: "var(--white)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "var(--r-lg)",
+                padding: "20px 22px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Tu desempeño
+                </div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-muted)",
+                    padding: "2px 8px",
+                    background: "var(--ivory)",
+                    borderRadius: 999,
+                  }}
+                >
+                  Este mes
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  marginBottom: 16,
+                }}
+              >
+                <CircularGauge value={performance.score ?? 0} />
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                    }}
+                  >
+                    {performance.score == null
+                      ? "Sin tareas completadas"
+                      : performance.score >= 90
+                        ? "¡Excelente trabajo!"
+                        : performance.score >= 75
+                          ? "Vas muy bien"
+                          : performance.score >= 50
+                            ? "Buen ritmo"
+                            : "Hay margen para mejorar"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginTop: 4,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {performance.score == null
+                      ? "Completá tareas para empezar a medir tu desempeño del mes."
+                      : `${performance.onTime} de ${performance.total} tareas completadas en término.`}
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Tareas del mes:{" "}
+                <strong style={{ color: "var(--deep-green)" }}>
+                  {performance.onTime}
+                </strong>
+                /{performance.total} en término
+              </div>
+            </div>
           </div>
         </div>
 
@@ -491,12 +591,13 @@ export default function HubPage() {
           )}
         </div>
 
-        {/* ============ TAREAS PENDIENTES + DESEMPEÑO ============ */}
+        {/* ============ TAREAS PENDIENTES ============
+            Antes este bloque era un grid 1fr 340px con Tareas + Tu
+            desempeño. Tu desempeño se movió arriba (al lado de
+            Actividad reciente) — acá queda Tareas pendientes a
+            ancho completo. */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 340px",
-            gap: 20,
             marginBottom: 24,
           }}
         >
@@ -651,101 +752,6 @@ export default function HubPage() {
             </div>
           </div>
 
-          {/* Tu desempeño */}
-          <div
-            style={{
-              background: "var(--white)",
-              border: "1px solid var(--hairline)",
-              borderRadius: "var(--r-lg)",
-              padding: "20px 22px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginBottom: 16,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                  color: "var(--sand-dark)",
-                  fontWeight: 700,
-                }}
-              >
-                Tu desempeño
-              </div>
-              <span
-                style={{
-                  fontSize: 10,
-                  color: "var(--text-muted)",
-                  padding: "2px 8px",
-                  background: "var(--ivory)",
-                  borderRadius: 999,
-                }}
-              >
-                Este mes
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                marginBottom: 16,
-              }}
-            >
-              <CircularGauge value={performance.score ?? 0} />
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--deep-green)",
-                  }}
-                >
-                  {performance.score == null
-                    ? "Sin tareas completadas"
-                    : performance.score >= 90
-                      ? "¡Excelente trabajo!"
-                      : performance.score >= 75
-                        ? "Vas muy bien"
-                        : performance.score >= 50
-                          ? "Buen ritmo"
-                          : "Hay margen para mejorar"}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginTop: 4,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {performance.score == null
-                    ? "Completá tareas para empezar a medir tu desempeño del mes."
-                    : `${performance.onTime} de ${performance.total} tareas completadas en término.`}
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "var(--text-muted)",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Tareas del mes:{" "}
-              <strong style={{ color: "var(--deep-green)" }}>
-                {performance.onTime}
-              </strong>
-              /{performance.total} en término
-            </div>
-          </div>
         </div>
 
         {/* ============ PIPELINE DE VENTAS (solo con acceso) ============ */}
