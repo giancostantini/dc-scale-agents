@@ -182,21 +182,21 @@ export function PremiumClientes() {
   }, [periodMode, customFrom, customTo]);
 
   // ===== Stats: clasificar clientes =====
+  // Antes "activo" exigía status='active' Y al menos un payment paid
+  // en los últimos 3 meses. Eso dejaba afuera a clientes recién
+  // creados que todavía no facturaron — el director los necesitaba
+  // ver como activos desde el día 1. Ahora el criterio es más
+  // simple: si el status es 'active', es activo (salvo que esté en
+  // mora con 2+ facturas vencidas).
   function isClientActive(c: Client): boolean {
-    // active = status === 'active' AND tiene al menos 1 payment paid en
-    // últimos 3 meses (lo consideramos cliente con relación viva).
-    if (c.status !== "active") return false;
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-    const cutoffMk = cutoff.toISOString().slice(0, 7);
-    const hasRecentPayment = payments.some(
-      (p) => p.clientId === c.id && p.month >= cutoffMk && p.status === "paid",
-    );
-    return hasRecentPayment;
+    return c.status === "active";
   }
 
   function isClientMoroso(c: Client): boolean {
-    // Tiene 2+ payments pending/late de meses pasados
+    // Tiene 2+ payments pending/late de meses pasados.
+    // Solo aplica si el cliente está en status='active' — para
+    // clientes en onboarding/dev no medimos morosidad todavía.
+    if (c.status !== "active") return false;
     const now = new Date().toISOString().slice(0, 7);
     const overduePayments = payments.filter(
       (p) =>
@@ -210,7 +210,6 @@ export function PremiumClientes() {
   const classified = clients.map((c) => {
     const moroso = isClientMoroso(c);
     const active = !moroso && isClientActive(c);
-    const inactive = !active && !moroso;
     return {
       client: c,
       state: active ? "activo" : moroso ? "moroso" : "inactivo",
