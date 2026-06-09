@@ -119,6 +119,8 @@ function GPDashboard({
         eyebrow={`Growth Partner · ${client.method}`}
         title={client.name}
         subtitle={client.sector}
+        logoUrl={client.logo_url}
+        logoFallback={client.initials}
       >
         <span
           className={`${ui.phaseBadge} ${
@@ -386,6 +388,8 @@ function DevDashboard({
         eyebrow={`Desarrollo · ${client.method}`}
         title={client.name}
         subtitle={client.sector}
+        logoUrl={client.logo_url}
+        logoFallback={client.initials}
       >
         <span className={ui.phaseBadge}>{client.phase}</span>
       </WelcomeBanner>
