@@ -55,13 +55,15 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import {
-  addDividendHistoryExclude,
+  deleteDividendDistribution,
   distributeDividends,
   getDividendConfig,
-  listDividendHistoryExcludes,
+  listDividendDistributions,
   revenueMonthlyImpact,
   updateDividendConfig,
+  upsertDividendDistribution,
   type DividendConfig,
+  type DividendDistribution,
   type ManualRevenue,
 } from "@/lib/finanzas";
 import { effectiveFeeForMonth } from "@/lib/storage";
@@ -163,16 +165,25 @@ export function PremiumDividendos({
   // Modal detalle de un mes del historial
   const [detailRow, setDetailRow] = useState<HistRow | null>(null);
 
-  // Meses excluidos del historial (migración 055). Set para lookup
-  // rápido en el filter del history useMemo.
-  const [excludedMonths, setExcludedMonths] = useState<Set<string>>(new Set());
+  // Snapshots persistidos por mes (migración 057). Las distribuciones
+  // de meses cerrados se guardan acá una vez calculadas y NO se
+  // recalculan automáticamente — para auditoría. El director borra
+  // un snapshot si quiere forzar la regeneración con datos actuales.
+  const [distributions, setDistributions] = useState<DividendDistribution[]>(
+    [],
+  );
+  const distributionsByMonth = useMemo(() => {
+    const m = new Map<string, DividendDistribution>();
+    for (const d of distributions) m.set(d.month_key, d);
+    return m;
+  }, [distributions]);
 
   function refresh() {
     setLoading(true);
-    Promise.all([getDividendConfig(), listDividendHistoryExcludes()]).then(
-      ([c, excludes]) => {
+    Promise.all([getDividendConfig(), listDividendDistributions()]).then(
+      ([c, dists]) => {
         setConfig(c);
-        setExcludedMonths(new Set(excludes.map((e) => e.month_key)));
+        setDistributions(dists);
         if (c) {
           setEditForm({
             partner_a_pct: Number(c.partner_a_pct),
@@ -188,22 +199,38 @@ export function PremiumDividendos({
     );
   }
 
-  /** Excluye un mes del historial. Pide confirmación. */
+  /**
+   * Eliminar = regenerar. Borra el snapshot del mes, y la próxima
+   * carga (después del refresh) lo va a recrear con la data actual
+   * de payments/expenses/manualRevs.  Útil si el director cargó
+   * gastos faltantes después de que el sistema generara la
+   * distribución original.
+   */
   async function handleDeleteRow(r: HistRow) {
     if (
       !confirm(
-        `¿Eliminar la distribución de ${r.fecha} del historial?\n\nLos datos del mes (payments, expenses, etc) NO se borran — solo se oculta este mes del listado.`,
+        `¿Regenerar la distribución de ${r.fecha}?\n\nVa a borrar el snapshot guardado y a recalcularlo con los datos actuales del mes (payments, expenses, ingresos manuales). Hacelo después de cargar gastos olvidados.`,
       )
     ) {
       return;
     }
     try {
-      await addDividendHistoryExclude(r.monthKey, null);
-      toast.success("Distribución eliminada del historial");
+      await deleteDividendDistribution(r.monthKey);
+      toast.success("Snapshot borrado — se va a regenerar al recargar");
+      // Inmediatamente recalculamos y persistimos el snapshot nuevo
+      // con los datos actuales del mes.
+      if (config) {
+        const fresh = monthNet(r.monthKey);
+        try {
+          await upsertDividendDistribution(r.monthKey, fresh, config, false);
+        } catch {
+          // Silencioso — el refresh va a intentar persistir igual.
+        }
+      }
       refresh();
     } catch (err) {
       const e = err as Error;
-      toast.error("No se pudo eliminar", { description: e.message });
+      toast.error("No se pudo regenerar", { description: e.message });
     }
   }
 
@@ -305,6 +332,7 @@ export function PremiumDividendos({
     if (!config) return [];
     const out: HistRow[] = [];
     const monthsInPeriod = monthsBetween(period.from, period.to);
+    const curMonth = new Date().toISOString().slice(0, 7);
     for (const mk of monthsInPeriod) {
       // Solo contamos meses con ACTIVIDAD REAL DE CASH:
       //   - al menos 1 payment 'paid' del mes
@@ -320,18 +348,43 @@ export function PremiumDividendos({
           revenueMonthlyImpact(r, mk) > 0,
       );
       if (!hasPaidPayment && !hasExpense && !hasPaidManual) continue;
-      // Si el director "eliminó" esta distribución del historial,
-      // lo saltamos (migración 055).
-      if (excludedMonths.has(mk)) continue;
-      const net = monthNet(mk);
-      const dist = distributeDividends(net, config);
-      const importeDistribuido = dist.partnerA + dist.partnerB;
-      const saldoDisponible = dist.inversiones + dist.back;
+
+      // Prioridad: si hay snapshot del mes (migración 057), usamos
+      // esos números. Si no hay y el mes está cerrado, computamos
+      // ahora (en otro lugar disparamos el upsert para persistirlo).
+      // Si es el mes en curso, siempre computamos en vivo.
+      const snap = distributionsByMonth.get(mk);
+      let net: number;
+      let amounts: {
+        partnerA: number;
+        partnerB: number;
+        inversiones: number;
+        back: number;
+      };
+      if (snap && mk < curMonth) {
+        net = snap.net_profit;
+        amounts = {
+          partnerA: snap.partner_a_amount,
+          partnerB: snap.partner_b_amount,
+          inversiones: snap.inversiones_amount,
+          back: snap.back_amount,
+        };
+      } else {
+        net = monthNet(mk);
+        const dist = distributeDividends(net, config);
+        amounts = {
+          partnerA: dist.partnerA,
+          partnerB: dist.partnerB,
+          inversiones: dist.inversiones,
+          back: dist.back,
+        };
+      }
+      const importeDistribuido = amounts.partnerA + amounts.partnerB;
+      const saldoDisponible = amounts.inversiones + amounts.back;
       const [yy, mm] = mk.split("-").map(Number);
       const lastDay = new Date(yy, mm, 0).getDate();
       const fechaCierre = `${String(lastDay).padStart(2, "0")}/${String(mm).padStart(2, "0")}/${yy}`;
       // Estado: cerrado/pagada si el mes ya pasó, pendiente si es el mes en curso
-      const curMonth = new Date().toISOString().slice(0, 7);
       const estado: "pagada" | "pendiente" = mk < curMonth ? "pagada" : "pendiente";
       const sociosCount =
         (Number(config.partner_a_pct) > 0 ? 1 : 0) +
@@ -343,10 +396,10 @@ export function PremiumDividendos({
         fecha: fechaCierre,
         ejercicio: String(yy),
         net,
-        partnerA: dist.partnerA,
-        partnerB: dist.partnerB,
-        inversiones: dist.inversiones,
-        back: dist.back,
+        partnerA: amounts.partnerA,
+        partnerB: amounts.partnerB,
+        inversiones: amounts.inversiones,
+        back: amounts.back,
         importeDistribuido,
         saldoDisponible,
         sociosCount,
@@ -354,7 +407,43 @@ export function PremiumDividendos({
       });
     }
     return out.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-  }, [config, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules, excludedMonths]);
+  }, [config, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules, distributionsByMonth]);
+
+  /**
+   * Lazy auto-distribution: para cada mes CERRADO con actividad que
+   * no tenga snapshot, lo creamos automáticamente con los datos
+   * actuales. Esto reemplaza la necesidad de un cron mensual — la
+   * persistencia ocurre la próxima vez que alguien visita la página.
+   * Si querés un cron de verdad, hay un endpoint en
+   * /api/finanzas/auto-distribute que hace lo mismo server-side.
+   */
+  useEffect(() => {
+    if (!config || loading) return;
+    const curMonth = new Date().toISOString().slice(0, 7);
+    const missing: Array<{ mk: string; net: number }> = [];
+    for (const row of history) {
+      if (row.monthKey >= curMonth) continue; // solo meses cerrados
+      if (distributionsByMonth.has(row.monthKey)) continue;
+      missing.push({ mk: row.monthKey, net: row.net });
+    }
+    if (missing.length === 0) return;
+    void (async () => {
+      const results = await Promise.allSettled(
+        missing.map(({ mk, net }) =>
+          upsertDividendDistribution(mk, net, config, true),
+        ),
+      );
+      const failed = results.filter((r) => r.status === "rejected");
+      if (failed.length > 0) {
+        console.warn(
+          `[dividendos] ${failed.length} snapshots fallaron al auto-generar`,
+        );
+      }
+      const fresh = await listDividendDistributions();
+      setDistributions(fresh);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, config, loading]);
 
   // ===== KPIs del período =====
   // Utilidades = sum REAL de nets (puede ser negativo si hubo pérdida).
@@ -865,7 +954,7 @@ export function PremiumDividendos({
                         <button
                           onClick={() => handleDeleteRow(r)}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-danger hover:bg-danger/10 transition-colors"
-                          title="Eliminar del historial (no borra los datos transaccionales)"
+                          title="Regenerar distribución del mes — recalcula con los datos actuales (útil si cargaste gastos faltantes después)"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
