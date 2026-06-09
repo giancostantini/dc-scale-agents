@@ -395,9 +395,26 @@ export function PremiumDividendos({
       if (!isPaid) return s;
       return s + revenueMonthlyImpact(r, mk);
     }, 0);
-    const ex = expenses
-      .filter((e) => (e.date ?? "").startsWith(mk))
-      .reduce((s, e) => s + e.amount, 0);
+    // Egresos: bug previo — solo contaba e.date.startsWith(mk), lo
+    // que dejaba afuera los monthly_fixed para meses posteriores al
+    // de inicio. Ahora:
+    //   · one_time: cuenta solo en el mes de su date.
+    //   · monthly_fixed: cuenta en CADA mes desde su date hasta
+    //     recurrenceEndDate (o vigente si NULL), siempre que el mes
+    //     consultado caiga en ese rango.
+    const ex = expenses.reduce((s, e) => {
+      const dateMk = (e.date ?? "").slice(0, 7);
+      if (!dateMk) return s;
+      const amt = Number(e.amount) || 0;
+      if (e.recurrence === "monthly_fixed") {
+        // Vigente desde date hasta recurrenceEndDate (inclusive).
+        const endMk = e.recurrenceEndDate?.slice(0, 7) ?? "9999-99";
+        if (mk >= dateMk && mk <= endMk) return s + amt;
+        return s;
+      }
+      // one_time / default: solo el mes de la fecha.
+      return dateMk === mk ? s + amt : s;
+    }, 0);
     return feesPaid + manualImpact - ex;
   }
 
@@ -430,7 +447,17 @@ export function PremiumDividendos({
       const hasPaidPayment = payments.some(
         (p) => p.month === mk && p.status === "paid",
       );
-      const hasExpense = expenses.some((e) => (e.date ?? "").startsWith(mk));
+      // Mismo bug que monthNet: los monthly_fixed corren cada mes
+      // entre date y recurrenceEndDate, no solo el mes de start.
+      const hasExpense = expenses.some((e) => {
+        const dateMk = (e.date ?? "").slice(0, 7);
+        if (!dateMk) return false;
+        if (e.recurrence === "monthly_fixed") {
+          const endMk = e.recurrenceEndDate?.slice(0, 7) ?? "9999-99";
+          return mk >= dateMk && mk <= endMk;
+        }
+        return dateMk === mk;
+      });
       const hasPaidManual = manualRevs.some(
         (r) =>
           (r.status ?? "paid") === "paid" &&
