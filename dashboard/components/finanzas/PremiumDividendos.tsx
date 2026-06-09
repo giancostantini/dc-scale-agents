@@ -67,6 +67,7 @@ import {
   type DividendDistribution,
   type ManualRevenue,
 } from "@/lib/finanzas";
+import { listCuentas, type CuentaBancaria } from "@/lib/cuentas-bancarias";
 import { effectiveFeeForMonth } from "@/lib/storage";
 import type {
   Client,
@@ -76,7 +77,7 @@ import type {
 } from "@/lib/types";
 import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
-import { Field, Input } from "@/components/premium/Field";
+import { Field, Input, Select } from "@/components/premium/Field";
 import { cn } from "@/lib/cn";
 
 const MONTHS_SHORT_ES = [
@@ -173,6 +174,14 @@ export function PremiumDividendos({
   const [distributions, setDistributions] = useState<DividendDistribution[]>(
     [],
   );
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
+  // Modal para elegir cuenta al marcar como pagado.
+  const [payFromModal, setPayFromModal] = useState<{
+    monthKey: string;
+    fecha: string;
+    importe: number;
+    cuentaId: string;
+  } | null>(null);
   const distributionsByMonth = useMemo(() => {
     const m = new Map<string, DividendDistribution>();
     for (const d of distributions) m.set(d.month_key, d);
@@ -181,10 +190,15 @@ export function PremiumDividendos({
 
   function refresh() {
     setLoading(true);
-    Promise.all([getDividendConfig(), listDividendDistributions()]).then(
-      ([c, dists]) => {
+    Promise.all([
+      getDividendConfig(),
+      listDividendDistributions(),
+      listCuentas(),
+    ]).then(
+      ([c, dists, cs]) => {
         setConfig(c);
         setDistributions(dists);
+        setCuentas(cs.filter((cc) => cc.is_active));
         if (c) {
           setEditForm({
             partner_a_pct: Number(c.partner_a_pct),
@@ -244,29 +258,68 @@ export function PremiumDividendos({
    */
   async function handleToggleStatus(r: HistRow) {
     if (!config) return;
-    const newStatus: "paid" | "pending" =
-      r.estado === "pagada" ? "pending" : "paid";
-    try {
-      // Asegurar que el snapshot exista antes de cambiar el status.
-      if (!distributionsByMonth.has(r.monthKey)) {
-        await upsertDividendDistribution(
-          r.monthKey,
-          r.net,
-          config,
-          true,
+    // Caso pagada → pendiente: cambio directo. Esto también borra el
+    // movimiento bancario asociado vía syncDividendDistributionMovement.
+    if (r.estado === "pagada") {
+      try {
+        if (!distributionsByMonth.has(r.monthKey)) {
+          await upsertDividendDistribution(r.monthKey, r.net, config, true);
+        }
+        await setDividendDistributionStatus(r.monthKey, "pending", null);
+        toast.success(
+          "Marcada como pendiente — movimiento bancario asociado borrado",
         );
+        const fresh = await listDividendDistributions();
+        setDistributions(fresh);
+      } catch (err) {
+        const e = err as Error;
+        toast.error("No se pudo cambiar el estado", { description: e.message });
       }
-      await setDividendDistributionStatus(r.monthKey, newStatus);
+      return;
+    }
+
+    // Caso pendiente → pagada: abrir modal para elegir la cuenta
+    // desde la que se debitará. Pre-seleccionamos la primera cuenta
+    // activa de USD si existe. El submit del modal hace el guardado.
+    const importe =
+      Number(r.partnerA ?? 0) + Number(r.partnerB ?? 0);
+    const defaultCuenta =
+      cuentas.find((c) => c.currency === "USD" && c.is_active)?.id ??
+      cuentas[0]?.id ?? "";
+    setPayFromModal({
+      monthKey: r.monthKey,
+      fecha: r.fecha,
+      importe,
+      cuentaId: defaultCuenta,
+    });
+  }
+
+  /** Confirmar el pago: persistir status='paid' con la cuenta elegida. */
+  async function confirmMarkAsPaid() {
+    if (!payFromModal || !config) return;
+    const { monthKey, cuentaId } = payFromModal;
+    if (!cuentaId) {
+      toast.error("Elegí una cuenta bancaria primero.");
+      return;
+    }
+    try {
+      // Asegurar snapshot exista (idempotente).
+      if (!distributionsByMonth.has(monthKey)) {
+        const row = history.find((r) => r.monthKey === monthKey);
+        if (row) {
+          await upsertDividendDistribution(monthKey, row.net, config, true);
+        }
+      }
+      await setDividendDistributionStatus(monthKey, "paid", cuentaId);
       toast.success(
-        newStatus === "paid"
-          ? "Marcada como pagada"
-          : "Marcada como pendiente",
+        "Marcada como pagada — movimiento creado en la cuenta seleccionada",
       );
+      setPayFromModal(null);
       const fresh = await listDividendDistributions();
       setDistributions(fresh);
     } catch (err) {
       const e = err as Error;
-      toast.error("No se pudo cambiar el estado", { description: e.message });
+      toast.error("No se pudo marcar como pagada", { description: e.message });
     }
   }
 
@@ -1027,6 +1080,72 @@ export function PremiumDividendos({
           Mostrando {history.length} {history.length === 1 ? "distribución" : "distribuciones"} del período.
         </div>
       </div>
+
+      {/* Modal: elegir cuenta al marcar dividendo como pagado.
+          Crea un movimiento de salida automático en esa cuenta. */}
+      <Modal
+        open={!!payFromModal}
+        onClose={() => setPayFromModal(null)}
+        title="Marcar distribución como pagada"
+        description="Elegí la cuenta bancaria desde la que se debitó la transferencia a los socios. Se va a crear un movimiento de egreso automáticamente."
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPayFromModal(null)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={confirmMarkAsPaid}>
+              Confirmar pago
+            </Button>
+          </>
+        }
+      >
+        {payFromModal && (
+          <div className="space-y-4">
+            <div
+              style={{
+                padding: 14,
+                background: "rgba(196,168,130,0.08)",
+                borderLeft: "3px solid var(--sand-dark)",
+                borderRadius: 4,
+                fontSize: 13,
+              }}
+            >
+              <div style={{ marginBottom: 6 }}>
+                <strong>Mes:</strong> {payFromModal.fecha}
+              </div>
+              <div>
+                <strong>Importe a debitar:</strong> USD{" "}
+                {payFromModal.importe.toLocaleString("es-AR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>
+                  (Socio A + Socio B)
+                </span>
+              </div>
+            </div>
+            <Field label="Cuenta bancaria" required>
+              <Select
+                value={payFromModal.cuentaId}
+                onChange={(e) =>
+                  setPayFromModal((prev) =>
+                    prev ? { ...prev, cuentaId: e.target.value } : prev,
+                  )
+                }
+              >
+                <option value="">— Elegí una cuenta —</option>
+                {cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.bank_name} · {c.account_name || "Cuenta"} ·{" "}
+                    ****{c.last4} · {c.currency}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal Config */}
       <Modal

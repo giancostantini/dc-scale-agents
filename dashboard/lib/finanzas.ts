@@ -262,6 +262,10 @@ export interface DividendDistribution {
   generated_at: string;
   /** Estado editable — migración 058. Default 'pending'. */
   status: "paid" | "pending";
+  /** Cuenta bancaria desde la que se pagó (migración 061). NULL si
+   *  status='pending'. Cuando está seteada y status='paid', el
+   *  sistema mantiene un movimiento de egreso en esa cuenta. */
+  cuenta_id: string | null;
 }
 
 export async function listDividendDistributions(): Promise<
@@ -293,24 +297,121 @@ export async function listDividendDistributions(): Promise<
     generated_by: (r.generated_by as string | null) ?? null,
     generated_at: r.generated_at as string,
     status: (r.status === "paid" ? "paid" : "pending") as "paid" | "pending",
+    cuenta_id: (r.cuenta_id as string | null) ?? null,
   }));
 }
 
 /**
- * Cambia el estado de una distribución (paid/pending). Si el
- * snapshot del mes no existía, lo crea con los valores actuales y
- * el status pedido. Idempotente.
+ * Cambia el estado de una distribución (paid/pending) y opcionalmente
+ * setea la cuenta bancaria desde la que se pagó.  Cuando status='paid'
+ * y cuentaId está seteada, sincroniza un movimiento de salida en esa
+ * cuenta (idempotente vía marker en notes). Cuando vuelve a pending
+ * o se borra la cuenta, elimina el movimiento.
  */
 export async function setDividendDistributionStatus(
   monthKey: string,
   status: "paid" | "pending",
+  cuentaId: string | null = null,
 ): Promise<void> {
   const supabase = getSupabase();
+  // Si pasa a "pending", limpiamos la cuenta también (no aplica).
+  const effectiveCuentaId = status === "paid" ? cuentaId : null;
   const { error } = await supabase
     .from("dividend_distributions")
-    .update({ status })
+    .update({ status, cuenta_id: effectiveCuentaId })
     .eq("month_key", monthKey);
   if (error) throw error;
+  // Sincronizar movimiento bancario.
+  await syncDividendDistributionMovement(monthKey).catch((err) =>
+    console.warn(
+      "[setDividendDistributionStatus] sync movement failed:",
+      err,
+    ),
+  );
+}
+
+const DIVIDEND_MOVEMENT_MARKER = (monthKey: string) =>
+  `[auto-dividend:${monthKey}]`;
+
+/**
+ * Crea / actualiza / borra el movimiento bancario asociado al
+ * dividendo de un mes dado.
+ *
+ *   · Si status === 'paid' Y cuenta_id != NULL → upsert movimiento.
+ *   · En cualquier otro caso → borrar movimiento existente (si lo había).
+ *
+ * Importe: importeDistribuido = partner_a_amount + partner_b_amount
+ * (lo que efectivamente sale de la cuenta para ir a los socios).
+ */
+async function syncDividendDistributionMovement(
+  monthKey: string,
+): Promise<void> {
+  const supabase = getSupabase();
+  const marker = DIVIDEND_MOVEMENT_MARKER(monthKey);
+
+  // Leer el snapshot actual
+  const { data: snap } = await supabase
+    .from("dividend_distributions")
+    .select(
+      "month_key, status, cuenta_id, partner_a_amount, partner_b_amount",
+    )
+    .eq("month_key", monthKey)
+    .maybeSingle();
+
+  // Buscar movimiento existente con la marca
+  const { data: existing } = await supabase
+    .from("cuenta_movimientos")
+    .select("id")
+    .like("notes", `%${marker}%`)
+    .limit(1)
+    .maybeSingle();
+
+  const shouldHaveMovement =
+    !!snap && snap.status === "paid" && !!snap.cuenta_id;
+
+  if (!shouldHaveMovement) {
+    if (existing?.id) {
+      await supabase
+        .from("cuenta_movimientos")
+        .delete()
+        .eq("id", existing.id);
+    }
+    return;
+  }
+
+  const amount =
+    Number(snap!.partner_a_amount ?? 0) + Number(snap!.partner_b_amount ?? 0);
+
+  // Fecha: usar la fecha de cierre del mes (último día). Para
+  // simplificar, día 28 — siempre existe.
+  const [yy, mm] = monthKey.split("-").map(Number);
+  const lastDay = new Date(yy, mm, 0).getDate();
+  const fecha = `${yy}-${String(mm).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const monthLabel = new Date(`${monthKey}-01`).toLocaleDateString("es-AR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const movementBody = {
+    cuenta_id: snap!.cuenta_id as string,
+    fecha,
+    description: `Distribución dividendos · ${monthLabel}`,
+    category: "egreso" as const,
+    entry_amount: 0,
+    exit_amount: amount,
+    comprobante_id: null,
+    notes: marker,
+  };
+
+  if (existing?.id) {
+    await supabase
+      .from("cuenta_movimientos")
+      .update(movementBody)
+      .eq("id", existing.id);
+  } else {
+    await supabase.from("cuenta_movimientos").insert(movementBody);
+  }
 }
 
 /**
@@ -356,11 +457,21 @@ export async function upsertDividendDistribution(
  * Borra el snapshot de un mes. La próxima carga del Historial
  * detectará que falta y lo regenerará con los datos actuales —
  * útil para corregir si se agregaron gastos posteriormente.
+ *
+ * Si había un movimiento bancario asociado, lo borramos también para
+ * que el saldo se ajuste solo.
  */
 export async function deleteDividendDistribution(
   monthKey: string,
 ): Promise<void> {
   const supabase = getSupabase();
+  // Borrar movimiento asociado primero (si lo había)
+  const marker = DIVIDEND_MOVEMENT_MARKER(monthKey);
+  await supabase
+    .from("cuenta_movimientos")
+    .delete()
+    .like("notes", `%${marker}%`);
+
   const { error } = await supabase
     .from("dividend_distributions")
     .delete()
