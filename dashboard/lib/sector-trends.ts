@@ -35,8 +35,9 @@ export async function getLatestSectorTrendsByClient(): Promise<ClientTrends[]> {
   const { data: clients } = await admin
     .from("clients")
     .select("id, name, sector")
-    .eq("type", "gp")
-    .eq("status", "active");
+    // Todos los clientes de marketing (GP), incluidos los que están en
+    // onboarding (ej. WizTrip). Los DEV quedan afuera por type.
+    .eq("type", "gp");
 
   if (!clients || clients.length === 0) return [];
 

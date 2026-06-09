@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
   const { data: clients } = await admin
     .from("clients")
     .select("id, name, contact_email")
-    .eq("type", "gp")
-    .eq("status", "active");
+    // GP incluidos onboarding (ej. WizTrip); los DEV quedan afuera por type.
+    .eq("type", "gp");
 
   const results = { sent: 0, skipped: 0, errors: [] as string[] };
 

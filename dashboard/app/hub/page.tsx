@@ -451,62 +451,63 @@ export default function HubPage() {
                 /{performance.total} en término
               </div>
             </div>
+
+            {/* Tendencias del sector — acceso al consolidado (compacto) */}
+            <Link
+              href="/tendencias"
+              style={{
+                background: "var(--white)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "var(--r-lg)",
+                padding: "20px 22px",
+                textDecoration: "none",
+                color: "inherit",
+                display: "block",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Tendencias del sector
+                </div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--deep-green)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Ver →
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  lineHeight: 1.5,
+                }}
+              >
+                Consolidado de todos los clientes — qué funciona en cada nicho,
+                con sus fuentes.
+              </div>
+            </Link>
           </div>
         </div>
-
-        {/* ============ TENDENCIAS DEL SECTOR — acceso al consolidado ============ */}
-        <Link
-          href="/tendencias"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            background: "var(--white)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "var(--r-lg)",
-            padding: "18px 22px",
-            textDecoration: "none",
-            color: "inherit",
-            marginBottom: 24,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 6,
-              }}
-            >
-              Tendencias del sector
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--text-muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              Consolidado de todos los clientes — qué funciona en cada nicho
-              (contenido, tráfico, conversión), con sus fuentes. Actualizado
-              semanalmente.
-            </div>
-          </div>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--deep-green)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Ver consolidado →
-          </span>
-        </Link>
 
         {/* ============ ALERTAS — banner destacado ============ */}
         {(overdueTasks.length > 0 || pendingClientRequests > 0) && (
