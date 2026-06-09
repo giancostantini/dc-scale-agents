@@ -473,8 +473,14 @@ export default function HubPage() {
                             : "var(--text-muted)",
                     }}
                   >
+                    {/* Para clientes GP "active" decimos "Growth" para
+                        diferenciarlos del status genérico de Dev/Onboarding.
+                        Los DEV en status active (futuro) seguirían viéndose
+                        como "Activo". */}
                     {c.status === "active"
-                      ? "● Activo"
+                      ? c.type === "gp"
+                        ? "● Growth"
+                        : "● Activo"
                       : c.status === "onboarding"
                         ? "Onboarding"
                         : "Dev"}

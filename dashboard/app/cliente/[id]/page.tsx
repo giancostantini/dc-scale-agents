@@ -67,6 +67,7 @@ export default function ClienteDashboard({
       client={client}
       objectives={objectives}
       campaigns={campaigns}
+      tasks={tasks}
       isDirector={isDirector}
       pendingRequests={pendingRequests}
     />
@@ -85,16 +86,25 @@ function GPDashboard({
   client,
   objectives,
   campaigns,
+  tasks,
   isDirector,
   pendingRequests,
 }: {
   client: Client;
   objectives?: ClientObjectives;
   campaigns: ProductionCampaign[];
+  tasks: DevTask[];
   isDirector: boolean;
   pendingRequests: ClientRequest[];
 }) {
   const router = useRouter();
+  // Tareas pendientes del cliente (no done). Vencidas se calculan
+  // contra hoy.  Las usamos para la card "Tareas pendientes" abajo.
+  const today = new Date().toISOString().slice(0, 10);
+  const pendingTasks = tasks.filter((t) => t.status !== "done");
+  const overdueTasks = pendingTasks.filter(
+    (t) => t.dueDate && t.dueDate < today,
+  );
   // Las métricas de paid media y el presupuesto se sacaron del dashboard:
   // el primero vive ahora en Espor.ai + Looker Studio (Analítica),
   // el segundo en /campanas. Acá quedan: header, briefing,
@@ -135,6 +145,87 @@ function GPDashboard({
         clientId={client.id}
         requests={pendingRequests}
       />
+
+      {/* Card "Tareas pendientes" — solo aparece si hay tareas no done.
+          Linkea al módulo Tareas del cliente. Las vencidas se destacan
+          en rojo para que el equipo las priorice. */}
+      {pendingTasks.length > 0 && (
+        <button
+          type="button"
+          onClick={() => router.push(`/cliente/${client.id}/tareas`)}
+          className={ui.panel}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            cursor: "pointer",
+            marginBottom: 20,
+            borderLeft: overdueTasks.length > 0
+              ? "3px solid var(--red-warn)"
+              : "3px solid var(--sand)",
+            fontFamily: "inherit",
+            background: "var(--white)",
+            border: "1px solid rgba(10,26,12,0.08)",
+            padding: 18,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 28,
+              color: overdueTasks.length > 0 ? "var(--red-warn)" : "var(--sand-dark)",
+              flexShrink: 0,
+              lineHeight: 1,
+            }}
+          >
+            {overdueTasks.length > 0 ? "🚨" : "✓"}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: overdueTasks.length > 0 ? "var(--red-warn)" : "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 6,
+              }}
+            >
+              {overdueTasks.length > 0
+                ? "Atención requerida"
+                : "Tareas en curso"}
+            </div>
+            <div style={{ fontSize: 14, color: "var(--deep-green)", lineHeight: 1.5 }}>
+              <strong style={{ fontSize: 17, fontWeight: 700 }}>
+                {pendingTasks.length}
+              </strong>{" "}
+              tarea{pendingTasks.length === 1 ? "" : "s"} pendiente
+              {pendingTasks.length === 1 ? "" : "s"}
+              {overdueTasks.length > 0 && (
+                <>
+                  {" "}·{" "}
+                  <span style={{ color: "var(--red-warn)", fontWeight: 700 }}>
+                    {overdueTasks.length} vencida
+                    {overdueTasks.length === 1 ? "" : "s"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--deep-green)",
+              letterSpacing: "0.04em",
+              flexShrink: 0,
+            }}
+          >
+            Ver tareas →
+          </div>
+        </button>
+      )}
 
       <div>
         <div className={ui.panel}>
