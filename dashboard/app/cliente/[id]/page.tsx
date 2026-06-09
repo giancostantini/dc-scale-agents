@@ -227,6 +227,15 @@ function GPDashboard({
         </button>
       )}
 
+      {/* Presupuestos del mes — producciones + ads.
+          Solo aparece para clientes GP. Director puede editar; team
+          solo ve los números y la barra de saldo. */}
+      <ClientBudgetsPanel
+        clientId={client.id}
+        clientName={client.name}
+        isDirector={isDirector}
+      />
+
       <div>
         <div className={ui.panel}>
           <div className={ui.panelHead}>
@@ -927,6 +936,304 @@ function CountdownUnit({
 // Solo aparece si alguno está cargado. Si no, no mete ruido visual.
 // Las facturas se auto-rellenan con estos datos.
 // ============================================================
+// ============================================================
+// ClientBudgetsPanel — dos líneas de presupuesto mensual del cliente:
+// Producciones y Ads. Cada una muestra: monto seteado, gastado a la
+// fecha (sumado de expenses) y saldo disponible. Director puede
+// editar el monto inline.
+// ============================================================
+function ClientBudgetsPanel({
+  clientId,
+  clientName,
+  isDirector,
+}: {
+  clientId: string;
+  clientName: string;
+  isDirector: boolean;
+}) {
+  const [budgets, setBudgets] = useState<{
+    producciones: number;
+    ads: number;
+  }>({ producciones: 0, ads: 0 });
+  const [spent, setSpent] = useState<{ producciones: number; ads: number }>({
+    producciones: 0,
+    ads: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      import("@/lib/storage").then((m) =>
+        m.listClientMonthlyBudgets(clientId),
+      ),
+      import("@/lib/storage").then((m) => m.getExpenses()),
+    ]).then(([bdgs, exs]) => {
+      if (cancelled) return;
+      const monthBudgets = bdgs.filter((b) => b.month === currentMonth);
+      const prodB =
+        monthBudgets.find((b) => b.kind === "producciones")?.amount ?? 0;
+      const adsB = monthBudgets.find((b) => b.kind === "ads")?.amount ?? 0;
+      setBudgets({ producciones: prodB, ads: adsB });
+
+      // Spent: expenses asignados al cliente con fecha del mes en curso.
+      // Producciones: category="produccion" || mkt_budget link irrelevante.
+      // Ads: mkt_budget_client_id === client.id OR category="mkt_interno".
+      const expensesThisMonth = exs.filter(
+        (e) => (e.date ?? "").startsWith(currentMonth),
+      );
+      const prodSpent = expensesThisMonth
+        .filter(
+          (e) =>
+            e.assignedTo === clientName && e.category === "produccion",
+        )
+        .reduce((s, e) => s + Number(e.amount), 0);
+      const adsSpent = expensesThisMonth
+        .filter(
+          (e) =>
+            e.mktBudgetClientId === clientId ||
+            (e.assignedTo === clientName && e.category === "mkt_interno"),
+        )
+        .reduce((s, e) => s + Number(e.amount), 0);
+      setSpent({ producciones: prodSpent, ads: adsSpent });
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, clientName, currentMonth]);
+
+  if (loading) return null;
+
+  const monthLabel = new Date(`${currentMonth}-01`).toLocaleDateString(
+    "es-AR",
+    { month: "long", year: "numeric" },
+  );
+
+  return (
+    <div className={ui.panel} style={{ marginBottom: 20 }}>
+      <div className={ui.panelHead}>
+        <div>
+          <div className={ui.panelTitle}>Presupuestos del mes</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+            {monthLabel} · {isDirector ? "Editá el monto haciendo click en el número" : "Solo lectura"}
+          </div>
+        </div>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 14,
+        }}
+      >
+        <BudgetLine
+          label="Producciones"
+          budget={budgets.producciones}
+          spent={spent.producciones}
+          isDirector={isDirector}
+          onUpdate={async (newAmount) => {
+            const { upsertClientMonthlyBudget } = await import("@/lib/storage");
+            await upsertClientMonthlyBudget(
+              clientId,
+              currentMonth,
+              "producciones",
+              newAmount,
+            );
+            setBudgets((b) => ({ ...b, producciones: newAmount }));
+          }}
+        />
+        <BudgetLine
+          label="Ads"
+          budget={budgets.ads}
+          spent={spent.ads}
+          isDirector={isDirector}
+          onUpdate={async (newAmount) => {
+            const { upsertClientMonthlyBudget } = await import("@/lib/storage");
+            await upsertClientMonthlyBudget(
+              clientId,
+              currentMonth,
+              "ads",
+              newAmount,
+            );
+            setBudgets((b) => ({ ...b, ads: newAmount }));
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function BudgetLine({
+  label,
+  budget,
+  spent,
+  isDirector,
+  onUpdate,
+}: {
+  label: string;
+  budget: number;
+  spent: number;
+  isDirector: boolean;
+  onUpdate: (amount: number) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(budget));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(budget));
+  }, [budget, editing]);
+
+  const available = budget - spent;
+  const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+  const overBudget = budget > 0 && spent > budget;
+
+  async function save() {
+    const v = Number(draft);
+    if (!Number.isFinite(v) || v < 0) {
+      setEditing(false);
+      setDraft(String(budget));
+      return;
+    }
+    setSaving(true);
+    try {
+      await onUpdate(v);
+      setEditing(false);
+    } catch (e) {
+      alert(`No se pudo guardar: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        padding: 16,
+        background: "var(--white)",
+        border: "1px solid var(--hairline)",
+        borderRadius: "var(--r-md)",
+        borderLeft: `3px solid ${overBudget ? "var(--red-warn)" : "var(--sand)"}`,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 700,
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </div>
+
+      {/* Presupuesto (editable) */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Presupuesto:</span>
+        {editing ? (
+          <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>US$</span>
+            <input
+              type="number"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={save}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") save();
+                if (e.key === "Escape") {
+                  setEditing(false);
+                  setDraft(String(budget));
+                }
+              }}
+              autoFocus
+              disabled={saving}
+              style={{
+                width: 100,
+                padding: "4px 6px",
+                fontSize: 14,
+                fontFamily: "inherit",
+                border: "1px solid var(--sand-dark)",
+                borderRadius: 4,
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                outline: "none",
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => isDirector && setEditing(true)}
+            disabled={!isDirector}
+            style={{
+              padding: 0,
+              background: "transparent",
+              border: "none",
+              fontSize: 16,
+              fontWeight: 700,
+              color: "var(--deep-green)",
+              cursor: isDirector ? "pointer" : "default",
+              fontFamily: "inherit",
+              textDecoration: isDirector ? "underline dotted var(--sand)" : "none",
+              textUnderlineOffset: 4,
+            }}
+            title={isDirector ? "Click para editar" : ""}
+          >
+            US$ {budget.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </button>
+        )}
+      </div>
+
+      {/* Gastado + disponible */}
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
+        Gastado:{" "}
+        <strong style={{ color: "var(--deep-green)" }}>
+          US$ {spent.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </strong>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
+        Disponible:{" "}
+        <strong style={{ color: overBudget ? "var(--red-warn)" : "var(--green-ok)" }}>
+          US$ {available.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </strong>
+        {overBudget && (
+          <span style={{ marginLeft: 6, color: "var(--red-warn)", fontWeight: 700 }}>
+            ⚠ excedido
+          </span>
+        )}
+      </div>
+
+      {/* Barra de progreso */}
+      <div
+        style={{
+          height: 6,
+          background: "var(--off-white)",
+          borderRadius: 3,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            background: overBudget
+              ? "var(--red-warn)"
+              : pct > 80
+                ? "var(--sand-dark)"
+                : "var(--green-ok)",
+            transition: "width 0.3s",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function BillingInfoBar({ client }: { client: Client }) {
   const razon = client.razon_social?.trim();
   const rut = client.rut?.trim();

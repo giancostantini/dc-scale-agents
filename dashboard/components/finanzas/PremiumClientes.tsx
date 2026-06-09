@@ -47,14 +47,19 @@ import {
 import {
   effectiveFeeForMonth,
   getClients,
+  getExpenses,
   getPayments,
   listFeeSchedules,
   updateClientFee,
   upsertFeeSchedule,
 } from "@/lib/storage";
+import { listAllAssignments, listProfiles } from "@/lib/team";
+import type { Profile } from "@/lib/supabase/auth";
+import type { ClientAssignment } from "@/lib/supabase/auth";
 import type {
   Client,
   ClientFeeSchedule,
+  Expense,
   InvoicePayment,
 } from "@/lib/types";
 import { Button } from "@/components/premium/Button";
@@ -86,6 +91,9 @@ export function PremiumClientes() {
   const [clients, setClients] = useState<Client[]>([]);
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [feeSchedules, setFeeSchedules] = useState<ClientFeeSchedule[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Default = YTD (enero → mes corriente). El director pidió que no
@@ -111,14 +119,22 @@ export function PremiumClientes() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([getClients(), getPayments(), listFeeSchedules()]).then(
-      ([c, p, fs]) => {
-        setClients(c);
-        setPayments(p);
-        setFeeSchedules(fs);
-        setLoading(false);
-      },
-    );
+    Promise.all([
+      getClients(),
+      getPayments(),
+      listFeeSchedules(),
+      getExpenses(),
+      listProfiles(),
+      listAllAssignments(),
+    ]).then(([c, p, fs, ex, profs, asg]) => {
+      setClients(c);
+      setPayments(p);
+      setFeeSchedules(fs);
+      setExpenses(ex);
+      setProfiles(profs);
+      setAssignments(asg);
+      setLoading(false);
+    });
   }
 
   useEffect(() => {
@@ -243,7 +259,39 @@ export function PremiumClientes() {
         saldoPendiente += fee;
       }
     }
-    return { cobrado, saldoPendiente };
+
+    // ===== Costos asociados =====
+    // 1) Egresos cuyo `assignedTo` matchea el nombre del cliente y
+    //    cuya fecha cae en el período. Suma directa.
+    const egresosAsignados = expenses
+      .filter((e) => e.assignedTo === c.name)
+      .filter((e) => {
+        const mk = (e.date ?? "").slice(0, 7);
+        return mk >= period.from && mk <= period.to;
+      })
+      .reduce((s, e) => s + Number(e.amount), 0);
+
+    // 2) Funcionales asociados: team members con asignación activa
+    //    a este cliente y payment_type === "por_cliente". Sumamos
+    //    su payment_amount × cantidad de meses en el período.
+    //    (Los "fijo" / "por_proyecto" no se atribuyen completamente
+    //    a un cliente — son costos compartidos.)
+    const monthsCount = periodMonths.length;
+    const funcionalesAsignados = assignments
+      .filter((a) => a.client_id === c.id)
+      .reduce((s, a) => {
+        const profile = profiles.find((p) => p.id === a.user_id);
+        if (!profile) return s;
+        if (profile.payment_type !== "por_cliente") return s;
+        const monthly = Number(profile.payment_amount ?? 0);
+        if (!Number.isFinite(monthly) || monthly <= 0) return s;
+        return s + monthly * monthsCount;
+      }, 0);
+
+    const costosAsociados = egresosAsignados + funcionalesAsignados;
+    const margenNeto = cobrado - costosAsociados;
+
+    return { cobrado, saldoPendiente, costosAsociados, margenNeto };
   }
 
   const cobradoPromedio =
@@ -382,7 +430,8 @@ export function PremiumClientes() {
       "Teléfono",
       "Estado",
       "Cobrado YTD",
-      "Saldo Pendiente",
+      "Costos Asociados",
+      "Margen Neto",
     ];
     const rows = filteredList.map((row) =>
       [
@@ -391,8 +440,9 @@ export function PremiumClientes() {
         row.c.contact_email ?? "",
         row.c.contact_phone ?? "",
         row.classification,
-        row.finances.cobrado.toFixed(0),
-        row.finances.saldoPendiente.toFixed(0),
+        row.finances.cobrado.toFixed(2),
+        row.finances.costosAsociados.toFixed(2),
+        row.finances.margenNeto.toFixed(2),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(","),
@@ -712,7 +762,8 @@ export function PremiumClientes() {
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Teléfono</th>
                 <th className="text-left px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Estado</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Cobrado YTD</th>
-                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Saldo Pendiente</th>
+                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300" title="Egresos asignados al cliente + funcionales por_cliente del período">Costos Asociados</th>
+                <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300" title="Cobrado - Costos Asociados">Margen Neto</th>
                 <th className="text-right px-4 py-3 text-2xs uppercase tracking-[0.08em] font-semibold text-ink-300">Acciones</th>
               </tr>
             </thead>
@@ -720,7 +771,7 @@ export function PremiumClientes() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-rule-soft">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="skeleton h-3.5 w-3/4" /></td>
                     ))}
                   </tr>
@@ -744,8 +795,22 @@ export function PremiumClientes() {
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
                       {formatMoney(row.finances.cobrado)}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-ink">
-                      {formatMoney(row.finances.saldoPendiente)}
+                    <td
+                      className="px-4 py-3 text-right tabular-nums text-ink-500"
+                      title="Egresos asignados + funcionales por_cliente"
+                    >
+                      {formatMoney(row.finances.costosAsociados)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right tabular-nums font-semibold ${
+                        row.finances.margenNeto > 0
+                          ? "text-success"
+                          : row.finances.margenNeto < 0
+                            ? "text-danger"
+                            : "text-ink"
+                      }`}
+                    >
+                      {formatMoney(row.finances.margenNeto)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">

@@ -1300,6 +1300,67 @@ async function deleteLinkedExpenseMovements(expenseId: string): Promise<void> {
     .like("notes", `%${marker}%`);
 }
 
+// ==================== CLIENT MONTHLY BUDGETS (migración 060) ====================
+// Presupuestos mensuales por (cliente, mes, tipo). Tipo es
+// "producciones" | "ads". Se muestran en el dashboard del cliente.
+
+export type BudgetKind = "producciones" | "ads";
+
+export interface ClientMonthlyBudget {
+  client_id: string;
+  month: string;
+  kind: BudgetKind;
+  amount: number;
+  currency: string;
+  notes: string | null;
+  updated_at: string;
+}
+
+export async function listClientMonthlyBudgets(
+  clientId: string,
+): Promise<ClientMonthlyBudget[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("client_monthly_budgets")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("month", { ascending: false });
+  if (error) {
+    console.error("listClientMonthlyBudgets:", error);
+    return [];
+  }
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    client_id: r.client_id as string,
+    month: r.month as string,
+    kind: r.kind as BudgetKind,
+    amount: Number(r.amount ?? 0),
+    currency: (r.currency as string) ?? "USD",
+    notes: (r.notes as string | null) ?? null,
+    updated_at: r.updated_at as string,
+  }));
+}
+
+export async function upsertClientMonthlyBudget(
+  clientId: string,
+  month: string,
+  kind: BudgetKind,
+  amount: number,
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("client_monthly_budgets")
+    .upsert(
+      {
+        client_id: clientId,
+        month,
+        kind,
+        amount,
+      },
+      { onConflict: "client_id,month,kind" },
+    );
+  if (error) throw error;
+}
+
 // ==================== CLIENT MKT BUDGETS ====================
 
 interface MktBudgetRow {
