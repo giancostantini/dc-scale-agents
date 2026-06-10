@@ -1355,21 +1355,26 @@ export default function ContenidoPage({
           onSubmit={async (draft) => {
             setSavingNewIdea(true);
             try {
-              await addContent({
-                clientId: id,
-                date: draft.date,
-                time: draft.time || null,
-                network: draft.network,
-                format: draft.format,
-                brief: draft.brief,
-                idea: draft.idea || null,
-                copy: draft.copy || null,
-                cta: draft.cta || null,
-                influencer: null,
-                assignedTo: null,
-                status: "draft",
-                source: "manual",
-              });
+              // Una pieza por cada red seleccionada. Si solo eligió
+              // una, es 1 sola pieza. Si eligió 2, son 2 piezas con
+              // mismo contenido pero códigos C-XXXX distintos.
+              for (const net of draft.networks) {
+                await addContent({
+                  clientId: id,
+                  date: draft.date,
+                  time: draft.time || null,
+                  network: net,
+                  format: draft.format,
+                  brief: draft.brief,
+                  idea: draft.idea || null,
+                  copy: draft.copy || null,
+                  cta: draft.cta || null,
+                  influencer: null,
+                  assignedTo: null,
+                  status: "draft",
+                  source: "manual",
+                });
+              }
               setShowNewIdea(false);
               refresh();
             } catch (err) {
@@ -1925,7 +1930,9 @@ function CompactKpi({
 interface NewIdeaDraft {
   date: string;
   time: string;
-  network: ContentNetwork;
+  /** Una o varias redes — al guardar se crea una pieza por cada red
+   *  seleccionada (todas con el mismo idea/copy/brief, codes distintos). */
+  networks: ContentNetwork[];
   format: ContentFormat;
   idea: string;
   copy: string;
@@ -1947,7 +1954,7 @@ function NewIdeaModal({
   const [draft, setDraft] = useState<NewIdeaDraft>({
     date: todayISO,
     time: "",
-    network: "ig",
+    networks: ["ig"],
     format: "post",
     idea: "",
     copy: "",
@@ -1956,7 +1963,18 @@ function NewIdeaModal({
   });
 
   const isAnuncio = draft.format === "anuncio";
-  const canSave = draft.date && draft.idea.trim().length > 0;
+  const canSave =
+    draft.date && draft.idea.trim().length > 0 && draft.networks.length > 0;
+
+  function toggleNetwork(n: ContentNetwork) {
+    setDraft((prev) => {
+      const has = prev.networks.includes(n);
+      const next = has
+        ? prev.networks.filter((x) => x !== n)
+        : [...prev.networks, n];
+      return { ...prev, networks: next };
+    });
+  }
 
   return (
     <div
@@ -2043,41 +2061,81 @@ function NewIdeaModal({
           </div>
         </div>
 
-        {/* Fila: red + formato */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div>
-            <ModalLabel>Red *</ModalLabel>
-            <select
-              value={draft.network}
-              onChange={(e) =>
-                setDraft({ ...draft, network: e.target.value as ContentNetwork })
-              }
-              style={modalInput}
-            >
-              {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => (
-                <option key={n} value={n}>
-                  {NETWORK_LABEL[n]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <ModalLabel>Formato *</ModalLabel>
-            <select
-              value={draft.format}
-              onChange={(e) =>
-                setDraft({ ...draft, format: e.target.value as ContentFormat })
-              }
-              style={modalInput}
-            >
-              {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
-                <option key={f} value={f}>
-                  {FORMAT_LABEL[f]}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Fila: redes (multi-select) + formato.
+            Si seleccionás más de una red, al guardar se crea una pieza
+            independiente por cada red (mismo idea/copy/brief, código
+            propio cada una). Ideal para postear el mismo contenido en
+            IG + FB el mismo día. */}
+        <ModalLabel>Redes * (podés elegir más de una)</ModalLabel>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
+            const checked = draft.networks.includes(n);
+            return (
+              <button
+                type="button"
+                key={n}
+                onClick={() => toggleNetwork(n)}
+                style={{
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  background: checked ? "var(--deep-green)" : "var(--white)",
+                  color: checked ? "var(--off-white)" : "var(--deep-green)",
+                  border: `1px solid ${
+                    checked ? "var(--deep-green)" : "rgba(10,26,12,0.15)"
+                  }`,
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "all 0.15s",
+                }}
+              >
+                {checked && "✓ "}
+                {NETWORK_LABEL[n]}
+              </button>
+            );
+          })}
         </div>
+        {draft.networks.length > 1 && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--sand-dark)",
+              fontStyle: "italic",
+              marginBottom: 12,
+              padding: "8px 10px",
+              background: "rgba(196,168,130,0.08)",
+              borderLeft: "2px solid var(--sand-dark)",
+              borderRadius: 4,
+            }}
+          >
+            Se van a crear {draft.networks.length} piezas — una por red,
+            todas con el mismo idea/copy/brief.
+          </div>
+        )}
+
+        <ModalLabel>Formato *</ModalLabel>
+        <select
+          value={draft.format}
+          onChange={(e) =>
+            setDraft({ ...draft, format: e.target.value as ContentFormat })
+          }
+          style={modalInput}
+        >
+          {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
+            <option key={f} value={f}>
+              {FORMAT_LABEL[f]}
+            </option>
+          ))}
+        </select>
 
         <ModalLabel>Idea *</ModalLabel>
         <textarea
