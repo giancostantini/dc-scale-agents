@@ -202,10 +202,28 @@ export default function HubPage() {
     return { score, total: monthlyDone.length, onTime };
   }, [tasks]);
 
+  /**
+   * Lista de tareas pendientes que aparece en el panel del hub.
+   * Filtramos a SOLO LAS TAREAS DEL USUARIO LOGUEADO — antes la
+   * lista mostraba tareas de todo el equipo (con el viewer mirando
+   * tareas de otros sin acción). Match por primer nombre del perfil
+   * dentro del campo `assignee` (texto libre tipo
+   * "Federico · Director").
+   *
+   * Si el perfil no se cargó todavía, mostramos lista vacía.
+   * El conteo agregado "Tareas pendientes del equipo" sigue
+   * mostrando el total del equipo en su KPI card.
+   */
   const pendingTasksList = useMemo(() => {
+    if (!profile) return [] as DevTask[];
+    const firstName = profile.name.split(" ")[0]?.toLowerCase();
+    if (!firstName) return [] as DevTask[];
     const today = new Date().toISOString().slice(0, 10);
     return tasks
       .filter((t) => t.status !== "done")
+      .filter((t) =>
+        (t.assignee ?? "").toLowerCase().includes(firstName),
+      )
       .sort((a, b) => {
         const aOverdue = (a.dueDate ?? "9999") < today;
         const bOverdue = (b.dueDate ?? "9999") < today;
@@ -214,7 +232,7 @@ export default function HubPage() {
         return (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
       })
       .slice(0, 4);
-  }, [tasks]);
+  }, [tasks, profile]);
 
   if (!authChecked || !profile) return null;
   const userFirstName = profile.name.split(" ")[0];
@@ -690,11 +708,11 @@ export default function HubPage() {
                   fontWeight: 700,
                 }}
               >
-                Tareas pendientes
+                Mis tareas pendientes
               </div>
               {/* "Ver todas" eliminado — la pantalla global /tareas ya no
                   vive en el menú. Las tareas se muestran inline en este
-                  dashboard. */}
+                  dashboard. Ahora filtramos a SOLO las del usuario. */}
               <span
                 style={{
                   fontSize: 11,
@@ -716,7 +734,7 @@ export default function HubPage() {
                   fontStyle: "italic",
                 }}
               >
-                Todo al día. Sin tareas pendientes.
+                Todo al día. Sin tareas asignadas a vos.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
