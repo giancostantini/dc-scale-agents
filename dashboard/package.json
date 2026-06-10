@@ -29,7 +29,8 @@
     "remark-gfm": "^4.0.1",
     "resend": "^6.12.2",
     "sonner": "^1.7.4",
-    "tailwind-merge": "^2.6.1"
+    "tailwind-merge": "^2.6.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20",

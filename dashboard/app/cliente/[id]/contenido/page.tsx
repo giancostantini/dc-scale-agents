@@ -169,17 +169,21 @@ function extractCountFromMessage(msg: string): number | undefined {
 }
 
 /**
- * Genera y descarga un CSV (UTF-8 con BOM) con los contenidos
- * filtrados. Excel/Numbers lo abre directamente como hoja de cálculo
- * sin requerir conversión. Usamos CSV en vez de XLSX nativo para
- * evitar sumar una dep pesada (sheetjs ~600KB) al bundle.
+ * Genera y descarga un archivo .xlsx (Excel nativo) con los contenidos
+ * filtrados. Usamos SheetJS (xlsx package, ~600KB lazy-loaded) para
+ * producir un workbook real que Excel abre sin advertencias y con
+ * los anchos de columna ajustados.
+ *
+ * El bundle de xlsx se importa dinámicamente para no inflar el bundle
+ * inicial de la página — solo se carga cuando el director clickea
+ * Descargar Excel.
  */
-function downloadContenidoCSV(
+async function downloadContenidoCSV(
   posts: ContentPost[],
   clientName: string,
   teamMembers: Profile[],
   codeFallback: Map<string, string>,
-): void {
+): Promise<void> {
   if (posts.length === 0) return;
   const memberById = new Map(teamMembers.map((m) => [m.id, m.name]));
   const header = [
@@ -196,47 +200,54 @@ function downloadContenidoCSV(
     "Estado",
     "Brief",
   ];
-  // Escape CSV: si tiene coma, salto de línea o comilla, envolver en
-  // comillas dobles y duplicar comillas internas.
-  const esc = (v: string | null | undefined): string => {
-    const s = (v ?? "").toString();
-    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const lines = [header.map(esc).join(",")];
-  posts.forEach((p) => {
-    lines.push(
-      [
-        codeOf(p, codeFallback),
-        p.date,
-        p.time ?? "",
-        NETWORK_LABEL[p.network] ?? p.network,
-        FORMAT_LABEL[p.format] ?? p.format,
-        p.idea ?? "",
-        p.copy ?? "",
-        p.cta ?? "",
-        p.influencer ?? "",
-        (p.assignedTo && memberById.get(p.assignedTo)) ?? "",
-        STATUS_LABEL[p.status],
-        p.brief ?? "",
-      ]
-        .map(esc)
-        .join(","),
-    );
-  });
-  // BOM ﻿ para que Excel detecte UTF-8 (acentos, ñ).
-  const csv = "﻿" + lines.join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
+  const rows = posts.map((p) => [
+    codeOf(p, codeFallback),
+    p.date,
+    p.time ?? "",
+    NETWORK_LABEL[p.network] ?? p.network,
+    FORMAT_LABEL[p.format] ?? p.format,
+    p.idea ?? "",
+    p.copy ?? "",
+    p.cta ?? "",
+    p.influencer ?? "",
+    (p.assignedTo && memberById.get(p.assignedTo)) ?? "",
+    STATUS_LABEL[p.status],
+    p.brief ?? "",
+  ]);
+
+  // Lazy-load del paquete xlsx — pesa pero solo se carga cuando se
+  // descarga (no en cada visita a la página).
+  const XLSX = await import("xlsx");
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+
+  // Anchos aproximados por columna — Excel los respeta al abrir.
+  ws["!cols"] = [
+    { wch: 10 }, // Código
+    { wch: 12 }, // Fecha
+    { wch: 6 },  // Hora
+    { wch: 12 }, // Red
+    { wch: 10 }, // Formato
+    { wch: 40 }, // Idea
+    { wch: 50 }, // Copy
+    { wch: 18 }, // CTA
+    { wch: 15 }, // Influencer
+    { wch: 18 }, // Asignado a
+    { wch: 12 }, // Estado
+    { wch: 50 }, // Brief
+  ];
+
+  // Wrap text en las columnas con texto largo + freeze de la
+  // primera fila para que el header quede pegado al hacer scroll.
+  ws["!freeze"] = { xSplit: 0, ySplit: 1 } as unknown as undefined;
+
+  const wb = XLSX.utils.book_new();
+  // El nombre de hoja en Excel no puede tener: \/:?*[]
+  const sheetName = "Contenido";
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
   const safeName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const today = new Date().toISOString().slice(0, 10);
-  a.download = `contenido-${safeName}-${today}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  XLSX.writeFile(wb, `contenido-${safeName}-${today}.xlsx`);
 }
 
 /**
@@ -851,7 +862,7 @@ export default function ContenidoPage({
             borderRadius: 4,
             opacity: sortedFiltered.length === 0 ? 0.4 : 1,
           }}
-          title="Descargar listado de contenidos visibles como Excel (CSV UTF-8 con BOM — se abre directo en Excel/Numbers)"
+          title="Descarga un archivo .xlsx que se abre directo en Excel / Numbers / Sheets"
         >
           ⬇ Descargar Excel
         </button>
