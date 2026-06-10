@@ -157,8 +157,17 @@ async function processNotification(
     .maybeSingle();
 
   let resolvedClientId: string | null = null;
+  // client_label es NOT NULL en cal_events — sin valor el INSERT falla en
+  // silencio. Resolvemos el nombre del cliente si matchea; si no, "Personal".
+  let resolvedClientLabel = "Personal";
   if (profile?.role === "client" && profile.client_id) {
     resolvedClientId = profile.client_id;
+    const { data: ownClient } = await admin
+      .from("clients")
+      .select("name")
+      .eq("id", profile.client_id)
+      .maybeSingle();
+    resolvedClientLabel = ownClient?.name ?? profile.client_id;
   } else {
     // team/director — match por attendees
     const attendeeEmails = (event.attendees ?? [])
@@ -167,10 +176,14 @@ async function processNotification(
     if (attendeeEmails.length > 0) {
       const { data: matched } = await admin
         .from("clients")
-        .select("id")
+        .select("id, name")
         .in("contact_email", attendeeEmails)
         .limit(1);
-      resolvedClientId = matched?.[0]?.id ?? null;
+      const m = matched?.[0];
+      if (m) {
+        resolvedClientId = m.id;
+        resolvedClientLabel = m.name;
+      }
     }
   }
 
@@ -182,6 +195,7 @@ async function processNotification(
     {
       owner_user_id: userId,
       client_id: resolvedClientId,
+      client_label: resolvedClientLabel,
       title: event.subject || "(sin título)",
       date: startDate,
       time: startTime,
