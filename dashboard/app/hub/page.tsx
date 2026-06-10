@@ -317,6 +317,119 @@ export default function HubPage() {
                 }
               />
             </div>
+
+            {/* ============ MIS CLIENTES (dentro del hero verde) ============
+                Antes este grid vivía en una sección aparte abajo del
+                hero. El director pidió moverlo acá adentro, debajo de
+                las métricas, para tener todo el contexto del hub en
+                un mismo bloque visual. */}
+            {clients.length > 0 && (
+              <div style={{ marginTop: 28 }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--sand)",
+                    fontWeight: 700,
+                    marginBottom: 14,
+                  }}
+                >
+                  {profile.role === "director"
+                    ? `Todos los clientes (${clients.length})`
+                    : `Mis clientes (${clients.length})`}
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(170px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  {clients.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/cliente/${c.id}`}
+                      style={{
+                        background: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(232,228,220,0.12)",
+                        borderRadius: "var(--r-md)",
+                        padding: 14,
+                        textDecoration: "none",
+                        color: "inherit",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        textAlign: "center",
+                        transition: "background 0.15s",
+                        backdropFilter: "blur(2px)",
+                      }}
+                    >
+                      <ClientLogo client={c} size={56} />
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "var(--off-white)",
+                          marginTop: 10,
+                          marginBottom: 2,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          width: "100%",
+                        }}
+                      >
+                        {c.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "rgba(232,228,220,0.5)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          width: "100%",
+                        }}
+                      >
+                        {c.sector}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          padding: "2px 7px",
+                          fontSize: 8.5,
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          borderRadius: 999,
+                          background:
+                            c.status === "active"
+                              ? "rgba(132,217,166,0.16)"
+                              : c.status === "onboarding"
+                                ? "rgba(196,168,130,0.22)"
+                                : "rgba(232,228,220,0.12)",
+                          color:
+                            c.status === "active"
+                              ? "rgba(132,217,166,0.95)"
+                              : c.status === "onboarding"
+                                ? "var(--sand)"
+                                : "rgba(232,228,220,0.7)",
+                        }}
+                      >
+                        {c.status === "active"
+                          ? c.type === "gp"
+                            ? "● Growth"
+                            : "● Activo"
+                          : c.status === "onboarding"
+                            ? "Onboarding"
+                            : "Dev"}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Columna derecha del hero: stack vertical con Actividad
@@ -518,133 +631,28 @@ export default function HubPage() {
           />
         )}
 
-        {/* ============ MIS CLIENTES (grid con logos) ============ */}
-        <div style={{ marginBottom: 24 }}>
+        {/* ============ MIS CLIENTES — EMPTY STATE ============
+            La grid de clientes vive ahora DENTRO del hero verde (ver
+            arriba). Acá solo dejamos el mensaje cuando no hay clientes,
+            con su contraste fuera del hero. */}
+        {clients.length === 0 && (
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              marginBottom: 14,
+              background: "var(--white)",
+              border: "1px dashed var(--hairline)",
+              borderRadius: "var(--r-lg)",
+              padding: 40,
+              textAlign: "center",
+              color: "var(--text-muted)",
+              fontSize: 13,
+              marginBottom: 24,
             }}
           >
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-              }}
-            >
-              {profile.role === "director"
-                ? `Todos los clientes (${clients.length})`
-                : `Mis clientes (${clients.length})`}
-            </div>
+            {profile.role === "director"
+              ? "Todavía no hay clientes. Creá el primero desde Finanzas → Clientes Activos."
+              : "Todavía no tenés clientes asignados. Cuando el director te asigne uno, va a aparecer acá."}
           </div>
-          {clients.length === 0 ? (
-            <div
-              style={{
-                background: "var(--white)",
-                border: "1px dashed var(--hairline)",
-                borderRadius: "var(--r-lg)",
-                padding: 40,
-                textAlign: "center",
-                color: "var(--text-muted)",
-                fontSize: 13,
-              }}
-            >
-              {profile.role === "director"
-                ? "Todavía no hay clientes. Creá el primero desde Finanzas → Clientes Activos."
-                : "Todavía no tenés clientes asignados. Cuando el director te asigne uno, va a aparecer acá."}
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(190px, 1fr))",
-                gap: 14,
-              }}
-            >
-              {clients.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/cliente/${c.id}`}
-                  style={{
-                    background: "var(--white)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: "var(--r-md)",
-                    padding: 18,
-                    textDecoration: "none",
-                    color: "inherit",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    textAlign: "center",
-                    transition: "transform 0.15s, box-shadow 0.15s",
-                  }}
-                >
-                  <ClientLogo client={c} size={70} />
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--deep-green)",
-                      marginTop: 12,
-                      marginBottom: 4,
-                    }}
-                  >
-                    {c.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    {c.sector}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      padding: "2px 8px",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      borderRadius: 999,
-                      background:
-                        c.status === "active"
-                          ? "var(--green-tint)"
-                          : c.status === "onboarding"
-                            ? "rgba(196,168,130,0.18)"
-                            : "rgba(10,26,12,0.06)",
-                      color:
-                        c.status === "active"
-                          ? "var(--green-ok)"
-                          : c.status === "onboarding"
-                            ? "var(--sand-dark)"
-                            : "var(--text-muted)",
-                    }}
-                  >
-                    {/* Para clientes GP "active" decimos "Growth" para
-                        diferenciarlos del status genérico de Dev/Onboarding.
-                        Los DEV en status active (futuro) seguirían viéndose
-                        como "Activo". */}
-                    {c.status === "active"
-                      ? c.type === "gp"
-                        ? "● Growth"
-                        : "● Activo"
-                      : c.status === "onboarding"
-                        ? "Onboarding"
-                        : "Dev"}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* ============ TAREAS PENDIENTES ============
             Antes este bloque era un grid 1fr 340px con Tareas + Tu
