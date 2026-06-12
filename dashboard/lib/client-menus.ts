@@ -35,6 +35,7 @@ export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "reporting",   segment: "reporting",      label: "Reporting" },
   { key: "biblioteca",  segment: "biblioteca",     label: "Biblioteca" },
   { key: "notas",       segment: "notas",          label: "Notas internas" },
+  { key: "accesos",     segment: "accesos",        label: "Accesos" },
   { key: "objetivos",   segment: "objetivos",      label: "Objetivos", directorOnly: true },
   { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
@@ -46,6 +47,7 @@ export const CLIENT_MENUS_DEV: ClientMenuItem[] = [
   { key: "nueva-tarea", segment: "nueva-tarea", label: "Nueva tarea" },
   { key: "tareas",      segment: "tareas",      label: "Tareas del cliente" },
   { key: "notas",       segment: "notas",       label: "Notas internas" },
+  { key: "accesos",     segment: "accesos",     label: "Accesos" },
   { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
 
