@@ -1,19 +1,18 @@
 /**
- * GET  /api/clients/[id]/credentials  → lista las credenciales del cliente,
- *   ENMASCARADAS (sin secreto). Incluye `addedByRole` (quién la cargó: equipo o
- *   cliente). Solo director / team asignado.
- * POST /api/clients/[id]/credentials  → el equipo deposita una credencial.
- *   Cifrado de SOBRE: solo necesita las llaves PÚBLICAS (equipo + cliente si ya
- *   tiene bóveda) → no hace falta passphrase para depositar. Solo director/team.
- *
- * Los secretos nunca se devuelven acá; se obtienen vía .../[credId]/reveal.
+ * GET  /api/portal/credentials  → lista ENMASCARADA de las credenciales del
+ *   cliente (las que cargó él + las que cargó el equipo). `clientReadable`
+ *   indica si el cliente puede revelarla (tiene su DEK).
+ * POST /api/portal/credentials  → el cliente deposita una credencial. Cifrado
+ *   de SOBRE para el equipo + el cliente (ambas públicas) → aparece sola en la
+ *   vista interna del equipo. Requiere tener la bóveda configurada.
  */
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { requireClientAccess } from "@/lib/auth-guard";
+import { requirePortalClient } from "@/lib/portal-auth";
 import { getTeamPublicKey, getClientPublicKey } from "@/lib/vault-server";
 import { sealSecret } from "@/lib/vault-crypto";
+import { logAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -27,27 +26,17 @@ const CATEGORIES = [
   "otro",
 ];
 
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id: clientId } = await context.params;
-  if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
-    return Response.json({ error: "Invalid client id" }, { status: 400 });
-  }
-  const access = await requireClientAccess(req, clientId);
-  if (!access.ok) return access.response;
-  if (access.role === "client") {
-    return Response.json({ error: "No autorizado" }, { status: 403 });
-  }
+export async function GET(req: NextRequest) {
+  const auth = await requirePortalClient(req);
+  if (!auth.ok) return auth.response;
 
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
     .from("client_credentials")
     .select(
-      "id, label, category, username, url, notes_ct, added_by_role, created_at, updated_at",
+      "id, label, category, username, url, notes_ct, secret_dek_client, added_by_role, created_at, updated_at",
     )
-    .eq("client_id", clientId)
+    .eq("client_id", auth.clientId)
     .order("category", { ascending: true })
     .order("label", { ascending: true });
   if (error) return Response.json({ error: error.message }, { status: 500 });
@@ -60,25 +49,16 @@ export async function GET(
     url: r.url,
     hasNotes: !!r.notes_ct,
     addedByRole: r.added_by_role,
+    clientReadable: !!r.secret_dek_client,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }));
   return Response.json({ credentials });
 }
 
-export async function POST(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id: clientId } = await context.params;
-  if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
-    return Response.json({ error: "Invalid client id" }, { status: 400 });
-  }
-  const access = await requireClientAccess(req, clientId);
-  if (!access.ok) return access.response;
-  if (access.role === "client") {
-    return Response.json({ error: "No autorizado" }, { status: 403 });
-  }
+export async function POST(req: NextRequest) {
+  const auth = await requirePortalClient(req);
+  if (!auth.ok) return auth.response;
 
   let body: {
     label?: string;
@@ -102,18 +82,28 @@ export async function POST(
     ? (body.category as string)
     : "otro";
 
-  // Depositar = operación con llaves públicas. El equipo siempre; el cliente
-  // también si ya activó su bóveda (así re-ve lo que cargamos por él).
-  const teamPub = await getTeamPublicKey();
-  if (!teamPub) {
+  // El cliente necesita su bóveda activa (su pública) y el equipo la suya
+  // (toda credencial se cifra también para el equipo, que es quien la usa).
+  const clientPub = await getClientPublicKey(auth.clientId);
+  if (!clientPub) {
     return Response.json(
-      { error: "La bóveda del equipo no está configurada todavía." },
+      { error: "Configurá tu bóveda antes de guardar credenciales.", setup: false },
       { status: 409 },
     );
   }
-  const clientPub = await getClientPublicKey(clientId);
-  const pubs = clientPub ? [teamPub, clientPub] : [teamPub];
+  const teamPub = await getTeamPublicKey();
+  if (!teamPub) {
+    return Response.json(
+      {
+        error:
+          "El equipo todavía no habilitó la bóveda compartida. Avisanos y lo resolvemos.",
+      },
+      { status: 409 },
+    );
+  }
 
+  // Orden de las públicas: [equipo, cliente] → deks[0]=team, deks[1]=client.
+  const pubs = [teamPub, clientPub];
   const sealedSecret = sealSecret(secret, pubs);
   const sealedNotes = body.notes ? sealSecret(body.notes, pubs) : null;
 
@@ -121,23 +111,34 @@ export async function POST(
   const { data, error } = await admin
     .from("client_credentials")
     .insert({
-      client_id: clientId,
+      client_id: auth.clientId,
       label,
       category,
       username: body.username?.trim() || null,
       url: body.url?.trim() || null,
       secret_ct: sealedSecret.ct,
       secret_dek_team: sealedSecret.deks[0],
-      secret_dek_client: clientPub ? sealedSecret.deks[1] : null,
+      secret_dek_client: sealedSecret.deks[1],
       notes_ct: sealedNotes?.ct ?? null,
       notes_dek_team: sealedNotes?.deks[0] ?? null,
-      notes_dek_client: sealedNotes && clientPub ? sealedNotes.deks[1] : null,
-      added_by_role: "team",
-      created_by: access.userId,
+      notes_dek_client: sealedNotes?.deks[1] ?? null,
+      added_by_role: "client",
+      created_by: auth.userId,
     })
     .select("id")
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // Queda registrado que el cliente cargó una credencial (el director lo ve en
+  // /configuracion/audit).
+  await logAction({
+    actorId: auth.userId,
+    actorEmail: auth.email,
+    action: "credential.create",
+    targetType: "client_credential",
+    targetId: data.id,
+    metadata: { client_id: auth.clientId, label, added_by_role: "client" },
+  });
 
   return Response.json({ ok: true, id: data.id });
 }

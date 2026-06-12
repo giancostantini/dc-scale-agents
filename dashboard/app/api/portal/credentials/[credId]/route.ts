@@ -1,16 +1,17 @@
 /**
- * PATCH  /api/clients/[id]/credentials/[credId]  → edita una credencial.
- *   Metadata (label/category/username/url) sin más. Cambiar el secreto/notas
- *   re-arma el sobre con las llaves PÚBLICAS (equipo + cliente si tiene bóveda)
- *   → no requiere passphrase. Solo director/team.
- * DELETE /api/clients/[id]/credentials/[credId]  → borra. Solo director/team.
+ * PATCH  /api/portal/credentials/[credId] → el cliente edita SU credencial.
+ *   Metadata directa; cambiar secreto/notas re-arma el sobre (equipo + cliente).
+ * DELETE /api/portal/credentials/[credId] → el cliente borra SU credencial.
+ *
+ * Ownership: la fila tiene que ser del client_id del perfil (no de la URL).
  */
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { requireClientAccess } from "@/lib/auth-guard";
+import { requirePortalClient } from "@/lib/portal-auth";
 import { getTeamPublicKey, getClientPublicKey } from "@/lib/vault-server";
 import { sealSecret } from "@/lib/vault-crypto";
+import { logAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +30,14 @@ const UUID_RE =
 
 export async function PATCH(
   req: NextRequest,
-  context: { params: Promise<{ id: string; credId: string }> },
+  context: { params: Promise<{ credId: string }> },
 ) {
-  const { id: clientId, credId } = await context.params;
-  if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
-    return Response.json({ error: "Invalid client id" }, { status: 400 });
-  }
+  const { credId } = await context.params;
   if (!UUID_RE.test(credId)) {
     return Response.json({ error: "Invalid credential id" }, { status: 400 });
   }
-  const access = await requireClientAccess(req, clientId);
-  if (!access.ok) return access.response;
-  if (access.role === "client") {
-    return Response.json({ error: "No autorizado" }, { status: 403 });
-  }
+  const auth = await requirePortalClient(req);
+  if (!auth.ok) return auth.response;
 
   let body: {
     label?: string;
@@ -63,7 +58,7 @@ export async function PATCH(
     .from("client_credentials")
     .select("id")
     .eq("id", credId)
-    .eq("client_id", clientId)
+    .eq("client_id", auth.clientId)
     .maybeSingle();
   if (!existing) {
     return Response.json({ error: "Credencial no encontrada" }, { status: 404 });
@@ -77,17 +72,16 @@ export async function PATCH(
   if (body.username !== undefined) patch.username = body.username?.trim() || null;
   if (body.url !== undefined) patch.url = body.url?.trim() || null;
 
-  // Cambiar secreto/notas → re-armar el sobre con las públicas (sin passphrase).
   if (body.secret !== undefined || body.notes !== undefined) {
+    const clientPub = await getClientPublicKey(auth.clientId);
     const teamPub = await getTeamPublicKey();
-    if (!teamPub) {
+    if (!clientPub || !teamPub) {
       return Response.json(
-        { error: "La bóveda del equipo no está configurada todavía." },
+        { error: "La bóveda compartida no está disponible en este momento." },
         { status: 409 },
       );
     }
-    const clientPub = await getClientPublicKey(clientId);
-    const pubs = clientPub ? [teamPub, clientPub] : [teamPub];
+    const pubs = [teamPub, clientPub];
 
     if (body.secret !== undefined) {
       if (!body.secret) {
@@ -96,14 +90,14 @@ export async function PATCH(
       const sealed = sealSecret(body.secret, pubs);
       patch.secret_ct = sealed.ct;
       patch.secret_dek_team = sealed.deks[0];
-      patch.secret_dek_client = clientPub ? sealed.deks[1] : null;
+      patch.secret_dek_client = sealed.deks[1];
     }
     if (body.notes !== undefined) {
       if (body.notes) {
         const sealed = sealSecret(body.notes, pubs);
         patch.notes_ct = sealed.ct;
         patch.notes_dek_team = sealed.deks[0];
-        patch.notes_dek_client = clientPub ? sealed.deks[1] : null;
+        patch.notes_dek_client = sealed.deks[1];
       } else {
         patch.notes_ct = null;
         patch.notes_dek_team = null;
@@ -120,36 +114,58 @@ export async function PATCH(
     .from("client_credentials")
     .update(patch)
     .eq("id", credId)
-    .eq("client_id", clientId);
+    .eq("client_id", auth.clientId);
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  await logAction({
+    actorId: auth.userId,
+    actorEmail: auth.email,
+    action: "credential.update",
+    targetType: "client_credential",
+    targetId: credId,
+    metadata: { client_id: auth.clientId },
+  });
 
   return Response.json({ ok: true });
 }
 
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ id: string; credId: string }> },
+  context: { params: Promise<{ credId: string }> },
 ) {
-  const { id: clientId, credId } = await context.params;
-  if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
-    return Response.json({ error: "Invalid client id" }, { status: 400 });
-  }
+  const { credId } = await context.params;
   if (!UUID_RE.test(credId)) {
     return Response.json({ error: "Invalid credential id" }, { status: 400 });
   }
-  const access = await requireClientAccess(req, clientId);
-  if (!access.ok) return access.response;
-  if (access.role === "client") {
-    return Response.json({ error: "No autorizado" }, { status: 403 });
-  }
+  const auth = await requirePortalClient(req);
+  if (!auth.ok) return auth.response;
 
   const admin = getSupabaseAdmin();
+  const { data: existing } = await admin
+    .from("client_credentials")
+    .select("id")
+    .eq("id", credId)
+    .eq("client_id", auth.clientId)
+    .maybeSingle();
+  if (!existing) {
+    return Response.json({ error: "Credencial no encontrada" }, { status: 404 });
+  }
+
   const { error } = await admin
     .from("client_credentials")
     .delete()
     .eq("id", credId)
-    .eq("client_id", clientId);
+    .eq("client_id", auth.clientId);
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  await logAction({
+    actorId: auth.userId,
+    actorEmail: auth.email,
+    action: "credential.delete",
+    targetType: "client_credential",
+    targetId: credId,
+    metadata: { client_id: auth.clientId },
+  });
 
   return Response.json({ ok: true });
 }

@@ -1,16 +1,23 @@
 /**
  * POST /api/vault/setup
  *
- * Configura por única vez la passphrase de equipo de la bóveda. Solo director.
- * Genera salt + verifier (no guarda la passphrase). Si ya está configurada,
- * responde 409 (re-setup cambiaría el salt y dejaría las credenciales viejas
- * ilegibles — eso requeriría un flujo de reset aparte).
+ * Configura por única vez la bóveda de equipo. Solo director. Genera salt +
+ * verifier + el PAR DE LLAVES del equipo (RSA-2048): la pública queda en claro
+ * (para envolver DEKs al depositar) y la privada se guarda cifrada con la
+ * passphrase de equipo (nunca se guarda la passphrase). Si ya está configurada,
+ * responde 409 (re-setup requiere el flujo de reset de la migración).
  */
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth-guard";
-import { generateSalt, deriveKey, computeVerifier } from "@/lib/vault-crypto";
+import {
+  generateSalt,
+  deriveKey,
+  computeVerifier,
+  generateKeypair,
+  protectPrivateKey,
+} from "@/lib/vault-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -48,10 +55,15 @@ export async function POST(req: NextRequest) {
   const salt = generateSalt();
   const key = deriveKey(passphrase, salt);
   const verifier = computeVerifier(key);
+  const { publicKeyPem, privateKeyPem } = generateKeypair();
 
-  const { error } = await admin
-    .from("vault_meta")
-    .insert({ id: 1, salt, verifier });
+  const { error } = await admin.from("vault_meta").insert({
+    id: 1,
+    salt,
+    verifier,
+    public_key: publicKeyPem,
+    private_key_encrypted: protectPrivateKey(privateKeyPem, key),
+  });
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

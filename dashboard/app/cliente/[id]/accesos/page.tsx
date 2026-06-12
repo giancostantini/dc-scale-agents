@@ -20,6 +20,7 @@ interface Cred {
   username: string | null;
   url: string | null;
   hasNotes: boolean;
+  addedByRole: "team" | "client";
   createdAt: string;
   updatedAt: string;
 }
@@ -368,8 +369,11 @@ export default function AccesosPage({
                     return (
                       <div key={cr.id} style={row}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--deep-green)" }}>
+                          <div style={labelRow}>
                             {cr.label}
+                            {cr.addedByRole === "client" && (
+                              <span style={chip}>Cargada por el cliente</span>
+                            )}
                           </div>
                           {cr.username && (
                             <div style={meta}>
@@ -610,6 +614,24 @@ const meta: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 8,
+};
+const labelRow: React.CSSProperties = {
+  fontSize: 13.5,
+  fontWeight: 600,
+  color: "var(--deep-green)",
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+const chip: React.CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 600,
+  color: "var(--sand-dark)",
+  background: "rgba(196,168,130,0.16)",
+  border: "1px solid rgba(196,168,130,0.4)",
+  borderRadius: 999,
+  padding: "1px 8px",
 };
 const hint: React.CSSProperties = {
   fontSize: 13,
