@@ -44,6 +44,7 @@ import { NETWORK_COLORS } from "@/lib/content-frequency";
 import type {
   Client,
   ClientContentClassification,
+  ClientSocialLinks,
   ContentClassification,
   ContentFormat,
   ContentNetwork,
@@ -54,6 +55,7 @@ import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
   classificationsFor,
   classificationMetaById,
+  extractHandleFromUrl,
 } from "@/lib/types";
 
 /**
@@ -174,6 +176,22 @@ function formatHumanDate(iso: string): string {
   const d = Number(iso.slice(8, 10));
   if (Number.isNaN(m) || Number.isNaN(d)) return iso;
   return `${d} ${MONTHS_ES[m] ?? "?"} ${y}`;
+}
+
+/**
+ * Versión cortita de la fecha para chips/pills donde no entra el año
+ * y el mes va abreviado. Ej: "12 jun". Si el año NO es el actual,
+ * agregamos el year corto al final ("12 jun '25").
+ */
+function formatShortDate(iso: string): string {
+  if (!iso || iso.length < 10) return iso;
+  const y = Number(iso.slice(0, 4));
+  const m = Number(iso.slice(5, 7)) - 1;
+  const d = Number(iso.slice(8, 10));
+  if (Number.isNaN(m) || Number.isNaN(d)) return iso;
+  const mLabel = (MONTHS_ES[m] ?? "?").slice(0, 3).toLowerCase();
+  const now = new Date().getFullYear();
+  return y === now ? `${d} ${mLabel}` : `${d} ${mLabel} '${String(y).slice(-2)}`;
 }
 
 /**
@@ -1262,6 +1280,7 @@ export default function ContenidoPage({
           onSizeChange={setFeedSize}
           clientName={client?.name ?? ""}
           clientLogoUrl={client?.logo_url ?? null}
+          socialLinks={client?.social_links ?? null}
           codeFallback={codeFallback}
           onTileClick={(p) => setFeedPostDetail(p)}
         />
@@ -2890,6 +2909,7 @@ function FeedPreview({
   onSizeChange,
   clientName,
   clientLogoUrl,
+  socialLinks,
   codeFallback,
   onTileClick,
 }: {
@@ -2900,6 +2920,7 @@ function FeedPreview({
   onSizeChange: (s: "compact" | "regular") => void;
   clientName: string;
   clientLogoUrl: string | null;
+  socialLinks: ClientSocialLinks | null;
   codeFallback: Map<string, string>;
   onTileClick: (p: ContentPost) => void;
 }) {
@@ -2921,8 +2942,16 @@ function FeedPreview({
       return (b.time ?? "").localeCompare(a.time ?? "");
     });
 
-  // Username estilo IG/TT: lowercase, sin espacios, prefijo @.
-  const handle = `@${clientName.toLowerCase().replace(/[^a-z0-9.]+/g, "")}`;
+  // URL real del perfil del cliente en la red elegida (si está cargada
+  // en /configuracion). Lo usamos para que avatar+handle linkeen al
+  // perfil real.
+  const profileUrl = socialLinks?.[network] ?? null;
+  // Handle preferido: el extraído del URL real del cliente; si no está
+  // cargado, fallback a uno derivado del clientName (lowercase, sin
+  // espacios) — para no dejar el header vacío.
+  const handle =
+    extractHandleFromUrl(profileUrl) ??
+    `@${clientName.toLowerCase().replace(/[^a-z0-9.]+/g, "")}`;
 
   // Cap de ancho según size. El ancho compact es chico a propósito
   // para que la grilla no ocupe la pantalla — escaneo rápido. El
@@ -2955,45 +2984,100 @@ function FeedPreview({
           flexWrap: "wrap",
         }}
       >
-        {/* Avatar circular con el logo del cliente o las iniciales */}
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: clientLogoUrl ? "var(--ivory)" : "var(--sand)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-            color: "var(--deep-green)",
-            fontWeight: 800,
-            fontSize: 18,
-            flexShrink: 0,
-            border: "1px solid rgba(10,26,12,0.08)",
-          }}
-        >
-          {clientLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={clientLogoUrl}
-              alt={clientName}
+        {/* Avatar circular con el logo del cliente o las iniciales.
+            Para IG agregamos el story-ring degradé característico
+            (envoltorio con padding 2px y bg gradient). Si hay URL del
+            perfil, el avatar es un link al perfil real (target=_blank). */}
+        {(() => {
+          const avatar = (
+            <div
               style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                background: clientLogoUrl ? "var(--ivory)" : "var(--sand)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                color: "var(--deep-green)",
+                fontWeight: 800,
+                fontSize: 18,
+                flexShrink: 0,
+                border: "1px solid rgba(10,26,12,0.08)",
               }}
-            />
+            >
+              {clientLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={clientLogoUrl}
+                  alt={clientName}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                clientName
+                  .split(/\s+/)
+                  .map((w) => w[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()
+              )}
+            </div>
+          );
+
+          // Story ring tipo IG: degradé alrededor del avatar.
+          const ig =
+            network === "ig"
+              ? "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)"
+              : null;
+          const wrapped = ig ? (
+            <div
+              style={{
+                padding: 2,
+                background: ig,
+                borderRadius: "50%",
+                flexShrink: 0,
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  padding: 2,
+                  background: "var(--white)",
+                  borderRadius: "50%",
+                  display: "flex",
+                }}
+              >
+                {avatar}
+              </div>
+            </div>
           ) : (
-            clientName
-              .split(/\s+/)
-              .map((w) => w[0])
-              .filter(Boolean)
-              .slice(0, 2)
-              .join("")
-              .toUpperCase()
-          )}
-        </div>
+            avatar
+          );
+
+          return profileUrl ? (
+            <a
+              href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Abrir perfil de ${NETWORK_LABEL[network]} en una pestaña nueva`}
+              style={{
+                textDecoration: "none",
+                flexShrink: 0,
+                display: "flex",
+              }}
+            >
+              {wrapped}
+            </a>
+          ) : (
+            wrapped
+          );
+        })()}
 
         <div style={{ flex: 1, minWidth: 140 }}>
           <div
@@ -3013,7 +3097,24 @@ function FeedPreview({
               marginTop: 2,
             }}
           >
-            {handle} · <strong>{networkPosts.length}</strong> piezas en{" "}
+            {profileUrl ? (
+              <a
+                href={profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "inherit",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
+                }}
+                title="Abrir perfil real en pestaña nueva"
+              >
+                {handle}
+              </a>
+            ) : (
+              handle
+            )}{" "}
+            · <strong>{networkPosts.length}</strong> piezas en{" "}
             {NETWORK_LABEL[network]}
           </div>
         </div>
@@ -3401,6 +3502,28 @@ function FeedTile({
         title={STATUS_LABEL[post.status]}
       />
 
+      {/* Date pill — abajo-izquierda. Lo más útil para planificación:
+          ver a primera vista cuándo se publica cada pieza. */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 6,
+          left: 6,
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          padding: "2px 6px",
+          background: "rgba(0,0,0,0.45)",
+          color: "rgba(255,255,255,0.92)",
+          borderRadius: 3,
+          backdropFilter: "blur(2px)",
+          zIndex: 2,
+          textTransform: "uppercase",
+        }}
+      >
+        {formatShortDate(post.date)}
+      </div>
+
       {/* Format icon — arriba-derecha */}
       {formatIcon && (
         <div
@@ -3462,7 +3585,8 @@ function FeedTile({
 
       {/* CONCEPTO centrado — el bloque principal del tile. Se ve grande,
           centrado vertical y horizontal, multi-línea con clamp. Es lo
-          primero que el ojo capta al escanear la grilla. */}
+          primero que el ojo capta al escanear la grilla.
+          Padding bottom 30px deja espacio para el date pill abajo. */}
       <div
         style={{
           position: "absolute",
@@ -3470,7 +3594,7 @@ function FeedTile({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "32px 12px 24px",
+          padding: "32px 12px 30px",
           zIndex: 1,
         }}
       >
@@ -3484,7 +3608,7 @@ function FeedTile({
             textAlign: "center",
             textShadow: hasImage ? "0 1px 4px rgba(0,0,0,0.6)" : "none",
             display: "-webkit-box",
-            WebkitLineClamp: 6,
+            WebkitLineClamp: 5,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             fontStyle: concept ? "normal" : "italic",
@@ -3600,21 +3724,44 @@ function TikTokTile({
         </div>
       )}
 
-      {/* Status dot abajo-izq */}
+      {/* Status dot + date pill abajo-izq — mismo idioma visual que IG. */}
       <div
         style={{
           position: "absolute",
           bottom: 8,
           left: 8,
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: STATUS_COLOR[post.status],
-          border: "1.5px solid rgba(255,255,255,0.85)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
           zIndex: 2,
         }}
-        title={STATUS_LABEL[post.status]}
-      />
+      >
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: STATUS_COLOR[post.status],
+            border: "1.5px solid rgba(255,255,255,0.85)",
+          }}
+          title={STATUS_LABEL[post.status]}
+        />
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            padding: "2px 6px",
+            background: "rgba(0,0,0,0.45)",
+            color: "rgba(255,255,255,0.92)",
+            borderRadius: 3,
+            backdropFilter: "blur(2px)",
+            textTransform: "uppercase",
+          }}
+        >
+          {formatShortDate(post.date)}
+        </div>
+      </div>
 
       {/* Play indicator abajo-der — chiquito, no tapa el concepto */}
       <div
@@ -3638,7 +3785,7 @@ function TikTokTile({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "30px 14px 28px",
+          padding: "30px 14px 36px",
           zIndex: 1,
         }}
       >
@@ -3652,7 +3799,7 @@ function TikTokTile({
             textAlign: "center",
             textShadow: hasImage ? "0 1px 4px rgba(0,0,0,0.6)" : "none",
             display: "-webkit-box",
-            WebkitLineClamp: 7,
+            WebkitLineClamp: 6,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             fontStyle: concept ? "normal" : "italic",

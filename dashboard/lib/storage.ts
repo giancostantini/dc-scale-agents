@@ -86,6 +86,8 @@ interface ClientRow {
   content_mix: Client["content_mix"] | null;
   /** Migración 066 — catálogo de clasificaciones editoriales del cliente. */
   content_classifications?: Client["content_classifications"];
+  /** Migración 067 — URLs de redes sociales del cliente. */
+  social_links?: Client["social_links"];
   roadmap_month_notes: Client["roadmap_month_notes"] | null;
   tax_id?: string | null;
   created_at?: string | null;
@@ -121,6 +123,7 @@ function clientFromRow(r: ClientRow): Client {
     content_frequency: r.content_frequency ?? undefined,
     content_mix: r.content_mix ?? undefined,
     content_classifications: r.content_classifications ?? null,
+    social_links: r.social_links ?? null,
     roadmap_month_notes: r.roadmap_month_notes ?? undefined,
     contact_name: r.contact_name,
     contact_email: r.contact_email,
@@ -526,6 +529,22 @@ export async function updateClientContentClassifications(
   const { error } = await supabase
     .from("clients")
     .update({ content_classifications: classifications })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Pisa los URLs de redes sociales del cliente. Pasar {} para
+ * limpiar todos. La forma se valida en la UI antes de mandar.
+ */
+export async function updateClientSocialLinks(
+  clientId: string,
+  links: { ig?: string; fb?: string; tt?: string; in?: string },
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ social_links: links })
     .eq("id", clientId);
   if (error) throw error;
 }

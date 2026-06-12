@@ -131,6 +131,49 @@ export interface Sprint {
   status: "done" | "active" | "pending";
 }
 
+/**
+ * URLs públicos del perfil del cliente en cada red social. Se cargan
+ * en /configuracion del cliente y se usan en el preview del feed
+ * (/contenido) para:
+ *   - Linkear el avatar/handle al perfil real (target=_blank).
+ *   - Extraer el handle del path del URL para mostrarlo en el header
+ *     (ej. https://instagram.com/wiztrip → @wiztrip).
+ *
+ * Todos opcionales — un cliente puede no tener cuenta en alguna red.
+ * Persistido como jsonb en clients.social_links (migración 067).
+ */
+export interface ClientSocialLinks {
+  ig?: string;
+  fb?: string;
+  tt?: string;
+  in?: string;
+}
+
+/**
+ * Extrae el handle del URL de un perfil de red social. Tolerante
+ * con / final, querystring, www., subdominios. Si no puede extraer,
+ * devuelve null. Útil para mostrar "@usuario" en el header del feed.
+ */
+export function extractHandleFromUrl(url: string | undefined | null): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    // Path lookup: queda /usuario o /@usuario o /company/empresa (LI).
+    const segments = u.pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return null;
+    // LinkedIn: /in/usuario o /company/empresa — el handle es el segundo.
+    if (segments[0] === "in" || segments[0] === "company") {
+      return segments[1] ? `@${segments[1]}` : null;
+    }
+    // IG/TT/FB: el handle es el primer segmento. TT pone @ adelante a veces.
+    const raw = segments[0].replace(/^@/, "");
+    if (!raw) return null;
+    return `@${raw}`;
+  } catch {
+    return null;
+  }
+}
+
 export interface ClientExternalLinks {
   /** URL del dashboard del cliente en Espor.ai (paid media análisis). */
   espor_ai_url?: string;
@@ -246,6 +289,10 @@ export interface Client {
    *  o null, se usan los DEFAULTS (valor/conversion/aspiracional).
    *  Migración 066. */
   content_classifications?: ClientContentClassification[] | null;
+  /** URLs de los perfiles del cliente en cada red. Lo carga el director
+   *  en /configuracion. Se usa para linkear el avatar/handle del
+   *  preview feed al perfil real. Migración 067. */
+  social_links?: ClientSocialLinks | null;
   /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
    *  value = markdown. Aparece en el PDF del roadmap. */
   roadmap_month_notes?: RoadmapMonthNotes;

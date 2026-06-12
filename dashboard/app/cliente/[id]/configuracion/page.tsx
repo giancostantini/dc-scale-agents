@@ -20,6 +20,7 @@ import {
   updateClientCore,
   updateClientExternalLinks,
   updateClientContentClassifications,
+  updateClientSocialLinks,
   listClientContacts,
   addClientContact,
   updateClientContact,
@@ -29,7 +30,9 @@ import {
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
   classificationsFor,
+  extractHandleFromUrl,
   type ClientContentClassification,
+  type ClientSocialLinks,
 } from "@/lib/types";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { uploadFile } from "@/lib/upload";
@@ -560,6 +563,18 @@ export default function ConfiguracionPage({
           setClient((prev) =>
             prev ? { ...prev, content_classifications: list } : prev,
           )
+        }
+      />
+
+      {/* ============== LINKS DE REDES SOCIALES ==============
+          URLs de los perfiles del cliente en cada red. El preview del
+          feed (/contenido → Vista feed) usa estos URLs para:
+            - Linkear el avatar/handle al perfil real (target=_blank).
+            - Mostrar el handle extraído del URL en el header. */}
+      <SocialLinksPanel
+        client={client}
+        onSaved={(links) =>
+          setClient((prev) => (prev ? { ...prev, social_links: links } : prev))
         }
       />
 
@@ -1159,6 +1174,260 @@ function MetaBusinessSuitePanel({
     </div>
   );
 }
+
+// ============================================================
+// SocialLinksPanel — 4 inputs (IG/FB/TT/LinkedIn) con los URLs
+// públicos del perfil del cliente. Sirven para que el preview del
+// feed sea más fiel: el avatar/handle del header linkea al perfil
+// real (target=_blank), y el handle se extrae del path del URL.
+//
+// Validación: si el campo está vacío lo guardamos como undefined.
+// Si tiene contenido, exigimos http(s)://. Por red, el helper
+// extractHandleFromUrl te muestra qué handle vamos a usar.
+// ============================================================
+function SocialLinksPanel({
+  client,
+  onSaved,
+}: {
+  client: Client;
+  onSaved: (links: ClientSocialLinks) => void;
+}) {
+  const initial: ClientSocialLinks = client.social_links ?? {};
+  const [ig, setIg] = useState(initial.ig ?? "");
+  const [fb, setFb] = useState(initial.fb ?? "");
+  const [tt, setTt] = useState(initial.tt ?? "");
+  const [ln, setLn] = useState(initial.in ?? "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Resync si el cliente cambia desde afuera.
+  useEffect(() => {
+    const cur: ClientSocialLinks = client.social_links ?? {};
+    setIg(cur.ig ?? "");
+    setFb(cur.fb ?? "");
+    setTt(cur.tt ?? "");
+    setLn(cur.in ?? "");
+  }, [client.social_links]);
+
+  const dirty =
+    (ig.trim() || "") !== (initial.ig ?? "") ||
+    (fb.trim() || "") !== (initial.fb ?? "") ||
+    (tt.trim() || "") !== (initial.tt ?? "") ||
+    (ln.trim() || "") !== (initial.in ?? "");
+
+  function isValidUrl(value: string): boolean {
+    if (!value.trim()) return true;
+    return /^https?:\/\//i.test(value.trim());
+  }
+
+  async function save() {
+    setErr("");
+    const all = { ig, fb, tt, in: ln };
+    const invalid = Object.entries(all).find(
+      ([, v]) => v.trim() && !isValidUrl(v),
+    );
+    if (invalid) {
+      setErr(
+        `El URL de ${SOCIAL_FIELD_LABEL[invalid[0] as keyof typeof SOCIAL_FIELD_LABEL]} tiene que empezar con http:// o https://`,
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload: ClientSocialLinks = {};
+      if (ig.trim()) payload.ig = ig.trim();
+      if (fb.trim()) payload.fb = fb.trim();
+      if (tt.trim()) payload.tt = tt.trim();
+      if (ln.trim()) payload.in = ln.trim();
+      await updateClientSocialLinks(client.id, payload);
+      onSaved(payload);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const fields: {
+    key: keyof typeof SOCIAL_FIELD_LABEL;
+    value: string;
+    setValue: (v: string) => void;
+    placeholder: string;
+    accent: string;
+  }[] = [
+    {
+      key: "ig",
+      value: ig,
+      setValue: setIg,
+      placeholder: "https://instagram.com/usuario",
+      accent: "#E4405F",
+    },
+    {
+      key: "fb",
+      value: fb,
+      setValue: setFb,
+      placeholder: "https://facebook.com/pagina",
+      accent: "#1877F2",
+    },
+    {
+      key: "tt",
+      value: tt,
+      setValue: setTt,
+      placeholder: "https://tiktok.com/@usuario",
+      accent: "#000000",
+    },
+    {
+      key: "in",
+      value: ln,
+      setValue: setLn,
+      placeholder: "https://linkedin.com/company/empresa",
+      accent: "#0A66C2",
+    },
+  ];
+
+  return (
+    <div className={ui.panel} style={{ marginBottom: 24 }}>
+      <div className={ui.panelHead}>
+        <div>
+          <div className={ui.panelTitle}>Links de redes sociales</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+            URLs de los perfiles públicos del cliente. El preview del feed
+            (menú Contenido → Vista feed) usa estos links para que el
+            avatar/handle linkeen al perfil real.
+          </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        {fields.map(({ key, value, setValue, placeholder, accent }) => {
+          const handle = extractHandleFromUrl(value);
+          return (
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                padding: "8px 12px",
+                background: "var(--white)",
+                border: "1px solid rgba(10,26,12,0.08)",
+                borderLeft: `4px solid ${accent}`,
+                borderRadius: 6,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: accent,
+                  width: 84,
+                  flexShrink: 0,
+                }}
+              >
+                {SOCIAL_FIELD_LABEL[key]}
+              </div>
+              <input
+                type="url"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={placeholder}
+                style={{
+                  flex: 1,
+                  padding: "6px 10px",
+                  border: "1px solid rgba(10,26,12,0.12)",
+                  borderRadius: 4,
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  background: "var(--white)",
+                  color: "var(--deep-green)",
+                  outline: "none",
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  fontFamily: "monospace",
+                  minWidth: 80,
+                  textAlign: "right",
+                }}
+                title={handle ? `Handle extraído: ${handle}` : "Sin handle"}
+              >
+                {handle ?? "—"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          justifyContent: "flex-end",
+        }}
+      >
+        {dirty && (
+          <span style={{ fontSize: 11, color: "var(--sand-dark)", flex: 1 }}>
+            Hay cambios sin guardar.
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className={ui.btnSolid}
+          style={{ opacity: saving || !dirty ? 0.55 : 1 }}
+        >
+          {saving ? "Guardando…" : "Guardar"}
+        </button>
+      </div>
+
+      {err && (
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 11,
+            color: "#B91C1C",
+          }}
+        >
+          ⚠ {err}
+        </div>
+      )}
+
+      <p
+        style={{
+          marginTop: 12,
+          fontSize: 11,
+          color: "var(--text-muted)",
+          lineHeight: 1.5,
+        }}
+      >
+        Tip: copiá la URL completa desde el navegador cuando estés en el
+        perfil del cliente. El handle (columna gris a la derecha) se
+        extrae automáticamente del URL y es lo que mostramos en el header
+        del feed con prefijo @.
+      </p>
+    </div>
+  );
+}
+
+const SOCIAL_FIELD_LABEL = {
+  ig: "Instagram",
+  fb: "Facebook",
+  tt: "TikTok",
+  in: "LinkedIn",
+} as const;
 
 // ============================================================
 // EditorialClassificationsPanel — CRUD de las clasificaciones
