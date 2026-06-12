@@ -20,7 +20,15 @@
  * deposita en el Calendario.
  */
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  use,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   getClient,
   getContent,
@@ -35,13 +43,34 @@ import { uploadFile } from "@/lib/upload";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
 import type {
   Client,
+  ClientContentClassification,
   ContentClassification,
   ContentFormat,
   ContentNetwork,
   ContentPost,
   ContentStatus,
 } from "@/lib/types";
-import { CONTENT_CLASSIFICATION_META } from "@/lib/types";
+import {
+  DEFAULT_CONTENT_CLASSIFICATIONS,
+  classificationsFor,
+  classificationMetaById,
+} from "@/lib/types";
+
+/**
+ * Context con el catálogo de clasificaciones editoriales del cliente
+ * actual. Lo seteamos arriba (en ContenidoPage) y todos los
+ * sub-componentes lo leen vía useClassifications(). Evita prop-drillear
+ * la lista a cada FeedTile / RowEditor / PostDetailModal.
+ *
+ * Default = DEFAULTS para que cualquier consumidor que renderice
+ * fuera del Provider no rompa.
+ */
+const ClassificationsContext = createContext<ClientContentClassification[]>(
+  DEFAULT_CONTENT_CLASSIFICATIONS,
+);
+function useClassifications(): ClientContentClassification[] {
+  return useContext(ClassificationsContext);
+}
 import ui from "@/components/ClientUI.module.css";
 
 const NETWORK_LABEL: Record<ContentNetwork, string> = {
@@ -446,7 +475,16 @@ export default function ContenidoPage({
     const filtered = posts
       .filter((p) => filter === "all" || p.status === filter)
       .filter((p) => inPeriod(p.date))
-      .filter((p) => colNetwork === "all" || p.network === colNetwork)
+      // Multi-red: el post matchea si la red filtrada está en su array
+      // de networks. Si el array está vacío (legacy o pre-mig 065),
+      // usamos el campo singular `network` como fallback.
+      .filter(
+        (p) =>
+          colNetwork === "all" ||
+          (p.networks && p.networks.length > 0
+            ? p.networks.includes(colNetwork)
+            : p.network === colNetwork),
+      )
       .filter((p) => colFormat === "all" || p.format === colFormat)
       .filter(
         (p) =>
@@ -711,8 +749,17 @@ export default function ContenidoPage({
     }
   }
 
+  // Catálogo efectivo de clasificaciones del cliente actual. Si no
+  // está cargado o el cliente no tiene catálogo custom, devuelve los
+  // DEFAULTS. Lo memoizamos para no recrear identidad de array por
+  // render (no rompe Provider, pero evita re-renders en cascada).
+  const classifications = useMemo(
+    () => classificationsFor(client),
+    [client],
+  );
+
   return (
-    <>
+    <ClassificationsContext.Provider value={classifications}>
       <div className={ui.head}>
         <div>
           <div className={ui.eyebrow}>Cliente · Contenido</div>
@@ -1051,13 +1098,9 @@ export default function ContenidoPage({
                     >
                       <option value="all">Todas</option>
                       <option value="_unclassified">Sin clasificar</option>
-                      {(
-                        Object.keys(
-                          CONTENT_CLASSIFICATION_META,
-                        ) as ContentClassification[]
-                      ).map((c) => (
-                        <option key={c} value={c}>
-                          {CONTENT_CLASSIFICATION_META[c].label}
+                      {classifications.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
                         </option>
                       ))}
                     </select>
@@ -1513,27 +1556,30 @@ export default function ContenidoPage({
           onSubmit={async (draft) => {
             setSavingNewIdea(true);
             try {
-              // Una pieza por cada red seleccionada. Si solo eligió
-              // una, es 1 sola pieza. Si eligió 2, son 2 piezas con
-              // mismo contenido pero códigos C-XXXX distintos.
-              for (const net of draft.networks) {
-                await addContent({
-                  clientId: id,
-                  date: draft.date,
-                  time: draft.time || null,
-                  network: net,
-                  format: draft.format,
-                  brief: draft.brief,
-                  idea: draft.idea || null,
-                  copy: draft.copy || null,
-                  cta: draft.cta || null,
-                  influencer: null,
-                  assignedTo: null,
-                  classification: draft.classification,
-                  status: "draft",
-                  source: "manual",
-                });
-              }
+              // UNA SOLA pieza con N redes (multi-red). Antes creábamos
+              // N posts con códigos C-XXXX distintos; ahora una idea =
+              // un código, y `networks` lleva todas las redes donde
+              // se publica. La columna singular `network` se mantiene
+              // sincronizada con el primer item del array para
+              // back-compat con consumidores legacy.
+              const primary = draft.networks[0];
+              await addContent({
+                clientId: id,
+                date: draft.date,
+                time: draft.time || null,
+                network: primary,
+                networks: draft.networks,
+                format: draft.format,
+                brief: draft.brief,
+                idea: draft.idea || null,
+                copy: draft.copy || null,
+                cta: draft.cta || null,
+                influencer: null,
+                assignedTo: null,
+                classification: draft.classification,
+                status: "draft",
+                source: "manual",
+              });
               setShowNewIdea(false);
               refresh();
             } catch (err) {
@@ -1546,7 +1592,7 @@ export default function ContenidoPage({
           }}
         />
       )}
-    </>
+    </ClassificationsContext.Provider>
   );
 }
 
@@ -1582,6 +1628,10 @@ function RowEditor({
   isDirector: boolean;
   teamMembers: Profile[];
 }) {
+  // Catálogo de clasificaciones del cliente actual — leemos del
+  // ClassificationsContext seteado por ContenidoPage.
+  const classifications = useClassifications();
+  const classMeta = classificationMetaById(classifications, post.classification);
   // Buffers locales para evitar re-render por keystroke
   const [ideaDraft, setIdeaDraft] = useState(post.idea ?? "");
   const [copyDraft, setCopyDraft] = useState(post.copy ?? "");
@@ -1615,21 +1665,31 @@ function RowEditor({
           {code}
         </td>
         <td style={tdStyle}>
-          <span
-            style={{
-              display: "inline-block",
-              padding: "3px 8px",
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: netColor,
-              color: "#fff",
-              borderRadius: "var(--r-pill)",
-            }}
-          >
-            {NETWORK_LABEL[post.network] ?? post.network}
-          </span>
+          {/* Multi-red: mostramos un chip por cada red en la que se
+              publica la pieza. Si una sola red, queda como antes. */}
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {(post.networks && post.networks.length > 0
+              ? post.networks
+              : [post.network]
+            ).map((n) => (
+              <span
+                key={n}
+                style={{
+                  display: "inline-block",
+                  padding: "3px 8px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: NETWORK_COLORS[n]?.solid ?? netColor,
+                  color: "#fff",
+                  borderRadius: "var(--r-pill)",
+                }}
+              >
+                {NETWORK_LABEL[n] ?? n}
+              </span>
+            ))}
+          </div>
         </td>
         <td style={{ ...tdStyle, textTransform: "capitalize" }}>
           {FORMAT_LABEL[post.format] ?? post.format}
@@ -1638,9 +1698,9 @@ function RowEditor({
           {/* Chip de clasificación editorial. Si no hay, mostramos un
               guión en gris claro para que la columna no quede vacía
               y se mantenga la alineación. */}
-          {post.classification ? (
+          {classMeta ? (
             <span
-              title={CONTENT_CLASSIFICATION_META[post.classification].label}
+              title={classMeta.label}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -1649,13 +1709,13 @@ function RowEditor({
                 height: 22,
                 fontSize: 11,
                 fontWeight: 800,
-                background: CONTENT_CLASSIFICATION_META[post.classification].color,
+                background: classMeta.color,
                 color: "var(--off-white)",
                 borderRadius: "50%",
                 letterSpacing: 0,
               }}
             >
-              {CONTENT_CLASSIFICATION_META[post.classification].short}
+              {classMeta.short}
             </span>
           ) : (
             <span style={{ color: "var(--text-muted)", fontSize: 14 }}>—</span>
@@ -1852,37 +1912,87 @@ function RowEditor({
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div>
-                    <FieldLabel>Red social</FieldLabel>
-                    <select
-                      value={post.network}
-                      onChange={(e) => onPatch({ network: e.target.value as ContentNetwork })}
-                      disabled={!isDirector}
-                      style={editorStyle}
-                    >
-                      {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => (
-                        <option key={n} value={n}>
-                          {NETWORK_LABEL[n]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <FieldLabel>Formato</FieldLabel>
-                    <select
-                      value={post.format}
-                      onChange={(e) => onPatch({ format: e.target.value as ContentFormat })}
-                      disabled={!isDirector}
-                      style={editorStyle}
-                    >
-                      {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
-                        <option key={f} value={f}>
-                          {FORMAT_LABEL[f]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Redes — multi-select de pills. Una idea = una pieza,
+                    pero puede vivir en N redes a la vez (mismo C-XXXX).
+                    Re-tocar una activa la apaga; al apagar la última,
+                    la mantenemos seleccionada para no quedar en vacío. */}
+                <FieldLabel>Redes (multi-select)</FieldLabel>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    marginBottom: 10,
+                  }}
+                >
+                  {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
+                    const current =
+                      post.networks && post.networks.length > 0
+                        ? post.networks
+                        : [post.network];
+                    const checked = current.includes(n);
+                    return (
+                      <button
+                        type="button"
+                        key={n}
+                        disabled={!isDirector}
+                        onClick={() => {
+                          if (!isDirector) return;
+                          let next: ContentNetwork[];
+                          if (checked) {
+                            next = current.filter((x) => x !== n);
+                            // No dejamos quedar en vacío: si era la
+                            // única seleccionada, ignoramos el click.
+                            if (next.length === 0) return;
+                          } else {
+                            next = [...current, n];
+                          }
+                          onPatch({ networks: next });
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          letterSpacing: "0.04em",
+                          background: checked
+                            ? (NETWORK_COLORS[n]?.solid ?? "var(--deep-green)")
+                            : "var(--white)",
+                          color: checked
+                            ? "var(--off-white)"
+                            : "var(--deep-green)",
+                          border: `1px solid ${
+                            checked
+                              ? NETWORK_COLORS[n]?.solid ?? "var(--deep-green)"
+                              : "rgba(10,26,12,0.15)"
+                          }`,
+                          borderRadius: 6,
+                          cursor: isDirector ? "pointer" : "default",
+                          fontFamily: "inherit",
+                          opacity: isDirector ? 1 : 0.6,
+                        }}
+                      >
+                        {checked && "✓ "}
+                        {NETWORK_LABEL[n]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div>
+                  <FieldLabel>Formato</FieldLabel>
+                  <select
+                    value={post.format}
+                    onChange={(e) =>
+                      onPatch({ format: e.target.value as ContentFormat })
+                    }
+                    disabled={!isDirector}
+                    style={editorStyle}
+                  >
+                    {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
+                      <option key={f} value={f}>
+                        {FORMAT_LABEL[f]}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <FieldLabel>Asignado a</FieldLabel>
@@ -1902,21 +2012,17 @@ function RowEditor({
 
                 <FieldLabel>Clasificación editorial</FieldLabel>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {(
-                    Object.keys(
-                      CONTENT_CLASSIFICATION_META,
-                    ) as ContentClassification[]
-                  ).map((c) => {
-                    const meta = CONTENT_CLASSIFICATION_META[c];
-                    const checked = post.classification === c;
+                  {classifications.map((c) => {
+                    const meta = classificationMetaById(classifications, c.id)!;
+                    const checked = post.classification === c.id;
                     return (
                       <button
                         type="button"
-                        key={c}
+                        key={c.id}
                         onClick={() =>
                           isDirector &&
                           onPatch({
-                            classification: checked ? null : c,
+                            classification: checked ? null : c.id,
                           })
                         }
                         disabled={!isDirector}
@@ -1939,6 +2045,18 @@ function RowEditor({
                       </button>
                     );
                   })}
+                  {classifications.length === 0 && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No hay clasificaciones cargadas. Configurálas en
+                      /configuracion del cliente.
+                    </span>
+                  )}
                 </div>
 
                 {post.format === "ugc" && (
@@ -2378,6 +2496,10 @@ function NewIdeaModal({
     classification: null,
   });
 
+  // Catálogo de clasificaciones del cliente — leemos del context para
+  // que el modal use el mismo set custom que ya configuró el director.
+  const classifications = useClassifications();
+
   const isAnuncio = draft.format === "anuncio";
   const canSave =
     draft.date && draft.idea.trim().length > 0 && draft.networks.length > 0;
@@ -2566,39 +2688,49 @@ function NewIdeaModal({
             marginBottom: 4,
           }}
         >
-          {(Object.keys(CONTENT_CLASSIFICATION_META) as ContentClassification[]).map(
-            (c) => {
-              const meta = CONTENT_CLASSIFICATION_META[c];
-              const checked = draft.classification === c;
-              return (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      classification: checked ? null : c,
-                    })
-                  }
-                  style={{
-                    padding: "8px 14px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    letterSpacing: "0.04em",
-                    background: checked ? meta.color : meta.bg,
-                    color: checked ? "var(--off-white)" : meta.color,
-                    border: `1px solid ${meta.color}`,
-                    borderRadius: 999,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {checked && "✓ "}
-                  {meta.label}
-                </button>
-              );
-            },
+          {classifications.map((c) => {
+            const meta = classificationMetaById(classifications, c.id)!;
+            const checked = draft.classification === c.id;
+            return (
+              <button
+                type="button"
+                key={c.id}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    classification: checked ? null : c.id,
+                  })
+                }
+                style={{
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  background: checked ? meta.color : meta.bg,
+                  color: checked ? "var(--off-white)" : meta.color,
+                  border: `1px solid ${meta.color}`,
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "all 0.15s",
+                }}
+              >
+                {checked && "✓ "}
+                {meta.label}
+              </button>
+            );
+          })}
+          {classifications.length === 0 && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                fontStyle: "italic",
+              }}
+            >
+              No hay clasificaciones cargadas para este cliente. Configurálas
+              en /configuracion → "Clasificaciones editoriales".
+            </span>
           )}
         </div>
         <div
@@ -2774,8 +2906,14 @@ function FeedPreview({
   // Filtrar por red elegida + ordenar newest-first (estilo perfil IG).
   // sortedFiltered ya viene filtrado por estado/período/columnas; acá
   // solo aplicamos el filtro de red y reordenamos.
+  // Multi-red: un post aparece en este feed si la red pedida está en
+  // su array `networks`. Fallback a `network` singular para legacy.
   const networkPosts = posts
-    .filter((p) => p.network === network)
+    .filter((p) =>
+      p.networks && p.networks.length > 0
+        ? p.networks.includes(network)
+        : p.network === network,
+    )
     .slice()
     .sort((a, b) => {
       // Newest first: comparamos por fecha desc, hora desc como tiebreaker.
@@ -3176,15 +3314,14 @@ function FeedTile({
   code: string;
   onClick: () => void;
 }) {
-  const meta = post.classification
-    ? CONTENT_CLASSIFICATION_META[post.classification]
-    : null;
+  const classifications = useClassifications();
+  const meta = classificationMetaById(classifications, post.classification);
   // Si no hay clasificación, usamos el color de red como background.
   const bg = meta?.color ?? NETWORK_COLORS[post.network]?.solid ?? "#0A1A0C";
-  // Texto que aparece dentro del tile cuando no hay imagen.
-  const snippet =
-    (post.idea ?? post.brief ?? "").split("\n")[0]?.slice(0, 60) ??
-    "Sin idea";
+  // Texto que aparece dentro del tile — el "concepto" del post.
+  // Truncado a ~110 chars para que se lea grande sin desbordarse.
+  const concept = (post.idea ?? post.brief ?? "").split("\n")[0]?.trim() || "";
+  const conceptShown = concept ? concept.slice(0, 110) : "Sin concepto";
   // Icono mini que indica el tipo de pieza (mismo idioma visual que IG).
   const formatIcon =
     post.format === "reel"
@@ -3235,16 +3372,16 @@ function FeedTile({
         />
       )}
 
-      {/* Overlay degradé para que el texto se lea siempre. Cuando hay
-          imagen lo subimos un poco para garantizar contraste; sin
-          imagen es más sutil porque el fondo ya es de color sólido. */}
+      {/* Overlay parejo para que el concepto se lea siempre. Más fuerte
+          cuando hay imagen (oscurece para leer encima); más sutil
+          cuando es color sólido. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background: hasImage
-            ? "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.0) 35%, rgba(0,0,0,0.0) 55%, rgba(0,0,0,0.65) 100%)"
-            : "linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 50%, rgba(0,0,0,0.55) 100%)",
+            ? "rgba(0,0,0,0.42)"
+            : "linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0.22) 100%)",
         }}
       />
 
@@ -3259,6 +3396,7 @@ function FeedTile({
           borderRadius: "50%",
           background: STATUS_COLOR[post.status],
           border: "1.5px solid rgba(255,255,255,0.85)",
+          zIndex: 2,
         }}
         title={STATUS_LABEL[post.status]}
       />
@@ -3274,6 +3412,7 @@ function FeedTile({
             fontWeight: 800,
             color: "rgba(255,255,255,0.9)",
             textShadow: "0 1px 2px rgba(0,0,0,0.4)",
+            zIndex: 2,
           }}
         >
           {formatIcon}
@@ -3291,36 +3430,16 @@ function FeedTile({
             fontWeight: 800,
             letterSpacing: "0.06em",
             padding: "2px 5px",
-            background: "rgba(255,255,255,0.18)",
+            background: "rgba(255,255,255,0.22)",
             color: "var(--off-white)",
             borderRadius: 3,
             backdropFilter: "blur(2px)",
+            zIndex: 2,
           }}
         >
           {meta.short}
         </div>
       )}
-
-      {/* Snippet de la idea — abajo */}
-      <div
-        style={{
-          position: "absolute",
-          left: 8,
-          right: 8,
-          bottom: 8,
-          fontSize: 10.5,
-          fontWeight: 500,
-          lineHeight: 1.3,
-          color: "rgba(255,255,255,0.95)",
-          textAlign: "left",
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}
-      >
-        {snippet}
-      </div>
 
       {/* Código C-XXXX — arriba al medio, muy chiquito */}
       <div
@@ -3335,9 +3454,45 @@ function FeedTile({
           color: "rgba(255,255,255,0.75)",
           textAlign: "center",
           letterSpacing: "0.05em",
+          zIndex: 2,
         }}
       >
         {code}
+      </div>
+
+      {/* CONCEPTO centrado — el bloque principal del tile. Se ve grande,
+          centrado vertical y horizontal, multi-línea con clamp. Es lo
+          primero que el ojo capta al escanear la grilla. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "32px 12px 24px",
+          zIndex: 1,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            letterSpacing: "-0.005em",
+            color: "rgba(255,255,255,0.98)",
+            textAlign: "center",
+            textShadow: hasImage ? "0 1px 4px rgba(0,0,0,0.6)" : "none",
+            display: "-webkit-box",
+            WebkitLineClamp: 6,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            fontStyle: concept ? "normal" : "italic",
+            opacity: concept ? 1 : 0.7,
+          }}
+        >
+          {conceptShown}
+        </div>
       </div>
     </button>
   );
@@ -3357,13 +3512,11 @@ function TikTokTile({
   code: string;
   onClick: () => void;
 }) {
-  const meta = post.classification
-    ? CONTENT_CLASSIFICATION_META[post.classification]
-    : null;
+  const classifications = useClassifications();
+  const meta = classificationMetaById(classifications, post.classification);
   const bg = meta?.color ?? "#1a1a1a";
-  const snippet =
-    (post.idea ?? post.brief ?? "").split("\n")[0]?.slice(0, 50) ??
-    "Sin idea";
+  const concept = (post.idea ?? post.brief ?? "").split("\n")[0]?.trim() || "";
+  const conceptShown = concept ? concept.slice(0, 120) : "Sin concepto";
   const hasImage = !!post.imageUrl;
 
   return (
@@ -3398,37 +3551,16 @@ function TikTokTile({
         />
       )}
 
-      {/* Overlay para que se lea el texto */}
+      {/* Overlay para que se lea el texto centrado */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.0) 60%, rgba(0,0,0,0.75) 100%)",
+          background: hasImage
+            ? "rgba(0,0,0,0.5)"
+            : "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 100%)",
         }}
       />
-
-      {/* Play indicator centro — característico de TikTok */}
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          background: "rgba(0,0,0,0.55)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "rgba(255,255,255,0.95)",
-          fontSize: 16,
-          paddingLeft: 3,
-        }}
-      >
-        ▶
-      </div>
 
       {/* Code arriba-izq, classification arriba-der */}
       <div
@@ -3443,6 +3575,7 @@ function TikTokTile({
           background: "rgba(0,0,0,0.4)",
           padding: "1px 5px",
           borderRadius: 3,
+          zIndex: 2,
         }}
       >
         {code}
@@ -3460,6 +3593,7 @@ function TikTokTile({
             background: meta.color,
             color: "var(--off-white)",
             borderRadius: 3,
+            zIndex: 2,
           }}
         >
           {meta.short}
@@ -3470,36 +3604,63 @@ function TikTokTile({
       <div
         style={{
           position: "absolute",
-          bottom: 30,
-          left: 6,
+          bottom: 8,
+          left: 8,
           width: 8,
           height: 8,
           borderRadius: "50%",
           background: STATUS_COLOR[post.status],
           border: "1.5px solid rgba(255,255,255,0.85)",
+          zIndex: 2,
         }}
         title={STATUS_LABEL[post.status]}
       />
 
-      {/* Snippet al pie — TT pone ahí la descripción del video */}
+      {/* Play indicator abajo-der — chiquito, no tapa el concepto */}
       <div
         style={{
           position: "absolute",
-          left: 8,
-          right: 8,
-          bottom: 8,
-          fontSize: 10,
-          fontWeight: 500,
-          lineHeight: 1.3,
-          color: "rgba(255,255,255,0.95)",
-          textAlign: "left",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
+          bottom: 6,
+          right: 6,
+          fontSize: 11,
+          color: "rgba(255,255,255,0.7)",
+          zIndex: 2,
         }}
       >
-        {snippet}
+        ▶
+      </div>
+
+      {/* CONCEPTO centrado — bloque principal del tile, igual que en IG. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "30px 14px 28px",
+          zIndex: 1,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            letterSpacing: "-0.005em",
+            color: "rgba(255,255,255,0.98)",
+            textAlign: "center",
+            textShadow: hasImage ? "0 1px 4px rgba(0,0,0,0.6)" : "none",
+            display: "-webkit-box",
+            WebkitLineClamp: 7,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            fontStyle: concept ? "normal" : "italic",
+            opacity: concept ? 1 : 0.7,
+          }}
+        >
+          {conceptShown}
+        </div>
       </div>
     </button>
   );
@@ -3523,9 +3684,8 @@ function FacebookPostCard({
   clientLogoUrl: string | null;
   onClick: () => void;
 }) {
-  const meta = post.classification
-    ? CONTENT_CLASSIFICATION_META[post.classification]
-    : null;
+  const classifications = useClassifications();
+  const meta = classificationMetaById(classifications, post.classification);
   const initials = clientName
     .split(/\s+/)
     .map((w) => w[0])
@@ -3733,9 +3893,8 @@ function LinkedInPostCard({
   clientLogoUrl: string | null;
   onClick: () => void;
 }) {
-  const meta = post.classification
-    ? CONTENT_CLASSIFICATION_META[post.classification]
-    : null;
+  const classifications = useClassifications();
+  const meta = classificationMetaById(classifications, post.classification);
   const initials = clientName
     .split(/\s+/)
     .map((w) => w[0])
@@ -3962,9 +4121,8 @@ function FeedPostDetailModal({
   code: string;
   onClose: () => void;
 }) {
-  const meta = post.classification
-    ? CONTENT_CLASSIFICATION_META[post.classification]
-    : null;
+  const classifications = useClassifications();
+  const meta = classificationMetaById(classifications, post.classification);
 
   return (
     <div

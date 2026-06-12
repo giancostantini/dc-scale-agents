@@ -1177,8 +1177,18 @@ function ContentDayModal({
   async function save(status: ContentStatus) {
     if (!brief.trim()) return;
     await addContent({
-      clientId, date, time, network, format, brief: brief.trim(),
-      status, source: mode === "agent" ? "ai" : "manual",
+      clientId,
+      date,
+      time,
+      network,
+      // Multi-red (mig 065): el ContentDayModal solo deja elegir UNA
+      // red, pero el campo `networks` es obligatorio en el tipo, así
+      // que lo poblamos con la única elegida.
+      networks: [network],
+      format,
+      brief: brief.trim(),
+      status,
+      source: mode === "agent" ? "ai" : "manual",
     });
     setBrief("");
     onChange();

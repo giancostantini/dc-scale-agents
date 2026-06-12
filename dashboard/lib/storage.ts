@@ -32,6 +32,7 @@ import type {
   ContentNetwork,
   ContentFormat,
   ContentStatus,
+  ClientContentClassification,
 } from "./types";
 
 // ==================== HELPERS ====================
@@ -83,6 +84,8 @@ interface ClientRow {
   looker_studio_url: string | null;
   content_frequency: Client["content_frequency"] | null;
   content_mix: Client["content_mix"] | null;
+  /** Migración 066 — catálogo de clasificaciones editoriales del cliente. */
+  content_classifications?: Client["content_classifications"];
   roadmap_month_notes: Client["roadmap_month_notes"] | null;
   tax_id?: string | null;
   created_at?: string | null;
@@ -117,6 +120,7 @@ function clientFromRow(r: ClientRow): Client {
     looker_studio_url: r.looker_studio_url,
     content_frequency: r.content_frequency ?? undefined,
     content_mix: r.content_mix ?? undefined,
+    content_classifications: r.content_classifications ?? null,
     roadmap_month_notes: r.roadmap_month_notes ?? undefined,
     contact_name: r.contact_name,
     contact_email: r.contact_email,
@@ -508,6 +512,24 @@ export async function updateClientContentFrequency(
  * por red. Reemplaza el JSONB completo. Usado desde el modal de
  * Frecuencia, donde el director también edita el mix.
  */
+/**
+ * Pisa el catálogo de clasificaciones editoriales del cliente.
+ * Pasar [] para limpiar (vuelve a los DEFAULTS en la UI vía
+ * classificationsFor()). El array completo se reemplaza tal cual;
+ * para CRUD parcial, el caller arma el array y lo manda entero.
+ */
+export async function updateClientContentClassifications(
+  clientId: string,
+  classifications: ClientContentClassification[],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ content_classifications: classifications })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
 export async function updateClientContentMix(
   clientId: string,
   mix: Client["content_mix"],
@@ -2135,6 +2157,8 @@ interface ContentRow {
   date: string;
   time: string | null;
   network: ContentNetwork;
+  /** Migración 065 — multi-red. Array de redes; back-compat con `network`. */
+  networks?: ContentNetwork[] | null;
   format: ContentFormat;
   brief: string;
   copy: string | null;
@@ -2148,13 +2172,22 @@ interface ContentRow {
   influencer?: string | null;
   // Migración 050 — código persistente por cliente.
   code?: number | null;
-  // Migración 063 — clasificación editorial valor/conversion/aspiracional.
-  classification?: "valor" | "conversion" | "aspiracional" | null;
+  // Migración 063 — clasificación editorial. Pre-066 era enum fijo;
+  // post-066 es string libre que matchea el catálogo del cliente.
+  classification?: string | null;
   // Migración 064 — imagen de preview para el feed.
   image_url?: string | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
+  // Networks: si la columna nueva tiene data la usamos; si no (entornos
+  // antes de migración 065 o filas legacy), fallback al singular.
+  const networks: ContentNetwork[] =
+    r.networks && r.networks.length > 0
+      ? r.networks
+      : r.network
+        ? [r.network]
+        : [];
   return {
     id: r.id,
     clientId: r.client_id,
@@ -2162,6 +2195,7 @@ function contentFromRow(r: ContentRow): ContentPost {
     date: r.date,
     time: r.time,
     network: r.network,
+    networks,
     format: r.format,
     brief: r.brief,
     idea: r.idea ?? null,
@@ -2199,6 +2233,13 @@ export async function addContent(
       date: data.date,
       time: data.time ?? null,
       network: data.network,
+      // Si networks no viene populado, usamos [network] como default —
+      // mantiene compat con el campo singular en filas nuevas y refleja
+      // lo que hace el backfill de la migración 065 para legacy.
+      networks:
+        data.networks && data.networks.length > 0
+          ? data.networks
+          : [data.network],
       format: data.format,
       brief: data.brief,
       idea: data.idea ?? null,
@@ -2226,6 +2267,10 @@ export interface UpdateContentInput {
   date?: string;
   time?: string | null;
   network?: ContentNetwork;
+  /** Patch multi-red. Pasá [] para limpiar (raro), o el array completo
+   *  de redes nuevas. Si se setea, también re-sincroniza `network` con
+   *  el primer elemento por back-compat. */
+  networks?: ContentNetwork[];
   format?: ContentFormat;
   brief?: string;
   idea?: string | null;
@@ -2233,8 +2278,10 @@ export interface UpdateContentInput {
   cta?: string | null;
   influencer?: string | null;
   assignedTo?: string | null;
-  /** Clasificación editorial — null para limpiar, valor/conversion/aspiracional para setear. */
-  classification?: "valor" | "conversion" | "aspiracional" | null;
+  /** Clasificación editorial — null para limpiar. String libre que
+   *  matchea un id del catálogo del cliente (clients.content_classifications).
+   *  El CHECK del enum se dropeó en la migración 066. */
+  classification?: string | null;
   /** URL pública de la imagen de preview. null para limpiar. */
   imageUrl?: string | null;
   status?: ContentStatus;
@@ -2250,6 +2297,15 @@ export async function updateContent(
   if (patch.date !== undefined) dbPatch.date = patch.date;
   if (patch.time !== undefined) dbPatch.time = patch.time;
   if (patch.network !== undefined) dbPatch.network = patch.network;
+  if (patch.networks !== undefined) {
+    dbPatch.networks = patch.networks;
+    // Re-sincronizar la columna singular con el primer elemento del
+    // array. Si quedó vacío (raro), mantenemos el anterior — la
+    // columna network es NOT NULL en DB.
+    if (patch.networks.length > 0) {
+      dbPatch.network = patch.networks[0];
+    }
+  }
   if (patch.format !== undefined) dbPatch.format = patch.format;
   if (patch.brief !== undefined) dbPatch.brief = patch.brief;
   if (patch.idea !== undefined) dbPatch.idea = patch.idea;

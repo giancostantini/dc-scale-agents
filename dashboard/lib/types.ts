@@ -241,6 +241,11 @@ export interface Client {
    *  El calendario lo usa para auto-asignar el tipo de cada posteo
    *  sugerido (chip V/O/E). */
   content_mix?: ContentMix;
+  /** Catálogo de clasificaciones editoriales custom del cliente.
+   *  El director las gestiona desde /configuracion. Si está vacío
+   *  o null, se usan los DEFAULTS (valor/conversion/aspiracional).
+   *  Migración 066. */
+  content_classifications?: ClientContentClassification[] | null;
   /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
    *  value = markdown. Aparece en el PDF del roadmap. */
   roadmap_month_notes?: RoadmapMonthNotes;
@@ -657,19 +662,113 @@ export type ContentFormat =
 export type ContentStatus = "draft" | "scheduled" | "published";
 
 /**
- * Clasificación editorial de una pieza de contenido. Es propia de
- * cada post, distinta del mix valor/oferta/engagement que vive en
- * el planificador para distribuir slots sugeridos. Acá hablamos de
- * a qué grupo pertenece la pieza puntual:
+ * Clasificación editorial de una pieza de contenido. El catálogo de
+ * clasificaciones VÁLIDAS vive en `clients.content_classifications`
+ * (jsonb) — cada cliente define su propio set de categorías con
+ * labels y colores. En content_posts.classification guardamos solo
+ * el `id` de la categoría elegida (string libre).
  *
- *   - valor:        educativo / informativo / expertise.
- *   - conversion:   comercial / promo / CTA directo.
- *   - aspiracional: inspiracional / lifestyle / brand.
+ * Defaults (cuando el cliente no configura nada): valor / conversion
+ * / aspiracional — son los 3 históricos. Ver DEFAULT_CONTENT_CLASSIFICATIONS
+ * y la migración 066.
  *
- * NULL = sin clasificar (default cuando la pieza recién se crea).
- * Persistido como text en content_posts.classification (mig 063).
+ * Tipo: string libre para soportar ids custom. En la UI sólo se ven
+ * los ids del catálogo del cliente; si un post tiene un id que ya
+ * no está en el catálogo (porque se renombró/borró), el helper
+ * classificationMetaById devuelve null y el chip queda como "sin
+ * clasificar" en el render.
  */
-export type ContentClassification = "valor" | "conversion" | "aspiracional";
+export type ContentClassification = string;
+
+/**
+ * Entrada del catálogo de clasificaciones de un cliente. id es la
+ * clave estable que persistimos en content_posts.classification;
+ * label es lo que se muestra en la UI; color es el accent del chip.
+ */
+export interface ClientContentClassification {
+  id: string;
+  label: string;
+  color: string;
+}
+
+/**
+ * Defaults del catálogo cuando un cliente no tiene clasificaciones
+ * cargadas. Son los 3 históricos del enum viejo, idénticos en
+ * label/color para no romper posts existentes.
+ */
+export const DEFAULT_CONTENT_CLASSIFICATIONS: ClientContentClassification[] = [
+  { id: "valor", label: "Valor", color: "#2f7d4f" },
+  { id: "conversion", label: "Conversión", color: "#b04b3a" },
+  { id: "aspiracional", label: "Aspiracional", color: "#9b8259" },
+];
+
+/**
+ * Devuelve el catálogo efectivo de clasificaciones de un cliente:
+ * el suyo si está cargado, o los DEFAULTS si no. Garantiza array.
+ */
+export function classificationsFor(
+  client:
+    | { content_classifications?: ClientContentClassification[] | null }
+    | null
+    | undefined,
+): ClientContentClassification[] {
+  const c = client?.content_classifications;
+  if (c && Array.isArray(c) && c.length > 0) return c;
+  return DEFAULT_CONTENT_CLASSIFICATIONS;
+}
+
+/**
+ * Forma enriquecida con campos derivados — `short` (primera letra)
+ * y `bg` (color con baja alpha) — que necesita la UI de chips/tiles.
+ * Lo devuelve classificationMetaById para que cada consumidor no
+ * tenga que recalcular estos derivados.
+ */
+export interface EnrichedClassificationMeta {
+  id: string;
+  label: string;
+  short: string;
+  color: string;
+  bg: string;
+}
+
+/**
+ * Convierte un color hex (#RRGGBB) a rgba con la alpha pedida.
+ * Usado para tintar fondos de chips con poca opacidad sin tener
+ * que pre-calcularlos manualmente cuando el usuario elige color.
+ * Si el color no es hex válido, fallback a rgba(0,0,0,alpha).
+ */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/**
+ * Busca una clasificación por id en un catálogo. Devuelve null si
+ * no existe (puede pasar con posts viejos cuando se renombró/borró);
+ * para el render eso se traduce en "sin chip / sin color".
+ *
+ * Cuando existe, devuelve la forma ENRIQUECIDA con `short` y `bg`
+ * derivados para que los consumidores no tengan que recalcularlos.
+ */
+export function classificationMetaById(
+  classifications: ClientContentClassification[],
+  id: string | null | undefined,
+): EnrichedClassificationMeta | null {
+  if (!id) return null;
+  const c = classifications.find((c) => c.id === id);
+  if (!c) return null;
+  return {
+    id: c.id,
+    label: c.label,
+    short: (c.label.trim()[0] ?? "?").toUpperCase(),
+    color: c.color,
+    bg: hexToRgba(c.color, 0.12),
+  };
+}
 
 export interface ContentPost {
   id: string;
@@ -683,7 +782,13 @@ export interface ContentPost {
   code?: number | null;
   date: string;
   time: string | null;
+  /** Red "principal" — campo singular, mantenido por back-compat
+   *  con código antiguo y como fallback cuando `networks` está vacío.
+   *  Normalmente es igual a `networks[0]`. */
   network: ContentNetwork;
+  /** Redes donde la pieza se publica. Una misma idea puede vivir en
+   *  IG + FB simultáneamente sin duplicarse. Ver migración 065. */
+  networks: ContentNetwork[];
   format: ContentFormat;
   /** Brief operativo / instrucciones de producción. */
   brief: string;
@@ -709,35 +814,12 @@ export interface ContentPost {
   createdAt: string;
 }
 
-/**
- * Metadata visual de cada clasificación: label visible, código
- * corto para chips/grilla, y color para tintar los tiles del feed.
- * Centralizado acá para que tabla y preview IG usen el mismo
- * código de colores.
- */
-export const CONTENT_CLASSIFICATION_META: Record<
-  ContentClassification,
-  { label: string; short: string; color: string; bg: string }
-> = {
-  valor: {
-    label: "Valor",
-    short: "V",
-    color: "#2f7d4f",
-    bg: "rgba(47,125,79,0.12)",
-  },
-  conversion: {
-    label: "Conversión",
-    short: "C",
-    color: "#b04b3a",
-    bg: "rgba(176,75,58,0.12)",
-  },
-  aspiracional: {
-    label: "Aspiracional",
-    short: "A",
-    color: "#9b8259",
-    bg: "rgba(155,130,89,0.12)",
-  },
-};
+// La constante CONTENT_CLASSIFICATION_META se removió en la
+// migración 066. Antes era el catálogo fijo (3 hardcoded); ahora
+// cada cliente tiene su propio catálogo en
+// `clients.content_classifications`. Usá classificationsFor(client)
+// + classificationMetaById(classifications, id) en su lugar — devuelve
+// la misma forma { label, short, color, bg } pero por cliente.
 
 // ==================== ROUTING (AUTORIZACIONES) ====================
 

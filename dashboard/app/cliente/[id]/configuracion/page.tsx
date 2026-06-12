@@ -19,12 +19,18 @@ import {
   updateClientLogo,
   updateClientCore,
   updateClientExternalLinks,
+  updateClientContentClassifications,
   listClientContacts,
   addClientContact,
   updateClientContact,
   deleteClientContact,
   type ClientContactInput,
 } from "@/lib/storage";
+import {
+  DEFAULT_CONTENT_CLASSIFICATIONS,
+  classificationsFor,
+  type ClientContentClassification,
+} from "@/lib/types";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { uploadFile } from "@/lib/upload";
 import type { Client, ClientContact, OnboardingFile } from "@/lib/types";
@@ -539,6 +545,20 @@ export default function ConfiguracionPage({
                   },
                 }
               : prev,
+          )
+        }
+      />
+
+      {/* ============== CLASIFICACIONES EDITORIALES ==============
+          Catálogo custom de clasificaciones del cliente. Se usa en el
+          menú Contenido para clasificar cada pieza y tintar los tiles
+          del feed con colores propios. Si el cliente no carga ninguna,
+          la UI cae a los DEFAULTS (valor/conversión/aspiracional). */}
+      <EditorialClassificationsPanel
+        client={client}
+        onSaved={(list) =>
+          setClient((prev) =>
+            prev ? { ...prev, content_classifications: list } : prev,
           )
         }
       />
@@ -1139,6 +1159,419 @@ function MetaBusinessSuitePanel({
     </div>
   );
 }
+
+// ============================================================
+// EditorialClassificationsPanel — CRUD de las clasificaciones
+// editoriales custom del cliente (label + color). Lo que cargue acá
+// es lo que aparece como pills en /contenido (NewIdea, RowEditor,
+// filtro) y como background-color en los tiles del feed.
+//
+// Si el cliente no tiene nada cargado, mostramos los DEFAULTS como
+// placeholder y un botón "Seedear defaults" que copia los 3 históricos
+// (valor/conversión/aspiracional) al catálogo del cliente.
+//
+// El id se autogenera al crear (slug del label, único). Esto es lo
+// que se persiste en content_posts.classification — si se renombra
+// el label, el id se mantiene y los posts viejos siguen apuntando.
+// ============================================================
+function EditorialClassificationsPanel({
+  client,
+  onSaved,
+}: {
+  client: Client;
+  onSaved: (list: ClientContentClassification[]) => void;
+}) {
+  // Estado local: lo que el director está editando. Inicialmente trae
+  // lo que tenía guardado el cliente; si está vacío, arranca con array
+  // vacío (el panel ofrece seedear los DEFAULTS).
+  const initial = client.content_classifications ?? [];
+  const [list, setList] = useState<ClientContentClassification[]>(initial);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftColor, setDraftColor] = useState("#2f7d4f");
+
+  // Resync si el cliente cambia desde afuera (otra pestaña, etc.).
+  useEffect(() => {
+    setList(client.content_classifications ?? []);
+  }, [client.content_classifications]);
+
+  // Detectar si hay cambios respecto al storage para mostrar el CTA
+  // de guardar.
+  const dirty = JSON.stringify(list) !== JSON.stringify(initial);
+
+  function slugify(text: string): string {
+    return text
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || `cat-${Date.now().toString(36)}`;
+  }
+
+  function addClassification() {
+    setErr("");
+    const label = draftLabel.trim();
+    if (!label) {
+      setErr("Poné un nombre para la clasificación");
+      return;
+    }
+    // Generamos el id como slug del label, asegurando unicidad dentro
+    // del set actual.
+    let baseId = slugify(label);
+    let id = baseId;
+    let n = 2;
+    while (list.find((c) => c.id === id)) {
+      id = `${baseId}-${n}`;
+      n++;
+    }
+    setList((prev) => [...prev, { id, label, color: draftColor }]);
+    setDraftLabel("");
+  }
+
+  function removeClassification(id: string) {
+    setList((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  function updateClassification(
+    id: string,
+    patch: Partial<ClientContentClassification>,
+  ) {
+    setList((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    );
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr("");
+    try {
+      await updateClientContentClassifications(client.id, list);
+      onSaved(list);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function seedDefaults() {
+    setList(DEFAULT_CONTENT_CLASSIFICATIONS);
+  }
+
+  const effective = list.length === 0 ? DEFAULT_CONTENT_CLASSIFICATIONS : list;
+
+  return (
+    <div className={ui.panel} style={{ marginBottom: 24 }}>
+      <div className={ui.panelHead}>
+        <div>
+          <div className={ui.panelTitle}>Clasificaciones editoriales</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+            Categorías propias para tipificar el contenido del cliente. Se
+            muestran como chips en el menú Contenido y tintan los tiles
+            del feed con el color que elijas.
+          </p>
+        </div>
+      </div>
+
+      {/* Listado de clasificaciones cargadas */}
+      {list.length === 0 ? (
+        <div
+          style={{
+            padding: 16,
+            background: "var(--ivory)",
+            borderLeft: "3px solid var(--sand)",
+            borderRadius: "var(--r-md)",
+            fontSize: 12,
+            color: "var(--deep-green)",
+            marginBottom: 14,
+            lineHeight: 1.5,
+          }}
+        >
+          Este cliente todavía no tiene clasificaciones custom. Mientras
+          tanto se ven los <strong>defaults</strong>: Valor, Conversión y
+          Aspiracional. Cargá las propias acá abajo o copiá los defaults
+          como punto de partida.
+          <div style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={seedDefaults}
+              className={ui.btnGhost}
+              style={{ fontSize: 11 }}
+            >
+              + Seedear con los defaults
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          {list.map((c) => (
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                padding: "8px 12px",
+                background: "var(--white)",
+                border: "1px solid rgba(10,26,12,0.08)",
+                borderLeft: `4px solid ${c.color}`,
+                borderRadius: 6,
+              }}
+            >
+              <input
+                type="color"
+                value={c.color}
+                onChange={(e) =>
+                  updateClassification(c.id, { color: e.target.value })
+                }
+                style={{
+                  width: 36,
+                  height: 28,
+                  padding: 0,
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  background: "transparent",
+                }}
+                title="Color del chip / tile"
+              />
+              <input
+                type="text"
+                value={c.label}
+                onChange={(e) =>
+                  updateClassification(c.id, { label: e.target.value })
+                }
+                placeholder="Nombre"
+                style={{
+                  flex: 1,
+                  padding: "6px 10px",
+                  border: "1px solid rgba(10,26,12,0.12)",
+                  borderRadius: 4,
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  background: "var(--white)",
+                  color: "var(--deep-green)",
+                  outline: "none",
+                }}
+              />
+              <code
+                style={{
+                  fontSize: 10,
+                  color: "var(--text-muted)",
+                  padding: "2px 6px",
+                  background: "var(--off-white)",
+                  borderRadius: 3,
+                  fontFamily: "monospace",
+                }}
+                title={`id estable que se guarda en cada post: ${c.id}`}
+              >
+                {c.id}
+              </code>
+              <button
+                type="button"
+                onClick={() => removeClassification(c.id)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--red-warn)",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: "0 6px",
+                }}
+                title="Borrar clasificación"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Form para agregar nueva */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: 10,
+          background: "var(--off-white)",
+          borderRadius: 6,
+          marginBottom: 12,
+        }}
+      >
+        <input
+          type="color"
+          value={draftColor}
+          onChange={(e) => setDraftColor(e.target.value)}
+          style={{
+            width: 36,
+            height: 28,
+            padding: 0,
+            border: "1px solid rgba(10,26,12,0.15)",
+            borderRadius: 4,
+            cursor: "pointer",
+            background: "transparent",
+          }}
+        />
+        <input
+          type="text"
+          value={draftLabel}
+          onChange={(e) => setDraftLabel(e.target.value)}
+          placeholder="Nueva clasificación — ej: Tutorial, Behind-the-scenes…"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addClassification();
+            }
+          }}
+          style={{
+            flex: 1,
+            padding: "6px 10px",
+            border: "1px solid rgba(10,26,12,0.12)",
+            borderRadius: 4,
+            fontSize: 13,
+            fontFamily: "inherit",
+            background: "var(--white)",
+            color: "var(--deep-green)",
+            outline: "none",
+          }}
+        />
+        <button
+          type="button"
+          onClick={addClassification}
+          className={ui.btnGhost}
+          style={{ whiteSpace: "nowrap", fontSize: 11 }}
+        >
+          + Agregar
+        </button>
+      </div>
+
+      {/* Preview rápido de los chips como van a verse */}
+      {effective.length > 0 && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: 12,
+            background: "var(--off-white)",
+            borderRadius: 6,
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginRight: 6,
+            }}
+          >
+            Preview
+          </span>
+          {effective.map((c) => (
+            <span
+              key={c.id}
+              style={{
+                padding: "5px 11px",
+                fontSize: 11,
+                fontWeight: 700,
+                background: c.color,
+                color: "var(--off-white)",
+                borderRadius: 999,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {c.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* CTAs: guardar + seedear si vacío */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          justifyContent: "flex-end",
+        }}
+      >
+        {dirty && (
+          <span style={{ fontSize: 11, color: "var(--sand-dark)", flex: 1 }}>
+            Hay cambios sin guardar.
+          </span>
+        )}
+        {list.length === 0 && (
+          <button
+            type="button"
+            onClick={seedDefaults}
+            className={ui.btnGhost}
+            style={{ fontSize: 11 }}
+          >
+            + Usar defaults
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className={ui.btnSolid}
+          style={{ opacity: saving || !dirty ? 0.55 : 1 }}
+        >
+          {saving ? "Guardando…" : "Guardar"}
+        </button>
+      </div>
+
+      {err && (
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 11,
+            color: "#B91C1C",
+          }}
+        >
+          ⚠ {err}
+        </div>
+      )}
+
+      <p
+        style={{
+          marginTop: 12,
+          fontSize: 11,
+          color: "var(--text-muted)",
+          lineHeight: 1.5,
+        }}
+      >
+        Tip: el id estable (gris) es lo que se guarda en cada pieza. Si
+        renombrás el label, el id no cambia y los posts viejos siguen
+        apuntando a la categoría. Si borrás una clasificación, los posts
+        que la usaban quedan como "sin clasificar" hasta que les pongas
+        otra.
+      </p>
+    </div>
+  );
+}
+
+// classificationsFor está importado pero no se usa directamente acá —
+// el panel siempre trabaja con `list` (lo que está editando el
+// director). El effective fallback con DEFAULTS solo se muestra en el
+// preview y en el mensaje cuando la lista está vacía.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _useClassificationsFor = classificationsFor;
 
 // ============================================================
 // ContractPanel — visualizar + subir/reemplazar el contrato PDF
