@@ -16,6 +16,7 @@
 
 import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { safeEqual } from "@/lib/auth-guard";
 import {
   createMeSubscription,
   getUserAccessToken,
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const providedCronSecret = req.headers.get("x-cron-secret");
   const isCron =
-    cronSecret && providedCronSecret && providedCronSecret === cronSecret;
+    !!cronSecret && !!providedCronSecret && safeEqual(providedCronSecret, cronSecret);
 
   const admin = createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
