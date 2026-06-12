@@ -844,20 +844,9 @@ export default function ContenidoPage({
         })}
       </div>
 
-      {/* KPIs compactos */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        <CompactKpi label="Total" value={stats.total} />
-        <CompactKpi label="Borradores" value={stats.draft} color={STATUS_COLOR.draft} />
-        <CompactKpi label="Aprobadas" value={stats.scheduled} color={STATUS_COLOR.scheduled} />
-        <CompactKpi label="Publicadas" value={stats.published} color={STATUS_COLOR.published} />
-      </div>
+      {/* KPIs compactos sacados — los conteos ya viven en los chips
+          de filtro de la fila siguiente ("Todas · 75 | Borradores · 75
+          | Aprobadas · 0 | Publicadas · 0"), eran redundantes. */}
 
       {/* Filtros: estado + período */}
       <div
