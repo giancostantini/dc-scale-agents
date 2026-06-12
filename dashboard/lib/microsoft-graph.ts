@@ -28,6 +28,13 @@ import { decryptToken, encryptToken } from "@/lib/token-crypto";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const TOKEN_TTL_BUFFER_MS = 5 * 60 * 1000; // refresh 5min antes de expirar
 
+// Graph devuelve start/end en UTC por defecto. Pedimos que los convierta a la
+// timezone de la agencia (UY) con el header `Prefer: outlook.timezone`, así el
+// webhook guarda fecha+hora LOCALES. Sin esto, un evento de las 21:00 UY se
+// guardaba como el día siguiente 00:00 UTC y "desaparecía" del día correcto.
+const CALENDAR_TIMEZONE =
+  process.env.APP_TIMEZONE?.trim() || "America/Montevideo";
+
 export const OAUTH_SCOPES = [
   "openid",
   "profile",
@@ -236,7 +243,13 @@ export async function fetchEvent(
 ): Promise<OutlookEvent | null> {
   const res = await fetch(
     `${GRAPH_BASE}/me/events/${encodeURIComponent(eventId)}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        // Pedir start/end ya convertidos a la timezone local (no UTC).
+        Prefer: `outlook.timezone="${CALENDAR_TIMEZONE}"`,
+      },
+    },
   );
   if (res.status === 404) return null;
   if (!res.ok) {

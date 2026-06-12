@@ -36,9 +36,18 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{}')
           echo "Subscription response: $response"
-          mode=$(echo "$response" | jq -r '.mode // "unknown"')
-          if [ "$mode" != "renewed" ] && [ "$mode" != "created" ]; then
-            echo "ERROR: subscription no se procesó correctamente" >&2
+          # El modo cron devuelve {processed, results:[{user_id,mode,ok,error}]}.
+          # Fallar SOLO si alguna conexión erroró de verdad (antes chequeaba
+          # .mode, que no existe en modo cron → siempre rojo y enmascaraba fallos).
+          processed=$(echo "$response" | jq -r '.processed // 0')
+          errors=$(echo "$response" | jq '[.results[]? | select(.ok == false)] | length')
+          if [ "$processed" = "0" ]; then
+            echo "WARN: no hay conexiones Outlook para renovar"
+            exit 0
+          fi
+          if [ "$errors" != "0" ]; then
+            echo "ERROR: $errors conexión(es) fallaron al renovar:" >&2
+            echo "$response" | jq -r '.results[]? | select(.ok == false) | "  - \(.user_id): \(.error // "?")"' >&2
             exit 1
           fi
-          echo "OK: subscription $mode"
+          echo "OK: $processed conexión(es) procesadas, sin errores"
