@@ -88,6 +88,8 @@ interface ClientRow {
   content_classifications?: Client["content_classifications"];
   /** Migración 067 — URLs de redes sociales del cliente. */
   social_links?: Client["social_links"];
+  /** Migración 068 — bio + seguidores + siguiendo por red. */
+  social_profiles?: Client["social_profiles"];
   roadmap_month_notes: Client["roadmap_month_notes"] | null;
   tax_id?: string | null;
   created_at?: string | null;
@@ -124,6 +126,7 @@ function clientFromRow(r: ClientRow): Client {
     content_mix: r.content_mix ?? undefined,
     content_classifications: r.content_classifications ?? null,
     social_links: r.social_links ?? null,
+    social_profiles: r.social_profiles ?? null,
     roadmap_month_notes: r.roadmap_month_notes ?? undefined,
     contact_name: r.contact_name,
     contact_email: r.contact_email,
@@ -545,6 +548,23 @@ export async function updateClientSocialLinks(
   const { error } = await supabase
     .from("clients")
     .update({ social_links: links })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/**
+ * Pisa los datos visuales del perfil del cliente por red (bio +
+ * seguidores + siguiendo). Pasar {} para limpiar todos. La forma
+ * se valida en la UI antes de mandar.
+ */
+export async function updateClientSocialProfiles(
+  clientId: string,
+  profiles: Client["social_profiles"],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("clients")
+    .update({ social_profiles: profiles ?? {} })
     .eq("id", clientId);
   if (error) throw error;
 }

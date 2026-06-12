@@ -45,6 +45,8 @@ import type {
   Client,
   ClientContentClassification,
   ClientSocialLinks,
+  ClientSocialProfile,
+  ClientSocialProfiles,
   ContentClassification,
   ContentFormat,
   ContentNetwork,
@@ -56,6 +58,7 @@ import {
   classificationsFor,
   classificationMetaById,
   extractHandleFromUrl,
+  formatSocialCount,
 } from "@/lib/types";
 
 /**
@@ -1270,6 +1273,7 @@ export default function ContenidoPage({
           clientName={client?.name ?? ""}
           clientLogoUrl={client?.logo_url ?? null}
           socialLinks={client?.social_links ?? null}
+          socialProfiles={client?.social_profiles ?? null}
           codeFallback={codeFallback}
           onTileClick={(p) => setFeedPostDetail(p)}
         />
@@ -2899,6 +2903,7 @@ function FeedPreview({
   clientName,
   clientLogoUrl,
   socialLinks,
+  socialProfiles,
   codeFallback,
   onTileClick,
 }: {
@@ -2910,6 +2915,7 @@ function FeedPreview({
   clientName: string;
   clientLogoUrl: string | null;
   socialLinks: ClientSocialLinks | null;
+  socialProfiles: ClientSocialProfiles | null;
   codeFallback: Map<string, string>;
   onTileClick: (p: ContentPost) => void;
 }) {
@@ -2946,6 +2952,102 @@ function FeedPreview({
   // para que la grilla no ocupe la pantalla — escaneo rápido. El
   // regular es el ancho razonable para "ver el perfil".
   const maxWidth = size === "compact" ? 440 : 720;
+  // Perfil visual del cliente en la red elegida (bio/seguidores/siguiendo).
+  // Cargado en /configuracion → "Presencia en redes".
+  const profile: ClientSocialProfile = socialProfiles?.[network] ?? {};
+
+  // Empty state común a todas las redes.
+  const emptyBody = (
+    <div
+      style={{
+        padding: "48px 20px",
+        textAlign: "center",
+        color: "var(--text-muted)",
+        fontSize: 12,
+        fontStyle: "italic",
+      }}
+    >
+      Sin contenido en {NETWORK_LABEL[network]} para los filtros
+      actuales. Probá ajustar el período o el estado.
+    </div>
+  );
+
+  // Layout body por red (puede ser empty si no hay posts).
+  const bodyByNetwork =
+    networkPosts.length === 0
+      ? emptyBody
+      : network === "ig"
+        ? (
+            <InstagramGrid
+              posts={networkPosts}
+              codeFallback={codeFallback}
+              onTileClick={onTileClick}
+            />
+          )
+        : network === "tt"
+          ? (
+              <TikTokGrid
+                posts={networkPosts}
+                codeFallback={codeFallback}
+                onTileClick={onTileClick}
+              />
+            )
+          : network === "fb"
+            ? (
+                <FacebookFeed
+                  posts={networkPosts}
+                  codeFallback={codeFallback}
+                  clientName={clientName}
+                  clientLogoUrl={clientLogoUrl}
+                  onTileClick={onTileClick}
+                />
+              )
+            : (
+                <LinkedInFeed
+                  posts={networkPosts}
+                  codeFallback={codeFallback}
+                  clientName={clientName}
+                  clientLogoUrl={clientLogoUrl}
+                  onTileClick={onTileClick}
+                />
+              );
+
+  // Header específico por red — cada uno imita el look del perfil real.
+  const headerByNetwork =
+    network === "ig" ? (
+      <InstagramProfileHeader
+        clientName={clientName}
+        clientLogoUrl={clientLogoUrl}
+        handle={handle}
+        profileUrl={profileUrl}
+        profile={profile}
+        postsCount={networkPosts.length}
+      />
+    ) : network === "tt" ? (
+      <TikTokProfileHeader
+        clientName={clientName}
+        clientLogoUrl={clientLogoUrl}
+        handle={handle}
+        profileUrl={profileUrl}
+        profile={profile}
+      />
+    ) : network === "fb" ? (
+      <FacebookProfileHeader
+        clientName={clientName}
+        clientLogoUrl={clientLogoUrl}
+        handle={handle}
+        profileUrl={profileUrl}
+        profile={profile}
+      />
+    ) : (
+      <LinkedInProfileHeader
+        clientName={clientName}
+        clientLogoUrl={clientLogoUrl}
+        handle={handle}
+        profileUrl={profileUrl}
+        profile={profile}
+      />
+    );
 
   return (
     <div
@@ -2962,205 +3064,32 @@ function FeedPreview({
         transition: "max-width 0.2s",
       }}
     >
-      {/* Header del perfil + selector de red + selector de tamaño */}
-      <div
-        style={{
-          padding: "18px 20px",
-          borderBottom: "1px solid rgba(10,26,12,0.06)",
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        {/* Avatar circular con el logo del cliente o las iniciales.
-            Para IG agregamos el story-ring degradé característico
-            (envoltorio con padding 2px y bg gradient). Si hay URL del
-            perfil, el avatar es un link al perfil real (target=_blank). */}
-        {(() => {
-          const avatar = (
-            <div
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: "50%",
-                background: clientLogoUrl ? "var(--ivory)" : "var(--sand)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                color: "var(--deep-green)",
-                fontWeight: 800,
-                fontSize: 18,
-                flexShrink: 0,
-                border: "1px solid rgba(10,26,12,0.08)",
-              }}
-            >
-              {clientLogoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={clientLogoUrl}
-                  alt={clientName}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-              ) : (
-                clientName
-                  .split(/\s+/)
-                  .map((w) => w[0])
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase()
-              )}
-            </div>
-          );
-
-          // Story ring tipo IG: degradé alrededor del avatar.
-          const ig =
-            network === "ig"
-              ? "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)"
-              : null;
-          const wrapped = ig ? (
-            <div
-              style={{
-                padding: 2,
-                background: ig,
-                borderRadius: "50%",
-                flexShrink: 0,
-                display: "flex",
-              }}
-            >
-              <div
-                style={{
-                  padding: 2,
-                  background: "var(--white)",
-                  borderRadius: "50%",
-                  display: "flex",
-                }}
-              >
-                {avatar}
-              </div>
-            </div>
-          ) : (
-            avatar
-          );
-
-          return profileUrl ? (
-            <a
-              href={profileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`Abrir perfil de ${NETWORK_LABEL[network]} en una pestaña nueva`}
-              style={{
-                textDecoration: "none",
-                flexShrink: 0,
-                display: "flex",
-              }}
-            >
-              {wrapped}
-            </a>
-          ) : (
-            wrapped
-          );
-        })()}
-
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: "var(--deep-green)",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {clientName || "Cliente"}
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 2,
-            }}
-          >
-            {profileUrl ? (
-              <a
-                href={profileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: "inherit",
-                  textDecoration: "underline",
-                  textDecorationStyle: "dotted",
-                }}
-                title="Abrir perfil real en pestaña nueva"
-              >
-                {handle}
-              </a>
-            ) : (
-              handle
-            )}{" "}
-            · <strong>{networkPosts.length}</strong> piezas en{" "}
-            {NETWORK_LABEL[network]}
-          </div>
-        </div>
-
-        {/* Tamaño: compact / regular — chips chiquitos */}
-        <div
-          style={{
-            display: "flex",
-            gap: 0,
-            background: "var(--off-white)",
-            padding: 3,
-            borderRadius: 6,
-            border: "1px solid rgba(10,26,12,0.08)",
-          }}
-        >
-          {(["compact", "regular"] as const).map((s) => {
-            const active = size === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => onSizeChange(s)}
-                title={s === "compact" ? "Vista compacta" : "Vista regular"}
-                style={{
-                  padding: "4px 9px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  background: active ? "var(--white)" : "transparent",
-                  color: active ? "var(--deep-green)" : "var(--text-muted)",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
-                }}
-              >
-                {s === "compact" ? "S" : "M"}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Selector de red — fila propia abajo del header para no
-          apretar todo en una sola línea cuando el ancho es chico. */}
+      {/* CHROME DE NUESTRA APP — selector de red + tamaño. Va con
+          nuestra paleta (deep-green/ivory) para que quede claro que NO
+          es parte del perfil que estamos imitando. */}
       <div
         style={{
           padding: "10px 14px",
           borderBottom: "1px solid rgba(10,26,12,0.06)",
           display: "flex",
-          gap: 4,
+          gap: 6,
           flexWrap: "wrap",
           background: "var(--off-white)",
+          alignItems: "center",
         }}
       >
+        <span
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginRight: 4,
+          }}
+        >
+          Preview
+        </span>
         {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
           const active = network === n;
           return (
@@ -3186,51 +3115,833 @@ function FeedPreview({
             </button>
           );
         })}
-      </div>
-
-      {/* Cuerpo: layout específico por red */}
-      {networkPosts.length === 0 ? (
+        <div style={{ flex: 1 }} />
         <div
           style={{
-            padding: "48px 20px",
-            textAlign: "center",
-            color: "var(--text-muted)",
+            display: "flex",
+            gap: 0,
+            background: "var(--white)",
+            padding: 3,
+            borderRadius: 6,
+            border: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          {(["compact", "regular"] as const).map((s) => {
+            const active = size === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onSizeChange(s)}
+                title={s === "compact" ? "Vista compacta" : "Vista regular"}
+                style={{
+                  padding: "4px 9px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: active ? "var(--deep-green)" : "transparent",
+                  color: active ? "var(--off-white)" : "var(--text-muted)",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.12)" : "none",
+                }}
+              >
+                {s === "compact" ? "S" : "M"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* PERFIL SIMULADO — header + body con el look de la red real.
+          Acá los estilos son fieles a la app (background, tipografía,
+          colores de acento). La grilla de posts abajo es la única
+          parte de NUESTRO planning que se ve. */}
+      {headerByNetwork}
+      {bodyByNetwork}
+    </div>
+  );
+}
+
+// ============================================================
+// AVATAR HELPERS — componentes auxiliares de los 4 headers nativos.
+// El avatar muestra el logo del cliente (img) o sus iniciales
+// (fallback). Tamaño / forma / wrapper varía por red:
+//   - IG / TT: redondo, IG con story-ring degradé encima.
+//   - FB: redondo, overlapping con el cover (negative margin).
+//   - LinkedIn: cuadrado redondeado (corporate look).
+// Si el cliente tiene URL del perfil, el avatar es link target=_blank.
+// ============================================================
+
+/** Avatar redondo simple. Para IG/TT/FB. */
+function RoundAvatar({
+  size,
+  clientName,
+  clientLogoUrl,
+  border,
+  background,
+  fontSize,
+}: {
+  size: number;
+  clientName: string;
+  clientLogoUrl: string | null;
+  border?: string;
+  background?: string;
+  fontSize?: number;
+}) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background:
+          background ?? (clientLogoUrl ? "#fff" : "var(--sand)"),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        color: "var(--deep-green)",
+        fontWeight: 800,
+        fontSize: fontSize ?? Math.round(size * 0.32),
+        flexShrink: 0,
+        border: border ?? "1px solid rgba(10,26,12,0.08)",
+      }}
+    >
+      {clientLogoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={clientLogoUrl}
+          alt={clientName}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : (
+        clientName
+          .split(/\s+/)
+          .map((w) => w[0])
+          .filter(Boolean)
+          .slice(0, 2)
+          .join("")
+          .toUpperCase()
+      )}
+    </div>
+  );
+}
+
+/** Avatar cuadrado redondeado — LinkedIn style. */
+function SquareAvatar({
+  size,
+  clientName,
+  clientLogoUrl,
+  background,
+}: {
+  size: number;
+  clientName: string;
+  clientLogoUrl: string | null;
+  background?: string;
+}) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 8,
+        background: background ?? (clientLogoUrl ? "#fff" : "#0a66c2"),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        color: "#fff",
+        fontWeight: 800,
+        fontSize: Math.round(size * 0.34),
+        flexShrink: 0,
+        border: "3px solid #fff",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+      }}
+    >
+      {clientLogoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={clientLogoUrl}
+          alt={clientName}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : (
+        clientName
+          .split(/\s+/)
+          .map((w) => w[0])
+          .filter(Boolean)
+          .slice(0, 2)
+          .join("")
+          .toUpperCase()
+      )}
+    </div>
+  );
+}
+
+/** Helper: linkea cualquier nodo a la URL del perfil real (target=_blank).
+ *  Si profileUrl es null, devuelve el nodo tal cual. */
+function ProfileLinkWrap({
+  profileUrl,
+  title,
+  children,
+}: {
+  profileUrl: string | null;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!profileUrl) return <>{children}</>;
+  return (
+    <a
+      href={profileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={title}
+      style={{
+        textDecoration: "none",
+        color: "inherit",
+        display: "contents",
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+// ============================================================
+// INSTAGRAM HEADER — fondo blanco, avatar con story-ring degradé,
+// nombre + verified mark + bio + stats (posts/seguidores/siguiendo)
+// + botones Seguir / Mensaje / + . Fuente system-ui (cercana a IG).
+// ============================================================
+function InstagramProfileHeader({
+  clientName,
+  clientLogoUrl,
+  handle,
+  profileUrl,
+  profile,
+  postsCount,
+}: {
+  clientName: string;
+  clientLogoUrl: string | null;
+  handle: string;
+  profileUrl: string | null;
+  profile: ClientSocialProfile;
+  postsCount: number;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        color: "#000",
+        padding: "20px 18px 14px",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        {/* Avatar con story-ring */}
+        <ProfileLinkWrap
+          profileUrl={profileUrl}
+          title="Abrir perfil de Instagram"
+        >
+          <div
+            style={{
+              padding: 2.5,
+              background:
+                "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+              borderRadius: "50%",
+              flexShrink: 0,
+              display: "flex",
+            }}
+          >
+            <div
+              style={{
+                padding: 2,
+                background: "#fff",
+                borderRadius: "50%",
+                display: "flex",
+              }}
+            >
+              <RoundAvatar
+                size={72}
+                clientName={clientName}
+                clientLogoUrl={clientLogoUrl}
+              />
+            </div>
+          </div>
+        </ProfileLinkWrap>
+
+        {/* Stats row + botones a la derecha del avatar */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 6,
+              flexWrap: "wrap",
+            }}
+          >
+            <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de Instagram">
+              <span
+                style={{
+                  fontSize: 16,
+                  fontWeight: 400,
+                  color: "#000",
+                }}
+              >
+                {handle.replace(/^@/, "")}
+              </span>
+            </ProfileLinkWrap>
+            <span
+              title="Cuenta verificada"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "#3897F0",
+                color: "#fff",
+                fontSize: 9,
+                fontWeight: 900,
+              }}
+            >
+              ✓
+            </span>
+            <button
+              type="button"
+              style={{
+                marginLeft: 4,
+                padding: "5px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "#0095F6",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Seguir
+            </button>
+            <button
+              type="button"
+              style={{
+                padding: "5px 12px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "#EFEFEF",
+                color: "#000",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Mensaje
+            </button>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 22,
+              fontSize: 14,
+              color: "#000",
+              marginTop: 2,
+            }}
+          >
+            <span>
+              <strong>{postsCount}</strong> publicaciones
+            </span>
+            <span>
+              <strong>{formatSocialCount(profile.followers)}</strong> seguidores
+            </span>
+            <span>
+              <strong>{formatSocialCount(profile.following)}</strong> seguidos
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bio + nombre real del cliente */}
+      <div style={{ marginTop: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#000" }}>
+          {clientName || "Cliente"}
+        </div>
+        {profile.bio ? (
+          <div
+            style={{
+              fontSize: 13.5,
+              color: "#262626",
+              lineHeight: 1.4,
+              marginTop: 4,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {profile.bio}
+          </div>
+        ) : (
+          <div
+            style={{
+              fontSize: 12,
+              color: "#999",
+              fontStyle: "italic",
+              marginTop: 4,
+            }}
+          >
+            Sin bio — cargala en Configuración → "Presencia en redes".
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// TIKTOK HEADER — fondo blanco, avatar grande redondo, @handle
+// gigante, stats row (Following/Followers/Likes) y Seguir.
+// Fuente sans-serif redondeada (cercana a TT).
+// ============================================================
+function TikTokProfileHeader({
+  clientName,
+  clientLogoUrl,
+  handle,
+  profileUrl,
+  profile,
+}: {
+  clientName: string;
+  clientLogoUrl: string | null;
+  handle: string;
+  profileUrl: string | null;
+  profile: ClientSocialProfile;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        color: "#161823",
+        padding: "22px 16px 16px",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        textAlign: "center",
+      }}
+    >
+      <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de TikTok">
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <RoundAvatar
+            size={96}
+            clientName={clientName}
+            clientLogoUrl={clientLogoUrl}
+            border="3px solid rgba(0,0,0,0.04)"
+          />
+        </div>
+      </ProfileLinkWrap>
+
+      <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de TikTok">
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: "#161823",
+            marginTop: 10,
+          }}
+        >
+          {handle}
+        </div>
+      </ProfileLinkWrap>
+      <div
+        style={{
+          fontSize: 13,
+          color: "rgba(22,24,35,0.5)",
+          marginTop: 1,
+        }}
+      >
+        {clientName || "Cliente"}
+      </div>
+
+      <button
+        type="button"
+        style={{
+          marginTop: 12,
+          padding: "8px 28px",
+          fontSize: 14,
+          fontWeight: 700,
+          background: "#FE2C55",
+          color: "#fff",
+          border: "none",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        Seguir
+      </button>
+
+      {/* Stats row */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 24,
+          marginTop: 16,
+          fontSize: 13,
+          color: "#161823",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>
+            {formatSocialCount(profile.following)}
+          </div>
+          <div style={{ color: "rgba(22,24,35,0.6)", fontSize: 12 }}>
+            Siguiendo
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>
+            {formatSocialCount(profile.followers)}
+          </div>
+          <div style={{ color: "rgba(22,24,35,0.6)", fontSize: 12 }}>
+            Seguidores
+          </div>
+        </div>
+      </div>
+
+      {/* Bio */}
+      {profile.bio ? (
+        <div
+          style={{
+            marginTop: 14,
+            fontSize: 13.5,
+            color: "#161823",
+            lineHeight: 1.4,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {profile.bio}
+        </div>
+      ) : (
+        <div
+          style={{
+            marginTop: 14,
             fontSize: 12,
+            color: "rgba(22,24,35,0.45)",
             fontStyle: "italic",
           }}
         >
-          Sin contenido en {NETWORK_LABEL[network]} para los filtros
-          actuales. Probá ajustar el período o el estado.
+          Sin bio — cargala en Configuración → "Presencia en redes".
         </div>
-      ) : network === "ig" ? (
-        <InstagramGrid
-          posts={networkPosts}
-          codeFallback={codeFallback}
-          onTileClick={onTileClick}
-        />
-      ) : network === "tt" ? (
-        <TikTokGrid
-          posts={networkPosts}
-          codeFallback={codeFallback}
-          onTileClick={onTileClick}
-        />
-      ) : network === "fb" ? (
-        <FacebookFeed
-          posts={networkPosts}
-          codeFallback={codeFallback}
-          clientName={clientName}
-          clientLogoUrl={clientLogoUrl}
-          onTileClick={onTileClick}
-        />
-      ) : (
-        <LinkedInFeed
-          posts={networkPosts}
-          codeFallback={codeFallback}
-          clientName={clientName}
-          clientLogoUrl={clientLogoUrl}
-          onTileClick={onTileClick}
-        />
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// FACEBOOK HEADER — cover degradé azul + avatar overlapping +
+// nombre + categoría + likes/followers + botones tipo Me gusta /
+// Seguir / Compartir. Fuente Helvetica (clásica de FB).
+// ============================================================
+function FacebookProfileHeader({
+  clientName,
+  clientLogoUrl,
+  handle,
+  profileUrl,
+  profile,
+}: {
+  clientName: string;
+  clientLogoUrl: string | null;
+  handle: string;
+  profileUrl: string | null;
+  profile: ClientSocialProfile;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        color: "#050505",
+        fontFamily:
+          "Helvetica, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      {/* Cover degradé azul de FB */}
+      <div
+        style={{
+          height: 120,
+          background: "linear-gradient(135deg, #1877F2 0%, #166FE5 100%)",
+          position: "relative",
+        }}
+      />
+      <div style={{ padding: "0 18px 14px", position: "relative" }}>
+        {/* Avatar overlap sobre el cover */}
+        <div
+          style={{
+            position: "absolute",
+            top: -42,
+            left: 18,
+          }}
+        >
+          <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de Facebook">
+            <RoundAvatar
+              size={84}
+              clientName={clientName}
+              clientLogoUrl={clientLogoUrl}
+              border="4px solid #fff"
+              fontSize={26}
+            />
+          </ProfileLinkWrap>
+        </div>
+        <div style={{ height: 50 }} />
+        {/* Nombre + categoría */}
+        <div style={{ marginBottom: 6 }}>
+          <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de Facebook">
+            <span style={{ fontSize: 24, fontWeight: 700, color: "#050505" }}>
+              {clientName || "Cliente"}
+            </span>
+          </ProfileLinkWrap>
+        </div>
+        <div style={{ fontSize: 13, color: "#65676B", marginBottom: 8 }}>
+          {handle} · Página de empresa
+        </div>
+        <div style={{ fontSize: 13, color: "#65676B", marginBottom: 12 }}>
+          <strong style={{ color: "#050505" }}>
+            {formatSocialCount(profile.followers)}
+          </strong>{" "}
+          seguidores ·{" "}
+          <strong style={{ color: "#050505" }}>
+            {formatSocialCount(profile.following)}
+          </strong>{" "}
+          a quienes les gusta esto
+        </div>
+        {profile.bio && (
+          <div
+            style={{
+              fontSize: 13.5,
+              color: "#050505",
+              lineHeight: 1.4,
+              marginBottom: 12,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {profile.bio}
+          </div>
+        )}
+        {/* Botones */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            style={{
+              padding: "6px 14px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "#1877F2",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            👍 Me gusta
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: "6px 14px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "#E4E6EB",
+              color: "#050505",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Seguir
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: "6px 14px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "#E4E6EB",
+              color: "#050505",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            ↗ Compartir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// LINKEDIN HEADER — cover gris-azul + avatar cuadrado overlapping +
+// nombre + headline (sector del cliente) + N conexiones + botones
+// Conectar / Mensaje / + Seguir. Fuente system-ui (clean corporate).
+// ============================================================
+function LinkedInProfileHeader({
+  clientName,
+  clientLogoUrl,
+  handle,
+  profileUrl,
+  profile,
+}: {
+  clientName: string;
+  clientLogoUrl: string | null;
+  handle: string;
+  profileUrl: string | null;
+  profile: ClientSocialProfile;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        color: "rgba(0,0,0,0.9)",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      {/* Cover gris-azul corporativo */}
+      <div
+        style={{
+          height: 110,
+          background:
+            "linear-gradient(135deg, #0a66c2 0%, #004182 50%, #0a66c2 100%)",
+          position: "relative",
+        }}
+      />
+      <div style={{ padding: "0 18px 14px", position: "relative" }}>
+        <div
+          style={{
+            position: "absolute",
+            top: -50,
+            left: 18,
+          }}
+        >
+          <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de LinkedIn">
+            <SquareAvatar
+              size={92}
+              clientName={clientName}
+              clientLogoUrl={clientLogoUrl}
+            />
+          </ProfileLinkWrap>
+        </div>
+        <div style={{ height: 56 }} />
+        <ProfileLinkWrap profileUrl={profileUrl} title="Abrir perfil de LinkedIn">
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: "rgba(0,0,0,0.9)",
+              marginBottom: 2,
+            }}
+          >
+            {clientName || "Cliente"}
+          </div>
+        </ProfileLinkWrap>
+        {/* Headline: usamos la bio del cliente o un placeholder corporativo */}
+        <div
+          style={{
+            fontSize: 14,
+            color: "rgba(0,0,0,0.9)",
+            marginBottom: 6,
+            lineHeight: 1.4,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {profile.bio || "Headline: cargá la bio en Configuración."}
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.55)",
+            marginBottom: 8,
+          }}
+        >
+          {handle} · Empresa
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "#0a66c2",
+            fontWeight: 600,
+            marginBottom: 12,
+          }}
+        >
+          <strong>{formatSocialCount(profile.followers)}</strong> seguidores
+        </div>
+        {/* Botones */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            style={{
+              padding: "6px 16px",
+              fontSize: 14,
+              fontWeight: 700,
+              background: "#0a66c2",
+              color: "#fff",
+              border: "none",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            + Seguir
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: "5px 14px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "#fff",
+              color: "#0a66c2",
+              border: "1px solid #0a66c2",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Mensaje
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: "5px 14px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "transparent",
+              color: "rgba(0,0,0,0.6)",
+              border: "1px solid rgba(0,0,0,0.6)",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Más
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

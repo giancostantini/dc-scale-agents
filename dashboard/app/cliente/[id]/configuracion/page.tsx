@@ -21,6 +21,7 @@ import {
   updateClientExternalLinks,
   updateClientContentClassifications,
   updateClientSocialLinks,
+  updateClientSocialProfiles,
   listClientContacts,
   addClientContact,
   updateClientContact,
@@ -33,6 +34,8 @@ import {
   extractHandleFromUrl,
   type ClientContentClassification,
   type ClientSocialLinks,
+  type ClientSocialProfile,
+  type ClientSocialProfiles,
 } from "@/lib/types";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { uploadFile } from "@/lib/upload";
@@ -566,15 +569,20 @@ export default function ConfiguracionPage({
         }
       />
 
-      {/* ============== LINKS DE REDES SOCIALES ==============
-          URLs de los perfiles del cliente en cada red. El preview del
-          feed (/contenido → Vista feed) usa estos URLs para:
-            - Linkear el avatar/handle al perfil real (target=_blank).
-            - Mostrar el handle extraído del URL en el header. */}
-      <SocialLinksPanel
+      {/* ============== PRESENCIA EN REDES ==============
+          Por red: URL + bio + seguidores + siguiendo. El preview del
+          feed (/contenido → Vista feed) usa todo esto para reconstruir
+          el header del perfil del cliente lo más fiel posible. La
+          única parte "nuestra" del preview es la grilla de abajo. */}
+      <SocialPresencePanel
         client={client}
-        onSaved={(links) =>
+        onSavedLinks={(links) =>
           setClient((prev) => (prev ? { ...prev, social_links: links } : prev))
+        }
+        onSavedProfiles={(profiles) =>
+          setClient((prev) =>
+            prev ? { ...prev, social_profiles: profiles } : prev,
+          )
         }
       />
 
@@ -1185,62 +1193,173 @@ function MetaBusinessSuitePanel({
 // Si tiene contenido, exigimos http(s)://. Por red, el helper
 // extractHandleFromUrl te muestra qué handle vamos a usar.
 // ============================================================
-function SocialLinksPanel({
+const SOCIAL_FIELD_LABEL = {
+  ig: "Instagram",
+  fb: "Facebook",
+  tt: "TikTok",
+  in: "LinkedIn",
+} as const;
+
+const SOCIAL_ACCENT: Record<keyof typeof SOCIAL_FIELD_LABEL, string> = {
+  ig: "#E4405F",
+  fb: "#1877F2",
+  tt: "#000000",
+  in: "#0A66C2",
+};
+
+const SOCIAL_URL_PLACEHOLDER: Record<keyof typeof SOCIAL_FIELD_LABEL, string> =
+  {
+    ig: "https://instagram.com/usuario",
+    fb: "https://facebook.com/pagina",
+    tt: "https://tiktok.com/@usuario",
+    in: "https://linkedin.com/company/empresa",
+  };
+
+type SocialKey = keyof typeof SOCIAL_FIELD_LABEL;
+
+function SocialPresencePanel({
   client,
-  onSaved,
+  onSavedLinks,
+  onSavedProfiles,
 }: {
   client: Client;
-  onSaved: (links: ClientSocialLinks) => void;
+  onSavedLinks: (links: ClientSocialLinks) => void;
+  onSavedProfiles: (profiles: ClientSocialProfiles) => void;
 }) {
-  const initial: ClientSocialLinks = client.social_links ?? {};
-  const [ig, setIg] = useState(initial.ig ?? "");
-  const [fb, setFb] = useState(initial.fb ?? "");
-  const [tt, setTt] = useState(initial.tt ?? "");
-  const [ln, setLn] = useState(initial.in ?? "");
+  // State unificado por red: { url, bio, followers, following }.
+  // Inicializado desde client.social_links + client.social_profiles.
+  type RowState = {
+    url: string;
+    bio: string;
+    followers: string;
+    following: string;
+  };
+  const buildInitial = (): Record<SocialKey, RowState> => {
+    const links = client.social_links ?? {};
+    const profs = client.social_profiles ?? {};
+    return {
+      ig: {
+        url: links.ig ?? "",
+        bio: profs.ig?.bio ?? "",
+        followers:
+          profs.ig?.followers !== undefined ? String(profs.ig.followers) : "",
+        following:
+          profs.ig?.following !== undefined ? String(profs.ig.following) : "",
+      },
+      fb: {
+        url: links.fb ?? "",
+        bio: profs.fb?.bio ?? "",
+        followers:
+          profs.fb?.followers !== undefined ? String(profs.fb.followers) : "",
+        following:
+          profs.fb?.following !== undefined ? String(profs.fb.following) : "",
+      },
+      tt: {
+        url: links.tt ?? "",
+        bio: profs.tt?.bio ?? "",
+        followers:
+          profs.tt?.followers !== undefined ? String(profs.tt.followers) : "",
+        following:
+          profs.tt?.following !== undefined ? String(profs.tt.following) : "",
+      },
+      in: {
+        url: links.in ?? "",
+        bio: profs.in?.bio ?? "",
+        followers:
+          profs.in?.followers !== undefined ? String(profs.in.followers) : "",
+        following:
+          profs.in?.following !== undefined ? String(profs.in.following) : "",
+      },
+    };
+  };
+
+  const [rows, setRows] = useState<Record<SocialKey, RowState>>(buildInitial());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
   // Resync si el cliente cambia desde afuera.
   useEffect(() => {
-    const cur: ClientSocialLinks = client.social_links ?? {};
-    setIg(cur.ig ?? "");
-    setFb(cur.fb ?? "");
-    setTt(cur.tt ?? "");
-    setLn(cur.in ?? "");
-  }, [client.social_links]);
+    setRows(buildInitial());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.social_links, client.social_profiles]);
 
-  const dirty =
-    (ig.trim() || "") !== (initial.ig ?? "") ||
-    (fb.trim() || "") !== (initial.fb ?? "") ||
-    (tt.trim() || "") !== (initial.tt ?? "") ||
-    (ln.trim() || "") !== (initial.in ?? "");
+  function setRow(key: SocialKey, patch: Partial<RowState>) {
+    setRows((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  }
+
+  // Compara con lo guardado para mostrar "cambios sin guardar".
+  const initial = buildInitial();
+  const dirty = (Object.keys(rows) as SocialKey[]).some((k) => {
+    const a = rows[k];
+    const b = initial[k];
+    return (
+      a.url !== b.url ||
+      a.bio !== b.bio ||
+      a.followers !== b.followers ||
+      a.following !== b.following
+    );
+  });
 
   function isValidUrl(value: string): boolean {
     if (!value.trim()) return true;
     return /^https?:\/\//i.test(value.trim());
   }
 
+  function parseCount(s: string): number | undefined {
+    const v = s.trim();
+    if (!v) return undefined;
+    // Acepta "12.345", "12,345", "12K" no — solo dígitos puros para
+    // ser inequívocos. El director ingresa enteros.
+    const n = Number(v.replace(/[.,\s]/g, ""));
+    if (Number.isNaN(n) || n < 0) return NaN;
+    return Math.floor(n);
+  }
+
   async function save() {
     setErr("");
-    const all = { ig, fb, tt, in: ln };
-    const invalid = Object.entries(all).find(
-      ([, v]) => v.trim() && !isValidUrl(v),
-    );
-    if (invalid) {
-      setErr(
-        `El URL de ${SOCIAL_FIELD_LABEL[invalid[0] as keyof typeof SOCIAL_FIELD_LABEL]} tiene que empezar con http:// o https://`,
-      );
-      return;
+    // Validar URLs.
+    for (const k of Object.keys(rows) as SocialKey[]) {
+      if (!isValidUrl(rows[k].url)) {
+        setErr(
+          `El URL de ${SOCIAL_FIELD_LABEL[k]} tiene que empezar con http:// o https://`,
+        );
+        return;
+      }
+      const f = parseCount(rows[k].followers);
+      const g = parseCount(rows[k].following);
+      if (Number.isNaN(f) || Number.isNaN(g)) {
+        setErr(
+          `Los seguidores/siguiendo de ${SOCIAL_FIELD_LABEL[k]} tienen que ser números enteros.`,
+        );
+        return;
+      }
     }
     setSaving(true);
     try {
-      const payload: ClientSocialLinks = {};
-      if (ig.trim()) payload.ig = ig.trim();
-      if (fb.trim()) payload.fb = fb.trim();
-      if (tt.trim()) payload.tt = tt.trim();
-      if (ln.trim()) payload.in = ln.trim();
-      await updateClientSocialLinks(client.id, payload);
-      onSaved(payload);
+      // Construir payload de links y de profiles desde rows.
+      const links: ClientSocialLinks = {};
+      const profiles: ClientSocialProfiles = {};
+      for (const k of Object.keys(rows) as SocialKey[]) {
+        const r = rows[k];
+        if (r.url.trim()) links[k] = r.url.trim();
+        const followers = parseCount(r.followers);
+        const following = parseCount(r.following);
+        const bio = r.bio.trim();
+        if (bio || followers !== undefined || following !== undefined) {
+          const p: ClientSocialProfile = {};
+          if (bio) p.bio = bio;
+          if (followers !== undefined) p.followers = followers;
+          if (following !== undefined) p.following = following;
+          profiles[k] = p;
+        }
+      }
+      // Guardar ambos en paralelo (storage independiente).
+      await Promise.all([
+        updateClientSocialLinks(client.id, links),
+        updateClientSocialProfiles(client.id, profiles),
+      ]);
+      onSavedLinks(links);
+      onSavedProfiles(profiles);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -1248,52 +1367,16 @@ function SocialLinksPanel({
     }
   }
 
-  const fields: {
-    key: keyof typeof SOCIAL_FIELD_LABEL;
-    value: string;
-    setValue: (v: string) => void;
-    placeholder: string;
-    accent: string;
-  }[] = [
-    {
-      key: "ig",
-      value: ig,
-      setValue: setIg,
-      placeholder: "https://instagram.com/usuario",
-      accent: "#E4405F",
-    },
-    {
-      key: "fb",
-      value: fb,
-      setValue: setFb,
-      placeholder: "https://facebook.com/pagina",
-      accent: "#1877F2",
-    },
-    {
-      key: "tt",
-      value: tt,
-      setValue: setTt,
-      placeholder: "https://tiktok.com/@usuario",
-      accent: "#000000",
-    },
-    {
-      key: "in",
-      value: ln,
-      setValue: setLn,
-      placeholder: "https://linkedin.com/company/empresa",
-      accent: "#0A66C2",
-    },
-  ];
-
   return (
     <div className={ui.panel} style={{ marginBottom: 24 }}>
       <div className={ui.panelHead}>
         <div>
-          <div className={ui.panelTitle}>Links de redes sociales</div>
+          <div className={ui.panelTitle}>Presencia en redes</div>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            URLs de los perfiles públicos del cliente. El preview del feed
-            (menú Contenido → Vista feed) usa estos links para que el
-            avatar/handle linkeen al perfil real.
+            URL del perfil + bio + seguidores + siguiendo, por red. El preview
+            del feed (menú Contenido → Vista feed) reconstruye el header del
+            perfil real con estos datos. La única parte "nuestra" que se ve
+            distinta del perfil del cliente es la grilla de abajo.
           </p>
         </div>
       </div>
@@ -1302,67 +1385,172 @@ function SocialLinksPanel({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: 12,
           marginBottom: 14,
         }}
       >
-        {fields.map(({ key, value, setValue, placeholder, accent }) => {
-          const handle = extractHandleFromUrl(value);
+        {(Object.keys(SOCIAL_FIELD_LABEL) as SocialKey[]).map((key) => {
+          const accent = SOCIAL_ACCENT[key];
+          const row = rows[key];
+          const handle = extractHandleFromUrl(row.url);
           return (
             <div
               key={key}
               style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                padding: "8px 12px",
                 background: "var(--white)",
                 border: "1px solid rgba(10,26,12,0.08)",
                 borderLeft: `4px solid ${accent}`,
                 borderRadius: 6,
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
               }}
             >
+              {/* Header de la red: nombre + handle extraído */}
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: accent,
-                  width: 84,
-                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 4,
                 }}
               >
-                {SOCIAL_FIELD_LABEL[key]}
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    color: accent,
+                  }}
+                >
+                  {SOCIAL_FIELD_LABEL[key]}
+                </div>
+                {handle && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {handle}
+                  </div>
+                )}
               </div>
+
+              {/* Fila 1: URL */}
               <input
                 type="url"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder={placeholder}
+                value={row.url}
+                onChange={(e) => setRow(key, { url: e.target.value })}
+                placeholder={SOCIAL_URL_PLACEHOLDER[key]}
                 style={{
-                  flex: 1,
-                  padding: "6px 10px",
+                  width: "100%",
+                  padding: "7px 10px",
                   border: "1px solid rgba(10,26,12,0.12)",
                   borderRadius: 4,
-                  fontSize: 13,
+                  fontSize: 12.5,
                   fontFamily: "inherit",
                   background: "var(--white)",
                   color: "var(--deep-green)",
                   outline: "none",
                 }}
               />
-              <div
+
+              {/* Fila 2: Bio (textarea corto) */}
+              <textarea
+                value={row.bio}
+                onChange={(e) => setRow(key, { bio: e.target.value })}
+                placeholder="Bio del perfil — descripción corta que aparece bajo el handle"
+                rows={2}
                 style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  fontFamily: "monospace",
-                  minWidth: 80,
-                  textAlign: "right",
+                  width: "100%",
+                  padding: "7px 10px",
+                  border: "1px solid rgba(10,26,12,0.12)",
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontFamily: "inherit",
+                  background: "var(--white)",
+                  color: "var(--deep-green)",
+                  outline: "none",
+                  resize: "vertical",
                 }}
-                title={handle ? `Handle extraído: ${handle}` : "Sin handle"}
-              >
-                {handle ?? "—"}
+              />
+
+              {/* Fila 3: Followers + Following side by side */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 600,
+                      display: "block",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Seguidores
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={row.followers}
+                    onChange={(e) =>
+                      setRow(key, { followers: e.target.value })
+                    }
+                    placeholder="ej: 12345"
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: "1px solid rgba(10,26,12,0.12)",
+                      borderRadius: 4,
+                      fontSize: 12.5,
+                      fontFamily: "inherit",
+                      background: "var(--white)",
+                      color: "var(--deep-green)",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 600,
+                      display: "block",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Siguiendo
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={row.following}
+                    onChange={(e) =>
+                      setRow(key, { following: e.target.value })
+                    }
+                    placeholder="ej: 240"
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: "1px solid rgba(10,26,12,0.12)",
+                      borderRadius: 4,
+                      fontSize: 12.5,
+                      fontFamily: "inherit",
+                      background: "var(--white)",
+                      color: "var(--deep-green)",
+                      outline: "none",
+                    }}
+                  />
+                </div>
               </div>
             </div>
           );
@@ -1413,21 +1601,13 @@ function SocialLinksPanel({
           lineHeight: 1.5,
         }}
       >
-        Tip: copiá la URL completa desde el navegador cuando estés en el
-        perfil del cliente. El handle (columna gris a la derecha) se
-        extrae automáticamente del URL y es lo que mostramos en el header
-        del feed con prefijo @.
+        Tip: estos números los cargás manualmente (no traemos de las APIs de
+        Meta/TikTok porque requiere OAuth + aprobación). El header del
+        preview muestra "—" si dejás los campos vacíos, sin números fake.
       </p>
     </div>
   );
 }
-
-const SOCIAL_FIELD_LABEL = {
-  ig: "Instagram",
-  fb: "Facebook",
-  tt: "TikTok",
-  in: "LinkedIn",
-} as const;
 
 // ============================================================
 // EditorialClassificationsPanel — CRUD de las clasificaciones

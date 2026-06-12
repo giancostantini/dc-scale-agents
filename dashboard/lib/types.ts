@@ -150,6 +150,59 @@ export interface ClientSocialLinks {
 }
 
 /**
+ * Datos "visuales" del perfil del cliente en una red. Se usan SOLO
+ * para que el preview del feed parezca el perfil real:
+ *   - bio: 1-3 líneas que aparecen bajo el handle.
+ *   - followers: cantidad de seguidores (entero).
+ *   - following: cantidad siguiendo (opcional, IG/TT lo muestran).
+ *
+ * No traemos esto de las APIs de Meta/TikTok porque requiere
+ * OAuth + aprobación de Meta Business. El director los carga
+ * manualmente y los actualiza cuando quiere.
+ */
+export interface ClientSocialProfile {
+  bio?: string;
+  followers?: number;
+  following?: number;
+}
+
+/**
+ * Mapa de perfiles por red — keys ig/fb/tt/in. Cada red puede tener
+ * (o no) sus datos visuales. Persistido como jsonb en
+ * clients.social_profiles (migración 068).
+ */
+export interface ClientSocialProfiles {
+  ig?: ClientSocialProfile;
+  fb?: ClientSocialProfile;
+  tt?: ClientSocialProfile;
+  in?: ClientSocialProfile;
+}
+
+/**
+ * Formatea un número de seguidores estilo redes sociales:
+ *   1234 → "1.234"
+ *   12345 → "12,3K"
+ *   1234567 → "1,2M"
+ *
+ * Usa coma decimal (es-UY) para los abreviados. Si el valor es
+ * undefined/null/NaN devuelve "—" para que el header siga
+ * dibujándose con look natural ("— seguidores").
+ */
+export function formatSocialCount(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  if (n >= 1_000_000) {
+    const v = (n / 1_000_000).toFixed(1).replace(".", ",");
+    return v.endsWith(",0") ? `${v.slice(0, -2)}M` : `${v}M`;
+  }
+  if (n >= 10_000) {
+    const v = (n / 1_000).toFixed(1).replace(".", ",");
+    return v.endsWith(",0") ? `${v.slice(0, -2)}K` : `${v}K`;
+  }
+  // Hasta 9.999 mostramos completo con separador de miles.
+  return n.toLocaleString("es-UY");
+}
+
+/**
  * Extrae el handle del URL de un perfil de red social. Tolerante
  * con / final, querystring, www., subdominios. Si no puede extraer,
  * devuelve null. Útil para mostrar "@usuario" en el header del feed.
@@ -293,6 +346,10 @@ export interface Client {
    *  en /configuracion. Se usa para linkear el avatar/handle del
    *  preview feed al perfil real. Migración 067. */
   social_links?: ClientSocialLinks | null;
+  /** Datos visuales del perfil por red (bio + seguidores + siguiendo).
+   *  Para que el preview del feed se vea como el perfil real.
+   *  Migración 068. */
+  social_profiles?: ClientSocialProfiles | null;
   /** Texto de estrategia desarrollado por mes. Key = "YYYY-MM",
    *  value = markdown. Aparece en el PDF del roadmap. */
   roadmap_month_notes?: RoadmapMonthNotes;
