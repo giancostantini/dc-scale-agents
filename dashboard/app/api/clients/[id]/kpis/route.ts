@@ -16,6 +16,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { logAction } from "@/lib/audit";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 const PLATFORMS = ["meta", "google", "tiktok", "email"] as const;
 type Platform = (typeof PLATFORMS)[number];
@@ -41,20 +42,11 @@ export async function PATCH(
     );
   }
 
-  const callerToken = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!callerToken) {
-    return Response.json({ error: "Sin sesión" }, { status: 401 });
-  }
-  const caller = createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${callerToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const {
-    data: { user },
-  } = await caller.auth.getUser();
-  if (!user) {
-    return Response.json({ error: "No autenticado" }, { status: 401 });
-  }
+  // Auth + authz: el caller debe tener acceso a ESTE cliente (antes solo se
+  // validaba el login → cualquier usuario logueado podía pisar KPIs de
+  // cualquier cliente vía service-role, que bypassa RLS).
+  const access = await requireClientAccess(req, id);
+  if (!access.ok) return access.response;
 
   let body: KpisBody;
   try {
@@ -127,7 +119,7 @@ export async function PATCH(
       ...currentPaidMedia,
       [platform]: sanitized,
       updated_at: new Date().toISOString(),
-      updated_by: user.id,
+      updated_by: access.userId,
     },
   };
 
@@ -144,8 +136,8 @@ export async function PATCH(
   }
 
   await logAction({
-    actorId: user.id,
-    actorEmail: user.email ?? null,
+    actorId: access.userId,
+    actorEmail: access.email,
     action: "kpis.update",
     targetType: "client",
     targetId: id,
