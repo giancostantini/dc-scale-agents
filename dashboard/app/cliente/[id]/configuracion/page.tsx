@@ -21,7 +21,6 @@ import {
   updateClientExternalLinks,
   updateClientContentClassifications,
   updateClientSocialLinks,
-  updateClientSocialProfiles,
   listClientContacts,
   addClientContact,
   updateClientContact,
@@ -34,8 +33,6 @@ import {
   extractHandleFromUrl,
   type ClientContentClassification,
   type ClientSocialLinks,
-  type ClientSocialProfile,
-  type ClientSocialProfiles,
 } from "@/lib/types";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { uploadFile } from "@/lib/upload";
@@ -569,20 +566,15 @@ export default function ConfiguracionPage({
         }
       />
 
-      {/* ============== PRESENCIA EN REDES ==============
-          Por red: URL + bio + seguidores + siguiendo. El preview del
-          feed (/contenido → Vista feed) usa todo esto para reconstruir
-          el header del perfil del cliente lo más fiel posible. La
-          única parte "nuestra" del preview es la grilla de abajo. */}
-      <SocialPresencePanel
+      {/* ============== LINKS DE REDES SOCIALES ==============
+          Solo URLs — bio/seguidores/siguiendo NO se piden manualmente
+          (decidimos no mantener esos datos a mano). El preview del feed
+          muestra avatar + nombre + handle + link al perfil real, sin
+          stats numéricos ni bio. */}
+      <SocialLinksPanel
         client={client}
-        onSavedLinks={(links) =>
+        onSaved={(links) =>
           setClient((prev) => (prev ? { ...prev, social_links: links } : prev))
-        }
-        onSavedProfiles={(profiles) =>
-          setClient((prev) =>
-            prev ? { ...prev, social_profiles: profiles } : prev,
-          )
         }
       />
 
@@ -1217,149 +1209,60 @@ const SOCIAL_URL_PLACEHOLDER: Record<keyof typeof SOCIAL_FIELD_LABEL, string> =
 
 type SocialKey = keyof typeof SOCIAL_FIELD_LABEL;
 
-function SocialPresencePanel({
+function SocialLinksPanel({
   client,
-  onSavedLinks,
-  onSavedProfiles,
+  onSaved,
 }: {
   client: Client;
-  onSavedLinks: (links: ClientSocialLinks) => void;
-  onSavedProfiles: (profiles: ClientSocialProfiles) => void;
+  onSaved: (links: ClientSocialLinks) => void;
 }) {
-  // State unificado por red: { url, bio, followers, following }.
-  // Inicializado desde client.social_links + client.social_profiles.
-  type RowState = {
-    url: string;
-    bio: string;
-    followers: string;
-    following: string;
-  };
-  const buildInitial = (): Record<SocialKey, RowState> => {
-    const links = client.social_links ?? {};
-    const profs = client.social_profiles ?? {};
-    return {
-      ig: {
-        url: links.ig ?? "",
-        bio: profs.ig?.bio ?? "",
-        followers:
-          profs.ig?.followers !== undefined ? String(profs.ig.followers) : "",
-        following:
-          profs.ig?.following !== undefined ? String(profs.ig.following) : "",
-      },
-      fb: {
-        url: links.fb ?? "",
-        bio: profs.fb?.bio ?? "",
-        followers:
-          profs.fb?.followers !== undefined ? String(profs.fb.followers) : "",
-        following:
-          profs.fb?.following !== undefined ? String(profs.fb.following) : "",
-      },
-      tt: {
-        url: links.tt ?? "",
-        bio: profs.tt?.bio ?? "",
-        followers:
-          profs.tt?.followers !== undefined ? String(profs.tt.followers) : "",
-        following:
-          profs.tt?.following !== undefined ? String(profs.tt.following) : "",
-      },
-      in: {
-        url: links.in ?? "",
-        bio: profs.in?.bio ?? "",
-        followers:
-          profs.in?.followers !== undefined ? String(profs.in.followers) : "",
-        following:
-          profs.in?.following !== undefined ? String(profs.in.following) : "",
-      },
-    };
-  };
-
-  const [rows, setRows] = useState<Record<SocialKey, RowState>>(buildInitial());
+  const initial: ClientSocialLinks = client.social_links ?? {};
+  const [rows, setRows] = useState<Record<SocialKey, string>>({
+    ig: initial.ig ?? "",
+    fb: initial.fb ?? "",
+    tt: initial.tt ?? "",
+    in: initial.in ?? "",
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
-  // Resync si el cliente cambia desde afuera.
   useEffect(() => {
-    setRows(buildInitial());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client.social_links, client.social_profiles]);
+    const cur: ClientSocialLinks = client.social_links ?? {};
+    setRows({
+      ig: cur.ig ?? "",
+      fb: cur.fb ?? "",
+      tt: cur.tt ?? "",
+      in: cur.in ?? "",
+    });
+  }, [client.social_links]);
 
-  function setRow(key: SocialKey, patch: Partial<RowState>) {
-    setRows((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
-  }
-
-  // Compara con lo guardado para mostrar "cambios sin guardar".
-  const initial = buildInitial();
-  const dirty = (Object.keys(rows) as SocialKey[]).some((k) => {
-    const a = rows[k];
-    const b = initial[k];
-    return (
-      a.url !== b.url ||
-      a.bio !== b.bio ||
-      a.followers !== b.followers ||
-      a.following !== b.following
-    );
-  });
+  const dirty = (Object.keys(rows) as SocialKey[]).some(
+    (k) => (rows[k]?.trim() || "") !== (initial[k] ?? ""),
+  );
 
   function isValidUrl(value: string): boolean {
     if (!value.trim()) return true;
     return /^https?:\/\//i.test(value.trim());
   }
 
-  function parseCount(s: string): number | undefined {
-    const v = s.trim();
-    if (!v) return undefined;
-    // Acepta "12.345", "12,345", "12K" no — solo dígitos puros para
-    // ser inequívocos. El director ingresa enteros.
-    const n = Number(v.replace(/[.,\s]/g, ""));
-    if (Number.isNaN(n) || n < 0) return NaN;
-    return Math.floor(n);
-  }
-
   async function save() {
     setErr("");
-    // Validar URLs.
     for (const k of Object.keys(rows) as SocialKey[]) {
-      if (!isValidUrl(rows[k].url)) {
+      if (!isValidUrl(rows[k])) {
         setErr(
           `El URL de ${SOCIAL_FIELD_LABEL[k]} tiene que empezar con http:// o https://`,
-        );
-        return;
-      }
-      const f = parseCount(rows[k].followers);
-      const g = parseCount(rows[k].following);
-      if (Number.isNaN(f) || Number.isNaN(g)) {
-        setErr(
-          `Los seguidores/siguiendo de ${SOCIAL_FIELD_LABEL[k]} tienen que ser números enteros.`,
         );
         return;
       }
     }
     setSaving(true);
     try {
-      // Construir payload de links y de profiles desde rows.
-      const links: ClientSocialLinks = {};
-      const profiles: ClientSocialProfiles = {};
+      const payload: ClientSocialLinks = {};
       for (const k of Object.keys(rows) as SocialKey[]) {
-        const r = rows[k];
-        if (r.url.trim()) links[k] = r.url.trim();
-        const followers = parseCount(r.followers);
-        const following = parseCount(r.following);
-        const bio = r.bio.trim();
-        if (bio || followers !== undefined || following !== undefined) {
-          const p: ClientSocialProfile = {};
-          if (bio) p.bio = bio;
-          if (followers !== undefined) p.followers = followers;
-          if (following !== undefined) p.following = following;
-          profiles[k] = p;
-        }
+        if (rows[k].trim()) payload[k] = rows[k].trim();
       }
-      // Guardar ambos en paralelo (storage independiente).
-      await Promise.all([
-        updateClientSocialLinks(client.id, links),
-        updateClientSocialProfiles(client.id, profiles),
-      ]);
-      onSavedLinks(links);
-      onSavedProfiles(profiles);
+      await updateClientSocialLinks(client.id, payload);
+      onSaved(payload);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -1371,12 +1274,12 @@ function SocialPresencePanel({
     <div className={ui.panel} style={{ marginBottom: 24 }}>
       <div className={ui.panelHead}>
         <div>
-          <div className={ui.panelTitle}>Presencia en redes</div>
+          <div className={ui.panelTitle}>Links de redes sociales</div>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            URL del perfil + bio + seguidores + siguiendo, por red. El preview
-            del feed (menú Contenido → Vista feed) reconstruye el header del
-            perfil real con estos datos. La única parte "nuestra" que se ve
-            distinta del perfil del cliente es la grilla de abajo.
+            URLs de los perfiles públicos del cliente. Se usan para que el
+            avatar / handle del header del feed (menú Contenido → Vista feed)
+            linkeen al perfil real. Datos como bio o seguidores NO se piden
+            acá — el preview los omite a propósito.
           </p>
         </div>
       </div>
@@ -1385,172 +1288,70 @@ function SocialPresencePanel({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          gap: 10,
           marginBottom: 14,
         }}
       >
         {(Object.keys(SOCIAL_FIELD_LABEL) as SocialKey[]).map((key) => {
           const accent = SOCIAL_ACCENT[key];
-          const row = rows[key];
-          const handle = extractHandleFromUrl(row.url);
+          const value = rows[key];
+          const handle = extractHandleFromUrl(value);
           return (
             <div
               key={key}
               style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                padding: "8px 12px",
                 background: "var(--white)",
                 border: "1px solid rgba(10,26,12,0.08)",
                 borderLeft: `4px solid ${accent}`,
                 borderRadius: 6,
-                padding: "12px 14px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
               }}
             >
-              {/* Header de la red: nombre + handle extraído */}
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: accent,
+                  width: 84,
+                  flexShrink: 0,
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
-                    color: accent,
-                  }}
-                >
-                  {SOCIAL_FIELD_LABEL[key]}
-                </div>
-                {handle && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {handle}
-                  </div>
-                )}
+                {SOCIAL_FIELD_LABEL[key]}
               </div>
-
-              {/* Fila 1: URL */}
               <input
                 type="url"
-                value={row.url}
-                onChange={(e) => setRow(key, { url: e.target.value })}
+                value={value}
+                onChange={(e) =>
+                  setRows((prev) => ({ ...prev, [key]: e.target.value }))
+                }
                 placeholder={SOCIAL_URL_PLACEHOLDER[key]}
                 style={{
-                  width: "100%",
-                  padding: "7px 10px",
+                  flex: 1,
+                  padding: "6px 10px",
                   border: "1px solid rgba(10,26,12,0.12)",
                   borderRadius: 4,
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontFamily: "inherit",
                   background: "var(--white)",
                   color: "var(--deep-green)",
                   outline: "none",
                 }}
               />
-
-              {/* Fila 2: Bio (textarea corto) */}
-              <textarea
-                value={row.bio}
-                onChange={(e) => setRow(key, { bio: e.target.value })}
-                placeholder="Bio del perfil — descripción corta que aparece bajo el handle"
-                rows={2}
+              <div
                 style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  border: "1px solid rgba(10,26,12,0.12)",
-                  borderRadius: 4,
-                  fontSize: 12,
-                  fontFamily: "inherit",
-                  background: "var(--white)",
-                  color: "var(--deep-green)",
-                  outline: "none",
-                  resize: "vertical",
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  fontFamily: "monospace",
+                  minWidth: 80,
+                  textAlign: "right",
                 }}
-              />
-
-              {/* Fila 3: Followers + Following side by side */}
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--sand-dark)",
-                      fontWeight: 600,
-                      display: "block",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Seguidores
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={row.followers}
-                    onChange={(e) =>
-                      setRow(key, { followers: e.target.value })
-                    }
-                    placeholder="ej: 12345"
-                    style={{
-                      width: "100%",
-                      padding: "6px 10px",
-                      border: "1px solid rgba(10,26,12,0.12)",
-                      borderRadius: 4,
-                      fontSize: 12.5,
-                      fontFamily: "inherit",
-                      background: "var(--white)",
-                      color: "var(--deep-green)",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--sand-dark)",
-                      fontWeight: 600,
-                      display: "block",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Siguiendo
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={row.following}
-                    onChange={(e) =>
-                      setRow(key, { following: e.target.value })
-                    }
-                    placeholder="ej: 240"
-                    style={{
-                      width: "100%",
-                      padding: "6px 10px",
-                      border: "1px solid rgba(10,26,12,0.12)",
-                      borderRadius: 4,
-                      fontSize: 12.5,
-                      fontFamily: "inherit",
-                      background: "var(--white)",
-                      color: "var(--deep-green)",
-                      outline: "none",
-                    }}
-                  />
-                </div>
+              >
+                {handle ?? "—"}
               </div>
             </div>
           );
@@ -1592,19 +1393,6 @@ function SocialPresencePanel({
           ⚠ {err}
         </div>
       )}
-
-      <p
-        style={{
-          marginTop: 12,
-          fontSize: 11,
-          color: "var(--text-muted)",
-          lineHeight: 1.5,
-        }}
-      >
-        Tip: estos números los cargás manualmente (no traemos de las APIs de
-        Meta/TikTok porque requiere OAuth + aprobación). El header del
-        preview muestra "—" si dejás los campos vacíos, sin números fake.
-      </p>
     </div>
   );
 }

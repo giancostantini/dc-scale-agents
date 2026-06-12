@@ -45,8 +45,6 @@ import type {
   Client,
   ClientContentClassification,
   ClientSocialLinks,
-  ClientSocialProfile,
-  ClientSocialProfiles,
   ContentClassification,
   ContentFormat,
   ContentNetwork,
@@ -58,7 +56,6 @@ import {
   classificationsFor,
   classificationMetaById,
   extractHandleFromUrl,
-  formatSocialCount,
 } from "@/lib/types";
 
 /**
@@ -1290,7 +1287,7 @@ export default function ContenidoPage({
           clientName={client?.name ?? ""}
           clientLogoUrl={client?.logo_url ?? null}
           socialLinks={client?.social_links ?? null}
-          socialProfiles={client?.social_profiles ?? null}
+          /* socialProfiles ya no se usa — el feed no muestra bio/seguidores. */
           codeFallback={codeFallback}
           onTileClick={(p) => setFeedPostDetail(p)}
         />
@@ -2929,7 +2926,6 @@ function FeedPreview({
   clientName,
   clientLogoUrl,
   socialLinks,
-  socialProfiles,
   codeFallback,
   onTileClick,
 }: {
@@ -2941,7 +2937,6 @@ function FeedPreview({
   clientName: string;
   clientLogoUrl: string | null;
   socialLinks: ClientSocialLinks | null;
-  socialProfiles: ClientSocialProfiles | null;
   codeFallback: Map<string, string>;
   onTileClick: (p: ContentPost) => void;
 }) {
@@ -2978,9 +2973,6 @@ function FeedPreview({
   // para que la grilla no ocupe la pantalla — escaneo rápido. El
   // regular es el ancho razonable para "ver el perfil".
   const maxWidth = size === "compact" ? 440 : 720;
-  // Perfil visual del cliente en la red elegida (bio/seguidores/siguiendo).
-  // Cargado en /configuracion → "Presencia en redes".
-  const profile: ClientSocialProfile = socialProfiles?.[network] ?? {};
 
   // Empty state común a todas las redes.
   const emptyBody = (
@@ -3046,7 +3038,6 @@ function FeedPreview({
         clientLogoUrl={clientLogoUrl}
         handle={handle}
         profileUrl={profileUrl}
-        profile={profile}
         postsCount={networkPosts.length}
       />
     ) : network === "tt" ? (
@@ -3055,7 +3046,6 @@ function FeedPreview({
         clientLogoUrl={clientLogoUrl}
         handle={handle}
         profileUrl={profileUrl}
-        profile={profile}
       />
     ) : network === "fb" ? (
       <FacebookProfileHeader
@@ -3063,7 +3053,6 @@ function FeedPreview({
         clientLogoUrl={clientLogoUrl}
         handle={handle}
         profileUrl={profileUrl}
-        profile={profile}
       />
     ) : (
       <LinkedInProfileHeader
@@ -3071,7 +3060,6 @@ function FeedPreview({
         clientLogoUrl={clientLogoUrl}
         handle={handle}
         profileUrl={profileUrl}
-        profile={profile}
       />
     );
 
@@ -3355,14 +3343,12 @@ function InstagramProfileHeader({
   clientLogoUrl,
   handle,
   profileUrl,
-  profile,
   postsCount,
 }: {
   clientName: string;
   clientLogoUrl: string | null;
   handle: string;
   profileUrl: string | null;
-  profile: ClientSocialProfile;
   postsCount: number;
 }) {
   return (
@@ -3408,7 +3394,7 @@ function InstagramProfileHeader({
           </div>
         </ProfileLinkWrap>
 
-        {/* Stats row + botones a la derecha del avatar */}
+        {/* Handle + verified + botones a la derecha del avatar */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
@@ -3430,23 +3416,6 @@ function InstagramProfileHeader({
                 {handle.replace(/^@/, "")}
               </span>
             </ProfileLinkWrap>
-            <span
-              title="Cuenta verificada"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#3897F0",
-                color: "#fff",
-                fontSize: 9,
-                fontWeight: 900,
-              }}
-            >
-              ✓
-            </span>
             <button
               type="button"
               style={{
@@ -3481,57 +3450,27 @@ function InstagramProfileHeader({
               Mensaje
             </button>
           </div>
+          {/* Solo el conteo de publicaciones — es lo único que sí
+              sabemos sin manual (lo derivamos de nuestros posts).
+              Seguidores/siguiendo NO se muestran porque no tenemos
+              cómo traerlos sin pedirle al director que los cargue. */}
           <div
             style={{
-              display: "flex",
-              gap: 22,
               fontSize: 14,
               color: "#000",
               marginTop: 2,
             }}
           >
-            <span>
-              <strong>{postsCount}</strong> publicaciones
-            </span>
-            <span>
-              <strong>{formatSocialCount(profile.followers)}</strong> seguidores
-            </span>
-            <span>
-              <strong>{formatSocialCount(profile.following)}</strong> seguidos
-            </span>
+            <strong>{postsCount}</strong> publicaciones
           </div>
         </div>
       </div>
 
-      {/* Bio + nombre real del cliente */}
+      {/* Nombre real del cliente (sin bio porque no se carga). */}
       <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#000" }}>
           {clientName || "Cliente"}
         </div>
-        {profile.bio ? (
-          <div
-            style={{
-              fontSize: 13.5,
-              color: "#262626",
-              lineHeight: 1.4,
-              marginTop: 4,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {profile.bio}
-          </div>
-        ) : (
-          <div
-            style={{
-              fontSize: 12,
-              color: "#999",
-              fontStyle: "italic",
-              marginTop: 4,
-            }}
-          >
-            Sin bio — cargala en Configuración → "Presencia en redes".
-          </div>
-        )}
       </div>
     </div>
   );
@@ -3547,13 +3486,11 @@ function TikTokProfileHeader({
   clientLogoUrl,
   handle,
   profileUrl,
-  profile,
 }: {
   clientName: string;
   clientLogoUrl: string | null;
   handle: string;
   profileUrl: string | null;
-  profile: ClientSocialProfile;
 }) {
   return (
     <div
@@ -3616,61 +3553,8 @@ function TikTokProfileHeader({
       >
         Seguir
       </button>
-
-      {/* Stats row */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: 24,
-          marginTop: 16,
-          fontSize: 13,
-          color: "#161823",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>
-            {formatSocialCount(profile.following)}
-          </div>
-          <div style={{ color: "rgba(22,24,35,0.6)", fontSize: 12 }}>
-            Siguiendo
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>
-            {formatSocialCount(profile.followers)}
-          </div>
-          <div style={{ color: "rgba(22,24,35,0.6)", fontSize: 12 }}>
-            Seguidores
-          </div>
-        </div>
-      </div>
-
-      {/* Bio */}
-      {profile.bio ? (
-        <div
-          style={{
-            marginTop: 14,
-            fontSize: 13.5,
-            color: "#161823",
-            lineHeight: 1.4,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {profile.bio}
-        </div>
-      ) : (
-        <div
-          style={{
-            marginTop: 14,
-            fontSize: 12,
-            color: "rgba(22,24,35,0.45)",
-            fontStyle: "italic",
-          }}
-        >
-          Sin bio — cargala en Configuración → "Presencia en redes".
-        </div>
-      )}
+      {/* Stats row + bio removidos: no se cargan manualmente y
+          tampoco se pueden traer auto. */}
     </div>
   );
 }
@@ -3685,13 +3569,11 @@ function FacebookProfileHeader({
   clientLogoUrl,
   handle,
   profileUrl,
-  profile,
 }: {
   clientName: string;
   clientLogoUrl: string | null;
   handle: string;
   profileUrl: string | null;
-  profile: ClientSocialProfile;
 }) {
   return (
     <div
@@ -3738,32 +3620,11 @@ function FacebookProfileHeader({
             </span>
           </ProfileLinkWrap>
         </div>
-        <div style={{ fontSize: 13, color: "#65676B", marginBottom: 8 }}>
+        <div style={{ fontSize: 13, color: "#65676B", marginBottom: 12 }}>
           {handle} · Página de empresa
         </div>
-        <div style={{ fontSize: 13, color: "#65676B", marginBottom: 12 }}>
-          <strong style={{ color: "#050505" }}>
-            {formatSocialCount(profile.followers)}
-          </strong>{" "}
-          seguidores ·{" "}
-          <strong style={{ color: "#050505" }}>
-            {formatSocialCount(profile.following)}
-          </strong>{" "}
-          a quienes les gusta esto
-        </div>
-        {profile.bio && (
-          <div
-            style={{
-              fontSize: 13.5,
-              color: "#050505",
-              lineHeight: 1.4,
-              marginBottom: 12,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {profile.bio}
-          </div>
-        )}
+        {/* Stats (seguidores/likes) + bio removidos: no se cargan
+            manualmente y no se pueden traer auto. */}
         {/* Botones */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button
@@ -3830,13 +3691,11 @@ function LinkedInProfileHeader({
   clientLogoUrl,
   handle,
   profileUrl,
-  profile,
 }: {
   clientName: string;
   clientLogoUrl: string | null;
   handle: string;
   profileUrl: string | null;
-  profile: ClientSocialProfile;
 }) {
   return (
     <div
@@ -3885,37 +3744,17 @@ function LinkedInProfileHeader({
             {clientName || "Cliente"}
           </div>
         </ProfileLinkWrap>
-        {/* Headline: usamos la bio del cliente o un placeholder corporativo */}
-        <div
-          style={{
-            fontSize: 14,
-            color: "rgba(0,0,0,0.9)",
-            marginBottom: 6,
-            lineHeight: 1.4,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {profile.bio || "Headline: cargá la bio en Configuración."}
-        </div>
         <div
           style={{
             fontSize: 12,
             color: "rgba(0,0,0,0.55)",
-            marginBottom: 8,
+            marginBottom: 12,
           }}
         >
           {handle} · Empresa
         </div>
-        <div
-          style={{
-            fontSize: 13,
-            color: "#0a66c2",
-            fontWeight: 600,
-            marginBottom: 12,
-          }}
-        >
-          <strong>{formatSocialCount(profile.followers)}</strong> seguidores
-        </div>
+        {/* Headline + N seguidores removidos: no se cargan
+            manualmente y no se pueden traer auto. */}
         {/* Botones */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button
