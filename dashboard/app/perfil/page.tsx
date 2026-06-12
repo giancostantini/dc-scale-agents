@@ -361,16 +361,20 @@ function TwoFactorPanel() {
   async function startEnroll() {
     setError(null);
     setBusy(true);
-    // Limpiar factores no verificados colgados de intentos previos.
-    for (const f of factors) {
-      if (f.status !== "verified") {
-        await getSupabase()
-          .auth.mfa.unenroll({ factorId: f.id })
-          .catch(() => {});
-      }
-    }
+    // Limpiar factores no verificados colgados de intentos previos. Releemos
+    // fresh (el state puede estar viejo) y desenrolamos los no verificados.
+    const { data: cur } = await getSupabase().auth.mfa.listFactors();
+    await Promise.all(
+      ((cur?.totp ?? []) as MfaFactor[])
+        .filter((f) => f.status !== "verified")
+        .map((f) =>
+          getSupabase().auth.mfa.unenroll({ factorId: f.id }).catch(() => {}),
+        ),
+    );
+    // friendlyName ÚNICO para evitar el choque "friendly name already exists".
     const { data, error: enErr } = await getSupabase().auth.mfa.enroll({
       factorType: "totp",
+      friendlyName: `D&C ${new Date().toISOString().slice(0, 19).replace("T", " ")}`,
     });
     setBusy(false);
     if (enErr || !data) {
