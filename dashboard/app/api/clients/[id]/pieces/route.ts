@@ -13,6 +13,7 @@
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireClientAccess } from "@/lib/auth-guard";
 import type { ContentPieceRow } from "@/lib/types";
 
 export async function GET(
@@ -24,6 +25,9 @@ export async function GET(
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
     return Response.json({ error: "Invalid client id" }, { status: 400 });
   }
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
 
   const url = req.nextUrl;
   const limitRaw = Number(url.searchParams.get("limit") ?? "100");

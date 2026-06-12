@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { logAction } from "@/lib/audit";
+import { requireRole } from "@/lib/auth-guard";
 
 interface BootstrapBody {
   clientId: string;
@@ -30,6 +31,11 @@ interface BootstrapBody {
 }
 
 export async function POST(req: NextRequest) {
+  // Solo el director puede crear/scaffoldear clientes. Antes se podía invocar
+  // sin auth → creaba agent_runs y disparaba el workflow de bootstrap.
+  const access = await requireRole(req, ["director"]);
+  if (!access.ok) return access.response;
+
   let body: BootstrapBody;
   try {
     body = await req.json();
