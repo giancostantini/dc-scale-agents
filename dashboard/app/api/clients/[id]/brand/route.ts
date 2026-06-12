@@ -1,20 +1,26 @@
 /**
- * PUT /api/clients/[id]/brand
+ * GET / PUT /api/clients/[id]/brand
  *
- * Sobrescribe un archivo del `brand/` del cliente desde la pantalla de
- * edición. Validamos que el filename esté en la whitelist de las 8 secciones
- * oficiales (los agentes esperan esos nombres exactos).
+ * GET: lista los archivos del brand/ del cliente y devuelve sus contenidos.
+ *      Si no hay brand/ procesado todavía, retorna brand: {}.
+ * PUT: sobrescribe un archivo del brand/ desde la pantalla de edición.
+ *      filename debe estar en la whitelist de las 8 secciones oficiales
+ *      (los agentes esperan esos nombres exactos).
  *
- * Body:
+ * SEGURIDAD: ambos métodos exigen acceso al cliente (director / team asignado /
+ * client dueño) vía requireClientAccess. Sin este guard el endpoint era
+ * accesible SIN autenticación → lectura cross-tenant del brand y escritura
+ * arbitraria en los .md que los agentes leen como instrucciones (inyección de
+ * prompt almacenada). El comportamiento para usuarios legítimos no cambia.
+ *
+ * Body (PUT):
  *   { filename: "positioning.md", content: "..." }
- *
- * Response:
- *   { ok: true, sha, url, created }
  */
 
 import { NextRequest } from "next/server";
 import { writeVaultFile } from "@/lib/vault-writer";
 import { loadClientBrand, listClientBrandFiles } from "@/lib/vault-loader";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 const VALID_FILENAMES = new Set([
   "positioning.md",
@@ -32,14 +38,8 @@ interface PutBody {
   content: string;
 }
 
-/**
- * GET /api/clients/[id]/brand
- *
- * Lista los archivos del brand/ del cliente y devuelve sus contenidos.
- * Si el cliente no tiene brand/ procesado todavía, retorna brand: {}.
- */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id: clientId } = await context.params;
@@ -47,6 +47,9 @@ export async function GET(
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
     return Response.json({ error: "Invalid client id" }, { status: 400 });
   }
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
 
   try {
     const [files, brand] = await Promise.all([
@@ -69,6 +72,9 @@ export async function PUT(
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
     return Response.json({ error: "Invalid client id" }, { status: 400 });
   }
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
 
   let body: PutBody;
   try {
