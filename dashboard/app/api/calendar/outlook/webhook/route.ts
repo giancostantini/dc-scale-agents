@@ -188,35 +188,67 @@ async function processNotification(
     }
   }
 
-  // 5. Upsert evento
+  // 5. Guardar el evento.
+  // El índice único de external_id es PARCIAL (WHERE external_id IS NOT NULL) y
+  // Postgres NO lo matchea con `ON CONFLICT (external_id)` sin el predicado, así
+  // que el upsert fallaba y NINGÚN evento se guardaba (silencioso). Resolvemos
+  // el conflicto en código: buscar por external_id → update | insert.
+  if (!event.start?.dateTime) {
+    await recordSyncError(admin, userId, `evento sin start.dateTime (${event.id})`);
+    return { ok: false, reason: "evento sin start.dateTime" };
+  }
   const startDate = event.start.dateTime.slice(0, 10);
   const startTime = event.start.dateTime.slice(11, 16);
 
-  const { error: upsertErr } = await admin.from("cal_events").upsert(
-    {
-      owner_user_id: userId,
-      client_id: resolvedClientId,
-      client_label: resolvedClientLabel,
-      title: event.subject || "(sin título)",
-      date: startDate,
-      time: startTime,
-      type: "reunion",
-      meet_link: event.onlineMeeting?.joinUrl ?? event.webLink ?? null,
-      synced: true,
-      external_id: event.id,
-      source: "outlook",
-    },
-    { onConflict: "external_id" },
-  );
+  const row = {
+    owner_user_id: userId,
+    client_id: resolvedClientId,
+    client_label: resolvedClientLabel,
+    title: event.subject || "(sin título)",
+    date: startDate,
+    time: startTime,
+    type: "reunion",
+    meet_link: event.onlineMeeting?.joinUrl ?? event.webLink ?? null,
+    synced: true,
+    external_id: event.id,
+    source: "outlook",
+  };
 
-  if (upsertErr) {
-    return { ok: false, reason: `upsert failed: ${upsertErr.message}` };
+  const { data: existing } = await admin
+    .from("cal_events")
+    .select("id")
+    .eq("external_id", event.id)
+    .maybeSingle();
+
+  const writeErr = existing
+    ? (await admin.from("cal_events").update(row).eq("id", existing.id)).error
+    : (await admin.from("cal_events").insert(row)).error;
+
+  if (writeErr) {
+    await recordSyncError(admin, userId, `guardar evento: ${writeErr.message}`);
+    return { ok: false, reason: `write failed: ${writeErr.message}` };
   }
 
   await admin
     .from("outlook_connections")
-    .update({ last_synced_at: new Date().toISOString() })
+    .update({
+      last_synced_at: new Date().toISOString(),
+      last_error: null,
+      last_error_at: null,
+    })
     .eq("user_id", userId);
 
   return { ok: true };
+}
+
+/** Persiste un error de sync en la conexión para que se vea en /debug. */
+async function recordSyncError(
+  admin: SupabaseClient,
+  userId: string,
+  message: string,
+): Promise<void> {
+  await admin
+    .from("outlook_connections")
+    .update({ last_error: message, last_error_at: new Date().toISOString() })
+    .eq("user_id", userId);
 }
