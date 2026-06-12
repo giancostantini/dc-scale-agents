@@ -105,6 +105,7 @@ export default function ClientSidebar({
     { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
     { key: "biblioteca",  href: `${base}/biblioteca`,    icon: IBiblioteca,    label: "Biblioteca" },
     { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
+    { key: "accesos",     href: `${base}/accesos`,       icon: IConfiguracion, label: "Accesos" },
     { key: "objetivos",   href: `${base}/objetivos`,     icon: IObjetivos,     label: "Objetivos", directorOnly: true },
     { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
@@ -115,6 +116,7 @@ export default function ClientSidebar({
     { key: "nueva-tarea", href: `${base}/nueva-tarea`,   icon: IPlus,          label: "Nueva tarea" },
     { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas del cliente" },
     { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
+    { key: "accesos",     href: `${base}/accesos`,       icon: IConfiguracion, label: "Accesos" },
     { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
 
