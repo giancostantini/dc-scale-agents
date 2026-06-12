@@ -34,11 +34,13 @@ import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
 import type {
   Client,
+  ContentClassification,
   ContentFormat,
   ContentNetwork,
   ContentPost,
   ContentStatus,
 } from "@/lib/types";
+import { CONTENT_CLASSIFICATION_META } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
 
 const NETWORK_LABEL: Record<ContentNetwork, string> = {
@@ -337,6 +339,26 @@ export default function ContenidoPage({
   const [colAssignedTo, setColAssignedTo] = useState<string>("all");
   const [colCodeQuery, setColCodeQuery] = useState<string>("");
   const [colIdeaQuery, setColIdeaQuery] = useState<string>("");
+  /**
+   * Filtro por clasificación editorial. "all" muestra todas las piezas;
+   * "_unclassified" muestra solo las que no tienen clasificación todavía;
+   * o un valor concreto (valor/conversion/aspiracional) para filtrar.
+   */
+  const [colClassification, setColClassification] = useState<
+    ContentClassification | "all" | "_unclassified"
+  >("all");
+  /**
+   * Modo de vista: tabla (default, layout actual) o feed (preview de
+   * la red social como una grilla 3-col estilo perfil). El selector
+   * de red dentro de "feed" vive en feedNetwork.
+   */
+  const [viewMode, setViewMode] = useState<"table" | "feed">("table");
+  const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
+  /**
+   * Cuando el usuario toca un tile de la grilla en modo feed, abrimos
+   * un modal con el detalle de esa pieza. null = ningún tile abierto.
+   */
+  const [feedPostDetail, setFeedPostDetail] = useState<ContentPost | null>(null);
   // Modal de "nueva idea manual"
   const [showNewIdea, setShowNewIdea] = useState(false);
   const [savingNewIdea, setSavingNewIdea] = useState(false);
@@ -436,6 +458,14 @@ export default function ContenidoPage({
         return (p.idea ?? "").toLowerCase().includes(ideaQ) ||
           (p.copy ?? "").toLowerCase().includes(ideaQ) ||
           (p.brief ?? "").toLowerCase().includes(ideaQ);
+      })
+      // Clasificación editorial: si está "all" no filtramos; si está
+      // "_unclassified" mostramos solo las que no tienen; y si está
+      // un valor concreto filtramos por igualdad.
+      .filter((p) => {
+        if (colClassification === "all") return true;
+        if (colClassification === "_unclassified") return !p.classification;
+        return p.classification === colClassification;
       });
     return [...filtered].sort((a, b) => {
       const aOverdue = a.status !== "published" && a.date < today;
@@ -455,6 +485,7 @@ export default function ContenidoPage({
     colAssignedTo,
     colCodeQuery,
     colIdeaQuery,
+    colClassification,
     codeFallback,
   ]);
 
@@ -478,6 +509,7 @@ export default function ContenidoPage({
       cta: patch.cta,
       influencer: patch.influencer,
       assignedTo: patch.assignedTo,
+      classification: patch.classification,
       status: patch.status,
     });
     refresh();
@@ -692,6 +724,53 @@ export default function ContenidoPage({
         </div>
       </div>
 
+      {/* Toggle de modo de vista: Tabla (default, todas las redes, con
+          filtros y acciones) o Vista feed (preview tipo perfil de IG,
+          una red por vez, grilla 3-col). El toggle vive arriba de los
+          KPIs para que sea lo primero que ve el usuario. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 0,
+          marginBottom: 14,
+          background: "var(--off-white)",
+          padding: 4,
+          borderRadius: 8,
+          width: "fit-content",
+          border: "1px solid rgba(10,26,12,0.08)",
+        }}
+      >
+        {(["table", "feed"] as const).map((mode) => {
+          const active = viewMode === mode;
+          const label =
+            mode === "table" ? "▤ Tabla" : "▦ Vista feed";
+          return (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              style={{
+                padding: "8px 16px",
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                background: active ? "var(--white)" : "transparent",
+                color: active ? "var(--deep-green)" : "var(--text-muted)",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.12s",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* KPIs compactos */}
       <div
         style={{
@@ -868,7 +947,9 @@ export default function ContenidoPage({
         </button>
       </div>
 
-      {/* TABLA de ideas */}
+      {/* TABLA de ideas — solo visible en modo "table". El modo "feed"
+          renderiza el preview IG/FB en su propio bloque más abajo. */}
+      {viewMode === "table" && (
       <div className={ui.panel} style={{ marginBottom: 24, padding: 0, overflow: "hidden" }}>
         {posts.length === 0 ? (
           // Sin posts cargados en absoluto — la fila de filtros no
@@ -897,6 +978,7 @@ export default function ContenidoPage({
                   <th style={thStyle}>Código</th>
                   <th style={thStyle}>Red</th>
                   <th style={thStyle}>Formato</th>
+                  <th style={thStyle}>Clase</th>
                   <th style={{ ...thStyle, minWidth: 260 }}>Idea</th>
                   <th style={thStyle}>Fecha</th>
                   <th style={thStyle}>Asignado a</th>
@@ -947,6 +1029,32 @@ export default function ContenidoPage({
                     </select>
                   </th>
                   <th style={thFilterCell}>
+                    <select
+                      value={colClassification}
+                      onChange={(e) =>
+                        setColClassification(
+                          e.target.value as
+                            | ContentClassification
+                            | "all"
+                            | "_unclassified",
+                        )
+                      }
+                      style={filterInputStyle}
+                    >
+                      <option value="all">Todas</option>
+                      <option value="_unclassified">Sin clasificar</option>
+                      {(
+                        Object.keys(
+                          CONTENT_CLASSIFICATION_META,
+                        ) as ContentClassification[]
+                      ).map((c) => (
+                        <option key={c} value={c}>
+                          {CONTENT_CLASSIFICATION_META[c].label}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th style={thFilterCell}>
                     <input
                       type="text"
                       value={colIdeaQuery}
@@ -975,6 +1083,7 @@ export default function ContenidoPage({
                   <th style={{ ...thFilterCell, textAlign: "right" }}>
                     {(colNetwork !== "all" ||
                       colFormat !== "all" ||
+                      colClassification !== "all" ||
                       colAssignedTo !== "all" ||
                       colCodeQuery ||
                       colIdeaQuery) && (
@@ -983,6 +1092,7 @@ export default function ContenidoPage({
                         onClick={() => {
                           setColNetwork("all");
                           setColFormat("all");
+                          setColClassification("all");
                           setColAssignedTo("all");
                           setColCodeQuery("");
                           setColIdeaQuery("");
@@ -1011,7 +1121,7 @@ export default function ContenidoPage({
                 {sortedFiltered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       style={{
                         padding: "32px 20px",
                         textAlign: "center",
@@ -1085,6 +1195,33 @@ export default function ContenidoPage({
           </div>
         )}
       </div>
+      )}
+
+      {/* ============== VISTA FEED (preview tipo perfil IG) ============
+          Cuando viewMode === "feed", renderizamos una grilla 3-col que
+          imita el perfil de la red elegida (por ahora IG; FB usa el
+          mismo layout). Cada tile es 1:1 con el snippet del brief,
+          formato + clasificación. Click en tile → modal con detalle. */}
+      {viewMode === "feed" && (
+        <FeedPreview
+          posts={sortedFiltered}
+          network={feedNetwork}
+          onNetworkChange={setFeedNetwork}
+          clientName={client?.name ?? ""}
+          clientLogoUrl={client?.logo_url ?? null}
+          codeFallback={codeFallback}
+          onTileClick={(p) => setFeedPostDetail(p)}
+        />
+      )}
+
+      {/* Modal con detalle del post cuando se toca un tile del feed. */}
+      {feedPostDetail && (
+        <FeedPostDetailModal
+          post={feedPostDetail}
+          code={codeOf(feedPostDetail, codeFallback)}
+          onClose={() => setFeedPostDetail(null)}
+        />
+      )}
 
       {/* ============== ASISTENTE CREATIVO HORIZONTAL ============== */}
       <div
@@ -1382,6 +1519,7 @@ export default function ContenidoPage({
                   cta: draft.cta || null,
                   influencer: null,
                   assignedTo: null,
+                  classification: draft.classification,
                   status: "draft",
                   source: "manual",
                 });
@@ -1485,6 +1623,33 @@ function RowEditor({
         </td>
         <td style={{ ...tdStyle, textTransform: "capitalize" }}>
           {FORMAT_LABEL[post.format] ?? post.format}
+        </td>
+        <td style={tdStyle}>
+          {/* Chip de clasificación editorial. Si no hay, mostramos un
+              guión en gris claro para que la columna no quede vacía
+              y se mantenga la alineación. */}
+          {post.classification ? (
+            <span
+              title={CONTENT_CLASSIFICATION_META[post.classification].label}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 22,
+                height: 22,
+                fontSize: 11,
+                fontWeight: 800,
+                background: CONTENT_CLASSIFICATION_META[post.classification].color,
+                color: "var(--off-white)",
+                borderRadius: "50%",
+                letterSpacing: 0,
+              }}
+            >
+              {CONTENT_CLASSIFICATION_META[post.classification].short}
+            </span>
+          ) : (
+            <span style={{ color: "var(--text-muted)", fontSize: 14 }}>—</span>
+          )}
         </td>
         <td style={tdStyle}>
           {/* La idea es la única columna con texto largo — la dejamos
@@ -1599,7 +1764,7 @@ function RowEditor({
       {/* Detalle expandido — editable */}
       {isExpanded && (
         <tr style={{ background: "var(--off-white)" }}>
-          <td colSpan={8} style={{ padding: "16px 20px" }}>
+          <td colSpan={9} style={{ padding: "16px 20px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {/* Columna izquierda: idea + copy */}
               <div>
@@ -1724,6 +1889,47 @@ function RowEditor({
                     </option>
                   ))}
                 </select>
+
+                <FieldLabel>Clasificación editorial</FieldLabel>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {(
+                    Object.keys(
+                      CONTENT_CLASSIFICATION_META,
+                    ) as ContentClassification[]
+                  ).map((c) => {
+                    const meta = CONTENT_CLASSIFICATION_META[c];
+                    const checked = post.classification === c;
+                    return (
+                      <button
+                        type="button"
+                        key={c}
+                        onClick={() =>
+                          isDirector &&
+                          onPatch({
+                            classification: checked ? null : c,
+                          })
+                        }
+                        disabled={!isDirector}
+                        style={{
+                          padding: "5px 11px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: checked ? meta.color : meta.bg,
+                          color: checked ? "var(--off-white)" : meta.color,
+                          border: `1px solid ${meta.color}`,
+                          borderRadius: 999,
+                          cursor: isDirector ? "pointer" : "default",
+                          fontFamily: "inherit",
+                          opacity: isDirector ? 1 : 0.6,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {checked && "✓ "}
+                        {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
 
                 {post.format === "ugc" && (
                   <>
@@ -1949,6 +2155,9 @@ interface NewIdeaDraft {
   copy: string;
   cta: string;
   brief: string;
+  /** Clasificación editorial — valor, conversion o aspiracional.
+   *  Null = sin clasificar todavía. Persiste en content_posts.classification. */
+  classification: ContentClassification | null;
 }
 
 function NewIdeaModal({
@@ -1971,6 +2180,7 @@ function NewIdeaModal({
     copy: "",
     cta: "",
     brief: "",
+    classification: null,
   });
 
   const isAnuncio = draft.format === "anuncio";
@@ -2148,6 +2358,65 @@ function NewIdeaModal({
           ))}
         </select>
 
+        {/* Clasificación editorial — botones pill por categoría.
+            Es opcional (se puede dejar sin clasificar y completarla
+            después desde la tabla). Cuando hay una elegida, el resto
+            queda en outline. Re-tocar la misma opción la limpia. */}
+        <ModalLabel>Clasificación</ModalLabel>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            marginBottom: 4,
+          }}
+        >
+          {(Object.keys(CONTENT_CLASSIFICATION_META) as ContentClassification[]).map(
+            (c) => {
+              const meta = CONTENT_CLASSIFICATION_META[c];
+              const checked = draft.classification === c;
+              return (
+                <button
+                  type="button"
+                  key={c}
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      classification: checked ? null : c,
+                    })
+                  }
+                  style={{
+                    padding: "8px 14px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    background: checked ? meta.color : meta.bg,
+                    color: checked ? "var(--off-white)" : meta.color,
+                    border: `1px solid ${meta.color}`,
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {checked && "✓ "}
+                  {meta.label}
+                </button>
+              );
+            },
+          )}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            fontStyle: "italic",
+            marginBottom: 4,
+          }}
+        >
+          Opcional. Te ayuda a balancear el feed cuando ves el preview de Instagram.
+        </div>
+
         <ModalLabel>Idea *</ModalLabel>
         <textarea
           value={draft.idea}
@@ -2271,3 +2540,653 @@ const modalInput: React.CSSProperties = {
   resize: "vertical",
   outline: "none",
 };
+
+// ============================================================
+// FeedPreview — render alternativo a la tabla. Imita el perfil de
+// IG/FB: header arriba con logo + nombre + total de piezas, grilla
+// 3-col abajo con las piezas (newest first, como en el perfil real
+// de Instagram). Click en un tile → modal con el detalle.
+//
+// Por ahora solo Instagram y Facebook usan este layout. TikTok y
+// LinkedIn quedan deshabilitados con un mensaje aclaratorio — sus
+// perfiles tienen otro formato que no encaja en una grilla cuadrada.
+// ============================================================
+function FeedPreview({
+  posts,
+  network,
+  onNetworkChange,
+  clientName,
+  clientLogoUrl,
+  codeFallback,
+  onTileClick,
+}: {
+  posts: ContentPost[];
+  network: ContentNetwork;
+  onNetworkChange: (n: ContentNetwork) => void;
+  clientName: string;
+  clientLogoUrl: string | null;
+  codeFallback: Map<string, string>;
+  onTileClick: (p: ContentPost) => void;
+}) {
+  // Solo IG y FB tienen layout de grilla cuadrada. TT y LinkedIn no
+  // se renderizan acá pero los dejamos en el selector para que el
+  // usuario entienda que faltan (mostramos un mensaje).
+  const SUPPORTED_NETWORKS: ContentNetwork[] = ["ig", "fb"];
+  const isSupported = SUPPORTED_NETWORKS.includes(network);
+
+  // Filtrar por red elegida + ordenar newest-first (estilo perfil IG).
+  // sortedFiltered ya viene filtrado por estado/período/columnas; acá
+  // solo aplicamos el filtro de red y reordenamos.
+  const networkPosts = posts
+    .filter((p) => p.network === network)
+    .slice()
+    .sort((a, b) => {
+      // Newest first: comparamos por fecha desc, hora desc como tiebreaker.
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.time ?? "").localeCompare(a.time ?? "");
+    });
+
+  // Username estilo IG: lowercase, sin espacios, prefijo @.
+  const handle = `@${clientName.toLowerCase().replace(/[^a-z0-9.]+/g, "")}`;
+
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid rgba(10,26,12,0.08)",
+        borderRadius: "var(--r-lg)",
+        marginBottom: 24,
+        padding: 0,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header del perfil + selector de red */}
+      <div
+        style={{
+          padding: "22px 24px",
+          borderBottom: "1px solid rgba(10,26,12,0.06)",
+          display: "flex",
+          alignItems: "center",
+          gap: 18,
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Avatar circular con el logo del cliente o las iniciales */}
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: clientLogoUrl ? "var(--ivory)" : "var(--sand)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            color: "var(--deep-green)",
+            fontWeight: 800,
+            fontSize: 22,
+            flexShrink: 0,
+            border: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          {clientLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clientLogoUrl}
+              alt={clientName}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            clientName
+              .split(/\s+/)
+              .map((w) => w[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join("")
+              .toUpperCase()
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: "var(--deep-green)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {clientName || "Cliente"}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              marginTop: 2,
+            }}
+          >
+            {handle}
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              gap: 16,
+              fontSize: 12,
+              color: "var(--deep-green)",
+            }}
+          >
+            <span>
+              <strong>{networkPosts.length}</strong> piezas
+            </span>
+            <span style={{ color: "var(--text-muted)" }}>
+              en {NETWORK_LABEL[network]} {isSupported ? "" : "(sin preview)"}
+            </span>
+          </div>
+        </div>
+
+        {/* Selector de red — pills compactos */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
+            const active = network === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onNetworkChange(n)}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: active ? "var(--deep-green)" : "transparent",
+                  color: active ? "var(--off-white)" : "var(--deep-green)",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {NETWORK_LABEL[n]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grilla 3-col estilo perfil */}
+      {!isSupported ? (
+        <div
+          style={{
+            padding: "60px 24px",
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontStyle: "italic",
+          }}
+        >
+          {NETWORK_LABEL[network]} no tiene preview tipo perfil — sus posts
+          no se ordenan en grilla cuadrada en la app real. Para verlos,
+          cambiá a <strong>Tabla</strong> arriba.
+        </div>
+      ) : networkPosts.length === 0 ? (
+        <div
+          style={{
+            padding: "60px 24px",
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontStyle: "italic",
+          }}
+        >
+          Sin contenido en {NETWORK_LABEL[network]} para los filtros
+          actuales. Probá ajustar el período o el estado.
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 2,
+            padding: 2,
+            background: "rgba(10,26,12,0.06)",
+          }}
+        >
+          {networkPosts.map((p) => (
+            <FeedTile
+              key={p.id}
+              post={p}
+              code={codeOf(p, codeFallback)}
+              onClick={() => onTileClick(p)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * FeedTile — un tile cuadrado de la grilla del feed. Color de fondo
+ * basado en la clasificación (valor=verde, conversion=rojo,
+ * aspiracional=sand). Format icon arriba-derecha (reel/carrusel/story).
+ * Snippet de la idea/brief en el centro. Status dot arriba-izquierda.
+ */
+function FeedTile({
+  post,
+  code,
+  onClick,
+}: {
+  post: ContentPost;
+  code: string;
+  onClick: () => void;
+}) {
+  const meta = post.classification
+    ? CONTENT_CLASSIFICATION_META[post.classification]
+    : null;
+  // Si no hay clasificación, usamos el color de red como background.
+  const bg = meta?.color ?? NETWORK_COLORS[post.network]?.solid ?? "#0A1A0C";
+  // Texto que aparece dentro del tile.
+  const snippet =
+    (post.idea ?? post.brief ?? "").split("\n")[0]?.slice(0, 60) ??
+    "Sin idea";
+  // Icono mini que indica el tipo de pieza (mismo idioma visual que IG).
+  const formatIcon =
+    post.format === "reel"
+      ? "▶"
+      : post.format === "carrusel"
+        ? "⌗"
+        : post.format === "story"
+          ? "○"
+          : post.format === "ugc"
+            ? "♻"
+            : post.format === "anuncio"
+              ? "$"
+              : "";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${code} · ${FORMAT_LABEL[post.format] ?? post.format} · ${STATUS_LABEL[post.status]}`}
+      style={{
+        position: "relative",
+        aspectRatio: "1 / 1",
+        background: bg,
+        color: "var(--off-white)",
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+        overflow: "hidden",
+        fontFamily: "inherit",
+      }}
+    >
+      {/* Overlay degradé para que el texto se lea siempre */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 50%, rgba(0,0,0,0.55) 100%)",
+        }}
+      />
+
+      {/* Status dot — arriba-izquierda */}
+      <div
+        style={{
+          position: "absolute",
+          top: 6,
+          left: 6,
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: STATUS_COLOR[post.status],
+          border: "1.5px solid rgba(255,255,255,0.85)",
+        }}
+        title={STATUS_LABEL[post.status]}
+      />
+
+      {/* Format icon — arriba-derecha */}
+      {formatIcon && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 6,
+            fontSize: 14,
+            fontWeight: 800,
+            color: "rgba(255,255,255,0.9)",
+            textShadow: "0 1px 2px rgba(0,0,0,0.4)",
+          }}
+        >
+          {formatIcon}
+        </div>
+      )}
+
+      {/* Classification badge — arriba-derecha bajo el formato */}
+      {meta && (
+        <div
+          style={{
+            position: "absolute",
+            top: 26,
+            right: 6,
+            fontSize: 9,
+            fontWeight: 800,
+            letterSpacing: "0.06em",
+            padding: "2px 5px",
+            background: "rgba(255,255,255,0.18)",
+            color: "var(--off-white)",
+            borderRadius: 3,
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          {meta.short}
+        </div>
+      )}
+
+      {/* Snippet de la idea — abajo */}
+      <div
+        style={{
+          position: "absolute",
+          left: 8,
+          right: 8,
+          bottom: 8,
+          fontSize: 10.5,
+          fontWeight: 500,
+          lineHeight: 1.3,
+          color: "rgba(255,255,255,0.95)",
+          textAlign: "left",
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
+        {snippet}
+      </div>
+
+      {/* Código C-XXXX — arriba al medio, muy chiquito */}
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 50,
+          right: 50,
+          fontSize: 9,
+          fontFamily: "monospace",
+          fontWeight: 700,
+          color: "rgba(255,255,255,0.75)",
+          textAlign: "center",
+          letterSpacing: "0.05em",
+        }}
+      >
+        {code}
+      </div>
+    </button>
+  );
+}
+
+// ============================================================
+// FeedPostDetailModal — modal con la info completa del post cuando
+// el usuario toca un tile en la vista feed. Solo lectura — para
+// editar la pieza se usa la tabla (toggle desde el header).
+// ============================================================
+function FeedPostDetailModal({
+  post,
+  code,
+  onClose,
+}: {
+  post: ContentPost;
+  code: string;
+  onClose: () => void;
+}) {
+  const meta = post.classification
+    ? CONTENT_CLASSIFICATION_META[post.classification]
+    : null;
+
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(10,26,12,0.6)",
+        zIndex: 1100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 40,
+        backdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        style={{
+          background: "var(--white)",
+          maxWidth: 560,
+          width: "100%",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          padding: 32,
+          borderRadius: "var(--r-lg)",
+          position: "relative",
+          boxShadow: "var(--shadow-md)",
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            fontSize: 18,
+            width: 32,
+            height: 32,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+          }}
+        >
+          ×
+        </button>
+
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 6,
+          }}
+        >
+          {code} · {NETWORK_LABEL[post.network]}
+        </div>
+        <h2
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            marginBottom: 12,
+            color: "var(--deep-green)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {post.idea || "Sin idea"}
+        </h2>
+
+        {/* Chips: formato + estado + clasificación + fecha */}
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            flexWrap: "wrap",
+            marginBottom: 18,
+          }}
+        >
+          <span
+            style={{
+              padding: "3px 9px",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              background: NETWORK_COLORS[post.network]?.solid ?? "#0A1A0C",
+              color: "var(--off-white)",
+              borderRadius: "var(--r-pill)",
+            }}
+          >
+            {FORMAT_LABEL[post.format] ?? post.format}
+          </span>
+          <span
+            style={{
+              padding: "3px 9px",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              background:
+                post.status === "scheduled"
+                  ? "rgba(47,125,79,0.12)"
+                  : post.status === "published"
+                    ? "rgba(10,26,12,0.08)"
+                    : "rgba(155,130,89,0.15)",
+              color: STATUS_COLOR[post.status],
+              borderRadius: "var(--r-pill)",
+            }}
+          >
+            {STATUS_LABEL[post.status]}
+          </span>
+          {meta && (
+            <span
+              style={{
+                padding: "3px 9px",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                background: meta.color,
+                color: "var(--off-white)",
+                borderRadius: "var(--r-pill)",
+              }}
+            >
+              {meta.label}
+            </span>
+          )}
+          <span
+            style={{
+              padding: "3px 9px",
+              fontSize: 10,
+              fontWeight: 600,
+              color: "var(--text-muted)",
+              background: "var(--off-white)",
+              borderRadius: "var(--r-pill)",
+            }}
+          >
+            {formatHumanDate(post.date)}
+            {post.time ? ` · ${post.time}` : ""}
+          </span>
+        </div>
+
+        {/* Copy */}
+        {post.copy && (
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: "var(--sand-dark)",
+                marginBottom: 4,
+              }}
+            >
+              Copy
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--deep-green)",
+                lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+                padding: 12,
+                background: "var(--off-white)",
+                borderRadius: "var(--r-sm)",
+              }}
+            >
+              {post.copy}
+            </div>
+          </div>
+        )}
+
+        {/* CTA */}
+        {post.cta && (
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: "var(--sand-dark)",
+                marginBottom: 4,
+              }}
+            >
+              CTA
+            </div>
+            <div style={{ fontSize: 13, color: "var(--deep-green)" }}>
+              {post.cta}
+            </div>
+          </div>
+        )}
+
+        {/* Brief */}
+        {post.brief && (
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: "var(--sand-dark)",
+                marginBottom: 4,
+              }}
+            >
+              Brief de producción
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--deep-green)",
+                lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+                padding: 12,
+                background: "var(--off-white)",
+                borderRadius: "var(--r-sm)",
+              }}
+            >
+              {post.brief}
+            </div>
+          </div>
+        )}
+
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            fontStyle: "italic",
+            marginTop: 18,
+          }}
+        >
+          Para editar esta pieza, cambiá a la <strong>Tabla</strong> arriba y
+          expandí la fila.
+        </div>
+      </div>
+    </div>
+  );
+}

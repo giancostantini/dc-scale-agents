@@ -656,6 +656,21 @@ export type ContentFormat =
   | "anuncio";
 export type ContentStatus = "draft" | "scheduled" | "published";
 
+/**
+ * Clasificación editorial de una pieza de contenido. Es propia de
+ * cada post, distinta del mix valor/oferta/engagement que vive en
+ * el planificador para distribuir slots sugeridos. Acá hablamos de
+ * a qué grupo pertenece la pieza puntual:
+ *
+ *   - valor:        educativo / informativo / expertise.
+ *   - conversion:   comercial / promo / CTA directo.
+ *   - aspiracional: inspiracional / lifestyle / brand.
+ *
+ * NULL = sin clasificar (default cuando la pieza recién se crea).
+ * Persistido como text en content_posts.classification (mig 063).
+ */
+export type ContentClassification = "valor" | "conversion" | "aspiracional";
+
 export interface ContentPost {
   id: string;
   clientId: string;
@@ -682,10 +697,42 @@ export interface ContentPost {
   influencer?: string | null;
   /** Miembro del equipo responsable de producir la pieza. */
   assignedTo?: string | null;
+  /** Clasificación editorial — valor / conversion / aspiracional. */
+  classification?: ContentClassification | null;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;
 }
+
+/**
+ * Metadata visual de cada clasificación: label visible, código
+ * corto para chips/grilla, y color para tintar los tiles del feed.
+ * Centralizado acá para que tabla y preview IG usen el mismo
+ * código de colores.
+ */
+export const CONTENT_CLASSIFICATION_META: Record<
+  ContentClassification,
+  { label: string; short: string; color: string; bg: string }
+> = {
+  valor: {
+    label: "Valor",
+    short: "V",
+    color: "#2f7d4f",
+    bg: "rgba(47,125,79,0.12)",
+  },
+  conversion: {
+    label: "Conversión",
+    short: "C",
+    color: "#b04b3a",
+    bg: "rgba(176,75,58,0.12)",
+  },
+  aspiracional: {
+    label: "Aspiracional",
+    short: "A",
+    color: "#9b8259",
+    bg: "rgba(155,130,89,0.12)",
+  },
+};
 
 // ==================== ROUTING (AUTORIZACIONES) ====================
 

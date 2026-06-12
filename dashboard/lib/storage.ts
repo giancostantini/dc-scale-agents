@@ -2148,6 +2148,8 @@ interface ContentRow {
   influencer?: string | null;
   // Migración 050 — código persistente por cliente.
   code?: number | null;
+  // Migración 063 — clasificación editorial valor/conversion/aspiracional.
+  classification?: "valor" | "conversion" | "aspiracional" | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
@@ -2165,6 +2167,7 @@ function contentFromRow(r: ContentRow): ContentPost {
     cta: r.cta ?? null,
     influencer: r.influencer ?? null,
     assignedTo: r.assigned_to ?? null,
+    classification: r.classification ?? null,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -2200,6 +2203,7 @@ export async function addContent(
       cta: data.cta ?? null,
       influencer: data.influencer ?? null,
       assigned_to: data.assignedTo ?? null,
+      classification: data.classification ?? null,
       status: data.status,
       source: data.source,
     })
@@ -2225,6 +2229,8 @@ export interface UpdateContentInput {
   cta?: string | null;
   influencer?: string | null;
   assignedTo?: string | null;
+  /** Clasificación editorial — null para limpiar, valor/conversion/aspiracional para setear. */
+  classification?: "valor" | "conversion" | "aspiracional" | null;
   status?: ContentStatus;
 }
 
@@ -2245,6 +2251,7 @@ export async function updateContent(
   if (patch.cta !== undefined) dbPatch.cta = patch.cta;
   if (patch.influencer !== undefined) dbPatch.influencer = patch.influencer;
   if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
+  if (patch.classification !== undefined) dbPatch.classification = patch.classification;
   if (patch.status !== undefined) dbPatch.status = patch.status;
   const { data, error } = await supabase
     .from("content_posts")
