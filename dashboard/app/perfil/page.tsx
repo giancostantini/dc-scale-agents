@@ -304,6 +304,9 @@ export default function PerfilPage() {
         {/* ===== Cambiar contraseña ===== */}
         <ChangePasswordPanel />
 
+        {/* ===== 2FA (autenticación en dos pasos) ===== */}
+        <TwoFactorPanel />
+
         {/* ===== Notificaciones por email ===== */}
         <EmailPreferencesPanel
           profile={profile}
@@ -320,6 +323,272 @@ export default function PerfilPage() {
         )}
       </main>
     </>
+  );
+}
+
+// ============================================================
+// TwoFactorPanel — 2FA (TOTP) vía Supabase MFA. OPT-IN: enrolar/desactivar
+// desde el perfil. NO se exige al login todavía (enforcement = paso 2, cuando
+// todos estén enrolados) para no lockear a nadie.
+// ============================================================
+interface MfaFactor {
+  id: string;
+  status: string;
+}
+function TwoFactorPanel() {
+  const [factors, setFactors] = useState<MfaFactor[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [enrolling, setEnrolling] = useState<{
+    factorId: string;
+    qr: string;
+    secret: string;
+  } | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refresh() {
+    const { data } = await getSupabase().auth.mfa.listFactors();
+    setFactors((data?.totp ?? []) as MfaFactor[]);
+    setLoaded(true);
+  }
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const active = factors.find((f) => f.status === "verified");
+
+  async function startEnroll() {
+    setError(null);
+    setBusy(true);
+    // Limpiar factores no verificados colgados de intentos previos.
+    for (const f of factors) {
+      if (f.status !== "verified") {
+        await getSupabase()
+          .auth.mfa.unenroll({ factorId: f.id })
+          .catch(() => {});
+      }
+    }
+    const { data, error: enErr } = await getSupabase().auth.mfa.enroll({
+      factorType: "totp",
+    });
+    setBusy(false);
+    if (enErr || !data) {
+      setError(enErr?.message ?? "No se pudo iniciar el 2FA.");
+      return;
+    }
+    setEnrolling({
+      factorId: data.id,
+      qr: data.totp.qr_code,
+      secret: data.totp.secret,
+    });
+  }
+
+  async function verifyCode() {
+    if (!enrolling) return;
+    setError(null);
+    setBusy(true);
+    const { data: ch, error: chErr } = await getSupabase().auth.mfa.challenge({
+      factorId: enrolling.factorId,
+    });
+    if (chErr || !ch) {
+      setBusy(false);
+      setError(chErr?.message ?? "Error generando el desafío.");
+      return;
+    }
+    const { error: vErr } = await getSupabase().auth.mfa.verify({
+      factorId: enrolling.factorId,
+      challengeId: ch.id,
+      code: code.trim(),
+    });
+    setBusy(false);
+    if (vErr) {
+      setError("Código incorrecto. Revisá la app y probá de nuevo.");
+      return;
+    }
+    setEnrolling(null);
+    setCode("");
+    await refresh();
+  }
+
+  async function disableMfa() {
+    if (!active) return;
+    if (!window.confirm("¿Desactivar el 2FA de tu cuenta?")) return;
+    setBusy(true);
+    await getSupabase()
+      .auth.mfa.unenroll({ factorId: active.id })
+      .catch(() => {});
+    setBusy(false);
+    await refresh();
+  }
+
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <div className={styles.panelTitle}>Autenticación en dos pasos (2FA)</div>
+        {loaded && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: active ? "var(--green-ok)" : "var(--text-muted)",
+            }}
+          >
+            {active ? "● Activa" : "○ Inactiva"}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.5 }}>
+        Agregá un segundo factor con una app de autenticación (Google
+        Authenticator, Authy, 1Password…). Recomendado, sobre todo para acceder
+        a la bóveda de credenciales.
+      </div>
+
+      {error && (
+        <div
+          style={{
+            padding: 10,
+            marginBottom: 12,
+            background: "rgba(176,75,58,0.08)",
+            border: "1px solid rgba(176,75,58,0.2)",
+            borderRadius: 4,
+            fontSize: 12,
+            color: "#B91C1C",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {active ? (
+        <button
+          onClick={disableMfa}
+          disabled={busy}
+          style={{
+            padding: "9px 16px",
+            background: "transparent",
+            border: "1px solid rgba(176,75,58,0.25)",
+            borderRadius: 6,
+            fontSize: 12,
+            color: "#B91C1C",
+            cursor: busy ? "wait" : "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          Desactivar 2FA
+        </button>
+      ) : enrolling ? (
+        <div>
+          <div style={{ fontSize: 12.5, color: "var(--deep-green)", marginBottom: 10 }}>
+            1. Escaneá este QR con tu app. 2. Ingresá el código de 6 dígitos.
+          </div>
+          <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div
+              style={{
+                background: "var(--white)",
+                padding: 8,
+                border: "1px solid var(--hairline)",
+                borderRadius: 8,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={enrolling.qr} alt="QR para 2FA" width={172} height={172} />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+                ¿No podés escanear? Cargá esta clave manualmente:
+              </div>
+              <code
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  wordBreak: "break-all",
+                  background: "var(--off-white)",
+                  padding: "6px 8px",
+                  borderRadius: 4,
+                  marginBottom: 12,
+                }}
+              >
+                {enrolling.secret}
+              </code>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Código de 6 dígitos"
+                inputMode="numeric"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  letterSpacing: "0.3em",
+                  fontFamily: "monospace",
+                  marginBottom: 10,
+                }}
+              />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={verifyCode}
+                  disabled={busy || code.length !== 6}
+                  style={{
+                    padding: "9px 16px",
+                    background: "var(--deep-green)",
+                    color: "var(--off-white)",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: busy || code.length !== 6 ? "default" : "pointer",
+                    opacity: busy || code.length !== 6 ? 0.5 : 1,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {busy ? "Verificando…" : "Verificar y activar"}
+                </button>
+                <button
+                  onClick={() => {
+                    setEnrolling(null);
+                    setCode("");
+                    setError(null);
+                  }}
+                  disabled={busy}
+                  style={{
+                    padding: "9px 16px",
+                    background: "transparent",
+                    border: "1px solid var(--hairline)",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={startEnroll}
+          disabled={busy || !loaded}
+          style={{
+            padding: "9px 16px",
+            background: "var(--deep-green)",
+            color: "var(--off-white)",
+            border: "none",
+            borderRadius: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: busy ? "wait" : "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          {busy ? "…" : "Activar 2FA"}
+        </button>
+      )}
+    </div>
   );
 }
 
