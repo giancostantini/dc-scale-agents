@@ -10,6 +10,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 const GITHUB_API = "https://api.github.com";
 const BRANCH = "main";
@@ -21,13 +22,16 @@ interface DirEntry {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id: clientId } = await context.params;
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
     return Response.json({ error: "Invalid client id" }, { status: 400 });
   }
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
 
   const token = process.env.GH_DISPATCH_TOKEN;
   const owner = process.env.GITHUB_OWNER;

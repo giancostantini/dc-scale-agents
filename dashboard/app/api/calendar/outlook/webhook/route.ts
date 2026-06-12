@@ -22,6 +22,7 @@
 import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fetchEvent, getUserAccessToken } from "@/lib/microsoft-graph";
+import { safeEqual } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   const results: Array<{ id: string; ok: boolean; reason?: string }> = [];
 
   for (const notif of body.value) {
-    if (notif.clientState !== expectedClientState) {
+    if (!notif.clientState || !safeEqual(notif.clientState, expectedClientState)) {
       results.push({
         id: notif.resourceData.id,
         ok: false,

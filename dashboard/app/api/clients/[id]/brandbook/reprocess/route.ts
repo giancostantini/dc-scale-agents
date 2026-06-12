@@ -15,6 +15,7 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 interface PostBody {
   brandbookText: string;
@@ -29,6 +30,9 @@ export async function POST(
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
     return Response.json({ error: "Invalid client id" }, { status: 400 });
   }
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
 
   let body: PostBody;
   try {

@@ -11,6 +11,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { requireRole } from "@/lib/auth-guard";
 
 interface EnvCheck {
   present: boolean;
@@ -131,7 +132,12 @@ async function smokeGithub(): Promise<SmokeResult> {
   }
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  // Diagnóstico sensible (presencia de secrets + probe de dispatch a GitHub).
+  // Solo director; antes era accesible públicamente sin auth.
+  const access = await requireRole(req, ["director"]);
+  if (!access.ok) return access.response;
+
   const envReport = {
     NEXT_PUBLIC_SUPABASE_URL: plain(process.env.NEXT_PUBLIC_SUPABASE_URL),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: mask(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),

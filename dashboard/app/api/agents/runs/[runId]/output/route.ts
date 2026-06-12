@@ -11,11 +11,16 @@
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth-guard";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ runId: string }> },
 ) {
+  // Output interno de agentes — solo equipo. Antes era enumerable sin auth.
+  const access = await requireRole(req, ["director", "team"]);
+  if (!access.ok) return access.response;
+
   const { runId: runIdRaw } = await context.params;
   const runId = parseInt(runIdRaw, 10);
   if (!runId || Number.isNaN(runId)) {

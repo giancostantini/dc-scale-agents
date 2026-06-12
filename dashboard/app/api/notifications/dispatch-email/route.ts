@@ -21,6 +21,7 @@
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalSecret } from "@/lib/auth-guard";
 import {
   emailNewRequestToTeam,
   emailRequestStatusChangeToClient,
@@ -43,6 +44,12 @@ const PHASE_LABELS = {
 } as const;
 
 export async function POST(req: NextRequest) {
+  // Endpoint interno: lo llaman otras rutas server-to-server (+ cron a futuro).
+  // Exige el secreto interno; antes era invocable por cualquiera (spam de mails
+  // + marcar notifs como enviadas).
+  const internal = requireInternalSecret(req);
+  if (!internal.ok) return internal.response;
+
   let body: DispatchBody = {};
   try {
     body = (await req.json()) as DispatchBody;

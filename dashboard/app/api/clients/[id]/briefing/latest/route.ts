@@ -14,9 +14,10 @@
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id: clientId } = await context.params;
@@ -24,6 +25,9 @@ export async function GET(
   if (!clientId || !/^[a-z0-9-]+$/.test(clientId)) {
     return Response.json({ error: "Invalid client id" }, { status: 400 });
   }
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase

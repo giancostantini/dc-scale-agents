@@ -18,6 +18,7 @@
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth-guard";
 
 interface NotifyBody {
   requestId: string;
@@ -30,6 +31,11 @@ const URGENCY_LEVEL: Record<string, "info" | "warning"> = {
 };
 
 export async function POST(req: NextRequest) {
+  // Lo llama el cliente desde el portal tras crear una solicitud. Antes era
+  // sin auth → cualquiera podía disparar notifs al equipo.
+  const access = await requireRole(req, ["director", "team", "client"]);
+  if (!access.ok) return access.response;
+
   let body: NotifyBody;
   try {
     body = await req.json();
@@ -83,7 +89,10 @@ export async function POST(req: NextRequest) {
   // in-app y un cron posterior puede reintentar.
   fetch(`${req.nextUrl.origin}/api/notifications/dispatch-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-secret": process.env.CRON_SECRET ?? "",
+    },
     body: JSON.stringify({ requestId: request.id }),
   }).catch((err) => {
     console.warn("[notify] dispatch-email failed (non-blocking):", err);
