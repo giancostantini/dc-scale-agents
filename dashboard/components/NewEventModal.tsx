@@ -9,24 +9,21 @@ import styles from "./NewClientModal.module.css";
 interface NewEventModalProps {
   open: boolean;
   initialDate?: string;
-  /** Si se pasa, el modal abre con ese cliente pre-seleccionado y
-   *  oculta el selector. Útil cuando se abre desde la página de un
-   *  cliente específico. */
+  /** Si se pasa, el evento se asigna automáticamente a ese cliente y
+   *  el selector de cliente NO se muestra — el modal asume que ya
+   *  estás dentro del dashboard de ese cliente y todos los eventos
+   *  que creés desde acá pertenecen a él.
+   *
+   *  Si NO se pasa (caso /calendario global), el selector de cliente
+   *  aparece para que elijas. */
   initialClientId?: string;
   /** Modo edición: si se pasa, el modal abre con todos los campos
    *  pre-cargados del evento existente y al guardar hace UPDATE en
    *  vez de INSERT. Para entrar en modo edición pasar este prop;
    *  null/undefined → modo creación normal. */
   editEvent?: CalEvent | null;
-  googleConnected?: boolean;
   onClose: () => void;
   onCreated?: () => void;
-}
-
-function randomMeetSlug() {
-  const pick = () =>
-    Math.random().toString(36).replace(/[^a-z]/g, "").slice(0, 4).padEnd(4, "x");
-  return `${pick()}-${pick()}-${pick()}`;
 }
 
 export default function NewEventModal({
@@ -34,7 +31,6 @@ export default function NewEventModal({
   initialDate,
   initialClientId,
   editEvent,
-  googleConnected = true,
   onClose,
   onCreated,
 }: NewEventModalProps) {
@@ -49,15 +45,22 @@ export default function NewEventModal({
   const [duration, setDuration] = useState("60");
   const [participants, setParticipants] = useState("");
   const [notes, setNotes] = useState("");
-  const [generateMeet, setGenerateMeet] = useState(true);
-  const [syncGoogle, setSyncGoogle] = useState(googleConnected);
   const [saving, setSaving] = useState(false);
 
   const isEditMode = !!editEvent;
+  // El selector de cliente solo aparece cuando NO se pasó initialClientId
+  // (caso /calendario global). Adentro del dashboard de un cliente el
+  // evento se asigna en automático.
+  const hideClientSelector = !!initialClientId;
 
   useEffect(() => {
     if (open) {
-      getClients().then(setClients);
+      // Solo necesitamos cargar la lista de clientes si vamos a mostrar
+      // el selector. Cuando initialClientId está seteado, el evento se
+      // asigna directo sin pedirle datos al servidor.
+      if (!initialClientId) {
+        getClients().then(setClients);
+      }
       if (editEvent) {
         // Modo edición: pre-cargar todo del evento existente
         setTitle(editEvent.title);
@@ -69,8 +72,6 @@ export default function NewEventModal({
         setClientId(editEvent.clientId ?? "");
         setParticipants(editEvent.participants ?? "");
         setNotes(editEvent.notes ?? "");
-        setSyncGoogle(editEvent.synced ?? false);
-        setGenerateMeet(!!editEvent.meetLink);
       } else {
         // Modo creación: defaults
         setTitle("");
@@ -81,12 +82,11 @@ export default function NewEventModal({
         setDuration("60");
         setParticipants("");
         setNotes("");
-        setSyncGoogle(googleConnected);
-        setGenerateMeet(true);
-        if (initialClientId) setClientId(initialClientId);
+        // Auto-asignar al cliente del contexto si vino por prop.
+        setClientId(initialClientId ?? "");
       }
     }
-  }, [open, initialDate, googleConnected, initialClientId, editEvent]);
+  }, [open, initialDate, initialClientId, editEvent]);
 
   if (!open) return null;
 
@@ -98,6 +98,13 @@ export default function NewEventModal({
     if (!canSubmit || saving) return;
     setSaving(true);
     try {
+      // Resolver el label del cliente:
+      //   - Si hideClientSelector: usamos initialClientId y buscamos el
+      //     nombre. Si no se cargó la lista de clientes (caso normal en
+      //     dashboards de cliente), el label se completa con el id como
+      //     fallback — el componente que consume el evento ya resuelve
+      //     el nombre desde la DB.
+      //   - Si no: el director eligió desde el selector.
       const client = clients.find((c) => c.id === clientId);
       const effectiveEndDate =
         endDate && endDate !== date ? endDate : null;
@@ -121,7 +128,6 @@ export default function NewEventModal({
           clientLabel,
           participants: participants.trim() || undefined,
           notes: notes.trim() || undefined,
-          synced: syncGoogle,
         });
       } else {
         await addEvent({
@@ -135,11 +141,6 @@ export default function NewEventModal({
           clientLabel,
           participants: participants.trim() || undefined,
           notes: notes.trim() || undefined,
-          meetLink:
-            generateMeet && (type === "reunion" || type === "dev")
-              ? `meet.google.com/${randomMeetSlug()}`
-              : undefined,
-          synced: syncGoogle,
         });
       }
 
@@ -170,9 +171,10 @@ export default function NewEventModal({
           {isEditMode ? "Editar evento" : "Agendar evento"}
         </h2>
         <p className={styles.sub}>
-          {googleConnected
-            ? "Si activás la sincronización, el evento aparece también en tu Google Calendar."
-            : "Google Calendar no está conectado — el evento queda solo en Dearmas & Costantini Scale."}
+          Agendá reuniones, cobros, producciones y deadlines del equipo.
+          {hideClientSelector
+            ? " El evento queda asignado automáticamente a este cliente."
+            : ""}
         </p>
 
         <div className={styles.field}>
@@ -185,7 +187,11 @@ export default function NewEventModal({
           />
         </div>
 
-        <div className={styles.fieldGrid2}>
+        {/* Cuando hay initialClientId (modal abierto desde el dashboard
+            de un cliente), no mostramos el selector — el evento se
+            asigna en automático a ese cliente. El selector solo
+            aparece en el /calendario global. */}
+        {hideClientSelector ? (
           <div className={styles.field}>
             <label>Tipo</label>
             <select
@@ -200,23 +206,40 @@ export default function NewEventModal({
               <option value="pauta">Pauta publicitaria</option>
             </select>
           </div>
-          <div className={styles.field}>
-            <label>Cliente</label>
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-            >
-              <option value="">Sin cliente</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-              <option value="prospect">Prospecto</option>
-              <option value="interno">Interno</option>
-            </select>
+        ) : (
+          <div className={styles.fieldGrid2}>
+            <div className={styles.field}>
+              <label>Tipo</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as EventType)}
+              >
+                <option value="reunion">Reunión</option>
+                <option value="cobro">Cobro</option>
+                <option value="reporte">Reporte</option>
+                <option value="dev">Desarrollo / Deploy</option>
+                <option value="contenido">Contenido</option>
+                <option value="pauta">Pauta publicitaria</option>
+              </select>
+            </div>
+            <div className={styles.field}>
+              <label>Cliente</label>
+              <select
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+              >
+                <option value="">Sin cliente</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="prospect">Prospecto</option>
+                <option value="interno">Interno</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className={styles.fieldGrid3}>
           <div className={styles.field}>
@@ -321,69 +344,11 @@ export default function NewEventModal({
           />
         </div>
 
-        <label
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "flex-start",
-            padding: 14,
-            background: "var(--off-white)",
-            borderLeft: "3px solid var(--sand)",
-            cursor: "pointer",
-            marginBottom: 14,
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={generateMeet}
-            onChange={(e) => setGenerateMeet(e.target.checked)}
-          />
-          <span style={{ fontSize: 13 }}>
-            <strong>Generar link de Google Meet</strong>
-            <br />
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              Solo se genera para reuniones y deploys.
-            </span>
-          </span>
-        </label>
-
-        <label
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "flex-start",
-            padding: 14,
-            background: googleConnected ? "var(--deep-green)" : "var(--off-white)",
-            color: googleConnected ? "var(--off-white)" : "var(--deep-green)",
-            cursor: googleConnected ? "pointer" : "not-allowed",
-            opacity: googleConnected ? 1 : 0.5,
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={syncGoogle && googleConnected}
-            onChange={(e) => setSyncGoogle(e.target.checked)}
-            disabled={!googleConnected}
-          />
-          <span style={{ fontSize: 13 }}>
-            <strong style={{ color: googleConnected ? "var(--sand)" : "inherit" }}>
-              Sincronizar con Google Calendar
-            </strong>
-            <br />
-            <span
-              style={{
-                fontSize: 11,
-                color: googleConnected
-                  ? "rgba(232,228,220,0.6)"
-                  : "var(--text-muted)",
-              }}
-            >
-              {googleConnected
-                ? "El evento se crea también en tu calendario de Google."
-                : "Primero conectá Google Calendar."}
-            </span>
-          </span>
-        </label>
+        {/* Las opciones "Generar link de Google Meet" y "Sincronizar
+            con Google Calendar" se sacaron del modal — no las usábamos
+            en la operación real del equipo. Si en el futuro queremos
+            volver a meter sync de Google Calendar, hay que rearmar el
+            checkbox + el flag synced en addEvent/updateEvent. */}
 
         <div className={styles.actions}>
           <button
