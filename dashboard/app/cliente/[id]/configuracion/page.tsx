@@ -35,7 +35,7 @@ import {
   type ClientSocialLinks,
 } from "@/lib/types";
 import { getCurrentProfile } from "@/lib/supabase/auth";
-import { uploadFile } from "@/lib/upload";
+import { uploadContentPreview } from "@/lib/upload";
 import type { Client, ClientContact, OnboardingFile } from "@/lib/types";
 import InviteUserModal from "@/components/InviteUserModal";
 import EditClientCoreModal from "@/components/EditClientCoreModal";
@@ -135,13 +135,21 @@ export default function ConfiguracionPage({
     }
     setUploadingLogo(true);
     try {
+      // Subimos al bucket PÚBLICO "content-post-previews" (mig 069)
+      // para que el <img src> del logo cargue sin auth. Antes
+      // usábamos client-onboarding (privado), y el browser recibía
+      // 403 al renderear el logo en el dashboard.
       // Path: logos/{clientId}/{timestamp}_{filename}
-      const uploaded = await uploadFile(file, `logos/${id}`);
-      await updateClientLogo(id, uploaded.url ?? null);
+      const uploaded = await uploadContentPreview(file, `logos/${id}`);
+      if (!uploaded.url) throw new Error("El upload no devolvió URL pública.");
+      await updateClientLogo(id, uploaded.url);
       await refresh();
     } catch (err) {
       const e = err as Error;
-      alert(`No se pudo subir el logo: ${e.message}`);
+      const hint = e.message.includes("Bucket not found")
+        ? "\n\nEl bucket público de previews no existe todavía. Corré la migración 069 en Supabase."
+        : "";
+      alert(`No se pudo subir el logo: ${e.message}${hint}`);
     } finally {
       setUploadingLogo(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
