@@ -39,7 +39,7 @@ import {
 import { listProfiles } from "@/lib/team";
 import { getSupabase } from "@/lib/supabase/client";
 import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
-import { uploadFile } from "@/lib/upload";
+import { uploadContentPreview } from "@/lib/upload";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
 import type {
   Client,
@@ -564,22 +564,39 @@ export default function ContenidoPage({
 
   // ============ Mutations ============
   async function patchPost(post: ContentPost, patch: Partial<ContentPost>) {
-    await updateContent(post.id, {
-      date: patch.date,
-      time: patch.time === undefined ? undefined : patch.time,
-      network: patch.network,
-      format: patch.format,
-      brief: patch.brief,
-      idea: patch.idea,
-      copy: patch.copy,
-      cta: patch.cta,
-      influencer: patch.influencer,
-      assignedTo: patch.assignedTo,
-      classification: patch.classification,
-      imageUrl: patch.imageUrl,
-      status: patch.status,
-    });
-    refresh();
+    try {
+      await updateContent(post.id, {
+        date: patch.date,
+        time: patch.time === undefined ? undefined : patch.time,
+        network: patch.network,
+        networks: patch.networks,
+        format: patch.format,
+        brief: patch.brief,
+        idea: patch.idea,
+        copy: patch.copy,
+        cta: patch.cta,
+        influencer: patch.influencer,
+        assignedTo: patch.assignedTo,
+        classification: patch.classification,
+        imageUrl: patch.imageUrl,
+        status: patch.status,
+      });
+      refresh();
+    } catch (e) {
+      // Antes los errores de DB caían silenciosos — el usuario veía la
+      // UI optimista (chip activo) pero el cambio no se persistía. Ahora
+      // surfaceamos el error con un alert para que se note si falta una
+      // migración (ej. networks[] o image_url no existen en la columna).
+      const msg = (e as Error).message;
+      const hint = msg.toLowerCase().includes("networks")
+        ? "\n\nProbablemente falta correr la migración 065 (columna networks[]). Pegá el SQL en Supabase."
+        : msg.toLowerCase().includes("image_url")
+          ? "\n\nProbablemente falta correr la migración 064 (columna image_url)."
+          : msg.toLowerCase().includes("classification")
+            ? "\n\nProbablemente falta correr la migración 063 + 066 (clasificaciones)."
+            : "";
+      alert(`No se pudo guardar el cambio:\n${msg}${hint}`);
+    }
   }
 
   async function approve(post: ContentPost) {
@@ -2156,13 +2173,21 @@ function PostImageEditor({
     setUploading(true);
     setErr("");
     try {
-      const folder = `content-posts/${post.clientId}`;
-      const uploaded = await uploadFile(file, folder);
-      // Pasamos la URL pública para que la persista patchPost.
-      await onSaved(uploaded.url ?? null);
+      // Bucket público "content-post-previews" — URL cargable directo
+      // en <img src> sin auth. Antes usábamos el bucket privado y la
+      // imagen no aparecía en el feed (403). Ver migración 069.
+      const uploaded = await uploadContentPreview(file, post.clientId);
+      if (!uploaded.url) {
+        throw new Error("El upload no devolvió una URL pública.");
+      }
+      await onSaved(uploaded.url);
     } catch (e) {
       const msg = (e as Error).message;
-      setErr(msg);
+      setErr(
+        msg.includes("Bucket not found")
+          ? "El bucket de previews no existe todavía. Corré la migración 069 en Supabase."
+          : msg,
+      );
     } finally {
       setUploading(false);
     }
@@ -2667,8 +2692,9 @@ function NewIdeaModal({
               borderRadius: 4,
             }}
           >
-            Se van a crear {draft.networks.length} piezas — una por red,
-            todas con el mismo idea/copy/brief.
+            Se va a crear <strong>1 sola pieza</strong> que aparece en las{" "}
+            {draft.networks.length} redes seleccionadas. Mismo código C-XXXX
+            en todas — si la editás, se actualiza en todos los feeds.
           </div>
         )}
 

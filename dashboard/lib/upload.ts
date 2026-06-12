@@ -2,14 +2,14 @@
 // Helper para subir archivos del wizard de cliente (kickoff + branding)
 // y guardar la referencia (path/URL pública) en el onboarding jsonb.
 //
-// Bucket usado: "client-onboarding"
-// Estructura:
-//   client-onboarding/{wizardSessionId}/kickoff/{filename}
-//   client-onboarding/{wizardSessionId}/branding/{filename}
-//
-// El bucket debe existir + tener policies de Storage que permitan a
-// authenticated users INSERT/SELECT. Ver instrucciones en
-// supabase/migrations/005_storage_bucket.sql.
+// Buckets:
+//   - "client-onboarding": PRIVADO. Para contratos/branding sensibles.
+//     Path: <wizardSessionId>/kickoff/<filename>,
+//           <wizardSessionId>/branding/<filename>.
+//     Migración 005.
+//   - "content-post-previews": PÚBLICO. Para imágenes de preview de
+//     piezas de contenido. Los URLs son cargables directamente con
+//     <img src> sin auth. Migración 069.
 
 import { getSupabase } from "./supabase/client";
 
@@ -29,24 +29,58 @@ export interface UploadedFile {
 }
 
 /**
- * Sube un archivo individual y devuelve metadata.
+ * Sube un archivo al bucket "client-onboarding" (PRIVADO — bueno
+ * para contratos/branding, pero las URLs públicas NO funcionan en
+ * `<img src>` desde el browser). Para imágenes que tienen que
+ * cargarse en un `<img>` (preview de contenido) usá
+ * `uploadContentPreview` que escribe al bucket público creado en la
+ * migración 069.
+ *
  * Si el upload falla, lanza el error de Supabase tal cual.
  */
 export async function uploadFile(
   file: File,
   folder: string,
 ): Promise<UploadedFile> {
+  return uploadToBucket(file, folder, BUCKET);
+}
+
+/** Bucket público para imágenes de preview de piezas de contenido.
+ *  Creado en la migración 069 con public=true. */
+const CONTENT_PREVIEWS_BUCKET = "content-post-previews";
+
+/**
+ * Sube una imagen de preview de pieza al bucket público
+ * "content-post-previews". El URL devuelto se puede clavar directo
+ * en `<img src>` sin auth. Pasá `folder = clientId` para que las
+ * imágenes queden separadas por cliente.
+ */
+export async function uploadContentPreview(
+  file: File,
+  folder: string,
+): Promise<UploadedFile> {
+  return uploadToBucket(file, folder, CONTENT_PREVIEWS_BUCKET);
+}
+
+/** Helper común: sanitiza nombre + sube + devuelve UploadedFile con
+ *  publicUrl. Si el bucket es privado el publicUrl existe pero un
+ *  `<img src>` no lo carga; usalo solo para descargas con auth. */
+async function uploadToBucket(
+  file: File,
+  folder: string,
+  bucket: string,
+): Promise<UploadedFile> {
   const supabase = getSupabase();
 
   // Sanear el nombre: sin acentos ni espacios, conserva la extensión.
   const safeName = file.name
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-zA-Z0-9._-]/g, "_");
   const path = `${folder}/${Date.now()}_${safeName}`;
 
   const { error } = await supabase.storage
-    .from(BUCKET)
+    .from(bucket)
     .upload(path, file, {
       upsert: false,
       contentType: file.type || "application/octet-stream",
@@ -54,9 +88,7 @@ export async function uploadFile(
 
   if (error) throw error;
 
-  // URL pública (sólo válida si el bucket está marcado como public).
-  // Si no es público, generamos signed URL al leer.
-  const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
 
   return {
     path,
