@@ -26,7 +26,11 @@ export type AuditAction =
   | "request.update"
   | "agent.dispatch"
   | "kpis.update"
-  | "payroll.generate";
+  | "payroll.generate"
+  | "credential.create"
+  | "credential.update"
+  | "credential.delete"
+  | "credential.reveal";
 
 export type AuditTargetType =
   | "profile"
@@ -35,7 +39,8 @@ export type AuditTargetType =
   | "client_request"
   | "agent_run"
   | "expense"
-  | "kpis";
+  | "kpis"
+  | "client_credential";
 
 export interface AuditLogInput {
   actorId: string | null;
