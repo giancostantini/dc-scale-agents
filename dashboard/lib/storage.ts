@@ -2150,6 +2150,8 @@ interface ContentRow {
   code?: number | null;
   // Migración 063 — clasificación editorial valor/conversion/aspiracional.
   classification?: "valor" | "conversion" | "aspiracional" | null;
+  // Migración 064 — imagen de preview para el feed.
+  image_url?: string | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
@@ -2168,6 +2170,7 @@ function contentFromRow(r: ContentRow): ContentPost {
     influencer: r.influencer ?? null,
     assignedTo: r.assigned_to ?? null,
     classification: r.classification ?? null,
+    imageUrl: r.image_url ?? null,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -2204,6 +2207,7 @@ export async function addContent(
       influencer: data.influencer ?? null,
       assigned_to: data.assignedTo ?? null,
       classification: data.classification ?? null,
+      image_url: data.imageUrl ?? null,
       status: data.status,
       source: data.source,
     })
@@ -2231,6 +2235,8 @@ export interface UpdateContentInput {
   assignedTo?: string | null;
   /** Clasificación editorial — null para limpiar, valor/conversion/aspiracional para setear. */
   classification?: "valor" | "conversion" | "aspiracional" | null;
+  /** URL pública de la imagen de preview. null para limpiar. */
+  imageUrl?: string | null;
   status?: ContentStatus;
 }
 
@@ -2252,6 +2258,7 @@ export async function updateContent(
   if (patch.influencer !== undefined) dbPatch.influencer = patch.influencer;
   if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
   if (patch.classification !== undefined) dbPatch.classification = patch.classification;
+  if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
   if (patch.status !== undefined) dbPatch.status = patch.status;
   const { data, error } = await supabase
     .from("content_posts")

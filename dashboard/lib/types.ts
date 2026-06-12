@@ -699,6 +699,11 @@ export interface ContentPost {
   assignedTo?: string | null;
   /** Clasificación editorial — valor / conversion / aspiracional. */
   classification?: ContentClassification | null;
+  /** URL pública de la imagen de preview de la pieza (Supabase Storage).
+   *  Se usa SOLO para visualizar la grilla del feed — no es el creative
+   *  final que se publica, eso vive en Drive/OneDrive. NULL = sin imagen,
+   *  el tile usa el color de la clasificación. Ver migración 064. */
+  imageUrl?: string | null;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;

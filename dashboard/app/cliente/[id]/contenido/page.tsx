@@ -31,6 +31,7 @@ import {
 import { listProfiles } from "@/lib/team";
 import { getSupabase } from "@/lib/supabase/client";
 import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
+import { uploadFile } from "@/lib/upload";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
 import type {
   Client,
@@ -355,6 +356,12 @@ export default function ContenidoPage({
   const [viewMode, setViewMode] = useState<"table" | "feed">("table");
   const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
   /**
+   * Tamaño del feed: compacto (max ~440px, mejor para escanear) o
+   * regular (max ~720px, default — match razonable con un perfil real).
+   * Persistido solo en memoria — al recargar vuelve a "regular".
+   */
+  const [feedSize, setFeedSize] = useState<"compact" | "regular">("regular");
+  /**
    * Cuando el usuario toca un tile de la grilla en modo feed, abrimos
    * un modal con el detalle de esa pieza. null = ningún tile abierto.
    */
@@ -510,6 +517,7 @@ export default function ContenidoPage({
       influencer: patch.influencer,
       assignedTo: patch.assignedTo,
       classification: patch.classification,
+      imageUrl: patch.imageUrl,
       status: patch.status,
     });
     refresh();
@@ -1207,6 +1215,8 @@ export default function ContenidoPage({
           posts={sortedFiltered}
           network={feedNetwork}
           onNetworkChange={setFeedNetwork}
+          size={feedSize}
+          onSizeChange={setFeedSize}
           clientName={client?.name ?? ""}
           clientLogoUrl={client?.logo_url ?? null}
           codeFallback={codeFallback}
@@ -1963,6 +1973,16 @@ function RowEditor({
                   style={editorStyle}
                   placeholder="Shots, tono, formato visual, referencias"
                 />
+
+                {/* Imagen de preview — opcional. Subila para ver cómo
+                    queda en la grilla del feed (vista perfil). No
+                    reemplaza el creative final, solo es preview. */}
+                <FieldLabel>Imagen de preview</FieldLabel>
+                <PostImageEditor
+                  post={post}
+                  isDirector={isDirector}
+                  onSaved={(url) => onPatch({ imageUrl: url })}
+                />
               </div>
             </div>
 
@@ -1980,6 +2000,181 @@ function RowEditor({
         </tr>
       )}
     </>
+  );
+}
+
+// ============================================================
+// PostImageEditor — preview + upload de la imagen del post.
+// Sube al bucket client-onboarding en folder content-posts/<clientId>/.
+// Si ya hay imagen muestra el preview con botones Reemplazar / Quitar;
+// si no, muestra un input de archivo grande.
+// ============================================================
+function PostImageEditor({
+  post,
+  isDirector,
+  onSaved,
+}: {
+  post: ContentPost;
+  isDirector: boolean;
+  onSaved: (url: string | null) => Promise<void>;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleFile(file: File) {
+    if (!isDirector) return;
+    setUploading(true);
+    setErr("");
+    try {
+      const folder = `content-posts/${post.clientId}`;
+      const uploaded = await uploadFile(file, folder);
+      // Pasamos la URL pública para que la persista patchPost.
+      await onSaved(uploaded.url ?? null);
+    } catch (e) {
+      const msg = (e as Error).message;
+      setErr(msg);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function clearImage() {
+    if (!isDirector) return;
+    if (!confirm("¿Quitar la imagen del preview?")) return;
+    setUploading(true);
+    setErr("");
+    try {
+      await onSaved(null);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {post.imageUrl ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-start",
+            padding: 10,
+            background: "var(--white)",
+            border: "1px solid rgba(10,26,12,0.1)",
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.imageUrl}
+            alt="Preview"
+            style={{
+              width: 90,
+              height: 90,
+              objectFit: "cover",
+              borderRadius: 4,
+              background: "var(--off-white)",
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                marginBottom: 8,
+                lineHeight: 1.4,
+              }}
+            >
+              Imagen subida. Aparece como fondo del tile en la vista feed
+              y en el modal de detalle.
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <label
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  borderRadius: 4,
+                  cursor: isDirector && !uploading ? "pointer" : "default",
+                  fontFamily: "inherit",
+                  opacity: isDirector && !uploading ? 1 : 0.5,
+                  display: "inline-block",
+                }}
+              >
+                {uploading ? "Subiendo…" : "↻ Reemplazar"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={!isDirector || uploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFile(f);
+                    e.target.value = "";
+                  }}
+                  style={{ display: "none" }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={clearImage}
+                disabled={!isDirector || uploading}
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "transparent",
+                  color: "var(--red-warn)",
+                  border: "1px solid var(--red-warn)",
+                  borderRadius: 4,
+                  cursor: isDirector && !uploading ? "pointer" : "default",
+                  fontFamily: "inherit",
+                  opacity: isDirector && !uploading ? 1 : 0.5,
+                }}
+              >
+                Quitar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <label
+          style={{
+            padding: "16px 12px",
+            border: "1px dashed rgba(10,26,12,0.2)",
+            borderRadius: "var(--r-sm)",
+            background: "var(--white)",
+            cursor: isDirector && !uploading ? "pointer" : "default",
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: 12,
+            display: "block",
+            opacity: isDirector && !uploading ? 1 : 0.5,
+          }}
+        >
+          {uploading ? "Subiendo…" : "+ Subir imagen de preview"}
+          <input
+            type="file"
+            accept="image/*"
+            disabled={!isDirector || uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+            style={{ display: "none" }}
+          />
+        </label>
+      )}
+      {err && (
+        <div style={{ fontSize: 11, color: "var(--red-warn)" }}>
+          ⚠ {err}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2542,19 +2737,25 @@ const modalInput: React.CSSProperties = {
 };
 
 // ============================================================
-// FeedPreview — render alternativo a la tabla. Imita el perfil de
-// IG/FB: header arriba con logo + nombre + total de piezas, grilla
-// 3-col abajo con las piezas (newest first, como en el perfil real
-// de Instagram). Click en un tile → modal con el detalle.
+// FeedPreview — render alternativo a la tabla. Header con avatar +
+// handle + selector de red + selector de tamaño. Body dispatch según
+// red:
+//   - IG: 3-col grid square (perfil de Instagram).
+//   - FB: vertical feed de cards (timeline de Facebook).
+//   - TT: 2-col grid portrait 9:16 (Discover / perfil de TikTok).
+//   - LinkedIn: vertical feed de cards estilo LI con título destacado.
 //
-// Por ahora solo Instagram y Facebook usan este layout. TikTok y
-// LinkedIn quedan deshabilitados con un mensaje aclaratorio — sus
-// perfiles tienen otro formato que no encaja en una grilla cuadrada.
+// El selector de tamaño (compact|regular) cappea el ancho del
+// contenedor: compact ~440px (mejor para escanear / sin que ocupe la
+// pantalla), regular ~720px (default — match razonable con un perfil
+// real en desktop). El contenedor exterior centra todo.
 // ============================================================
 function FeedPreview({
   posts,
   network,
   onNetworkChange,
+  size,
+  onSizeChange,
   clientName,
   clientLogoUrl,
   codeFallback,
@@ -2563,17 +2764,13 @@ function FeedPreview({
   posts: ContentPost[];
   network: ContentNetwork;
   onNetworkChange: (n: ContentNetwork) => void;
+  size: "compact" | "regular";
+  onSizeChange: (s: "compact" | "regular") => void;
   clientName: string;
   clientLogoUrl: string | null;
   codeFallback: Map<string, string>;
   onTileClick: (p: ContentPost) => void;
 }) {
-  // Solo IG y FB tienen layout de grilla cuadrada. TT y LinkedIn no
-  // se renderizan acá pero los dejamos en el selector para que el
-  // usuario entienda que faltan (mostramos un mensaje).
-  const SUPPORTED_NETWORKS: ContentNetwork[] = ["ig", "fb"];
-  const isSupported = SUPPORTED_NETWORKS.includes(network);
-
   // Filtrar por red elegida + ordenar newest-first (estilo perfil IG).
   // sortedFiltered ya viene filtrado por estado/período/columnas; acá
   // solo aplicamos el filtro de red y reordenamos.
@@ -2586,8 +2783,13 @@ function FeedPreview({
       return (b.time ?? "").localeCompare(a.time ?? "");
     });
 
-  // Username estilo IG: lowercase, sin espacios, prefijo @.
+  // Username estilo IG/TT: lowercase, sin espacios, prefijo @.
   const handle = `@${clientName.toLowerCase().replace(/[^a-z0-9.]+/g, "")}`;
+
+  // Cap de ancho según size. El ancho compact es chico a propósito
+  // para que la grilla no ocupe la pantalla — escaneo rápido. El
+  // regular es el ancho razonable para "ver el perfil".
+  const maxWidth = size === "compact" ? 440 : 720;
 
   return (
     <div
@@ -2596,26 +2798,30 @@ function FeedPreview({
         border: "1px solid rgba(10,26,12,0.08)",
         borderRadius: "var(--r-lg)",
         marginBottom: 24,
+        marginLeft: "auto",
+        marginRight: "auto",
         padding: 0,
         overflow: "hidden",
+        maxWidth,
+        transition: "max-width 0.2s",
       }}
     >
-      {/* Header del perfil + selector de red */}
+      {/* Header del perfil + selector de red + selector de tamaño */}
       <div
         style={{
-          padding: "22px 24px",
+          padding: "18px 20px",
           borderBottom: "1px solid rgba(10,26,12,0.06)",
           display: "flex",
           alignItems: "center",
-          gap: 18,
+          gap: 14,
           flexWrap: "wrap",
         }}
       >
         {/* Avatar circular con el logo del cliente o las iniciales */}
         <div
           style={{
-            width: 72,
-            height: 72,
+            width: 56,
+            height: 56,
             borderRadius: "50%",
             background: clientLogoUrl ? "var(--ivory)" : "var(--sand)",
             display: "flex",
@@ -2624,7 +2830,7 @@ function FeedPreview({
             overflow: "hidden",
             color: "var(--deep-green)",
             fontWeight: 800,
-            fontSize: 22,
+            fontSize: 18,
             flexShrink: 0,
             border: "1px solid rgba(10,26,12,0.08)",
           }}
@@ -2651,10 +2857,10 @@ function FeedPreview({
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ flex: 1, minWidth: 140 }}>
           <div
             style={{
-              fontSize: 18,
+              fontSize: 15,
               fontWeight: 700,
               color: "var(--deep-green)",
               letterSpacing: "-0.01em",
@@ -2664,109 +2870,293 @@ function FeedPreview({
           </div>
           <div
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: "var(--text-muted)",
               marginTop: 2,
             }}
           >
-            {handle}
-          </div>
-          <div
-            style={{
-              marginTop: 8,
-              display: "flex",
-              gap: 16,
-              fontSize: 12,
-              color: "var(--deep-green)",
-            }}
-          >
-            <span>
-              <strong>{networkPosts.length}</strong> piezas
-            </span>
-            <span style={{ color: "var(--text-muted)" }}>
-              en {NETWORK_LABEL[network]} {isSupported ? "" : "(sin preview)"}
-            </span>
+            {handle} · <strong>{networkPosts.length}</strong> piezas en{" "}
+            {NETWORK_LABEL[network]}
           </div>
         </div>
 
-        {/* Selector de red — pills compactos */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
-            const active = network === n;
+        {/* Tamaño: compact / regular — chips chiquitos */}
+        <div
+          style={{
+            display: "flex",
+            gap: 0,
+            background: "var(--off-white)",
+            padding: 3,
+            borderRadius: 6,
+            border: "1px solid rgba(10,26,12,0.08)",
+          }}
+        >
+          {(["compact", "regular"] as const).map((s) => {
+            const active = size === s;
             return (
               <button
-                key={n}
+                key={s}
                 type="button"
-                onClick={() => onNetworkChange(n)}
+                onClick={() => onSizeChange(s)}
+                title={s === "compact" ? "Vista compacta" : "Vista regular"}
                 style={{
-                  padding: "6px 12px",
-                  fontSize: 11,
+                  padding: "4px 9px",
+                  fontSize: 10,
                   fontWeight: 700,
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  background: active ? "var(--deep-green)" : "transparent",
-                  color: active ? "var(--off-white)" : "var(--deep-green)",
-                  border: "1px solid rgba(10,26,12,0.15)",
+                  background: active ? "var(--white)" : "transparent",
+                  color: active ? "var(--deep-green)" : "var(--text-muted)",
+                  border: "none",
                   borderRadius: 4,
                   cursor: "pointer",
                   fontFamily: "inherit",
+                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
                 }}
               >
-                {NETWORK_LABEL[n]}
+                {s === "compact" ? "S" : "M"}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Grilla 3-col estilo perfil */}
-      {!isSupported ? (
+      {/* Selector de red — fila propia abajo del header para no
+          apretar todo en una sola línea cuando el ancho es chico. */}
+      <div
+        style={{
+          padding: "10px 14px",
+          borderBottom: "1px solid rgba(10,26,12,0.06)",
+          display: "flex",
+          gap: 4,
+          flexWrap: "wrap",
+          background: "var(--off-white)",
+        }}
+      >
+        {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
+          const active = network === n;
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onNetworkChange(n)}
+              style={{
+                padding: "5px 10px",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: active ? "var(--deep-green)" : "transparent",
+                color: active ? "var(--off-white)" : "var(--deep-green)",
+                border: "1px solid rgba(10,26,12,0.12)",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {NETWORK_LABEL[n]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Cuerpo: layout específico por red */}
+      {networkPosts.length === 0 ? (
         <div
           style={{
-            padding: "60px 24px",
+            padding: "48px 20px",
             textAlign: "center",
             color: "var(--text-muted)",
-            fontSize: 13,
-            fontStyle: "italic",
-          }}
-        >
-          {NETWORK_LABEL[network]} no tiene preview tipo perfil — sus posts
-          no se ordenan en grilla cuadrada en la app real. Para verlos,
-          cambiá a <strong>Tabla</strong> arriba.
-        </div>
-      ) : networkPosts.length === 0 ? (
-        <div
-          style={{
-            padding: "60px 24px",
-            textAlign: "center",
-            color: "var(--text-muted)",
-            fontSize: 13,
+            fontSize: 12,
             fontStyle: "italic",
           }}
         >
           Sin contenido en {NETWORK_LABEL[network]} para los filtros
           actuales. Probá ajustar el período o el estado.
         </div>
+      ) : network === "ig" ? (
+        <InstagramGrid
+          posts={networkPosts}
+          codeFallback={codeFallback}
+          onTileClick={onTileClick}
+        />
+      ) : network === "tt" ? (
+        <TikTokGrid
+          posts={networkPosts}
+          codeFallback={codeFallback}
+          onTileClick={onTileClick}
+        />
+      ) : network === "fb" ? (
+        <FacebookFeed
+          posts={networkPosts}
+          codeFallback={codeFallback}
+          clientName={clientName}
+          clientLogoUrl={clientLogoUrl}
+          onTileClick={onTileClick}
+        />
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 2,
-            padding: 2,
-            background: "rgba(10,26,12,0.06)",
-          }}
-        >
-          {networkPosts.map((p) => (
-            <FeedTile
-              key={p.id}
-              post={p}
-              code={codeOf(p, codeFallback)}
-              onClick={() => onTileClick(p)}
-            />
-          ))}
-        </div>
+        <LinkedInFeed
+          posts={networkPosts}
+          codeFallback={codeFallback}
+          clientName={clientName}
+          clientLogoUrl={clientLogoUrl}
+          onTileClick={onTileClick}
+        />
       )}
+    </div>
+  );
+}
+
+/**
+ * InstagramGrid — perfil clásico de IG. Grilla 3-col cuadrada,
+ * newest-first, gap mínimo entre tiles.
+ */
+function InstagramGrid({
+  posts,
+  codeFallback,
+  onTileClick,
+}: {
+  posts: ContentPost[];
+  codeFallback: Map<string, string>;
+  onTileClick: (p: ContentPost) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 2,
+        padding: 2,
+        background: "rgba(10,26,12,0.06)",
+      }}
+    >
+      {posts.map((p) => (
+        <FeedTile
+          key={p.id}
+          post={p}
+          code={codeOf(p, codeFallback)}
+          onClick={() => onTileClick(p)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * TikTokGrid — Discover/perfil de TT. Grilla 2-col, aspect-ratio
+ * 9:16 (portrait), gap mínimo. Cada tile lleva un play indicator
+ * porque casi todo el contenido de TT es video.
+ */
+function TikTokGrid({
+  posts,
+  codeFallback,
+  onTileClick,
+}: {
+  posts: ContentPost[];
+  codeFallback: Map<string, string>;
+  onTileClick: (p: ContentPost) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: 3,
+        padding: 3,
+        background: "#000",
+      }}
+    >
+      {posts.map((p) => (
+        <TikTokTile
+          key={p.id}
+          post={p}
+          code={codeOf(p, codeFallback)}
+          onClick={() => onTileClick(p)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * FacebookFeed — timeline de FB. Cards verticales apiladas con
+ * header (avatar + nombre + fecha), copy completo arriba, imagen
+ * después si existe.
+ */
+function FacebookFeed({
+  posts,
+  codeFallback,
+  clientName,
+  clientLogoUrl,
+  onTileClick,
+}: {
+  posts: ContentPost[];
+  codeFallback: Map<string, string>;
+  clientName: string;
+  clientLogoUrl: string | null;
+  onTileClick: (p: ContentPost) => void;
+}) {
+  return (
+    <div
+      style={{
+        background: "#f0f2f5",
+        padding: 14,
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
+    >
+      {posts.map((p) => (
+        <FacebookPostCard
+          key={p.id}
+          post={p}
+          code={codeOf(p, codeFallback)}
+          clientName={clientName}
+          clientLogoUrl={clientLogoUrl}
+          onClick={() => onTileClick(p)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * LinkedInFeed — feed de LinkedIn. Cards verticales, look más sobrio,
+ * encabezado con el nombre del cliente como "marca" + título dorado.
+ */
+function LinkedInFeed({
+  posts,
+  codeFallback,
+  clientName,
+  clientLogoUrl,
+  onTileClick,
+}: {
+  posts: ContentPost[];
+  codeFallback: Map<string, string>;
+  clientName: string;
+  clientLogoUrl: string | null;
+  onTileClick: (p: ContentPost) => void;
+}) {
+  return (
+    <div
+      style={{
+        background: "#f3f2ef",
+        padding: 14,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      {posts.map((p) => (
+        <LinkedInPostCard
+          key={p.id}
+          post={p}
+          code={codeOf(p, codeFallback)}
+          clientName={clientName}
+          clientLogoUrl={clientLogoUrl}
+          onClick={() => onTileClick(p)}
+        />
+      ))}
     </div>
   );
 }
@@ -2791,7 +3181,7 @@ function FeedTile({
     : null;
   // Si no hay clasificación, usamos el color de red como background.
   const bg = meta?.color ?? NETWORK_COLORS[post.network]?.solid ?? "#0A1A0C";
-  // Texto que aparece dentro del tile.
+  // Texto que aparece dentro del tile cuando no hay imagen.
   const snippet =
     (post.idea ?? post.brief ?? "").split("\n")[0]?.slice(0, 60) ??
     "Sin idea";
@@ -2808,6 +3198,8 @@ function FeedTile({
             : post.format === "anuncio"
               ? "$"
               : "";
+
+  const hasImage = !!post.imageUrl;
 
   return (
     <button
@@ -2826,13 +3218,33 @@ function FeedTile({
         fontFamily: "inherit",
       }}
     >
-      {/* Overlay degradé para que el texto se lea siempre */}
+      {/* Imagen del post como background si existe — encima va el
+          overlay y los chips. */}
+      {hasImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageUrl!}
+          alt=""
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      )}
+
+      {/* Overlay degradé para que el texto se lea siempre. Cuando hay
+          imagen lo subimos un poco para garantizar contraste; sin
+          imagen es más sutil porque el fondo ya es de color sólido. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 50%, rgba(0,0,0,0.55) 100%)",
+          background: hasImage
+            ? "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.0) 35%, rgba(0,0,0,0.0) 55%, rgba(0,0,0,0.65) 100%)"
+            : "linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 50%, rgba(0,0,0,0.55) 100%)",
         }}
       />
 
@@ -2932,6 +3344,611 @@ function FeedTile({
 }
 
 // ============================================================
+// TikTokTile — tile portrait 9:16 estilo perfil/Discover de TikTok.
+// Fondo negro por defecto (típico de TT), play indicator centro,
+// stats fake al pie (views) y un thumbnail del classification/format.
+// ============================================================
+function TikTokTile({
+  post,
+  code,
+  onClick,
+}: {
+  post: ContentPost;
+  code: string;
+  onClick: () => void;
+}) {
+  const meta = post.classification
+    ? CONTENT_CLASSIFICATION_META[post.classification]
+    : null;
+  const bg = meta?.color ?? "#1a1a1a";
+  const snippet =
+    (post.idea ?? post.brief ?? "").split("\n")[0]?.slice(0, 50) ??
+    "Sin idea";
+  const hasImage = !!post.imageUrl;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${code} · ${FORMAT_LABEL[post.format] ?? post.format} · ${STATUS_LABEL[post.status]}`}
+      style={{
+        position: "relative",
+        aspectRatio: "9 / 16",
+        background: bg,
+        color: "var(--off-white)",
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+        overflow: "hidden",
+        fontFamily: "inherit",
+      }}
+    >
+      {hasImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageUrl!}
+          alt=""
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      )}
+
+      {/* Overlay para que se lea el texto */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.0) 60%, rgba(0,0,0,0.75) 100%)",
+        }}
+      />
+
+      {/* Play indicator centro — característico de TikTok */}
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          background: "rgba(0,0,0,0.55)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,0.95)",
+          fontSize: 16,
+          paddingLeft: 3,
+        }}
+      >
+        ▶
+      </div>
+
+      {/* Code arriba-izq, classification arriba-der */}
+      <div
+        style={{
+          position: "absolute",
+          top: 6,
+          left: 6,
+          fontSize: 9,
+          fontFamily: "monospace",
+          fontWeight: 700,
+          color: "rgba(255,255,255,0.85)",
+          background: "rgba(0,0,0,0.4)",
+          padding: "1px 5px",
+          borderRadius: 3,
+        }}
+      >
+        {code}
+      </div>
+      {meta && (
+        <div
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            fontSize: 9,
+            fontWeight: 800,
+            letterSpacing: "0.06em",
+            padding: "2px 6px",
+            background: meta.color,
+            color: "var(--off-white)",
+            borderRadius: 3,
+          }}
+        >
+          {meta.short}
+        </div>
+      )}
+
+      {/* Status dot abajo-izq */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 30,
+          left: 6,
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: STATUS_COLOR[post.status],
+          border: "1.5px solid rgba(255,255,255,0.85)",
+        }}
+        title={STATUS_LABEL[post.status]}
+      />
+
+      {/* Snippet al pie — TT pone ahí la descripción del video */}
+      <div
+        style={{
+          position: "absolute",
+          left: 8,
+          right: 8,
+          bottom: 8,
+          fontSize: 10,
+          fontWeight: 500,
+          lineHeight: 1.3,
+          color: "rgba(255,255,255,0.95)",
+          textAlign: "left",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
+        {snippet}
+      </div>
+    </button>
+  );
+}
+
+// ============================================================
+// FacebookPostCard — card vertical estilo feed de FB. Header con
+// avatar + nombre + fecha, copy completo, imagen abajo si existe.
+// Footer con estado + clasificación.
+// ============================================================
+function FacebookPostCard({
+  post,
+  code,
+  clientName,
+  clientLogoUrl,
+  onClick,
+}: {
+  post: ContentPost;
+  code: string;
+  clientName: string;
+  clientLogoUrl: string | null;
+  onClick: () => void;
+}) {
+  const meta = post.classification
+    ? CONTENT_CLASSIFICATION_META[post.classification]
+    : null;
+  const initials = clientName
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: "#fff",
+        border: "none",
+        borderRadius: 8,
+        padding: 0,
+        textAlign: "left",
+        cursor: "pointer",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+        overflow: "hidden",
+        fontFamily: "inherit",
+        color: "#050505",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            background: clientLogoUrl ? "#fff" : "#1877F2",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: 14,
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          {clientLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clientLogoUrl}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            initials
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#050505" }}>
+            {clientName || "Cliente"}
+          </div>
+          <div style={{ fontSize: 11, color: "#65676b" }}>
+            {formatHumanDate(post.date)}
+            {post.time ? ` · ${post.time}` : ""} · 🌐
+          </div>
+        </div>
+        <div
+          style={{
+            fontSize: 9,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            color: "#65676b",
+          }}
+        >
+          {code}
+        </div>
+      </div>
+
+      {/* Copy del post */}
+      {(post.copy || post.idea) && (
+        <div
+          style={{
+            padding: "0 12px 10px",
+            fontSize: 13,
+            lineHeight: 1.4,
+            color: "#050505",
+            whiteSpace: "pre-wrap",
+            display: "-webkit-box",
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {post.copy ?? post.idea}
+        </div>
+      )}
+
+      {/* Imagen — la mostramos si la subió; si no, mostramos un panel
+          coloreado por clasificación a modo de placeholder visual. */}
+      {post.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageUrl}
+          alt=""
+          style={{
+            width: "100%",
+            maxHeight: 320,
+            objectFit: "cover",
+            display: "block",
+            background: "#e4e6eb",
+          }}
+        />
+      ) : meta ? (
+        <div
+          style={{
+            background: meta.color,
+            padding: "32px 14px",
+            color: "var(--off-white)",
+            textAlign: "center",
+            fontWeight: 700,
+            fontSize: 13,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {meta.label} · {FORMAT_LABEL[post.format] ?? post.format}
+        </div>
+      ) : null}
+
+      {/* Footer compacto con estado + clasificación */}
+      <div
+        style={{
+          padding: 10,
+          borderTop: "1px solid #ced0d4",
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          fontSize: 11,
+          color: "#65676b",
+        }}
+      >
+        <span
+          style={{
+            padding: "2px 7px",
+            background:
+              post.status === "published"
+                ? "#1877F2"
+                : post.status === "scheduled"
+                  ? "rgba(24,119,242,0.15)"
+                  : "rgba(0,0,0,0.05)",
+            color:
+              post.status === "published"
+                ? "#fff"
+                : post.status === "scheduled"
+                  ? "#1877F2"
+                  : "#65676b",
+            fontWeight: 600,
+            borderRadius: 4,
+            fontSize: 10,
+            letterSpacing: "0.04em",
+          }}
+        >
+          {STATUS_LABEL[post.status]}
+        </span>
+        <span>{FORMAT_LABEL[post.format] ?? post.format}</span>
+        {meta && (
+          <span
+            style={{
+              marginLeft: "auto",
+              padding: "2px 7px",
+              background: meta.bg,
+              color: meta.color,
+              borderRadius: 4,
+              fontSize: 10,
+              fontWeight: 700,
+            }}
+          >
+            {meta.label}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ============================================================
+// LinkedInPostCard — card vertical estilo feed de LinkedIn. Más
+// sobria que FB, con título destacado, header con rol/empresa,
+// menos íconos. Buena para previsualizar contenido pro.
+// ============================================================
+function LinkedInPostCard({
+  post,
+  code,
+  clientName,
+  clientLogoUrl,
+  onClick,
+}: {
+  post: ContentPost;
+  code: string;
+  clientName: string;
+  clientLogoUrl: string | null;
+  onClick: () => void;
+}) {
+  const meta = post.classification
+    ? CONTENT_CLASSIFICATION_META[post.classification]
+    : null;
+  const initials = clientName
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: "#fff",
+        border: "1px solid #e0dfdc",
+        borderRadius: 8,
+        padding: 0,
+        textAlign: "left",
+        cursor: "pointer",
+        overflow: "hidden",
+        fontFamily: "inherit",
+        color: "rgba(0,0,0,0.9)",
+      }}
+    >
+      {/* Header LinkedIn — avatar cuadrado redondeado */}
+      <div
+        style={{
+          padding: 12,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 6,
+            background: clientLogoUrl ? "#fff" : "#0a66c2",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: 15,
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          {clientLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clientLogoUrl}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            initials
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.9)" }}>
+            {clientName || "Cliente"}
+          </div>
+          <div style={{ fontSize: 11, color: "rgba(0,0,0,0.6)" }}>
+            Empresa · contenido editorial
+          </div>
+          <div style={{ fontSize: 10, color: "rgba(0,0,0,0.55)", marginTop: 2 }}>
+            {formatHumanDate(post.date)}
+            {post.time ? ` · ${post.time}` : ""} · 🌐
+          </div>
+        </div>
+        <div
+          style={{
+            fontSize: 9,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            color: "rgba(0,0,0,0.45)",
+          }}
+        >
+          {code}
+        </div>
+      </div>
+
+      {/* Headline = idea como título grande */}
+      {post.idea && (
+        <div
+          style={{
+            padding: "0 12px 8px",
+            fontSize: 14,
+            fontWeight: 600,
+            lineHeight: 1.35,
+            color: "rgba(0,0,0,0.9)",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {post.idea}
+        </div>
+      )}
+
+      {/* Copy abajo del headline */}
+      {post.copy && (
+        <div
+          style={{
+            padding: "0 12px 12px",
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            color: "rgba(0,0,0,0.75)",
+            whiteSpace: "pre-wrap",
+            display: "-webkit-box",
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {post.copy}
+        </div>
+      )}
+
+      {/* Imagen o placeholder editorial */}
+      {post.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageUrl}
+          alt=""
+          style={{
+            width: "100%",
+            maxHeight: 360,
+            objectFit: "cover",
+            display: "block",
+            borderTop: "1px solid #e0dfdc",
+            borderBottom: "1px solid #e0dfdc",
+          }}
+        />
+      ) : meta ? (
+        <div
+          style={{
+            background: meta.bg,
+            padding: "40px 16px",
+            color: meta.color,
+            textAlign: "center",
+            fontWeight: 700,
+            fontSize: 13,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            borderTop: "1px solid #e0dfdc",
+            borderBottom: "1px solid #e0dfdc",
+          }}
+        >
+          {meta.label} · {FORMAT_LABEL[post.format] ?? post.format}
+        </div>
+      ) : null}
+
+      {/* Footer LinkedIn — más limpio, sin botones de like/comment
+          porque no aportan al preview editorial. */}
+      <div
+        style={{
+          padding: 10,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          fontSize: 11,
+          color: "rgba(0,0,0,0.6)",
+        }}
+      >
+        <span
+          style={{
+            padding: "2px 7px",
+            background:
+              post.status === "published"
+                ? "#0a66c2"
+                : post.status === "scheduled"
+                  ? "rgba(10,102,194,0.12)"
+                  : "rgba(0,0,0,0.05)",
+            color:
+              post.status === "published"
+                ? "#fff"
+                : post.status === "scheduled"
+                  ? "#0a66c2"
+                  : "rgba(0,0,0,0.6)",
+            fontWeight: 700,
+            borderRadius: 4,
+            fontSize: 10,
+            letterSpacing: "0.04em",
+          }}
+        >
+          {STATUS_LABEL[post.status]}
+        </span>
+        <span>{FORMAT_LABEL[post.format] ?? post.format}</span>
+        {meta && (
+          <span
+            style={{
+              marginLeft: "auto",
+              padding: "2px 7px",
+              background: meta.color,
+              color: "var(--off-white)",
+              borderRadius: 4,
+              fontSize: 10,
+              fontWeight: 700,
+            }}
+          >
+            {meta.label}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ============================================================
 // FeedPostDetailModal — modal con la info completa del post cuando
 // el usuario toca un tile en la vista feed. Solo lectura — para
 // editar la pieza se usa la tabla (toggle desde el header).
@@ -2994,6 +4011,24 @@ function FeedPostDetailModal({
         >
           ×
         </button>
+
+        {/* Imagen del post, si está cargada — al tope del modal con
+            aspect ratio cuadrado, igual que la vista feed IG. */}
+        {post.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.imageUrl}
+            alt={post.idea ?? "Imagen del post"}
+            style={{
+              width: "100%",
+              maxHeight: 320,
+              objectFit: "cover",
+              borderRadius: "var(--r-sm)",
+              marginBottom: 16,
+              background: "var(--off-white)",
+            }}
+          />
+        )}
 
         <div
           style={{
