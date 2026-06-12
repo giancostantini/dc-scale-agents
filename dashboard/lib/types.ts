@@ -141,6 +141,13 @@ export interface ClientExternalLinks {
    *  usábamos Microsoft Teams para esto — lo dejamos sin renombrar
    *  para no migrar la columna en DB. */
   teams_folder_url?: string;
+  /** URL al Meta Business Suite del cliente (planner de IG/FB). Se usa
+   *  como destino del botón "Programar" cuando se hace click en una
+   *  publicación de IG o FB en el calendario. Si no está seteado,
+   *  caemos a https://business.facebook.com/latest/home como fallback
+   *  universal. Patrón típico:
+   *    https://business.facebook.com/latest/home?asset_id=<page_id>  */
+  meta_business_suite_url?: string;
 }
 
 /**

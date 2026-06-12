@@ -18,6 +18,7 @@ import {
   deleteClient,
   updateClientLogo,
   updateClientCore,
+  updateClientExternalLinks,
   listClientContacts,
   addClientContact,
   updateClientContact,
@@ -520,6 +521,28 @@ export default function ConfiguracionPage({
         </div>
       </div>
 
+      {/* ============== META BUSINESS SUITE URL ==============
+          URL del planner de IG/FB del cliente. Cuando el director
+          toca un post en el calendario, el botón "Programar" abre
+          este link en una pestaña nueva. Si no se setea, cae al
+          home genérico de business.facebook.com. */}
+      <MetaBusinessSuitePanel
+        client={client}
+        onSaved={(url) =>
+          setClient((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  external_links: {
+                    ...(prev.external_links ?? {}),
+                    meta_business_suite_url: url || undefined,
+                  },
+                }
+              : prev,
+          )
+        }
+      />
+
       {/* ============== ACCESO DEL CLIENTE AL PORTAL ============== */}
       <div className={ui.panel} style={{ marginBottom: 24 }}>
         <div className={ui.panelHead}>
@@ -942,6 +965,180 @@ const inputStyle: React.CSSProperties = {
   color: "var(--deep-green)",
   outline: "none",
 };
+
+// ============================================================
+// MetaBusinessSuitePanel — input para guardar la URL del planner de
+// IG/FB del cliente. La usa el modal de detalle de publicación del
+// calendario para llevar el botón "Programar" al lugar correcto.
+//
+// Si el cliente no tiene URL configurada, el calendario cae al home
+// genérico de business.facebook.com.
+// ============================================================
+function MetaBusinessSuitePanel({
+  client,
+  onSaved,
+}: {
+  client: Client;
+  onSaved: (url: string) => void;
+}) {
+  const initial = client.external_links?.meta_business_suite_url ?? "";
+  const [url, setUrl] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(!initial);
+  const [error, setError] = useState("");
+
+  // Si cambia el cliente desde afuera, resync.
+  useEffect(() => {
+    setUrl(client.external_links?.meta_business_suite_url ?? "");
+    if (!client.external_links?.meta_business_suite_url) setEditing(true);
+  }, [client.external_links?.meta_business_suite_url]);
+
+  async function save() {
+    setError("");
+    const clean = url.trim();
+    if (clean && !/^https?:\/\//i.test(clean)) {
+      setError("La URL tiene que empezar con http:// o https://");
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateClientExternalLinks(client.id, {
+        meta_business_suite_url: clean || null,
+      });
+      onSaved(clean);
+      setEditing(false);
+    } catch (err) {
+      const e = err as Error;
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const configured = !!initial;
+
+  return (
+    <div className={ui.panel} style={{ marginBottom: 24 }}>
+      <div className={ui.panelHead}>
+        <div>
+          <div className={ui.panelTitle}>Meta Business Suite</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+            URL al planner de IG/FB del cliente. El botón "Programar"
+            del calendario lleva acá cuando el post es de IG o FB.
+          </p>
+        </div>
+        {configured && !editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className={ui.btnGhost}
+            style={{ fontSize: 11 }}
+          >
+            Editar
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <input
+            type="url"
+            placeholder="https://business.facebook.com/latest/home?asset_id=..."
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            disabled={saving}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 6,
+              fontFamily: "inherit",
+              fontSize: 13,
+              background: "var(--white)",
+              color: "var(--deep-green)",
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={save}
+            disabled={saving}
+            className={ui.btnSolid}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+          {configured && (
+            <button
+              onClick={() => {
+                setUrl(initial);
+                setEditing(false);
+                setError("");
+              }}
+              disabled={saving}
+              className={ui.btnGhost}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 14px",
+            background: "var(--off-white)",
+            borderRadius: 6,
+            fontSize: 12,
+          }}
+        >
+          <a
+            href={initial}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "var(--deep-green)",
+              textDecoration: "underline",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "100%",
+            }}
+          >
+            {initial}
+          </a>
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 11,
+            color: "#B91C1C",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <p
+        style={{
+          marginTop: 10,
+          fontSize: 11,
+          color: "var(--text-muted)",
+          lineHeight: 1.5,
+        }}
+      >
+        Tip: el link específico al planner de la página del cliente lo
+        encontrás dentro de Meta Business Suite → Planner → copiá el
+        URL de la barra del navegador. Si dejás vacío, el botón del
+        calendario cae al home genérico de business.facebook.com.
+      </p>
+    </div>
+  );
+}
 
 // ============================================================
 // ContractPanel — visualizar + subir/reemplazar el contrato PDF

@@ -9,8 +9,6 @@ import {
   getEvents,
   updateRoadmapMonthNote,
 } from "@/lib/storage";
-import { getPhaseReport } from "@/lib/phases";
-import { getSupabase } from "@/lib/supabase/client";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import {
   CONTENT_SLOTS,
@@ -23,14 +21,11 @@ import {
   type ContentType,
 } from "@/lib/content-frequency";
 import { commercialDatesIndex } from "@/lib/commercial-dates";
-import ContentFrequencyModal from "@/components/ContentFrequencyModal";
 import NewEventModal from "@/components/NewEventModal";
 import type {
   CalEvent,
   Client,
   ContentFormat,
-  ContentFrequency,
-  ContentMix,
   ContentNetwork,
   ContentPost,
   ContentStatus,
@@ -87,11 +82,18 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [client, setClient] = useState<Client | null>(null);
   const [isDirector, setIsDirector] = useState(false);
-  const [freqModal, setFreqModal] = useState(false);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [modalDate, setModalDate] = useState<string | null>(null);
+  /**
+   * Modal de detalle de UNA publicación — se abre al tocar un chip
+   * de post en una celda del calendario. Solo muestra los datos del
+   * post y un botón "Programar" que linkea al Meta Business Suite del
+   * cliente cuando el post es IG/FB. El resto de la gestión de ideas
+   * (crear, editar, asignar) vive en /contenido.
+   */
+  const [postDetail, setPostDetail] = useState<ContentPost | null>(null);
   const [eventModalDate, setEventModalDate] = useState<string | null>(null);
   const [pdfModal, setPdfModal] = useState(false);
   const [pdfFromYear, setPdfFromYear] = useState(today.getFullYear());
@@ -102,24 +104,6 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   const [monthNoteEditing, setMonthNoteEditing] = useState(false);
   const [monthNoteDraft, setMonthNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-  /** Si la estrategia está aprobada habilitamos el botón "Poblar
-   *  desde estrategia". Si no, mostramos disabled con tooltip. */
-  const [strategyApproved, setStrategyApproved] = useState(false);
-  const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
-  const [seedModal, setSeedModal] = useState(false);
-  const [seedLaunchDate, setSeedLaunchDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
-  const [seedBusy, setSeedBusy] = useState(false);
-  const [seedResult, setSeedResult] = useState<{
-    events_created: number;
-    frequency_keys: number;
-    mix_networks: number;
-    month_notes_count: number;
-    strategy_version: number;
-  } | null>(null);
-  /** Modal del Asistente Creativo. */
-  const [creativeOpen, setCreativeOpen] = useState(false);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
@@ -135,62 +119,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   useEffect(() => {
     getClient(id).then((c) => setClient(c ?? null));
     getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
-    // Chequeamos si la estrategia del cliente está aprobada para habilitar
-    // el botón de "Poblar desde estrategia".
-    getPhaseReport(id, "estrategia").then((r) => {
-      setStrategyApproved(r?.status === "approved");
-      setStrategyVersion(r?.version ?? null);
-    });
   }, [id]);
-
-  /** Llama al endpoint /api/roadmap/seed-from-strategy con la fecha de
-   *  lanzamiento elegida. Borra eventos auto-generados previos y crea
-   *  los nuevos + actualiza frecuencia/mix/notas. */
-  async function runSeedFromStrategy() {
-    if (seedBusy) return;
-    setSeedBusy(true);
-    setSeedResult(null);
-    try {
-      const supabase = getSupabase();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sin sesión");
-
-      const res = await fetch("/api/roadmap/seed-from-strategy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          clientId: id,
-          launchDate: seedLaunchDate,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const parts = [data?.error, data?.detail].filter(Boolean);
-        throw new Error(parts.join("\n— ") || `HTTP ${res.status}`);
-      }
-      setSeedResult({
-        events_created: data.events_created ?? 0,
-        frequency_keys: data.frequency_keys ?? 0,
-        mix_networks: data.mix_networks ?? 0,
-        month_notes_count: data.month_notes_count ?? 0,
-        strategy_version: data.strategy_version ?? 0,
-      });
-      // Refrescamos cliente + eventos + posts
-      const c = await getClient(id);
-      setClient(c ?? null);
-      refresh();
-    } catch (err) {
-      const e = err as Error;
-      alert(`No se pudo poblar el roadmap:\n${e.message}`);
-    } finally {
-      setSeedBusy(false);
-    }
-  }
 
   // Map slot → días sugeridos (Lun-Dom).
   // Soporta back-compat con keys legacy via normalizeFrequency.
@@ -438,44 +367,10 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           >
             + Nuevo evento / producción
           </button>
-          {isDirector && (
-            <button
-              className={ui.btnGhost}
-              onClick={() => setFreqModal(true)}
-            >
-              ⚑ Frecuencia + mix
-            </button>
-          )}
-          {isDirector && (
-            <button
-              className={ui.btnGhost}
-              onClick={() => setCreativeOpen(true)}
-              title="Chat con el Asistente Creativo para armar el calendario"
-            >
-              ✨ Asistente creativo
-            </button>
-          )}
-          {isDirector && (
-            <button
-              className={ui.btnSolid}
-              onClick={() => {
-                setSeedResult(null);
-                setSeedModal(true);
-              }}
-              disabled={!strategyApproved}
-              title={
-                strategyApproved
-                  ? "Poblar el roadmap desde la estrategia aprobada"
-                  : "Necesitás aprobar primero la fase Estrategia"
-              }
-              style={{
-                opacity: strategyApproved ? 1 : 0.45,
-                cursor: strategyApproved ? "pointer" : "not-allowed",
-              }}
-            >
-              ⚡ Poblar desde estrategia
-            </button>
-          )}
+          {/* Frecuencia + mix, Asistente Creativo y Poblar desde
+              estrategia se manejan desde /contenido — acá el calendario
+              queda enfocado solo en visualizar el roadmap, agendar
+              eventos manuales y descargar el PDF. */}
         </div>
       </div>
 
@@ -781,10 +676,19 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                   )}
                 </div>
 
-                {/* Posts reales — chip sólido con info */}
+                {/* Posts reales — chip sólido con info. Click abre
+                    el modal de detalle de publicación con un único
+                    botón "Programar" (→ Meta Business Suite). El
+                    stopPropagation evita abrir también el DayModal
+                    que está en la celda padre. */}
                 {dayPosts.slice(0, 2).map((p) => (
                   <span
                     key={p.id}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      setPostDetail(p);
+                    }}
+                    title="Ver y programar esta publicación"
                     style={{
                       display: "block",
                       fontSize: 10,
@@ -797,6 +701,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       borderRadius: 2,
+                      cursor: "pointer",
                     }}
                   >
                     {p.time} {p.brief.slice(0, 14)}
@@ -1050,6 +955,14 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         />
       )}
 
+      {postDetail && (
+        <PostDetailModal
+          post={postDetail}
+          metaBusinessSuiteUrl={client?.external_links?.meta_business_suite_url ?? null}
+          onClose={() => setPostDetail(null)}
+        />
+      )}
+
       <NewEventModal
         open={eventModalDate !== null}
         initialDate={eventModalDate ?? undefined}
@@ -1061,214 +974,10 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         }}
       />
 
-      <ContentFrequencyModal
-        open={freqModal}
-        clientId={id}
-        current={client?.content_frequency}
-        currentMix={client?.content_mix}
-        onClose={() => setFreqModal(false)}
-        onSaved={(newFreq: ContentFrequency, newMix: ContentMix) => {
-          setClient((prev) =>
-            prev
-              ? { ...prev, content_frequency: newFreq, content_mix: newMix }
-              : prev,
-          );
-        }}
-      />
-
-      {/* Modal del Asistente Creativo */}
-      {creativeOpen && (
-        <CreativeAssistantModal
-          clientId={id}
-          onClose={() => setCreativeOpen(false)}
-          onSaved={() => {
-            setCreativeOpen(false);
-            refresh();
-          }}
-        />
-      )}
-
-      {/* Modal de "Poblar desde estrategia" */}
-      {seedModal && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !seedBusy) {
-              setSeedModal(false);
-              setSeedResult(null);
-            }
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(10,26,12,0.6)",
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 40,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            style={{
-              background: "var(--white)",
-              maxWidth: 560,
-              width: "100%",
-              padding: 36,
-              borderRadius: "var(--r-lg)",
-              maxHeight: "90vh",
-              overflowY: "auto",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.25em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 600,
-                marginBottom: 12,
-              }}
-            >
-              Calendario · Poblar desde estrategia
-            </div>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                marginBottom: 8,
-              }}
-            >
-              Alimentar el roadmap automáticamente
-            </h2>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text-muted)",
-                marginBottom: 20,
-                lineHeight: 1.5,
-              }}
-            >
-              Claude va a leer la <strong>estrategia aprobada
-              v{strategyVersion ?? "?"}</strong> del cliente y extraer:
-              frecuencia + mix de contenido por red, batches de pauta
-              con fechas, hitos del cronograma, y estrategia escrita
-              de cada mes. Todo eso se carga en el roadmap.
-            </p>
-
-            <div
-              style={{
-                padding: "12px 14px",
-                background: "var(--ivory)",
-                borderLeft: "3px solid var(--sand)",
-                fontSize: 12,
-                color: "var(--deep-green)",
-                lineHeight: 1.5,
-                marginBottom: 20,
-                borderRadius: "var(--r-md)",
-              }}
-            >
-              <strong>⚠ Sobreescribe:</strong> la frecuencia, el mix,
-              las notas de estrategia mensual, y los eventos generados
-              previamente desde la estrategia (los manuales se conservan
-              intactos).
-            </div>
-
-            {!seedResult && (
-              <div style={{ marginBottom: 20 }}>
-                <label style={pdfLabelStyle}>
-                  Fecha de lanzamiento de referencia
-                </label>
-                <input
-                  type="date"
-                  value={seedLaunchDate}
-                  onChange={(e) => setSeedLaunchDate(e.target.value)}
-                  disabled={seedBusy}
-                  style={{ ...selectStyle, width: "100%" }}
-                />
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  Si la estrategia menciona "semana -2", "lanzamiento", etc.
-                  esas fechas se calculan respecto a este día.
-                </div>
-              </div>
-            )}
-
-            {seedResult ? (
-              <div
-                style={{
-                  padding: 16,
-                  background: "rgba(47, 125, 79, 0.08)",
-                  border: "1px solid rgba(47, 125, 79, 0.3)",
-                  borderRadius: "var(--r-md)",
-                  marginBottom: 20,
-                  fontSize: 13,
-                  lineHeight: 1.7,
-                  color: "var(--deep-green)",
-                }}
-              >
-                <strong style={{ color: "#2f7d4f" }}>✓ Listo.</strong> Se
-                cargaron desde la estrategia v{seedResult.strategy_version}:
-                <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
-                  <li>{seedResult.events_created} eventos en el calendario (pauta + producciones + hitos)</li>
-                  <li>{seedResult.frequency_keys} slots de frecuencia (red × formato)</li>
-                  <li>{seedResult.mix_networks} redes con mix V/O/E configurado</li>
-                  <li>{seedResult.month_notes_count} meses con estrategia escrita</li>
-                </ul>
-              </div>
-            ) : seedBusy ? (
-              <div
-                style={{
-                  padding: 24,
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                  background: "var(--ivory)",
-                  borderRadius: "var(--r-md)",
-                  marginBottom: 20,
-                }}
-              >
-                ⏳ Claude está leyendo la estrategia y extrayendo el roadmap…<br />
-                Tarda 30-90 segundos.
-              </div>
-            ) : null}
-
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                onClick={() => {
-                  setSeedModal(false);
-                  setSeedResult(null);
-                }}
-                disabled={seedBusy}
-                className={ui.btnGhost}
-              >
-                {seedResult ? "Cerrar" : "Cancelar"}
-              </button>
-              {!seedResult && (
-                <button
-                  onClick={runSeedFromStrategy}
-                  disabled={seedBusy}
-                  className={ui.btnSolid}
-                >
-                  {seedBusy ? "Procesando…" : "⚡ Poblar"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Frecuencia + mix, Asistente Creativo y "Poblar desde
+          estrategia" se manejan desde /contenido — los modales y la
+          lógica de seed quedaron fuera del calendario para no duplicar
+          entrypoints. */}
 
       {/* Modal de descarga PDF: rango de meses */}
       {pdfModal && (
@@ -1684,170 +1393,47 @@ const inputS: React.CSSProperties = {
 };
 
 // ============================================================
-// CreativeAssistantModal — chat + propose + traspolar al roadmap
+// PostDetailModal — mini-modal que aparece al tocar un chip de post
+// en una celda del calendario. Solo muestra info del post + un único
+// botón "Programar". Si el post es IG o FB y el cliente tiene URL de
+// Meta Business Suite configurada, el botón abre ese URL en una nueva
+// pestaña. Para TikTok y LinkedIn el botón está deshabilitado con un
+// tooltip que indica que la programación se hace manualmente en la
+// plataforma correspondiente.
 // ============================================================
-interface ProposedPiece {
-  date: string;
-  time: string;
-  network: string;
-  format: string;
-  type?: string;
-  idea: string;
-  copy: string;
-  brief: string;
-}
-interface ChatMsg {
-  role: "user" | "assistant";
-  content: string;
-}
-
-function CreativeAssistantModal({
-  clientId,
+function PostDetailModal({
+  post,
+  metaBusinessSuiteUrl,
   onClose,
-  onSaved,
 }: {
-  clientId: string;
+  post: ContentPost;
+  metaBusinessSuiteUrl: string | null;
   onClose: () => void;
-  onSaved: () => void;
 }) {
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const [proposed, setProposed] = useState<{
-    intro: string;
-    pieces: ProposedPiece[];
-  } | null>(null);
-  const [saving, setSaving] = useState(false);
+  // Soporta IG y FB para el deeplink a Meta Business Suite.
+  const isMetaNetwork = post.network === "ig" || post.network === "fb";
+  // Fallback universal si el cliente no tiene URL custom seteada.
+  const FALLBACK_URL = "https://business.facebook.com/latest/home";
+  const programUrl = isMetaNetwork
+    ? metaBusinessSuiteUrl?.trim() || FALLBACK_URL
+    : null;
 
-  async function sendChat(mode: "chat" | "propose") {
-    if (!input.trim() || thinking) return;
-    const userMsg: ChatMsg = { role: "user", content: input.trim() };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setThinking(true);
-    setProposed(null);
-
-    try {
-      const supabase = getSupabase();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sin sesión");
-      const res = await fetch(`/api/clients/${clientId}/creative-assistant`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          mode,
-          messages: [...messages, userMsg],
-          constraints: mode === "propose"
-            ? (() => {
-                // Extrae el primer número del mensaje (entre 1 y 200)
-                // como cantidad de piezas pedidas. Si no hay, undefined
-                // y el agente decide según la frecuencia del cliente.
-                const m = userMsg.content.match(/\b(\d{1,3})\b/g);
-                if (!m) return undefined;
-                for (const tok of m) {
-                  const n = Number(tok);
-                  if (n >= 1 && n <= 200 && ![4, 9, 16, 24, 60].includes(n)) {
-                    return { count: n };
-                  }
-                }
-                return undefined;
-              })()
-            : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error([data?.error, data?.detail].filter(Boolean).join(" — "));
-      }
-      const reply = data.reply ?? "";
-      if (mode === "propose") {
-        try {
-          const cleaned = reply
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/\s*```\s*$/i, "")
-            .trim();
-          const parsed = JSON.parse(cleaned);
-          if (parsed.pieces && Array.isArray(parsed.pieces)) {
-            setProposed(parsed);
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content:
-                  parsed.intro ??
-                  `Te propongo ${parsed.pieces.length} piezas. Revisalas y aprobá para traspolarlas al roadmap.`,
-              },
-            ]);
-            return;
-          }
-        } catch {
-          // fallthrough
-        }
-      }
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch (err) {
-      const e = err as Error;
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `⚠ Error: ${e.message}` },
-      ]);
-    } finally {
-      setThinking(false);
-    }
-  }
-
-  async function approveAndTransplant() {
-    if (!proposed) return;
-    setSaving(true);
-    try {
-      const supabase = getSupabase();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sin sesión");
-      const res = await fetch(`/api/clients/${clientId}/creative-bulk-save`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          pieces: proposed.pieces.map((p) => ({
-            date: p.date,
-            time: p.time,
-            network: p.network,
-            format: p.format,
-            brief: `[${p.type ?? "—"}] ${p.idea}\n\n${p.copy}\n\n— BRIEF —\n${p.brief}`,
-            status: "draft",
-          })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error([data?.error, data?.detail].filter(Boolean).join(" — "));
-      }
-      alert(
-        `✓ ${data.created} piezas agregadas al roadmap y al menú Contenido.${data.skipped > 0 ? ` (${data.skipped} descartadas)` : ""}`,
-      );
-      onSaved();
-    } catch (err) {
-      const e = err as Error;
-      alert(`No se pudieron guardar:\n${e.message}`);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const statusLabel =
+    post.status === "published"
+      ? "Publicado"
+      : post.status === "scheduled"
+        ? "Programado"
+        : "Borrador";
+  const statusPillClass =
+    post.status === "published"
+      ? ui.pillGreen
+      : post.status === "scheduled"
+        ? ui.pillYellow
+        : ui.pillGrey;
 
   return (
     <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !saving && !thinking) onClose();
-      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
       style={{
         position: "fixed",
         inset: 0,
@@ -1863,16 +1449,32 @@ function CreativeAssistantModal({
       <div
         style={{
           background: "var(--white)",
-          maxWidth: 720,
+          maxWidth: 480,
           width: "100%",
-          maxHeight: "92vh",
-          overflowY: "auto",
-          padding: 28,
+          padding: 36,
           borderRadius: "var(--r-lg)",
-          display: "flex",
-          flexDirection: "column",
+          position: "relative",
+          boxShadow: "var(--shadow-md)",
         }}
       >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            fontSize: 18,
+            width: 32,
+            height: 32,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+          }}
+        >
+          ×
+        </button>
+
         <div
           style={{
             fontSize: 10,
@@ -1880,255 +1482,99 @@ function CreativeAssistantModal({
             textTransform: "uppercase",
             color: "var(--sand-dark)",
             fontWeight: 600,
-            marginBottom: 6,
+            marginBottom: 12,
           }}
         >
-          Calendario · Asistente creativo
+          Publicación · {post.date}
         </div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-          ✨ Diseñá el calendario con IA
-        </h2>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-muted)",
-            marginBottom: 18,
-            lineHeight: 1.5,
-          }}
-        >
-          Conversá con el agente: contale qué estrategia tenés en mente,
-          cuántos días querés cargar, qué redes y formatos priorizar.
-          Conoce el contexto del cliente (branding, estrategia aprobada,
-          frecuencia, mix). Cuando te convenza, traspolá al calendario.
-        </p>
 
-        {/* Mensajes */}
         <div
           style={{
-            flex: 1,
-            overflowY: "auto",
-            maxHeight: 380,
-            marginBottom: 12,
-            padding: 4,
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            marginBottom: 16,
+            flexWrap: "wrap",
           }}
         >
-          {messages.length === 0 && !proposed && (
-            <div
-              style={{
-                padding: 16,
-                background: "var(--ivory)",
-                fontSize: 12,
-                color: "var(--text-muted)",
-                lineHeight: 1.6,
-                borderRadius: "var(--r-sm)",
-                fontStyle: "italic",
-              }}
-            >
-              Ej:{" "}
-              <strong>"armame 7 piezas para la próxima semana enfocadas en awareness"</strong>
-              ,{" "}
-              <strong>"qué ideas para Mother's Day?"</strong>, o usá ✨ Generar batch.
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              style={{
-                marginBottom: 10,
-                padding: 10,
-                background: m.role === "user" ? "var(--off-white)" : "var(--ivory)",
-                borderLeft: `3px solid ${m.role === "user" ? "var(--sand-dark)" : "var(--deep-green)"}`,
-                fontSize: 12,
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-                borderRadius: "0 var(--r-sm) var(--r-sm) 0",
-              }}
-            >
-              {m.content}
-            </div>
-          ))}
-          {thinking && (
-            <div
-              style={{
-                padding: 10,
-                color: "var(--text-muted)",
-                fontStyle: "italic",
-                fontSize: 12,
-              }}
-            >
-              Pensando…
-            </div>
+          <span
+            style={{
+              padding: "3px 10px",
+              fontSize: 10,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              background: NETWORK_COLOR_BG[post.network],
+              color: NETWORK_COLOR_FG[post.network],
+              fontWeight: 600,
+              borderRadius: "var(--r-pill)",
+            }}
+          >
+            {NETWORK_LABEL[post.network]} · {post.format}
+          </span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            {post.time}
+          </span>
+          <span className={`${ui.pill} ${statusPillClass}`}>
+            {statusLabel}
+          </span>
+        </div>
+
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--deep-green)",
+            lineHeight: 1.55,
+            marginBottom: 24,
+            padding: 14,
+            background: "var(--off-white)",
+            borderRadius: "var(--r-md)",
+            whiteSpace: "pre-wrap",
+            maxHeight: 220,
+            overflowY: "auto",
+          }}
+        >
+          {post.brief || (
+            <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
+              Sin brief cargado. La idea / copy completos viven en el menú
+              <strong> Contenido</strong>.
+            </span>
           )}
         </div>
 
-        {/* Piezas propuestas */}
-        {proposed && (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 12,
-              background: "rgba(196,168,130,0.08)",
-              border: "1px solid rgba(196,168,130,0.3)",
-              borderRadius: "var(--r-sm)",
-              maxHeight: 280,
-              overflowY: "auto",
-            }}
-          >
-            <div
+        {/* Único botón disponible: Programar. IG/FB → Meta Business
+            Suite. Otras redes → deshabilitado con tooltip. */}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          {programUrl ? (
+            <a
+              href={programUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className={ui.btnSolid}
               style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--sand-dark)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                marginBottom: 8,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
               }}
+              title={
+                metaBusinessSuiteUrl
+                  ? "Abrir el planner del cliente en Meta Business Suite"
+                  : "URL de Meta Business Suite del cliente sin configurar — abriendo el home genérico. Configurala en /configuracion del cliente."
+              }
             >
-              {proposed.pieces.length} piezas propuestas
-            </div>
-            {proposed.pieces.map((p, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: "8px 10px",
-                  background: "var(--white)",
-                  marginBottom: 6,
-                  fontSize: 11,
-                  borderLeft: "2px solid var(--sand-dark)",
-                  borderRadius: "var(--r-sm)",
-                }}
-              >
-                <strong>{p.date} {p.time}</strong> · {p.network} {p.format}
-                {p.type && (
-                  <span style={{ marginLeft: 4, color: "var(--sand-dark)", fontWeight: 700 }}>
-                    · {p.type}
-                  </span>
-                )}
-                <div style={{ marginTop: 4 }}>{p.idea}</div>
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-              <button
-                onClick={approveAndTransplant}
-                disabled={saving}
-                style={{
-                  flex: 1,
-                  padding: "10px 12px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  background: "var(--deep-green)",
-                  color: "var(--off-white)",
-                  border: "none",
-                  cursor: saving ? "default" : "pointer",
-                  fontFamily: "inherit",
-                  borderRadius: "var(--r-sm)",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  opacity: saving ? 0.5 : 1,
-                }}
-              >
-                {saving
-                  ? "Guardando…"
-                  : "✓ Aprobar y traspolar al roadmap"}
-              </button>
-              <button
-                onClick={() => setProposed(null)}
-                style={{
-                  padding: "10px 12px",
-                  fontSize: 11,
-                  background: "transparent",
-                  border: "1px solid rgba(10,26,12,0.15)",
-                  color: "var(--deep-green)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  borderRadius: "var(--r-sm)",
-                }}
-              >
-                Descartar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Input */}
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Contale al asistente qué calendario querés armar…"
-          rows={3}
-          disabled={thinking}
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            border: "1px solid rgba(10,26,12,0.15)",
-            background: "var(--white)",
-            color: "var(--deep-green)",
-            fontFamily: "inherit",
-            fontSize: 12,
-            resize: "vertical",
-            borderRadius: "var(--r-sm)",
-            outline: "none",
-            marginBottom: 8,
-          }}
-        />
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            onClick={() => sendChat("chat")}
-            disabled={thinking || !input.trim()}
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              fontSize: 11,
-              fontWeight: 600,
-              background: "var(--deep-green)",
-              color: "var(--off-white)",
-              border: "none",
-              cursor: thinking ? "default" : "pointer",
-              fontFamily: "inherit",
-              borderRadius: "var(--r-sm)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              opacity: thinking || !input.trim() ? 0.5 : 1,
-            }}
-          >
-            ↑ Preguntar
-          </button>
-          <button
-            onClick={() => sendChat("propose")}
-            disabled={thinking || !input.trim()}
-            style={{
-              padding: "10px 12px",
-              fontSize: 11,
-              fontWeight: 600,
-              background: "transparent",
-              border: "1px solid var(--sand-dark)",
-              color: "var(--sand-dark)",
-              cursor: thinking ? "default" : "pointer",
-              fontFamily: "inherit",
-              borderRadius: "var(--r-sm)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              opacity: thinking || !input.trim() ? 0.5 : 1,
-            }}
-          >
-            ✨ Generar batch
-          </button>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            style={{
-              padding: "10px 12px",
-              fontSize: 11,
-              background: "transparent",
-              border: "1px solid rgba(10,26,12,0.15)",
-              color: "var(--deep-green)",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              borderRadius: "var(--r-sm)",
-            }}
-          >
-            Cerrar
-          </button>
+              Programar en Meta Business Suite ↗
+            </a>
+          ) : (
+            <button
+              disabled
+              className={ui.btnGhost}
+              title={`Programá manualmente desde la app de ${NETWORK_LABEL[post.network]}. El planner de Meta Business Suite solo cubre IG y FB.`}
+              style={{ opacity: 0.55, cursor: "not-allowed" }}
+            >
+              Programar (manual en {NETWORK_LABEL[post.network]})
+            </button>
+          )}
         </div>
       </div>
     </div>
