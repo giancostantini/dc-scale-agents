@@ -5,7 +5,19 @@ import ui from "@/components/ClientUI.module.css";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import RebrandbookModal from "@/components/RebrandbookModal";
 import { getClient } from "@/lib/storage";
+import { getSupabase } from "@/lib/supabase/client";
 import type { Client } from "@/lib/types";
+
+/**
+ * Header de autorización con el token de sesión del usuario. Necesario porque
+ * /api/clients/[id]/brand ahora exige acceso al cliente (antes era público).
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  const {
+    data: { session },
+  } = await getSupabase().auth.getSession();
+  return session ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
 
 const SECTION_ORDER: Array<{ key: string; title: string; description: string }> = [
   {
@@ -77,14 +89,16 @@ export default function BrandbookPage({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getClient(id),
-      fetch(`/api/clients/${id}/brand`).then((r) => r.json()),
-      fetch(`/api/clients/${id}/brandbook/archives`)
-        .then((r) => r.json())
-        .catch(() => ({ archives: [] })),
-    ])
-      .then(([c, brandRes, archivesRes]) => {
+    (async () => {
+      const headers = await authHeaders();
+      try {
+        const [c, brandRes, archivesRes] = await Promise.all([
+          getClient(id),
+          fetch(`/api/clients/${id}/brand`, { headers }).then((r) => r.json()),
+          fetch(`/api/clients/${id}/brandbook/archives`, { headers })
+            .then((r) => r.json())
+            .catch(() => ({ archives: [] })),
+        ]);
         if (cancelled) return;
         setClient(c ?? null);
         if (brandRes.error) {
@@ -94,12 +108,12 @@ export default function BrandbookPage({
         }
         setArchives(archivesRes.archives ?? []);
         setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (cancelled) return;
-        setError(err.message ?? "Error cargando brandbook");
+        setError((err as Error).message ?? "Error cargando brandbook");
         setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -121,7 +135,7 @@ export default function BrandbookPage({
     try {
       const res = await fetch(`/api/clients/${id}/brand`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           filename: `${editingKey}.md`,
           content: editDraft,
@@ -566,11 +580,13 @@ export default function BrandbookPage({
           setReprocessOpen(false);
           // Recargar después de 60s para que el processor haya terminado
           setTimeout(() => {
-            fetch(`/api/clients/${id}/brand`)
-              .then((r) => r.json())
-              .then((res) => {
-                if (!res.error) setBrand(res.brand ?? {});
-              });
+            authHeaders().then((headers) =>
+              fetch(`/api/clients/${id}/brand`, { headers })
+                .then((r) => r.json())
+                .then((res) => {
+                  if (!res.error) setBrand(res.brand ?? {});
+                }),
+            );
           }, 60000);
         }}
       />
