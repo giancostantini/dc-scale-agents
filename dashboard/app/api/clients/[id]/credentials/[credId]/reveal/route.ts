@@ -1,17 +1,17 @@
 /**
  * POST /api/clients/[id]/credentials/[credId]/reveal
  *
- * Descifra UNA credencial y devuelve { secret, notes }. Requiere la passphrase
- * (deriva la llave). Solo director / team asignado. CADA reveal queda
- * registrado en audit_log (quién vio qué credencial, cuándo) ANTES de devolver
- * el secreto.
+ * Descifra UNA credencial para el equipo y devuelve { secret, notes }. Requiere
+ * la passphrase de equipo (→ privada del equipo → desenvuelve el DEK del equipo
+ * → descifra). Solo director / team asignado. CADA reveal queda registrado en
+ * audit_log (quién vio qué credencial, cuándo) ANTES de devolver el secreto.
  */
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { requireClientAccess } from "@/lib/auth-guard";
-import { unlockKey } from "@/lib/vault-server";
-import { decryptWithKey } from "@/lib/vault-crypto";
+import { unlockTeamKey } from "@/lib/vault-server";
+import { openSecret } from "@/lib/vault-crypto";
 import { logAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -43,15 +43,17 @@ export async function POST(
     return Response.json({ error: "Body inválido" }, { status: 400 });
   }
   const passphrase = body.passphrase?.trim();
-  if (!passphrase) return Response.json({ error: "Falta passphrase" }, { status: 400 });
+  if (!passphrase)
+    return Response.json({ error: "Falta passphrase" }, { status: 400 });
 
-  const key = await unlockKey(passphrase);
-  if (!key) return Response.json({ error: "Passphrase incorrecta" }, { status: 401 });
+  const priv = await unlockTeamKey(passphrase);
+  if (!priv)
+    return Response.json({ error: "Passphrase incorrecta" }, { status: 401 });
 
   const admin = getSupabaseAdmin();
   const { data } = await admin
     .from("client_credentials")
-    .select("label, secret_encrypted, notes_encrypted")
+    .select("label, secret_ct, secret_dek_team, notes_ct, notes_dek_team")
     .eq("id", credId)
     .eq("client_id", clientId)
     .maybeSingle();
@@ -62,10 +64,19 @@ export async function POST(
   let secret: string;
   let notes: string | null = null;
   try {
-    secret = decryptWithKey(data.secret_encrypted as string, key);
-    notes = data.notes_encrypted
-      ? decryptWithKey(data.notes_encrypted as string, key)
-      : null;
+    secret = openSecret(
+      data.secret_ct as string,
+      data.secret_dek_team as string,
+      priv,
+    );
+    notes =
+      data.notes_ct && data.notes_dek_team
+        ? openSecret(
+            data.notes_ct as string,
+            data.notes_dek_team as string,
+            priv,
+          )
+        : null;
   } catch {
     return Response.json(
       { error: "No se pudo descifrar la credencial." },

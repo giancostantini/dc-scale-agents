@@ -1,15 +1,16 @@
 /**
  * PATCH  /api/clients/[id]/credentials/[credId]  → edita una credencial.
- *   Metadata (label/category/username/url) sin passphrase. Para cambiar el
- *   secreto/notas hay que mandar la passphrase (re-cifra). Solo director/team.
+ *   Metadata (label/category/username/url) sin más. Cambiar el secreto/notas
+ *   re-arma el sobre con las llaves PÚBLICAS (equipo + cliente si tiene bóveda)
+ *   → no requiere passphrase. Solo director/team.
  * DELETE /api/clients/[id]/credentials/[credId]  → borra. Solo director/team.
  */
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { requireClientAccess } from "@/lib/auth-guard";
-import { unlockKey } from "@/lib/vault-server";
-import { encryptWithKey } from "@/lib/vault-crypto";
+import { getTeamPublicKey, getClientPublicKey } from "@/lib/vault-server";
+import { sealSecret } from "@/lib/vault-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,6 @@ export async function PATCH(
     url?: string;
     secret?: string;
     notes?: string;
-    passphrase?: string;
   };
   try {
     body = await req.json();
@@ -77,27 +77,38 @@ export async function PATCH(
   if (body.username !== undefined) patch.username = body.username?.trim() || null;
   if (body.url !== undefined) patch.url = body.url?.trim() || null;
 
-  // Cambiar secreto/notas requiere la passphrase (re-cifrado).
+  // Cambiar secreto/notas → re-armar el sobre con las públicas (sin passphrase).
   if (body.secret !== undefined || body.notes !== undefined) {
-    const passphrase = body.passphrase?.trim();
-    if (!passphrase) {
+    const teamPub = await getTeamPublicKey();
+    if (!teamPub) {
       return Response.json(
-        { error: "Falta passphrase para cambiar el secreto/notas" },
-        { status: 400 },
+        { error: "La bóveda del equipo no está configurada todavía." },
+        { status: 409 },
       );
     }
-    const key = await unlockKey(passphrase);
-    if (!key) {
-      return Response.json({ error: "Passphrase incorrecta" }, { status: 401 });
-    }
+    const clientPub = await getClientPublicKey(clientId);
+    const pubs = clientPub ? [teamPub, clientPub] : [teamPub];
+
     if (body.secret !== undefined) {
       if (!body.secret) {
         return Response.json({ error: "secret vacío" }, { status: 400 });
       }
-      patch.secret_encrypted = encryptWithKey(body.secret, key);
+      const sealed = sealSecret(body.secret, pubs);
+      patch.secret_ct = sealed.ct;
+      patch.secret_dek_team = sealed.deks[0];
+      patch.secret_dek_client = clientPub ? sealed.deks[1] : null;
     }
     if (body.notes !== undefined) {
-      patch.notes_encrypted = body.notes ? encryptWithKey(body.notes, key) : null;
+      if (body.notes) {
+        const sealed = sealSecret(body.notes, pubs);
+        patch.notes_ct = sealed.ct;
+        patch.notes_dek_team = sealed.deks[0];
+        patch.notes_dek_client = clientPub ? sealed.deks[1] : null;
+      } else {
+        patch.notes_ct = null;
+        patch.notes_dek_team = null;
+        patch.notes_dek_client = null;
+      }
     }
   }
 

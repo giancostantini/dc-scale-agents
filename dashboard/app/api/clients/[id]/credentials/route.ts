@@ -1,8 +1,10 @@
 /**
  * GET  /api/clients/[id]/credentials  → lista las credenciales del cliente,
- *   ENMASCARADAS (sin el secreto). Solo director / team asignado.
- * POST /api/clients/[id]/credentials  → crea una credencial. Requiere la
- *   passphrase (deriva la llave, cifra el secreto). Solo director / team.
+ *   ENMASCARADAS (sin secreto). Incluye `addedByRole` (quién la cargó: equipo o
+ *   cliente). Solo director / team asignado.
+ * POST /api/clients/[id]/credentials  → el equipo deposita una credencial.
+ *   Cifrado de SOBRE: solo necesita las llaves PÚBLICAS (equipo + cliente si ya
+ *   tiene bóveda) → no hace falta passphrase para depositar. Solo director/team.
  *
  * Los secretos nunca se devuelven acá; se obtienen vía .../[credId]/reveal.
  */
@@ -10,8 +12,8 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { requireClientAccess } from "@/lib/auth-guard";
-import { unlockKey } from "@/lib/vault-server";
-import { encryptWithKey } from "@/lib/vault-crypto";
+import { getTeamPublicKey, getClientPublicKey } from "@/lib/vault-server";
+import { sealSecret } from "@/lib/vault-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +44,9 @@ export async function GET(
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
     .from("client_credentials")
-    .select("id, label, category, username, url, notes_encrypted, created_at, updated_at")
+    .select(
+      "id, label, category, username, url, notes_ct, added_by_role, created_at, updated_at",
+    )
     .eq("client_id", clientId)
     .order("category", { ascending: true })
     .order("label", { ascending: true });
@@ -54,7 +58,8 @@ export async function GET(
     category: r.category,
     username: r.username,
     url: r.url,
-    hasNotes: !!r.notes_encrypted,
+    hasNotes: !!r.notes_ct,
+    addedByRole: r.added_by_role,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }));
@@ -82,7 +87,6 @@ export async function POST(
     url?: string;
     secret?: string;
     notes?: string;
-    passphrase?: string;
   };
   try {
     body = await req.json();
@@ -92,22 +96,26 @@ export async function POST(
 
   const label = body.label?.trim();
   const secret = body.secret;
-  const passphrase = body.passphrase?.trim();
   if (!label) return Response.json({ error: "Falta label" }, { status: 400 });
   if (!secret) return Response.json({ error: "Falta secret" }, { status: 400 });
-  if (!passphrase)
-    return Response.json({ error: "Falta passphrase" }, { status: 400 });
   const category = CATEGORIES.includes(body.category ?? "")
     ? (body.category as string)
     : "otro";
 
-  const key = await unlockKey(passphrase);
-  if (!key) {
+  // Depositar = operación con llaves públicas. El equipo siempre; el cliente
+  // también si ya activó su bóveda (así re-ve lo que cargamos por él).
+  const teamPub = await getTeamPublicKey();
+  if (!teamPub) {
     return Response.json(
-      { error: "Passphrase incorrecta o bóveda sin configurar" },
-      { status: 401 },
+      { error: "La bóveda del equipo no está configurada todavía." },
+      { status: 409 },
     );
   }
+  const clientPub = await getClientPublicKey(clientId);
+  const pubs = clientPub ? [teamPub, clientPub] : [teamPub];
+
+  const sealedSecret = sealSecret(secret, pubs);
+  const sealedNotes = body.notes ? sealSecret(body.notes, pubs) : null;
 
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
@@ -118,8 +126,13 @@ export async function POST(
       category,
       username: body.username?.trim() || null,
       url: body.url?.trim() || null,
-      secret_encrypted: encryptWithKey(secret, key),
-      notes_encrypted: body.notes ? encryptWithKey(body.notes, key) : null,
+      secret_ct: sealedSecret.ct,
+      secret_dek_team: sealedSecret.deks[0],
+      secret_dek_client: clientPub ? sealedSecret.deks[1] : null,
+      notes_ct: sealedNotes?.ct ?? null,
+      notes_dek_team: sealedNotes?.deks[0] ?? null,
+      notes_dek_client: sealedNotes && clientPub ? sealedNotes.deks[1] : null,
+      added_by_role: "team",
       created_by: access.userId,
     })
     .select("id")
