@@ -382,6 +382,21 @@ export default function PortalPage() {
               </div>
               <div className={styles.requestCtaArrow}>+ Nueva solicitud →</div>
             </Link>
+
+            {/* CTA Bóveda — el cliente guarda sus credenciales cifradas */}
+            <Link href="/portal/credenciales" className={styles.requestCta}>
+              <div className={styles.requestCtaEyebrow}>
+                Bóveda de credenciales
+              </div>
+              <div className={styles.requestCtaTitle}>
+                Guardá tus contraseñas de forma segura
+              </div>
+              <div className={styles.requestCtaBody}>
+                Accesos a tu web, redes, hosting y más. Quedan cifrados con tu
+                frase clave — el equipo los usa sin que viajen por WhatsApp.
+              </div>
+              <div className={styles.requestCtaArrow}>Abrir bóveda →</div>
+            </Link>
           </aside>
         </section>
 
