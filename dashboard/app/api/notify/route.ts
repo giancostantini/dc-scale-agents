@@ -21,6 +21,7 @@
 
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth-guard";
 import {
   emailTaskAssigned,
   emailClientAssigned,
@@ -49,6 +50,11 @@ interface NotifBody {
 }
 
 export async function POST(req: NextRequest) {
+  // Disparar notifs/mails es acción de equipo (lo llaman mutaciones del
+  // dashboard). Antes era sin auth → cualquiera podía spamear mails.
+  const access = await requireRole(req, ["director", "team"]);
+  if (!access.ok) return access.response;
+
   let body: NotifBody;
   try {
     body = (await req.json()) as NotifBody;

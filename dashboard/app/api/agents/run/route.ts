@@ -22,6 +22,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext } from "@/lib/vault-loader";
 import { logAction } from "@/lib/audit";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 interface RunRequest {
   clientId: string;
@@ -95,6 +96,15 @@ export async function POST(req: NextRequest) {
       { error: "Missing required fields: clientId, agent" },
       { status: 400 },
     );
+  }
+
+  // Solo director/team con acceso al cliente pueden disparar agentes. Antes
+  // se leía el JWT pero NO se rechazaba → cualquiera abría agent_runs y
+  // disparaba workflows de GitHub.
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
+  if (access.role === "client") {
+    return Response.json({ error: "No autorizado" }, { status: 403 });
   }
 
   // Leer JWT del caller para identificar el actor que dispara el agente.

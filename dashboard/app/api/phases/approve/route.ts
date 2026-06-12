@@ -185,7 +185,10 @@ export async function POST(req: NextRequest) {
   // Disparar email transaccional al cliente. Fire-and-forget.
   fetch(`${req.nextUrl.origin}/api/notifications/dispatch-email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-secret": process.env.CRON_SECRET ?? "",
+    },
     body: JSON.stringify({ phase: phaseKey, clientId }),
   }).catch((err) => {
     console.warn("[phases/approve] dispatch-email failed:", err);
