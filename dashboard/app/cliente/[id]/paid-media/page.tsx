@@ -1,44 +1,32 @@
 "use client";
 
+/**
+ * Paid Media · accesos y generador de campañas Meta scopeado al cliente.
+ *
+ * Acá viven 2 cosas:
+ *   1. Atajo a Espor.ai (link configurable por cliente — antes vivía
+ *      en /analitica pero se movió para que Paid Media tenga su propio
+ *      menú propio en el sidebar).
+ *   2. CTA al generador de campañas Meta con Claude (la página global
+ *      vive en /meta; acá la abrimos pre-seleccionando este cliente).
+ *
+ * Acceso: director y team. Team puede abrir Espor.ai; ejecutar el
+ * generador es director-only en la página /meta.
+ *
+ * NOTA: una versión anterior de esta página mostraba métricas
+ * agregadas de Meta/Google/TikTok/Email leyendo client.kpis.paid_media.
+ * No estaba linkeada desde el sidebar (era trabajo en progreso) y la
+ * reemplazamos por este flow que es lo que el director realmente
+ * usa hoy. Si en el futuro queremos volver a mostrar métricas
+ * agregadas, podemos sumarlas como sección abajo.
+ */
+
 import { use, useEffect, useState } from "react";
-import { getClient } from "@/lib/storage";
-import { getSupabase } from "@/lib/supabase/client";
-import type { Client, PaidMediaPlatform, PlatformMetrics } from "@/lib/types";
+import { useRouter } from "next/navigation";
+import { getCurrentProfile } from "@/lib/supabase/auth";
+import { getClient, updateClientExternalLinks } from "@/lib/storage";
+import type { Client } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
-
-interface PlatformDef {
-  key: PaidMediaPlatform;
-  name: string;
-  short: string;
-  color: string;
-}
-
-const PLATFORMS: PlatformDef[] = [
-  {
-    key: "meta",
-    name: "Meta Ads · Facebook + Instagram",
-    short: "Meta",
-    color: "var(--forest)",
-  },
-  {
-    key: "google",
-    name: "Google Ads · Search + Display",
-    short: "Google",
-    color: "var(--sand)",
-  },
-  {
-    key: "tiktok",
-    name: "TikTok Ads",
-    short: "TikTok",
-    color: "var(--sand-dark)",
-  },
-  {
-    key: "email",
-    name: "Email Marketing",
-    short: "Email",
-    color: "var(--forest-2)",
-  },
-];
 
 export default function PaidMediaPage({
   params,
@@ -46,536 +34,397 @@ export default function PaidMediaPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
-  const [editing, setEditing] = useState<PaidMediaPlatform | null>(null);
+  const [isDirector, setIsDirector] = useState(false);
+  const [editingEspor, setEditingEspor] = useState(false);
+  const [esporUrl, setEsporUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [reloadFlag, setReloadFlag] = useState(0);
 
   useEffect(() => {
-    getClient(id).then((c) => setClient(c ?? null));
-  }, [id]);
+    let cancelled = false;
+    Promise.all([getClient(id), getCurrentProfile()]).then(([c, p]) => {
+      if (cancelled) return;
+      setClient(c ?? null);
+      setIsDirector(p?.role === "director");
+      setEsporUrl(c?.external_links?.espor_ai_url ?? "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, reloadFlag]);
 
-  if (!client) return null;
-
-  const paidMedia = client.kpis?.paid_media ?? {};
-  const budget = client.fee || 0;
-  const spent = (p: PaidMediaPlatform) => paidMedia[p]?.spent ?? 0;
-  const totalSpent =
-    spent("meta") + spent("google") + spent("tiktok") + spent("email");
-  const pct = (v: number) => (budget > 0 ? Math.round((v / budget) * 100) : 0);
-  const updatedAt = paidMedia.updated_at;
-
-  async function refresh() {
-    const c = await getClient(id);
-    setClient(c ?? null);
-  }
-
-  return (
-    <>
-      <div className={ui.head}>
-        <div>
-          <div className={ui.eyebrow}>
-            Paid Media · Distribución de presupuesto
-          </div>
-          <h1>Inversión de marketing</h1>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div className={ui.eyebrow} style={{ marginBottom: 6 }}>
-            Fee mensual del cliente
-          </div>
-          <div
-            style={{
-              fontSize: 28,
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            US$ {budget.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      {totalSpent === 0 && (
-        <div className={ui.empty} style={{ marginBottom: 24 }}>
-          <div className={ui.emptyIcon}>◉</div>
-          <div className={ui.emptyTitle}>Aún no cargaste métricas</div>
-          <div className={ui.emptyDesc}>
-            Cargá manualmente las métricas del mes por plataforma usando los
-            paneles de abajo. Cuando integremos OAuth con Meta y Google, esto
-            se va a sincronizar automáticamente.
-          </div>
-        </div>
-      )}
-
-      <div className={ui.panel} style={{ marginBottom: 24 }}>
-        <div className={ui.panelHead}>
-          <div className={ui.panelTitle}>
-            Distribución de inversión · Mes actual
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {updatedAt
-              ? `Última actualización: ${new Date(updatedAt).toLocaleDateString(
-                  "es-UY",
-                  { day: "2-digit", month: "short", year: "numeric" },
-                )}`
-              : "Sin datos cargados"}
-          </div>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            height: 56,
-            marginBottom: 12,
-            overflow: "hidden",
-          }}
-        >
-          {totalSpent > 0 ? (
-            <>
-              {PLATFORMS.map((p) => {
-                const s = spent(p.key);
-                if (s <= 0) return null;
-                return (
-                  <div
-                    key={p.key}
-                    style={{
-                      width: `${pct(s)}%`,
-                      background: p.color,
-                      color: "var(--off-white)",
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "0 16px",
-                      fontSize: 12,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {p.short} · {pct(s)}%
-                  </div>
-                );
-              })}
-              <div
-                style={{
-                  flex: 1,
-                  background: "var(--off-white)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "0 12px",
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                }}
-              >
-                {totalSpent < budget
-                  ? `Disponible · US$ ${(budget - totalSpent).toLocaleString()}`
-                  : `Por encima del fee · US$ ${(totalSpent - budget).toLocaleString()}`}
-              </div>
-            </>
-          ) : (
-            <div
-              style={{
-                flex: 1,
-                background: "var(--off-white)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-                color: "var(--text-muted)",
-              }}
-            >
-              Sin inversión cargada · US$ {budget.toLocaleString()} disponible
-            </div>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          US$ {totalSpent.toLocaleString()} invertido /
-          US$ {budget.toLocaleString()} fee
-        </div>
-      </div>
-
-      {/* Platform blocks */}
-      {PLATFORMS.map((p) => (
-        <PlatformPanel
-          key={p.key}
-          platform={p}
-          metrics={paidMedia[p.key]}
-          editing={editing === p.key}
-          onEditToggle={() => setEditing(editing === p.key ? null : p.key)}
-          onSaved={() => {
-            setEditing(null);
-            refresh();
-          }}
-          clientId={id}
-        />
-      ))}
-    </>
-  );
-}
-
-// ==================== PLATFORM PANEL ====================
-
-function PlatformPanel({
-  platform,
-  metrics,
-  editing,
-  onEditToggle,
-  onSaved,
-  clientId,
-}: {
-  platform: PlatformDef;
-  metrics?: PlatformMetrics;
-  editing: boolean;
-  onEditToggle: () => void;
-  onSaved: () => void;
-  clientId: string;
-}) {
-  const hasData = Boolean(metrics && Object.keys(metrics).length > 0);
-
-  return (
-    <div
-      className={ui.panel}
-      style={{
-        marginBottom: 20,
-        borderLeft: `3px solid ${platform.color}`,
-      }}
-    >
-      <div className={ui.panelHead}>
-        <div className={ui.panelTitle}>{platform.name}</div>
-        <button
-          className={ui.panelAction}
-          onClick={onEditToggle}
-          type="button"
-        >
-          {editing ? "Cancelar" : hasData ? "Editar métricas →" : "+ Cargar métricas"}
-        </button>
-      </div>
-
-      {editing ? (
-        <PlatformEditor
-          platform={platform.key}
-          clientId={clientId}
-          initial={metrics ?? {}}
-          onSaved={onSaved}
-          onCancel={() => onEditToggle()}
-        />
-      ) : hasData ? (
-        <PlatformMetricsView metrics={metrics!} />
-      ) : (
-        <div
-          style={{
-            padding: 24,
-            textAlign: "center",
-            color: "var(--text-muted)",
-            fontSize: 13,
-          }}
-        >
-          Sin datos cargados · Cargá las métricas manualmente desde el botón de
-          arriba.
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ==================== METRICS VIEW ====================
-
-function PlatformMetricsView({ metrics }: { metrics: PlatformMetrics }) {
-  const cells: Array<{ label: string; value: string }> = [
-    {
-      label: "Inversión",
-      value: metrics.spent != null ? `US$ ${metrics.spent.toLocaleString()}` : "—",
-    },
-    {
-      label: "ROAS",
-      value: metrics.roas != null ? `${metrics.roas}x` : "—",
-    },
-    {
-      label: "Conversiones",
-      value: metrics.conversions != null ? String(metrics.conversions) : "—",
-    },
-    {
-      label: "CPA",
-      value: metrics.cpa != null ? `US$ ${metrics.cpa.toLocaleString()}` : "—",
-    },
-    {
-      label: "CTR",
-      value: metrics.ctr != null ? `${(metrics.ctr * 100).toFixed(2)}%` : "—",
-    },
-    {
-      label: "CPC",
-      value: metrics.cpc != null ? `US$ ${metrics.cpc.toLocaleString()}` : "—",
-    },
-  ];
-
-  return (
-    <>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-          gap: 16,
-          padding: "14px 0",
-        }}
-      >
-        {cells.map((c) => (
-          <div key={c.label}>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.18em",
-                color: "var(--sand-dark)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                marginBottom: 6,
-              }}
-            >
-              {c.label}
-            </div>
-            <div
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                color: "var(--deep-green)",
-              }}
-            >
-              {c.value}
-            </div>
-          </div>
-        ))}
-      </div>
-      {metrics.notes && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 12,
-            background: "var(--off-white)",
-            borderLeft: "2px solid var(--sand)",
-            fontSize: 13,
-            color: "var(--text-muted)",
-            lineHeight: 1.5,
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          <strong style={{ color: "var(--deep-green)" }}>Notas:</strong>{" "}
-          {metrics.notes}
-        </div>
-      )}
-    </>
-  );
-}
-
-// ==================== METRICS EDITOR ====================
-
-interface FieldDef {
-  key: keyof PlatformMetrics;
-  label: string;
-  hint?: string;
-  step?: string;
-}
-
-const NUMBER_FIELDS: FieldDef[] = [
-  { key: "spent", label: "Inversión (USD)", step: "0.01" },
-  { key: "roas", label: "ROAS", hint: "ej: 3.5", step: "0.01" },
-  { key: "conversions", label: "Conversiones", step: "1" },
-  { key: "cpa", label: "CPA (USD)", step: "0.01" },
-  { key: "ctr", label: "CTR (0-1)", hint: "0.025 = 2.5%", step: "0.001" },
-  { key: "cpc", label: "CPC (USD)", step: "0.01" },
-  { key: "cpm", label: "CPM (USD)", step: "0.01" },
-  { key: "impressions", label: "Impresiones", step: "1" },
-  { key: "clicks", label: "Clicks", step: "1" },
-];
-
-function PlatformEditor({
-  platform,
-  clientId,
-  initial,
-  onSaved,
-  onCancel,
-}: {
-  platform: PaidMediaPlatform;
-  clientId: string;
-  initial: PlatformMetrics;
-  onSaved: () => void;
-  onCancel: () => void;
-}) {
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const v: Record<string, string> = {};
-    for (const f of NUMBER_FIELDS) {
-      const x = initial[f.key];
-      v[f.key as string] = x != null ? String(x) : "";
-    }
-    v.notes = initial.notes ?? "";
-    return v;
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function save() {
+  async function saveEsporUrl() {
     setSaving(true);
-    setError("");
     try {
-      const supabase = getSupabase();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Sin sesión");
-
-      const payload = {
-        platform,
-        metrics: values,
-      };
-      const res = await fetch(`/api/clients/${clientId}/kpis`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+      const cleaned = esporUrl.trim();
+      await updateClientExternalLinks(id, {
+        espor_ai_url: cleaned === "" ? undefined : cleaned,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
-      onSaved();
+      setEditingEspor(false);
+      setReloadFlag((f) => f + 1);
     } catch (err) {
-      const e = err as { message?: string };
-      setError(e.message ?? "No se pudo guardar.");
+      alert(`No se pudo guardar el link:\n${(err as Error).message}`);
     } finally {
       setSaving(false);
     }
   }
 
+  if (!client) return null;
+
+  const esporConfigured = !!client.external_links?.espor_ai_url;
+  const adAccountConfigured = !!client.external_links?.meta_ad_account_id;
+
   return (
-    <div style={{ padding: "12px 0" }}>
+    <>
+      <div className={ui.head}>
+        <div>
+          <div className={ui.eyebrow}>Cliente · Paid Media</div>
+          <h1>Paid Media</h1>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              marginTop: 6,
+            }}
+          >
+            Análisis de campañas en Espor.ai y generador de campañas
+            nuevas con Claude.
+          </div>
+        </div>
+      </div>
+
+      {/* ============== ESPOR.AI ==============
+          Atajo al dashboard de Espor.ai del cliente. */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-          gap: 14,
-          marginBottom: 16,
+          background: "var(--white)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          borderLeft: esporConfigured
+            ? "3px solid var(--green-ok)"
+            : "3px solid var(--sand)",
+          padding: 24,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          borderRadius: "var(--r-md)",
+          boxShadow: "var(--shadow-sm)",
+          marginBottom: 24,
         }}
       >
-        {NUMBER_FIELDS.map((f) => (
-          <div key={f.key as string}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 10,
-                letterSpacing: "0.18em",
-                color: "var(--sand-dark)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                marginBottom: 6,
-              }}
-            >
-              {f.label}
-            </label>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+          }}
+        >
+          Análisis de performance
+        </div>
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            color: "var(--deep-green)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Espor.ai
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--text-soft, #5a6a5e)",
+            lineHeight: 1.5,
+          }}
+        >
+          Análisis de campañas y performance de paid media del cliente.
+          Click para abrir el dashboard en una pestaña nueva.
+        </div>
+
+        {editingEspor ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <input
-              type="number"
-              step={f.step ?? "0.01"}
-              value={values[f.key as string]}
-              onChange={(e) =>
-                setValues({ ...values, [f.key as string]: e.target.value })
-              }
-              placeholder={f.hint ?? "0"}
+              value={esporUrl}
+              onChange={(e) => setEsporUrl(e.target.value)}
+              placeholder="https://espor.ai/clients/..."
+              autoFocus
+              disabled={saving}
               style={{
                 width: "100%",
-                padding: "8px 10px",
+                padding: "10px 12px",
                 border: "1px solid rgba(10,26,12,0.15)",
                 background: "var(--white)",
-                fontSize: 14,
                 color: "var(--deep-green)",
+                fontSize: 12,
+                outline: "none",
+                fontFamily: "inherit",
                 borderRadius: "var(--r-md)",
               }}
             />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={saveEsporUrl}
+                disabled={saving}
+                style={{
+                  flex: 1,
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  border: "none",
+                  padding: "9px 14px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: saving ? "default" : "pointer",
+                  letterSpacing: "0.5px",
+                  opacity: saving ? 0.5 : 1,
+                  borderRadius: 4,
+                }}
+              >
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingEspor(false);
+                  setEsporUrl(client.external_links?.espor_ai_url ?? "");
+                }}
+                disabled={saving}
+                style={{
+                  flex: 1,
+                  background: "transparent",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  color: "var(--deep-green)",
+                  padding: "9px 14px",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: saving ? "default" : "pointer",
+                  borderRadius: 4,
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
-        ))}
+        ) : esporConfigured ? (
+          <div style={{ display: "flex", gap: 10 }}>
+            <a
+              href={client.external_links!.espor_ai_url!}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                flex: 1,
+                background: "var(--deep-green)",
+                color: "var(--off-white)",
+                padding: "11px 16px",
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                textDecoration: "none",
+                textAlign: "center",
+                borderRadius: 4,
+              }}
+            >
+              Abrir Espor.ai →
+            </a>
+            {isDirector && (
+              <button
+                onClick={() => setEditingEspor(true)}
+                style={{
+                  padding: "10px 14px",
+                  background: "transparent",
+                  border: "1px solid rgba(10,26,12,0.15)",
+                  color: "var(--deep-green)",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  borderRadius: 4,
+                  fontFamily: "inherit",
+                }}
+              >
+                Editar
+              </button>
+            )}
+          </div>
+        ) : isDirector ? (
+          <button
+            onClick={() => setEditingEspor(true)}
+            style={{
+              background: "var(--off-white)",
+              color: "var(--deep-green)",
+              border: "1px dashed rgba(10,26,12,0.2)",
+              padding: "11px 16px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              letterSpacing: "0.5px",
+              borderRadius: 4,
+              fontFamily: "inherit",
+            }}
+          >
+            + Configurar link de Espor.ai
+          </button>
+        ) : (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+              padding: "10px 0",
+            }}
+          >
+            El director todavía no configuró el link de Espor.ai del cliente.
+          </div>
+        )}
       </div>
 
-      <div>
-        <label
-          style={{
-            display: "block",
-            fontSize: 10,
-            letterSpacing: "0.18em",
-            color: "var(--sand-dark)",
-            textTransform: "uppercase",
-            fontWeight: 600,
-            marginBottom: 6,
-          }}
-        >
-          Notas
-        </label>
-        <textarea
-          value={values.notes}
-          onChange={(e) => setValues({ ...values, notes: e.target.value })}
-          placeholder="Observaciones del mes (opcional)"
-          rows={3}
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            border: "1px solid rgba(10,26,12,0.15)",
-            background: "var(--white)",
-            fontSize: 14,
-            color: "var(--deep-green)",
-            resize: "vertical",
-            borderRadius: "var(--r-md)",
-          }}
-        />
-      </div>
-
-      {error && (
+      {/* ============== GENERADOR META ==============
+          CTA al generador de campañas. Linkea a /meta con
+          ?client=<id> para que la página global preseleccione este
+          cliente. */}
+      <div
+        style={{
+          background: "var(--white)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          borderLeft: adAccountConfigured
+            ? "3px solid var(--green-ok)"
+            : "3px solid var(--sand)",
+          padding: 24,
+          borderRadius: "var(--r-md)",
+          boxShadow: "var(--shadow-sm)",
+          marginBottom: 24,
+        }}
+      >
         <div
           style={{
-            marginTop: 12,
-            padding: 10,
-            background: "rgba(176,75,58,0.1)",
-            borderLeft: "3px solid var(--red-warn)",
-            color: "var(--red-warn)",
-            fontSize: 12,
-            borderRadius: "var(--r-md)",
+            fontSize: 9,
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 8,
           }}
         >
-          {error}
+          Generador con IA · Beta
         </div>
-      )}
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            color: "var(--deep-green)",
+            letterSpacing: "-0.02em",
+            marginBottom: 8,
+          }}
+        >
+          Generar campaña en Meta con Claude
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--text-soft, #5a6a5e)",
+            lineHeight: 1.5,
+            marginBottom: 16,
+          }}
+        >
+          Subí los creativos, contale a Claude qué querés lograr, definí
+          cuántos conjuntos de anuncios necesitás (y a qué audiencia
+          apunta cada uno) y generá la campaña completa lista para
+          pushear a Meta Ads Manager.
+        </div>
 
-      <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-        <button
-          onClick={save}
-          disabled={saving}
-          style={{
-            padding: "10px 20px",
-            background: "var(--deep-green)",
-            color: "var(--off-white)",
-            border: "none",
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-            cursor: saving ? "not-allowed" : "pointer",
-            opacity: saving ? 0.6 : 1,
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          {saving ? "Guardando…" : "Guardar"}
-        </button>
-        <button
-          onClick={onCancel}
-          disabled={saving}
-          style={{
-            padding: "10px 20px",
-            background: "transparent",
-            color: "var(--text-muted)",
-            border: "1px solid rgba(10,26,12,0.15)",
-            fontSize: 12,
-            fontWeight: 500,
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-            cursor: "pointer",
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          Cancelar
-        </button>
+        {!adAccountConfigured && isDirector && (
+          <div
+            style={{
+              padding: "12px 14px",
+              background: "rgba(196,168,130,0.1)",
+              border: "1px solid rgba(196,168,130,0.3)",
+              fontSize: 12,
+              color: "var(--text-soft, #5a6a5e)",
+              marginBottom: 16,
+              lineHeight: 1.5,
+              borderRadius: "var(--r-md)",
+            }}
+          >
+            <strong style={{ color: "var(--deep-green)" }}>
+              ⚠ Falta cargar el Ad Account ID del cliente
+            </strong>
+            <br />
+            Sin esto el generador puede armar el spec con Claude pero
+            NO puede pushear a Meta. Cargalo en{" "}
+            <button
+              onClick={() => router.push(`/cliente/${id}/configuracion`)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--deep-green)",
+                fontWeight: 600,
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: 12,
+                padding: 0,
+                fontFamily: "inherit",
+              }}
+            >
+              Configuración → Meta Business Suite
+            </button>
+            .
+          </div>
+        )}
+
+        {isDirector ? (
+          <button
+            onClick={() => router.push(`/meta?client=${id}`)}
+            style={{
+              background:
+                "linear-gradient(135deg, #1877F2 0%, #166FE5 100%)",
+              color: "#fff",
+              border: "none",
+              padding: "12px 20px",
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              borderRadius: 4,
+              fontFamily: "inherit",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span
+              style={{
+                background: "rgba(255,255,255,0.18)",
+                width: 24,
+                height: 24,
+                borderRadius: 4,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 800,
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              M
+            </span>
+            Abrir generador →
+          </button>
+        ) : (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+              padding: "10px 0",
+            }}
+          >
+            Solo el director ejecuta el generador. Si necesitás una
+            campaña nueva, mandale un pedido vía Solicitudes.
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }

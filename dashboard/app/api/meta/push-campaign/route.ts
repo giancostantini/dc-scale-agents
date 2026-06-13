@@ -33,6 +33,33 @@ import { createClient } from "@supabase/supabase-js";
 export const maxDuration = 180;
 export const dynamic = "force-dynamic";
 
+interface Ad {
+  name: string;
+  creative_ref: string;
+  creative_type: "image" | "video";
+  headline: string;
+  primary_text: string;
+  description?: string;
+  cta_type: string;
+  destination_url: string;
+  status: string;
+}
+
+interface AdSet {
+  name: string;
+  billing_event: string;
+  optimization_goal: string;
+  daily_budget: number | null;
+  lifetime_budget: number | null;
+  start_time: string;
+  end_time: string | null;
+  targeting: Record<string, unknown>;
+  status: string;
+  /** Multi-adset: cada uno tiene su lista de ads. El push las crea
+   *  todas linkeadas al adset_id correspondiente. */
+  ads?: Ad[];
+}
+
 interface CampaignSpec {
   campaign: {
     name: string;
@@ -41,28 +68,11 @@ interface CampaignSpec {
     status: string;
     buying_type: string;
   };
-  adset: {
-    name: string;
-    billing_event: string;
-    optimization_goal: string;
-    daily_budget: number | null;
-    lifetime_budget: number | null;
-    start_time: string;
-    end_time: string | null;
-    targeting: Record<string, unknown>;
-    status: string;
-  };
-  ads: Array<{
-    name: string;
-    creative_ref: string; // URL del creativo (bucket público)
-    creative_type: "image" | "video";
-    headline: string;
-    primary_text: string;
-    description?: string;
-    cta_type: string;
-    destination_url: string;
-    status: string;
-  }>;
+  /** Nueva forma multi-adset. Si está, ignoramos `adset`+`ads` legacy. */
+  adsets?: AdSet[];
+  /** LEGACY (compat con spec single-adset que generamos antes). */
+  adset?: AdSet;
+  ads?: Ad[];
   reasoning?: string;
 }
 
@@ -214,153 +224,177 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2) Crear AdSet.
-  let adSetId: string;
-  try {
-    const adsetPayload: Record<string, unknown> = {
-      ...body.spec.adset,
-      campaign_id: campaignId,
-      access_token: metaToken,
-    };
-    // Meta espera el targeting como JSON-stringified cuando va vía
-    // urlencoded; en JSON funciona crudo.
-    const adsetRes = await fetch(`${graphBase}/adsets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(adsetPayload),
-    });
-    const adsetData = await adsetRes.json();
-    if (!adsetRes.ok || !adsetData.id) {
-      return Response.json(
-        {
-          error: "Falló crear adset en Meta (campaign creada igual)",
-          step: "adset",
-          campaign_id: campaignId,
-          meta_response: adsetData,
-        },
-        { status: 502 },
-      );
-    }
-    adSetId = adsetData.id;
-  } catch (e) {
+  // 2-3) Iterar sobre los AdSets (multi). Si el spec viejo solo tiene
+  // adset+ads (legacy), lo normalizamos a un array de 1.
+  const adsetsList: AdSet[] =
+    body.spec.adsets && body.spec.adsets.length > 0
+      ? body.spec.adsets
+      : body.spec.adset
+        ? [{ ...body.spec.adset, ads: body.spec.ads }]
+        : [];
+
+  if (adsetsList.length === 0) {
     return Response.json(
       {
-        error: "Error de red al crear adset",
-        step: "adset",
+        error: "Spec sin adsets",
+        step: "validate",
         campaign_id: campaignId,
-        detail: (e as Error).message,
       },
-      { status: 502 },
+      { status: 400 },
     );
   }
 
-  // 3) Por cada ad del spec, crear AdCreative + Ad.
-  //    Para simplificar (el adimages upload requiere multipart), por
-  //    ahora pasamos el URL del creativo directamente en el
-  //    object_story_spec del creative. Meta soporta image_url en el
-  //    link_data → tag.
-  const adResults: Array<{
+  const pageId = process.env.META_PAGE_ID;
+  if (!pageId) {
+    return Response.json(
+      {
+        error:
+          "META_PAGE_ID env var faltante. Sin Facebook Page ID no se pueden crear los AdCreatives.",
+        step: "config",
+        campaign_id: campaignId,
+      },
+      { status: 400 },
+    );
+  }
+
+  const adsetResults: Array<{
     name: string;
     ok: boolean;
-    ad_id?: string;
-    creative_id?: string;
+    adset_id?: string;
+    ads: Array<{
+      name: string;
+      ok: boolean;
+      ad_id?: string;
+      creative_id?: string;
+      error?: string;
+    }>;
     error?: string;
   }> = [];
 
-  for (const ad of body.spec.ads) {
+  for (const adsetSpec of adsetsList) {
+    // 2.x) Crear AdSet linkeado a la campaign.
+    let adSetId = "";
     try {
-      // 3a. Crear AdCreative.
-      // Sin Page ID + Instagram Actor ID esto fallará — Meta los
-      // exige. El director los configura en una env var como JSON o
-      // los recuperamos del client; por ahora los esperamos en env.
-      const pageId = process.env.META_PAGE_ID;
-      if (!pageId) {
-        adResults.push({
-          name: ad.name,
-          ok: false,
-          error:
-            "META_PAGE_ID env var faltante. Sin Facebook Page ID no se puede crear el AdCreative.",
-        });
-        continue;
-      }
-
-      const creativePayload = {
-        name: `${ad.name} · Creative`,
-        object_story_spec: {
-          page_id: pageId,
-          link_data: {
-            link: ad.destination_url,
-            message: ad.primary_text,
-            name: ad.headline,
-            description: ad.description ?? undefined,
-            picture: ad.creative_type === "image" ? ad.creative_ref : undefined,
-            call_to_action: {
-              type: ad.cta_type,
-              value: { link: ad.destination_url },
-            },
-          },
-        },
-        access_token: metaToken,
-      };
-
-      const creativeRes = await fetch(`${graphBase}/adcreatives`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(creativePayload),
-      });
-      const creativeData = await creativeRes.json();
-      if (!creativeRes.ok || !creativeData.id) {
-        adResults.push({
-          name: ad.name,
-          ok: false,
-          error: `creative: ${JSON.stringify(creativeData)}`,
-        });
-        continue;
-      }
-      const creativeId = creativeData.id as string;
-
-      // 3b. Crear Ad linkeado a adset + creative.
-      const adRes = await fetch(`${graphBase}/ads`, {
+      const { ads: _ignoreAds, ...adsetFields } = adsetSpec;
+      const adsetRes = await fetch(`${graphBase}/adsets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: ad.name,
-          adset_id: adSetId,
-          creative: { creative_id: creativeId },
-          status: ad.status,
+          ...adsetFields,
+          campaign_id: campaignId,
           access_token: metaToken,
         }),
       });
-      const adData = await adRes.json();
-      if (!adRes.ok || !adData.id) {
-        adResults.push({
-          name: ad.name,
+      const adsetData = await adsetRes.json();
+      if (!adsetRes.ok || !adsetData.id) {
+        adsetResults.push({
+          name: adsetSpec.name,
           ok: false,
-          creative_id: creativeId,
-          error: `ad: ${JSON.stringify(adData)}`,
+          ads: [],
+          error: `adset: ${JSON.stringify(adsetData)}`,
         });
         continue;
       }
-      adResults.push({
-        name: ad.name,
-        ok: true,
-        ad_id: adData.id as string,
-        creative_id: creativeId,
-      });
+      adSetId = adsetData.id as string;
     } catch (e) {
-      adResults.push({
-        name: ad.name,
+      adsetResults.push({
+        name: adsetSpec.name,
         ok: false,
-        error: (e as Error).message,
+        ads: [],
+        error: `adset network: ${(e as Error).message}`,
       });
+      continue;
     }
+
+    // 3.x) Por cada ad del adset, crear AdCreative + Ad.
+    const adsForThisAdset = adsetSpec.ads ?? [];
+    const adsResults: typeof adsetResults[number]["ads"] = [];
+
+    for (const ad of adsForThisAdset) {
+      try {
+        const creativePayload = {
+          name: `${ad.name} · Creative`,
+          object_story_spec: {
+            page_id: pageId,
+            link_data: {
+              link: ad.destination_url,
+              message: ad.primary_text,
+              name: ad.headline,
+              description: ad.description ?? undefined,
+              picture:
+                ad.creative_type === "image" ? ad.creative_ref : undefined,
+              call_to_action: {
+                type: ad.cta_type,
+                value: { link: ad.destination_url },
+              },
+            },
+          },
+          access_token: metaToken,
+        };
+        const creativeRes = await fetch(`${graphBase}/adcreatives`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(creativePayload),
+        });
+        const creativeData = await creativeRes.json();
+        if (!creativeRes.ok || !creativeData.id) {
+          adsResults.push({
+            name: ad.name,
+            ok: false,
+            error: `creative: ${JSON.stringify(creativeData)}`,
+          });
+          continue;
+        }
+        const creativeId = creativeData.id as string;
+
+        const adRes = await fetch(`${graphBase}/ads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: ad.name,
+            adset_id: adSetId,
+            creative: { creative_id: creativeId },
+            status: ad.status,
+            access_token: metaToken,
+          }),
+        });
+        const adData = await adRes.json();
+        if (!adRes.ok || !adData.id) {
+          adsResults.push({
+            name: ad.name,
+            ok: false,
+            creative_id: creativeId,
+            error: `ad: ${JSON.stringify(adData)}`,
+          });
+          continue;
+        }
+        adsResults.push({
+          name: ad.name,
+          ok: true,
+          ad_id: adData.id as string,
+          creative_id: creativeId,
+        });
+      } catch (e) {
+        adsResults.push({
+          name: ad.name,
+          ok: false,
+          error: (e as Error).message,
+        });
+      }
+    }
+
+    adsetResults.push({
+      name: adsetSpec.name,
+      ok: true,
+      adset_id: adSetId,
+      ads: adsResults,
+    });
   }
 
   return Response.json({
     success: true,
     campaign_id: campaignId,
-    adset_id: adSetId,
-    ads: adResults,
+    adsets: adsetResults,
     note:
       "Todo creado en status=PAUSED. Revisá en Ads Manager y activá manualmente cuando estés conforme.",
     manage_url: `https://www.facebook.com/adsmanager/manage/campaigns?act=${adAccountId}&selected_campaign_ids=${campaignId}`,
@@ -371,31 +405,39 @@ export async function POST(req: NextRequest) {
  *  dry-run preview. No hace llamadas reales. */
 function buildPayloads(spec: CampaignSpec, adAccountId: string) {
   const account = `act_${adAccountId}`;
+  const adsetsList: AdSet[] =
+    spec.adsets && spec.adsets.length > 0
+      ? spec.adsets
+      : spec.adset
+        ? [{ ...spec.adset, ads: spec.ads }]
+        : [];
   return {
     campaign_post: {
       endpoint: `${account}/campaigns`,
       body: spec.campaign,
     },
-    adset_post: {
-      endpoint: `${account}/adsets`,
-      body: { ...spec.adset, campaign_id: "<campaign_id_from_step_1>" },
-    },
-    ads_post: spec.ads.map((ad) => ({
-      endpoint: `${account}/ads`,
-      body: { name: ad.name, status: ad.status },
-      creative_endpoint: `${account}/adcreatives`,
-      creative_body: {
-        name: `${ad.name} · Creative`,
-        object_story_spec: {
-          page_id: "<META_PAGE_ID env var>",
-          link_data: {
-            link: ad.destination_url,
-            message: ad.primary_text,
-            name: ad.headline,
-            picture: ad.creative_ref,
+    adsets: adsetsList.map((a) => ({
+      adset_post: {
+        endpoint: `${account}/adsets`,
+        body: { ...a, campaign_id: "<campaign_id_from_step_1>" },
+      },
+      ads_posts: (a.ads ?? []).map((ad) => ({
+        endpoint: `${account}/ads`,
+        body: { name: ad.name, status: ad.status },
+        creative_endpoint: `${account}/adcreatives`,
+        creative_body: {
+          name: `${ad.name} · Creative`,
+          object_story_spec: {
+            page_id: "<META_PAGE_ID env var>",
+            link_data: {
+              link: ad.destination_url,
+              message: ad.primary_text,
+              name: ad.headline,
+              picture: ad.creative_ref,
+            },
           },
         },
-      },
+      })),
     })),
   };
 }

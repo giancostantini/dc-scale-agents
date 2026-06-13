@@ -78,37 +78,11 @@ export default function AnaliticaPage({
         </div>
       </div>
 
-      {/* Atajos a herramientas externas */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-          gap: 16,
-          marginBottom: 28,
-        }}
-      >
-        {/* ESPOR.AI */}
-        <ShortcutCard
-          eyebrow="Paid Media"
-          title="Espor.ai"
-          description="Análisis de campañas y performance de paid media. Click para abrir el dashboard del cliente en una pestaña nueva."
-          configured={esporConfigured}
-          url={client?.external_links?.espor_ai_url}
-          isDirector={isDirector}
-          isEditing={editing === "espor"}
-          inputValue={esporUrl}
-          setInputValue={setEsporUrl}
-          onStartEdit={() => setEditing("espor")}
-          onCancel={() => {
-            setEditing(null);
-            setEsporUrl(client?.external_links?.espor_ai_url ?? "");
-          }}
-          onSave={() => saveLink("espor_ai_url", esporUrl)}
-          saving={saving}
-          placeholder="https://espor.ai/clients/..."
-        />
-
-        {/* LOOKER STUDIO */}
+      {/* Atajos a herramientas externas. Espor.ai se movió al menú
+          "Paid Media" del sidebar — acá queda solo Looker Studio
+          (métricas generales del negocio) que es lo que alimenta el
+          agente de analítica de abajo. */}
+      <div style={{ marginBottom: 28 }}>
         <ShortcutCard
           eyebrow="Métricas generales"
           title="Looker Studio"

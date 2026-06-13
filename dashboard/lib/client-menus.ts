@@ -32,6 +32,7 @@ export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "tareas",      segment: "tareas",         label: "Tareas" },
   { key: "solicitudes", segment: "solicitudes",    label: "Solicitudes" },
   { key: "producciones",segment: "campanas",       label: "Producciones" },
+  { key: "paid_media",  segment: "paid-media",     label: "Paid Media" },
   { key: "analitica",   segment: "analitica",      label: "Analítica" },
   { key: "reporting",   segment: "reporting",      label: "Reporting" },
   { key: "biblioteca",  segment: "biblioteca",     label: "Biblioteca" },

@@ -39,9 +39,20 @@ export const maxDuration = 180;
 export const dynamic = "force-dynamic";
 
 interface Creative {
+  id?: string;
   url: string;
   type: "image" | "video";
   description?: string;
+}
+
+interface AdSetInput {
+  /** Etiqueta interna del adset, no se usa como nombre final. */
+  label: string;
+  /** Descripción de audiencia + intención que el director escribió.
+   *  Claude usa esto para generar targeting + tono de copy. */
+  description: string;
+  /** Creativos asignados a este AdSet. Cada uno se vuelve un Ad. */
+  creatives: Creative[];
 }
 
 interface CampaignBudget {
@@ -81,7 +92,8 @@ ENTRADA QUE RECIBÍS:
 
 SALIDA:
 Devolvé ÚNICAMENTE un objeto JSON con esta forma exacta, sin code
-fences ni texto explicativo alrededor:
+fences ni texto explicativo alrededor. Notá que ahora soportamos
+MÚLTIPLES AdSets (el director elige cuántos):
 
 {
   "campaign": {
@@ -91,45 +103,49 @@ fences ni texto explicativo alrededor:
     "status": "PAUSED",
     "buying_type": "AUCTION"
   },
-  "adset": {
-    "name": "Nombre AdSet",
-    "billing_event": "IMPRESSIONS" | "LINK_CLICKS",
-    "optimization_goal": "REACH" | "LINK_CLICKS" | "CONVERSIONS" | "LEAD_GENERATION" | "OFFSITE_CONVERSIONS",
-    "daily_budget": 5000,    // en centavos USD si mode='daily', null si mode='lifetime'
-    "lifetime_budget": null, // en centavos USD si mode='lifetime', null si mode='daily'
-    "start_time": "ISO 8601",
-    "end_time": "ISO 8601 o null",
-    "targeting": {
-      "geo_locations": {
-        "countries": ["AR", "UY"]
-      },
-      "age_min": 18,
-      "age_max": 55,
-      "genders": [],
-      "publisher_platforms": ["facebook", "instagram"],
-      "facebook_positions": ["feed", "story", "video_feeds"],
-      "instagram_positions": ["stream", "story", "reels"],
-      "device_platforms": ["mobile", "desktop"]
-    },
-    "status": "PAUSED"
-  },
-  "ads": [
+  "adsets": [
     {
-      "name": "Nombre Ad variation 1",
-      "creative_ref": "<creative_url_aqui>",
-      "creative_type": "image" | "video",
-      "headline": "Headline ≤40 char",
-      "primary_text": "Primary text persuasivo ≤125 char",
-      "description": "Descripción opcional ≤30 char (solo carrusel/feed)",
-      "cta_type": "LEARN_MORE" | "SHOP_NOW" | "SIGN_UP" | "BOOK_NOW" | "CONTACT_US" | "MESSAGE_PAGE" | "DOWNLOAD",
-      "destination_url": "https://...",
-      "status": "PAUSED"
+      "name": "Nombre AdSet 1 (basado en la descripción del director)",
+      "billing_event": "IMPRESSIONS" | "LINK_CLICKS",
+      "optimization_goal": "REACH" | "LINK_CLICKS" | "CONVERSIONS" | "LEAD_GENERATION" | "OFFSITE_CONVERSIONS",
+      "daily_budget": 5000,    // centavos USD por adset. Si hay N adsets, repartí el budget total entre ellos de manera proporcional a su importancia (o por defecto, dividido equitativo).
+      "lifetime_budget": null,
+      "start_time": "ISO 8601",
+      "end_time": "ISO 8601 o null",
+      "targeting": {
+        "geo_locations": { "countries": ["AR", "UY"] },
+        "age_min": 18,
+        "age_max": 55,
+        "genders": [],
+        "publisher_platforms": ["facebook", "instagram"],
+        "facebook_positions": ["feed", "story", "video_feeds"],
+        "instagram_positions": ["stream", "story", "reels"],
+        "device_platforms": ["mobile", "desktop"]
+      },
+      "status": "PAUSED",
+      "ads": [
+        {
+          "name": "Nombre Ad variation",
+          "creative_ref": "<URL exacto del creativo asignado a este adset>",
+          "creative_type": "image" | "video",
+          "headline": "Headline ≤40 char (adaptado a la audiencia de ESTE adset)",
+          "primary_text": "Primary text persuasivo ≤125 char",
+          "description": "Descripción opcional ≤30 char",
+          "cta_type": "LEARN_MORE" | "SHOP_NOW" | "SIGN_UP" | "BOOK_NOW" | "CONTACT_US" | "MESSAGE_PAGE" | "DOWNLOAD",
+          "destination_url": "https://...",
+          "status": "PAUSED"
+        }
+        // 1 ad POR CADA creativo asignado a este adset. NO inventes
+        // creativos — usá exactamente los URLs que te pasamos en la
+        // entrada para este adset.
+      ]
     }
-    // 1 ad por cada creativo recibido; si hay muchos, generá variaciones
-    // de copy distintas para cada uno.
+    // Repetí el bloque adset por cada conjunto que pidió el director.
+    // La targeting de cada adset SE TIENE QUE adaptar a la
+    // "description" que escribió el director para ese conjunto.
   ],
   "reasoning": "1-2 oraciones explicando por qué elegiste este
-                objective y targeting para este caso."
+                objective + cómo segmentaste los adsets."
 }
 
 IMPORTANTE:
@@ -150,6 +166,9 @@ interface RequestBody {
   client_id: string;
   prompt: string;
   creatives: Creative[];
+  /** Conjuntos de anuncios solicitados. Si está vacío o falta, el
+   *  endpoint fabrica 1 adset con todos los creativos (back-compat). */
+  adsets?: AdSetInput[];
   budget: CampaignBudget;
   schedule: CampaignSchedule;
 }
@@ -231,30 +250,59 @@ export async function POST(req: NextRequest) {
     "(sin bio cargada)";
   const destinationUrlDefault = client.website_url ?? "https://example.com";
 
+  // Si no se pasaron adsets, fabricamos uno default con todos los
+  // creativos y la prompt completa como descripción. Mantiene
+  // back-compat con el flow viejo (un único adset).
+  const adsetsForPrompt: AdSetInput[] =
+    body.adsets && body.adsets.length > 0
+      ? body.adsets
+      : [
+          {
+            label: "Conjunto único",
+            description: body.prompt,
+            creatives: body.creatives,
+          },
+        ];
+
+  const adsetsSection = adsetsForPrompt
+    .map((a, i) => {
+      const creativeList = a.creatives
+        .map(
+          (c, j) =>
+            `   ${j + 1}. [${c.type}] ${c.url}${c.description ? ` — ${c.description}` : ""}`,
+        )
+        .join("\n");
+      return `--- AdSet ${i + 1}: ${a.label} ---
+Descripción / audiencia / intención:
+${a.description}
+
+Creativos asignados (${a.creatives.length}):
+${creativeList || "(ninguno)"}`;
+    })
+    .join("\n\n");
+
   const userPrompt = `CLIENTE: ${client.name}
 Sector: ${client.sector ?? "N/A"}
 Sitio web: ${destinationUrlDefault}
 Bio del perfil: ${clientBio}
 
-PROMPT DEL DIRECTOR:
+PROMPT GENERAL DEL DIRECTOR:
 ${body.prompt}
 
-CREATIVOS SUBIDOS (${body.creatives.length}):
-${body.creatives
-  .map(
-    (c, i) =>
-      `${i + 1}. [${c.type}] ${c.url}${c.description ? ` — ${c.description}` : ""}`,
-  )
-  .join("\n")}
+CONJUNTOS DE ANUNCIOS (${adsetsForPrompt.length}):
+${adsetsSection}
 
-BUDGET:
+BUDGET TOTAL:
 ${body.budget.mode === "daily" ? "Diario" : "Total (lifetime)"}: $${body.budget.amount} ${body.budget.currency ?? "USD"}
+Si hay más de un AdSet, repartí este budget entre ellos.
 
 SCHEDULE:
 Inicio: ${body.schedule.start_date}
 ${body.schedule.end_date ? `Fin: ${body.schedule.end_date}` : "Sin fecha de fin (corre indefinido)"}
 
-Generá el spec JSON.`;
+Generá el spec JSON con un AdSet por cada conjunto pedido, cada uno con
+sus ads (uno por creativo asignado), targeting adaptado a su audiencia,
+y copy específico para esa audiencia.`;
 
   const anthropic = new Anthropic({ apiKey });
 

@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import { getClients } from "@/lib/storage";
 import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
@@ -33,6 +33,8 @@ import { uploadContentPreview } from "@/lib/upload";
 import type { Client } from "@/lib/types";
 
 interface Creative {
+  /** ID local para asignar a un AdSet sin chocarse con el URL. */
+  id: string;
   url: string;
   type: "image" | "video";
   name: string;
@@ -41,14 +43,28 @@ interface Creative {
 
 type BudgetMode = "daily" | "lifetime";
 
+interface AdSetInput {
+  /** Nombre local del adset (no se manda como nombre final — Claude lo
+   *  reescribe). Sirve para que el director lo identifique en la UI. */
+  label: string;
+  /** Lo que quiere lograr con este adset (audiencia, tono, objetivo
+   *  específico, etc). Claude usa esto para generar el targeting. */
+  description: string;
+  /** IDs locales de los creativos asignados a este adset. Cada creative
+   *  asignado se convierte en un Ad. */
+  creative_ids: string[];
+}
+
 export default function MetaPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedClient = searchParams.get("client") ?? "";
   const [profile, setProfile] = useState<Profile | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form inputs
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(preselectedClient);
   const [prompt, setPrompt] = useState("");
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -57,6 +73,13 @@ export default function MetaPage() {
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState("");
+  /** Lista de conjuntos de anuncios que el director quiere armar.
+   *  Cada uno tiene su descripción + creativos asignados. Si está
+   *  vacío al generar, asumimos 1 adset que recibe TODOS los
+   *  creativos (compat con el flow viejo). */
+  const [adsets, setAdsets] = useState<AdSetInput[]>([
+    { label: "Conjunto 1", description: "", creative_ids: [] },
+  ]);
 
   // Generated spec + push state
   const [spec, setSpec] = useState<unknown>(null);
@@ -103,7 +126,11 @@ export default function MetaPage() {
         Array.from(files).map(async (file) => {
           const isVideo = file.type.startsWith("video/");
           const up = await uploadContentPreview(file, `meta-ads/${clientId}`);
+          // ID local único: timestamp + nombre. Va a usarse como ref
+          // para asignar a un AdSet.
+          const id = `cr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           return {
+            id,
             url: up.url ?? "",
             type: (isVideo ? "video" : "image") as "image" | "video",
             name: file.name,
@@ -123,7 +150,50 @@ export default function MetaPage() {
   }
 
   function removeCreative(idx: number) {
+    const removed = creatives[idx];
     setCreatives((prev) => prev.filter((_, i) => i !== idx));
+    // También sacarlo de cualquier adset.
+    setAdsets((prev) =>
+      prev.map((a) => ({
+        ...a,
+        creative_ids: a.creative_ids.filter((cid) => cid !== removed?.id),
+      })),
+    );
+  }
+
+  function addAdset() {
+    setAdsets((prev) => [
+      ...prev,
+      {
+        label: `Conjunto ${prev.length + 1}`,
+        description: "",
+        creative_ids: [],
+      },
+    ]);
+  }
+
+  function removeAdset(idx: number) {
+    if (adsets.length === 1) return; // siempre al menos 1
+    setAdsets((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateAdset(idx: number, patch: Partial<AdSetInput>) {
+    setAdsets((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
+  }
+
+  function toggleCreativeInAdset(adsetIdx: number, creativeId: string) {
+    setAdsets((prev) =>
+      prev.map((a, i) => {
+        if (i !== adsetIdx) return a;
+        const has = a.creative_ids.includes(creativeId);
+        return {
+          ...a,
+          creative_ids: has
+            ? a.creative_ids.filter((id) => id !== creativeId)
+            : [...a.creative_ids, creativeId],
+        };
+      }),
+    );
   }
 
   async function generate() {
@@ -143,6 +213,34 @@ export default function MetaPage() {
       const token = data.session?.access_token;
       if (!token) throw new Error("Sin sesión");
 
+      // Normalizar adsets para el backend: cada uno con su descripción
+      // + las URLs de los creativos que le asignamos. Si no quedó
+      // ninguno asignado a un adset, le caen TODOS los creativos
+      // (default razonable — el director no tiene que dragear sí o sí).
+      const adsetsForApi = adsets
+        .filter((a) => a.description.trim())
+        .map((a) => ({
+          label: a.label,
+          description: a.description.trim(),
+          creatives:
+            a.creative_ids.length > 0
+              ? creatives.filter((c) => a.creative_ids.includes(c.id))
+              : creatives,
+        }));
+      // Fallback: si no hay ningún adset con descripción, generamos
+      // un solo adset con el prompt como descripción y todos los
+      // creativos.
+      const adsetsFinal =
+        adsetsForApi.length > 0
+          ? adsetsForApi
+          : [
+              {
+                label: "Conjunto único",
+                description: prompt.trim(),
+                creatives,
+              },
+            ];
+
       const res = await fetch("/api/meta/generate-campaign-spec", {
         method: "POST",
         headers: {
@@ -153,6 +251,7 @@ export default function MetaPage() {
           client_id: clientId,
           prompt: prompt.trim(),
           creatives,
+          adsets: adsetsFinal,
           budget: {
             amount: Number(budgetAmount),
             mode: budgetMode,
@@ -442,8 +541,243 @@ export default function MetaPage() {
             )}
           </Section>
 
+          {/* === Conjuntos de anuncios === */}
+          <Section
+            label={`4. Conjuntos de anuncios (${adsets.length})`}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginBottom: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              Definí cuántos AdSets querés crear y a qué audiencia
+              apunta cada uno. Por cada creativo que asignes a un
+              conjunto, Claude va a generar un Ad. Si dejás un conjunto
+              sin creativos asignados, le caen TODOS los subidos arriba.
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {adsets.map((adset, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    border: "1px solid rgba(10,26,12,0.1)",
+                    borderRadius: 6,
+                    padding: 14,
+                    background: "var(--off-white)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={adset.label}
+                      onChange={(e) =>
+                        updateAdset(idx, { label: e.target.value })
+                      }
+                      placeholder="Etiqueta interna"
+                      style={{
+                        flex: 1,
+                        padding: "6px 10px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        border: "1px solid rgba(10,26,12,0.12)",
+                        borderRadius: 4,
+                        fontFamily: "inherit",
+                        background: "var(--white)",
+                        color: "var(--deep-green)",
+                        outline: "none",
+                      }}
+                    />
+                    {adsets.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeAdset(idx)}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid rgba(176,75,58,0.3)",
+                          color: "var(--red-warn)",
+                          padding: "5px 10px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          borderRadius: 4,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        × Eliminar
+                      </button>
+                    )}
+                  </div>
+
+                  <textarea
+                    value={adset.description}
+                    onChange={(e) =>
+                      updateAdset(idx, { description: e.target.value })
+                    }
+                    placeholder="Ej: Mujeres 25-45 en CABA y GBA, interesadas en moda sostenible. Tono aspiracional, foco en calidad de los materiales y proceso artesanal."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      fontSize: 13,
+                      border: "1px solid rgba(10,26,12,0.12)",
+                      borderRadius: 4,
+                      fontFamily: "inherit",
+                      background: "var(--white)",
+                      color: "var(--deep-green)",
+                      outline: "none",
+                      resize: "vertical",
+                      lineHeight: 1.5,
+                      marginBottom: 10,
+                    }}
+                  />
+
+                  {/* Asignación de creativos al adset. */}
+                  {creatives.length === 0 ? (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Subí creativos arriba para asignarlos.
+                    </div>
+                  ) : (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          color: "var(--sand-dark)",
+                          fontWeight: 600,
+                          marginBottom: 6,
+                        }}
+                      >
+                        Creativos asignados (
+                        {adset.creative_ids.length === 0
+                          ? "todos"
+                          : adset.creative_ids.length}
+                        /{creatives.length})
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        {creatives.map((c) => {
+                          const isSelected =
+                            adset.creative_ids.includes(c.id) ||
+                            adset.creative_ids.length === 0;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() =>
+                                toggleCreativeInAdset(idx, c.id)
+                              }
+                              title={c.name}
+                              style={{
+                                position: "relative",
+                                width: 56,
+                                height: 56,
+                                border: "2px solid",
+                                borderColor: isSelected
+                                  ? "var(--deep-green)"
+                                  : "transparent",
+                                borderRadius: 4,
+                                padding: 0,
+                                cursor: "pointer",
+                                overflow: "hidden",
+                                background: "var(--white)",
+                                opacity: isSelected ? 1 : 0.4,
+                              }}
+                            >
+                              {c.type === "image" ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={c.url}
+                                  alt={c.name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    background: "#000",
+                                    color: "#fff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 18,
+                                  }}
+                                >
+                                  ▶
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {adset.creative_ids.length === 0 && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            fontStyle: "italic",
+                            marginTop: 4,
+                          }}
+                        >
+                          Sin asignación específica → este conjunto
+                          recibe TODOS los creativos.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addAdset}
+                style={{
+                  background: "transparent",
+                  border: "1px dashed rgba(10,26,12,0.2)",
+                  color: "var(--deep-green)",
+                  padding: "10px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  borderRadius: 4,
+                  fontFamily: "inherit",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                + Agregar otro conjunto de anuncios
+              </button>
+            </div>
+          </Section>
+
           {/* === Budget + Schedule === */}
-          <Section label="4. Budget + Schedule">
+          <Section label="5. Budget + Schedule">
             <div
               style={{
                 display: "grid",
@@ -564,7 +898,7 @@ export default function MetaPage() {
 
           {/* === Spec preview === */}
           {spec !== null && (
-            <Section label="5. Spec generado · revisá antes de pushear">
+            <Section label="6. Spec generado · revisá antes de pushear">
               <pre
                 style={{
                   background: "#0A1A0C",
@@ -620,7 +954,7 @@ export default function MetaPage() {
 
           {/* === Push result === */}
           {pushResult !== null && (
-            <Section label="6. Resultado del push">
+            <Section label="7. Resultado del push">
               <pre
                 style={{
                   background: "#0A1A0C",
