@@ -305,14 +305,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const pageId = process.env.META_PAGE_ID;
+  // El Facebook Page ID puede venir de dos lugares:
+  //   1. Configuración del cliente (recomendado — cada cliente tiene su
+  //      propia Page, lo guardamos en clients.external_links.meta_page_id).
+  //   2. Env var META_PAGE_ID (fallback global — útil cuando todo se
+  //      publica desde la misma Page de la agencia).
+  // Si no hay ninguno, no podemos crear AdCreatives → 400 con un hint
+  // claro que apunta a /cliente/<id>/configuracion.
+  const clientPageId = (
+    client.external_links as { meta_page_id?: string } | null
+  )?.meta_page_id;
+  const pageId = clientPageId || process.env.META_PAGE_ID;
   if (!pageId) {
     return Response.json(
       {
-        error:
-          "META_PAGE_ID env var faltante. Sin Facebook Page ID no se pueden crear los AdCreatives.",
+        error: "Falta Facebook Page ID — sin esto no se pueden crear los AdCreatives.",
         step: "config",
         campaign_id: campaignId,
+        hint: "Cargá el Facebook Page ID del cliente en Cliente → Configuración → Meta Business Suite. Lo conseguís en business.facebook.com → Configuración del negocio → Páginas → seleccionar la Page → ID. Si querés un Page ID global para todos los clientes, también podés setear la env var META_PAGE_ID en Vercel.",
       },
       { status: 400 },
     );

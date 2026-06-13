@@ -1039,8 +1039,10 @@ function MetaBusinessSuitePanel({
 }) {
   const initial = client.external_links?.meta_business_suite_url ?? "";
   const initialAdAccount = client.external_links?.meta_ad_account_id ?? "";
+  const initialPageId = client.external_links?.meta_page_id ?? "";
   const [url, setUrl] = useState(initial);
   const [adAccountId, setAdAccountId] = useState(initialAdAccount);
+  const [pageId, setPageId] = useState(initialPageId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -1048,21 +1050,25 @@ function MetaBusinessSuitePanel({
   useEffect(() => {
     setUrl(client.external_links?.meta_business_suite_url ?? "");
     setAdAccountId(client.external_links?.meta_ad_account_id ?? "");
+    setPageId(client.external_links?.meta_page_id ?? "");
   }, [
     client.external_links?.meta_business_suite_url,
     client.external_links?.meta_ad_account_id,
+    client.external_links?.meta_page_id,
   ]);
 
   // Hay cambios sin guardar si los valores actuales difieren de lo
   // que está en DB. Lo usamos para enable/disable del botón Guardar.
   const dirty =
     url.trim() !== initial.trim() ||
-    adAccountId.trim() !== initialAdAccount.trim();
+    adAccountId.trim() !== initialAdAccount.trim() ||
+    pageId.trim() !== initialPageId.trim();
 
   async function save() {
     setError("");
     const cleanUrl = url.trim();
     const cleanAdAccount = adAccountId.trim();
+    const cleanPageId = pageId.trim();
     if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
       setError("La URL tiene que empezar con http:// o https://");
       return;
@@ -1073,11 +1079,16 @@ function MetaBusinessSuitePanel({
       );
       return;
     }
+    if (cleanPageId && !/^\d+$/.test(cleanPageId)) {
+      setError("El Facebook Page ID tiene que ser solo números.");
+      return;
+    }
     setSaving(true);
     try {
       await updateClientExternalLinks(client.id, {
         meta_business_suite_url: cleanUrl || null,
         meta_ad_account_id: cleanAdAccount || null,
+        meta_page_id: cleanPageId || null,
       });
       onSaved(cleanUrl);
     } catch (err) {
@@ -1198,6 +1209,57 @@ function MetaBusinessSuitePanel({
               Guardado como: <strong>act_{initialAdAccount}</strong>
             </div>
           )}
+        </div>
+        <div>
+          {/* Facebook Page ID — necesario para crear AdCreatives. Cada
+              cliente publica desde SU propia Page, por eso lo guardamos
+              per-cliente. Si queda vacío, el endpoint de push cae al
+              env var META_PAGE_ID como fallback global. */}
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 4,
+            }}
+          >
+            Facebook Page ID (solo números)
+          </div>
+          <input
+            type="text"
+            placeholder="100123456789012"
+            value={pageId}
+            onChange={(e) => setPageId(e.target.value)}
+            disabled={saving}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 6,
+              fontFamily: "monospace",
+              fontSize: 13,
+              background: "var(--white)",
+              color: "var(--deep-green)",
+              outline: "none",
+            }}
+          />
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              color: "var(--text-muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            ID numérico de la Page de Facebook del cliente que va a
+            publicar los anuncios. Se obtiene en{" "}
+            <strong>business.facebook.com → Configuración del negocio
+            → Páginas → seleccionar la Page → ID</strong>, o entrando
+            a la Page en facebook.com → "Acerca de" → "ID de la
+            página". NO es el username, es el número.
+          </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && (

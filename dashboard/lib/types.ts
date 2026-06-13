@@ -249,6 +249,15 @@ export interface ClientExternalLinks {
    *  Claude. Ejemplo: 123456789012345. El director lo obtiene desde
    *  Ads Manager → Configuración del negocio → Cuentas publicitarias. */
   meta_ad_account_id?: string;
+  /** ID numérico de la Facebook Page del cliente que se asocia a las
+   *  AdCreatives cuando pusheamos campañas. Cada Ad necesita una Page
+   *  dueña que la publique. Se consigue en business.facebook.com →
+   *  Configuración del negocio → Páginas → seleccionar la Page → ID
+   *  (o en facebook.com/<page> → "Acerca de" → ID). NO es el username,
+   *  es el número (ej. 100123456789012). Si no está seteado per-cliente,
+   *  el endpoint /api/meta/push-campaign cae a la env var META_PAGE_ID
+   *  como fallback global. */
+  meta_page_id?: string;
 }
 
 /**

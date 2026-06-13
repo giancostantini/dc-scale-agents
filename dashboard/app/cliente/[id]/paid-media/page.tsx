@@ -75,6 +75,7 @@ export default function PaidMediaPage({
 
   const esporConfigured = !!client.external_links?.espor_ai_url;
   const adAccountConfigured = !!client.external_links?.meta_ad_account_id;
+  const pageIdConfigured = !!client.external_links?.meta_page_id;
 
   return (
     <>
@@ -288,9 +289,10 @@ export default function PaidMediaPage({
         style={{
           background: "var(--white)",
           border: "1px solid rgba(10,26,12,0.08)",
-          borderLeft: adAccountConfigured
-            ? "3px solid var(--green-ok)"
-            : "3px solid var(--sand)",
+          borderLeft:
+            adAccountConfigured && pageIdConfigured
+              ? "3px solid var(--green-ok)"
+              : "3px solid var(--sand)",
           padding: 24,
           borderRadius: "var(--r-md)",
           boxShadow: "var(--shadow-sm)",
@@ -334,7 +336,7 @@ export default function PaidMediaPage({
           pushear a Meta Ads Manager.
         </div>
 
-        {!adAccountConfigured && isDirector && (
+        {(!adAccountConfigured || !pageIdConfigured) && isDirector && (
           <div
             style={{
               padding: "12px 14px",
@@ -348,11 +350,37 @@ export default function PaidMediaPage({
             }}
           >
             <strong style={{ color: "var(--deep-green)" }}>
-              ⚠ Falta cargar el Ad Account ID del cliente
+              ⚠ Falta configurar Meta del cliente
             </strong>
             <br />
-            Sin esto el generador puede armar el spec con Claude pero
-            NO puede pushear a Meta. Cargalo en{" "}
+            Para pushear campañas a Meta hace falta:
+            <ul
+              style={{
+                margin: "6px 0 8px 0",
+                padding: "0 0 0 18px",
+                fontSize: 12,
+              }}
+            >
+              <li
+                style={{
+                  color: adAccountConfigured
+                    ? "var(--green-ok)"
+                    : "var(--deep-green)",
+                }}
+              >
+                {adAccountConfigured ? "✓" : "○"} Ad Account ID
+              </li>
+              <li
+                style={{
+                  color: pageIdConfigured
+                    ? "var(--green-ok)"
+                    : "var(--deep-green)",
+                }}
+              >
+                {pageIdConfigured ? "✓" : "○"} Facebook Page ID
+              </li>
+            </ul>
+            Cargalo en{" "}
             <button
               onClick={() => router.push(`/cliente/${id}/configuracion`)}
               style={{

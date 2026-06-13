@@ -318,11 +318,19 @@ function MetaPageInner() {
       const json = await res.json();
       // 207 = éxito parcial (campaign creada pero algún adset/ad falló).
       // 502 = la llamada a Meta falló (campaign no creada o error de
-      // red). En ambos casos NO tiramos un Error genérico — guardamos
-      // el JSON en pushResult para que PushResultView muestre el
-      // step/meta_response/hint exacto. Solo tiramos para errores
-      // de auth/permisos nuestros (401, 403) o body inválido (400).
-      if (!res.ok && res.status !== 207 && res.status !== 502) {
+      // red).
+      // 400 con json.step = config faltante post-creación de la
+      //   campaign (ej. Page ID) — la campaign quedó creada en Meta,
+      //   queremos mostrar el detalle, no tirar.
+      // En esos casos NO tiramos Error — guardamos el JSON en
+      // pushResult para que PushResultView muestre el step/hint/etc.
+      // Solo tiramos para errores de auth/permisos nuestros (401,
+      // 403) o body inválido del lado nuestro.
+      const isHandledShape =
+        res.status === 207 ||
+        res.status === 502 ||
+        (res.status === 400 && (json.step || json.campaign_id));
+      if (!res.ok && !isHandledShape) {
         const hint = json.hint ? `\n\n${json.hint}` : "";
         throw new Error(`${json.error}${hint}`);
       }
