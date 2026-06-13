@@ -316,7 +316,10 @@ function MetaPageInner() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) {
+      // 207 = éxito parcial (campaign creada pero algún adset/ad falló).
+      // Lo mostramos en el PushResultView con banner amarillo en lugar
+      // de tirar — el director quiere ver qué quedó creado y qué no.
+      if (!res.ok && res.status !== 207) {
         const hint = json.hint ? `\n\n${json.hint}` : "";
         throw new Error(`${json.error}${hint}`);
       }
@@ -970,23 +973,7 @@ function MetaPageInner() {
           {/* === Push result === */}
           {pushResult !== null && (
             <Section label="7. Resultado del push">
-              <pre
-                style={{
-                  background: "#0A1A0C",
-                  color: "#9ad19c",
-                  padding: 18,
-                  borderRadius: 6,
-                  fontSize: 11,
-                  fontFamily:
-                    "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  overflowX: "auto",
-                  maxHeight: 360,
-                  overflowY: "auto",
-                  lineHeight: 1.55,
-                }}
-              >
-                {JSON.stringify(pushResult, null, 2)}
-              </pre>
+              <PushResultView result={pushResult} />
             </Section>
           )}
         </div>
@@ -1027,6 +1014,290 @@ function Section({
     </div>
   );
 }
+
+// ============================================================
+// PushResultView — antes mostrábamos el JSON crudo, pero era duro
+// leer si algo había fallado. Ahora parseamos el shape que devuelve
+// /api/meta/push-campaign y mostramos:
+//   · banner verde "Campaña creada" o rojo "Campaña creada con errores"
+//   · lista de adsets con check/x + adentro la lista de ads
+//   · botón "Abrir en Ads Manager" con manage_url
+//   · expansor "Ver respuesta cruda" para el JSON completo
+// ============================================================
+interface PushAd {
+  name: string;
+  ok: boolean;
+  ad_id?: string;
+  creative_id?: string;
+  error?: string;
+}
+interface PushAdset {
+  name: string;
+  ok: boolean;
+  adset_id?: string;
+  ads: PushAd[];
+  error?: string;
+}
+interface PushResult {
+  success?: boolean;
+  dry_run?: boolean;
+  campaign_id?: string;
+  adsets?: PushAdset[];
+  failures?: string[];
+  note?: string;
+  manage_url?: string;
+  preview?: unknown;
+  ad_account?: string;
+}
+
+function PushResultView({ result }: { result: unknown }) {
+  const r = (result ?? {}) as PushResult;
+  const [showRaw, setShowRaw] = useState(false);
+
+  // Dry-run — solo mostramos el JSON del preview porque lo que importa
+  // ahí es ver qué body se mandaría.
+  if (r.dry_run) {
+    return (
+      <div>
+        <div
+          style={{
+            padding: "10px 14px",
+            background: "rgba(196,168,130,0.18)",
+            border: "1px solid rgba(196,168,130,0.4)",
+            color: "var(--deep-green)",
+            borderRadius: 6,
+            fontSize: 12,
+            marginBottom: 12,
+            fontWeight: 600,
+          }}
+        >
+          DRY-RUN — no se llamó a Meta. Esto es el body que se mandaría.
+        </div>
+        <pre style={preBox}>{JSON.stringify(r.preview, null, 2)}</pre>
+      </div>
+    );
+  }
+
+  const success = !!r.success;
+  const banner = success
+    ? {
+        bg: "rgba(47,125,79,0.12)",
+        border: "1px solid rgba(47,125,79,0.4)",
+        color: "var(--deep-green)",
+        msg: "✓ Campaña + adsets + ads creados (en PAUSED).",
+      }
+    : {
+        bg: "rgba(196,82,82,0.10)",
+        border: "1px solid rgba(196,82,82,0.4)",
+        color: "#a94343",
+        msg: r.campaign_id
+          ? "⚠ Campaña creada, pero al menos un adset o ad falló (ver detalle)."
+          : "✗ El push falló.",
+      };
+
+  return (
+    <div>
+      <div
+        style={{
+          padding: "10px 14px",
+          background: banner.bg,
+          border: banner.border,
+          color: banner.color,
+          borderRadius: 6,
+          fontSize: 13,
+          marginBottom: 12,
+          fontWeight: 600,
+        }}
+      >
+        {banner.msg}
+      </div>
+
+      {r.note && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted)",
+            marginBottom: 12,
+            lineHeight: 1.45,
+          }}
+        >
+          {r.note}
+        </div>
+      )}
+
+      {r.campaign_id && (
+        <div style={{ marginBottom: 12, fontSize: 12 }}>
+          <strong style={{ color: "var(--deep-green)" }}>Campaign ID:</strong>{" "}
+          <span style={{ fontFamily: "monospace" }}>{r.campaign_id}</span>
+        </div>
+      )}
+
+      {r.adsets && r.adsets.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {r.adsets.map((adset, i) => (
+            <div
+              key={i}
+              style={{
+                border: "1px solid rgba(10,26,12,0.1)",
+                borderLeft: `3px solid ${
+                  adset.ok ? "var(--green-ok)" : "#c45252"
+                }`,
+                borderRadius: 4,
+                padding: "10px 12px",
+                background: "var(--off-white)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--deep-green)",
+                  marginBottom: 4,
+                }}
+              >
+                {adset.ok ? "✓" : "✗"} AdSet: {adset.name}
+              </div>
+              {adset.adset_id && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "monospace",
+                    color: "var(--text-muted)",
+                    marginBottom: 6,
+                  }}
+                >
+                  id: {adset.adset_id}
+                </div>
+              )}
+              {adset.error && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#a94343",
+                    padding: "6px 8px",
+                    background: "rgba(196,82,82,0.06)",
+                    borderRadius: 3,
+                    marginBottom: 6,
+                    fontFamily: "monospace",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {adset.error}
+                </div>
+              )}
+              {adset.ads.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {adset.ads.map((ad, j) => (
+                    <div
+                      key={j}
+                      style={{
+                        fontSize: 11,
+                        padding: "5px 8px",
+                        background: "var(--white)",
+                        border: "1px solid rgba(10,26,12,0.06)",
+                        borderRadius: 3,
+                      }}
+                    >
+                      <div style={{ color: "var(--deep-green)" }}>
+                        {ad.ok ? "✓" : "✗"} Ad: {ad.name}
+                        {ad.ad_id && (
+                          <span
+                            style={{
+                              marginLeft: 8,
+                              fontFamily: "monospace",
+                              color: "var(--text-muted)",
+                              fontSize: 10,
+                            }}
+                          >
+                            id: {ad.ad_id}
+                          </span>
+                        )}
+                      </div>
+                      {ad.error && (
+                        <div
+                          style={{
+                            marginTop: 4,
+                            color: "#a94343",
+                            fontFamily: "monospace",
+                            fontSize: 10,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {ad.error}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {r.manage_url && (
+        <a
+          href={r.manage_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: 14,
+            padding: "10px 16px",
+            background:
+              "linear-gradient(135deg, #1877F2 0%, #166FE5 100%)",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            borderRadius: 4,
+          }}
+        >
+          Abrir en Ads Manager →
+        </a>
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        <button
+          type="button"
+          onClick={() => setShowRaw((v) => !v)}
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            textDecoration: "underline",
+            padding: 0,
+            fontFamily: "inherit",
+          }}
+        >
+          {showRaw ? "Ocultar JSON crudo" : "Ver JSON crudo"}
+        </button>
+        {showRaw && (
+          <pre style={{ ...preBox, marginTop: 8 }}>
+            {JSON.stringify(r, null, 2)}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const preBox: React.CSSProperties = {
+  background: "#0A1A0C",
+  color: "#9ad19c",
+  padding: 14,
+  borderRadius: 6,
+  fontSize: 11,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  overflowX: "auto",
+  maxHeight: 360,
+  overflowY: "auto",
+  lineHeight: 1.55,
+};
 
 function Label({ children }: { children: React.ReactNode }) {
   return (

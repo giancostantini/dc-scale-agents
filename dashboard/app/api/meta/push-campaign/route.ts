@@ -306,13 +306,43 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // 3.x) Por cada ad del adset, crear AdCreative + Ad.
+    // 3.x) Por cada ad del adset, subir imagen → AdCreative → Ad.
     const adsForThisAdset = adsetSpec.ads ?? [];
     const adsResults: typeof adsetResults[number]["ads"] = [];
 
     for (const ad of adsForThisAdset) {
       try {
-        const creativePayload = {
+        // 3.x.a) Si la creative es imagen, primero hay que subirla al
+        //   endpoint /adimages para obtener image_hash. Antes pasábamos
+        //   la URL en link_data.picture directo — Meta acepta el
+        //   parámetro pero NO siempre resuelve la URL externa, y la Ad
+        //   quedaba creada pero invisible en Ads Manager. El path
+        //   confiable es bytes → image_hash → link_data.image_hash.
+        let imageHash: string | undefined = undefined;
+        if (ad.creative_type === "image") {
+          try {
+            imageHash = await uploadAdImage(
+              graphBase,
+              ad.creative_ref,
+              metaToken,
+            );
+          } catch (e) {
+            const err = (e as Error).message;
+            console.error("[meta-push] adimages upload failed", {
+              ad: ad.name,
+              url: ad.creative_ref,
+              err,
+            });
+            adsResults.push({
+              name: ad.name,
+              ok: false,
+              error: `adimages: ${err}`,
+            });
+            continue;
+          }
+        }
+
+        const creativePayload: Record<string, unknown> = {
           name: `${ad.name} · Creative`,
           object_story_spec: {
             page_id: pageId,
@@ -321,8 +351,12 @@ export async function POST(req: NextRequest) {
               message: ad.primary_text,
               name: ad.headline,
               description: ad.description ?? undefined,
-              picture:
-                ad.creative_type === "image" ? ad.creative_ref : undefined,
+              // image_hash (subido recién) cuando es imagen.
+              // Para video: TODO subir a /advideos y mandar video_id.
+              // Por ahora dejamos undefined; Meta va a rechazar
+              // creatives de video sin video_id pero el error queda
+              // claro en la respuesta.
+              image_hash: imageHash,
               call_to_action: {
                 type: ad.cta_type,
                 value: { link: ad.destination_url },
@@ -338,6 +372,10 @@ export async function POST(req: NextRequest) {
         });
         const creativeData = await creativeRes.json();
         if (!creativeRes.ok || !creativeData.id) {
+          console.error("[meta-push] adcreative failed", {
+            ad: ad.name,
+            meta_response: creativeData,
+          });
           adsResults.push({
             name: ad.name,
             ok: false,
@@ -360,6 +398,10 @@ export async function POST(req: NextRequest) {
         });
         const adData = await adRes.json();
         if (!adRes.ok || !adData.id) {
+          console.error("[meta-push] ad creation failed", {
+            ad: ad.name,
+            meta_response: adData,
+          });
           adsResults.push({
             name: ad.name,
             ok: false,
@@ -375,6 +417,10 @@ export async function POST(req: NextRequest) {
           creative_id: creativeId,
         });
       } catch (e) {
+        console.error("[meta-push] ad pipeline crashed", {
+          ad: ad.name,
+          err: (e as Error).message,
+        });
         adsResults.push({
           name: ad.name,
           ok: false,
@@ -391,14 +437,106 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return Response.json({
-    success: true,
-    campaign_id: campaignId,
-    adsets: adsetResults,
-    note:
-      "Todo creado en status=PAUSED. Revisá en Ads Manager y activá manualmente cuando estés conforme.",
-    manage_url: `https://www.facebook.com/adsmanager/manage/campaigns?act=${adAccountId}&selected_campaign_ids=${campaignId}`,
+  // El response anterior siempre devolvía success=true cuando se creaba
+  // la campaign, aunque todos los adsets/ads adentro hubieran fallado.
+  // Eso confundía: el director veía "✓ pushed" pero en Ads Manager no
+  // aparecían ni los conjuntos ni los anuncios. Ahora computamos
+  // success real = campaign creada + todos los adsets ok + todos los
+  // ads ok.
+  const allAdsetsOk = adsetResults.every((a) => a.ok);
+  const allAdsOk = adsetResults.every((a) => a.ads.every((ad) => ad.ok));
+  const success = allAdsetsOk && allAdsOk;
+  const failures: string[] = [];
+  for (const a of adsetResults) {
+    if (!a.ok) failures.push(`AdSet "${a.name}": ${a.error ?? "sin detalle"}`);
+    for (const ad of a.ads) {
+      if (!ad.ok)
+        failures.push(`Ad "${ad.name}" (en ${a.name}): ${ad.error ?? "sin detalle"}`);
+    }
+  }
+
+  return Response.json(
+    {
+      success,
+      campaign_id: campaignId,
+      adsets: adsetResults,
+      failures,
+      note: success
+        ? "Todo creado en status=PAUSED. Revisá en Ads Manager y activá manualmente."
+        : "Campaign creada, pero al menos un adset o ad falló. Mirá `failures` y los logs del servidor para el detalle de Meta.",
+      manage_url: `https://www.facebook.com/adsmanager/manage/campaigns?act=${adAccountId}&selected_campaign_ids=${campaignId}`,
+    },
+    { status: success ? 200 : 207 },
+  );
+}
+
+/**
+ * Sube una imagen a /act_<id>/adimages y devuelve el image_hash que
+ * después se usa en link_data.image_hash de la AdCreative.
+ *
+ * El endpoint NO acepta URL externa como parámetro de forma confiable
+ * — hay que mandar los bytes en multipart/form-data. Por eso primero
+ * hacemos un fetch del recurso (la URL pública del bucket de Supabase
+ * o lo que el director haya pegado en /meta), y después POST con
+ * FormData.
+ *
+ * Tira si:
+ *   · La URL no se puede bajar (404, CORS, etc).
+ *   · Meta rechaza el upload (token sin permiso, formato no soportado).
+ */
+async function uploadAdImage(
+  graphBase: string,
+  imageUrl: string,
+  accessToken: string,
+): Promise<string> {
+  // 1) Bajar la imagen.
+  const dl = await fetch(imageUrl);
+  if (!dl.ok) {
+    throw new Error(
+      `No se pudo bajar la imagen (${dl.status} ${dl.statusText}): ${imageUrl}`,
+    );
+  }
+  const blob = await dl.blob();
+  if (blob.size === 0) {
+    throw new Error(`La imagen bajada vino vacía: ${imageUrl}`);
+  }
+
+  // 2) Construir multipart. Meta espera un field con nombre arbitrario
+  //    (usamos "file"); en el response devuelve { images: { <field>:
+  //    { hash } } }.
+  const form = new FormData();
+  form.append("access_token", accessToken);
+  // Nombre del archivo: extraemos del path para que Meta no haga lío
+  // con extensiones genéricas.
+  const fileName = (() => {
+    try {
+      const u = new URL(imageUrl);
+      const last = u.pathname.split("/").pop() ?? "creative.jpg";
+      return last.includes(".") ? last : `${last}.jpg`;
+    } catch {
+      return "creative.jpg";
+    }
+  })();
+  form.append("file", blob, fileName);
+
+  const res = await fetch(`${graphBase}/adimages`, {
+    method: "POST",
+    body: form,
   });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(`Meta /adimages ${res.status}: ${JSON.stringify(data)}`);
+  }
+  // Shape: { images: { "<fieldName>": { hash, url } } }
+  const imagesObj = (data?.images ?? {}) as Record<string, { hash?: string }>;
+  const firstKey = Object.keys(imagesObj)[0];
+  const hash = firstKey ? imagesObj[firstKey]?.hash : undefined;
+  if (!hash) {
+    throw new Error(
+      `Meta /adimages no devolvió image_hash: ${JSON.stringify(data)}`,
+    );
+  }
+  return hash;
 }
 
 /** Construye los payloads que se mandarían a Meta. Usado para
