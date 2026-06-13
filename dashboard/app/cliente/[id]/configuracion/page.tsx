@@ -538,53 +538,66 @@ export default function ConfiguracionPage({
         </div>
       </div>
 
-      {/* ============== META BUSINESS SUITE URL ==============
-          URL del planner de IG/FB del cliente. Cuando el director
-          toca un post en el calendario, el botón "Programar" abre
-          este link en una pestaña nueva. Si no se setea, cae al
-          home genérico de business.facebook.com. */}
-      <MetaBusinessSuitePanel
-        client={client}
-        onSaved={(url) =>
-          setClient((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  external_links: {
-                    ...(prev.external_links ?? {}),
-                    meta_business_suite_url: url || undefined,
-                  },
-                }
-              : prev,
-          )
-        }
-      />
+      {/* Los 3 paneles siguientes (Meta Business Suite, Clasificaciones
+          editoriales y Links de redes sociales) son específicos del
+          camino de Growth Partner — habilitan funcionalidades del menú
+          Contenido (Programar en MBS, color-code de chips, preview
+          feed con links reales). En clientes DEV no aplican: no hay
+          calendario de contenido ni feed preview, así que los ocultamos
+          para no agregar ruido a su configuración. */}
+      {client.type !== "dev" && (
+        <>
+          {/* ============== META BUSINESS SUITE URL ==============
+              URL del planner de IG/FB del cliente. Cuando el director
+              toca un post en el calendario, el botón "Programar" abre
+              este link en una pestaña nueva. Si no se setea, cae al
+              home genérico de business.facebook.com. */}
+          <MetaBusinessSuitePanel
+            client={client}
+            onSaved={(url) =>
+              setClient((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      external_links: {
+                        ...(prev.external_links ?? {}),
+                        meta_business_suite_url: url || undefined,
+                      },
+                    }
+                  : prev,
+              )
+            }
+          />
 
-      {/* ============== CLASIFICACIONES EDITORIALES ==============
-          Catálogo custom de clasificaciones del cliente. Se usa en el
-          menú Contenido para clasificar cada pieza y tintar los tiles
-          del feed con colores propios. Si el cliente no carga ninguna,
-          la UI cae a los DEFAULTS (valor/conversión/aspiracional). */}
-      <EditorialClassificationsPanel
-        client={client}
-        onSaved={(list) =>
-          setClient((prev) =>
-            prev ? { ...prev, content_classifications: list } : prev,
-          )
-        }
-      />
+          {/* ============== CLASIFICACIONES EDITORIALES ==============
+              Catálogo custom de clasificaciones del cliente. Se usa en
+              el menú Contenido para clasificar cada pieza y tintar los
+              tiles del feed con colores propios. Si el cliente no carga
+              ninguna, la UI cae a los DEFAULTS (valor/conversión/aspiracional). */}
+          <EditorialClassificationsPanel
+            client={client}
+            onSaved={(list) =>
+              setClient((prev) =>
+                prev ? { ...prev, content_classifications: list } : prev,
+              )
+            }
+          />
 
-      {/* ============== LINKS DE REDES SOCIALES ==============
-          Solo URLs — bio/seguidores/siguiendo NO se piden manualmente
-          (decidimos no mantener esos datos a mano). El preview del feed
-          muestra avatar + nombre + handle + link al perfil real, sin
-          stats numéricos ni bio. */}
-      <SocialLinksPanel
-        client={client}
-        onSaved={(links) =>
-          setClient((prev) => (prev ? { ...prev, social_links: links } : prev))
-        }
-      />
+          {/* ============== LINKS DE REDES SOCIALES ==============
+              Solo URLs — bio/seguidores/siguiendo NO se piden manualmente
+              (decidimos no mantener esos datos a mano). El preview del
+              feed muestra avatar + nombre + handle + link al perfil
+              real, sin stats numéricos ni bio. */}
+          <SocialLinksPanel
+            client={client}
+            onSaved={(links) =>
+              setClient((prev) =>
+                prev ? { ...prev, social_links: links } : prev,
+              )
+            }
+          />
+        </>
+      )}
 
       {/* ============== ACCESO DEL CLIENTE AL PORTAL ============== */}
       <div className={ui.panel} style={{ marginBottom: 24 }}>
