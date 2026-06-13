@@ -18,6 +18,7 @@ import {
   IReporting,
   IConfiguracion,
   ISprints,
+  ISolicitudes,
   type BrandIconProps,
 } from "./icons/BrandIcons";
 import { getCurrentProfile } from "@/lib/supabase/auth";
@@ -100,6 +101,7 @@ export default function ClientSidebar({
     { key: "calendario",  href: `${base}/planificador`,  icon: ICalendario,    label: "Calendario" },
     { key: "contenido",   href: `${base}/contenido`,     icon: IContenido,     label: "Contenido" },
     { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes" },
     { key: "producciones",href: `${base}/campanas`,      icon: IProducciones,  label: "Producciones" },
     { key: "analitica",   href: `${base}/analitica`,     icon: IAnalitica,     label: "Analítica" },
     { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
@@ -115,6 +117,7 @@ export default function ClientSidebar({
     { key: "sprints",     href: `${base}/sprints`,       icon: ISprints,       label: "Sprints" },
     { key: "nueva-tarea", href: `${base}/nueva-tarea`,   icon: IPlus,          label: "Nueva tarea" },
     { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas del cliente" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes" },
     { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
     { key: "accesos",     href: `${base}/accesos`,       icon: IConfiguracion, label: "Accesos" },
     { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
