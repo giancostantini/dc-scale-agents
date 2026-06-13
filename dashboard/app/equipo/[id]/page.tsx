@@ -67,6 +67,7 @@ export default function EquipoDetailPage({
   const [editNotes, setEditNotes] = useState("");
   // Permisos granulares (migration 007)
   const [editPipelineAccess, setEditPipelineAccess] = useState(false);
+  const [editContentAdmin, setEditContentAdmin] = useState(false);
   const [editReportsTo, setEditReportsTo] = useState<string>("");
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [saving, setSaving] = useState(false);
@@ -142,6 +143,7 @@ export default function EquipoDetailPage({
         setEditPhone(p.phone ?? "");
         setEditNotes(p.notes ?? "");
         setEditPipelineAccess(p.permissions?.pipeline_access === true);
+        setEditContentAdmin(p.permissions?.content_admin === true);
         setEditReportsTo(p.reports_to_id ?? "");
         await loadAssignments();
       }
@@ -213,7 +215,10 @@ export default function EquipoDetailPage({
         notes: editNotes || null,
         permissions: isClientRole
           ? {}
-          : { pipeline_access: editPipelineAccess },
+          : {
+              pipeline_access: editPipelineAccess,
+              content_admin: editContentAdmin,
+            },
         // Manager directo. Vacío = sin jefe asignado (típico de directores).
         // Clientes del portal nunca tienen manager interno.
         reports_to_id: isClientRole ? null : editReportsTo || null,
@@ -576,6 +581,48 @@ export default function EquipoDetailPage({
                   Por defecto el equipo no ve leads ni campañas de prospección.
                   Activá esto si {profile.name.split(" ")[0]} necesita acceder
                   al CRM para gestionar prospección y outbound.
+                </div>
+              </div>
+            </label>
+
+            {/* Control total de Contenido — habilita editar piezas,
+                aprobar/desaprobar, eliminar y subir imagen de preview
+                en /cliente/[id]/contenido. Sin esto, el team es solo
+                lectura. El director siempre tiene este permiso. */}
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                cursor: "pointer",
+                padding: 14,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+                marginTop: 10,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={editContentAdmin}
+                onChange={(e) => setEditContentAdmin(e.target.checked)}
+                style={{ width: 18, height: 18, marginTop: 2 }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                  Control total de Contenido
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Sin esto, {profile.name.split(" ")[0]} solo ve el menú
+                  Contenido en modo lectura. Activá para permitirle
+                  editar ideas, aprobar/desaprobar, eliminar piezas y
+                  subir imagen de preview — los mismos permisos que
+                  tiene un director sobre Contenido.
                 </div>
               </div>
             </label>

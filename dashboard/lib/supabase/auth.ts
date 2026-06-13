@@ -9,6 +9,11 @@ export interface ProfilePermissions {
   pipeline_access?: boolean;
   /** Si true, el cliente ya vio el onboarding tour del portal. Solo role='client'. */
   tour_seen?: boolean;
+  /** Si true, el team member tiene CONTROL TOTAL del menú Contenido del
+   *  cliente (edición de piezas, aprobar/desaprobar, eliminar). Sin esto,
+   *  team es solo lectura. El director siempre tiene control total
+   *  independiente de este flag. Se setea desde /equipo/[id]. */
+  content_admin?: boolean;
 }
 
 export interface Profile {
@@ -135,6 +140,27 @@ export function hasFinanzasAccess(
   profile: Profile | null | undefined,
 ): boolean {
   return profile?.role === "director";
+}
+
+/**
+ * Puede el viewer editar piezas en /cliente/[id]/contenido?
+ *   - Director: siempre.
+ *   - Team con permissions.content_admin === true: sí.
+ *   - Team sin ese flag: solo lectura.
+ *   - Cliente: nunca (su edición vive en el portal vía recomendaciones).
+ *
+ * Se usa para mostrar/ocultar botones de aprobar, desaprobar, eliminar,
+ * editar inline y para enable de los inputs del RowEditor en /contenido.
+ */
+export function canEditContent(
+  profile: Profile | null | undefined,
+): boolean {
+  if (!profile) return false;
+  if (profile.role === "director") return true;
+  if (profile.role === "team") {
+    return profile.permissions?.content_admin === true;
+  }
+  return false;
 }
 
 /** A dónde redirigir después de login según el rol. */

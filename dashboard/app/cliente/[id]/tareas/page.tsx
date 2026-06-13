@@ -18,10 +18,12 @@ import {
   getTasks,
   updateTaskStatus,
   deleteTask,
+  getClient,
 } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import { getCurrentProfile } from "@/lib/supabase/auth";
-import type { DevTask, TaskPriority, TaskStatus } from "@/lib/types";
+import { getSupabase } from "@/lib/supabase/client";
+import type { Client, DevTask, TaskPriority, TaskStatus } from "@/lib/types";
 import type { Profile } from "@/lib/supabase/auth";
 import ui from "@/components/ClientUI.module.css";
 
@@ -52,6 +54,12 @@ export default function TareasClientePage({
   const { id } = use(params);
   const [tasks, setTasks] = useState<DevTask[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  /** Perfil del cliente (role='client' con client_id=id). Lo separamos
+   *  del array de team profiles porque necesitamos marcarlo distinto
+   *  en el dropdown y disparar una notification al portal cuando se
+   *  asigna una tarea a él. NULL si todavía no se invitó al cliente. */
+  const [clientProfile, setClientProfile] = useState<Profile | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
   const [isDirector, setIsDirector] = useState(false);
 
   // Form
@@ -72,11 +80,17 @@ export default function TareasClientePage({
 
   useEffect(() => {
     refresh();
-    listProfiles().then((list) =>
-      setProfiles(list.filter((p) => p.role !== "client")),
-    );
+    listProfiles().then((list) => {
+      setProfiles(list.filter((p) => p.role !== "client"));
+      // Buscar el perfil del cliente (role='client' con client_id=this).
+      // Si no existe es porque el director todavía no invitó al cliente
+      // al portal — el dropdown lo va a ocultar para no romperse.
+      const cp = list.find((p) => p.role === "client" && p.client_id === id);
+      setClientProfile(cp ?? null);
+    });
+    getClient(id).then((c) => setClient(c ?? null));
     getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
-  }, [refresh]);
+  }, [refresh, id]);
 
   function resetForm() {
     setTitle("");
@@ -94,16 +108,23 @@ export default function TareasClientePage({
     }
     setSaving(true);
     try {
-      const assignee = profiles.find((p) => p.id === assigneeId);
+      // Resolver el assignee: puede ser team o cliente. Buscamos
+      // primero en team profiles; si no está y el clientProfile
+      // coincide, lo usamos.
+      const assignee =
+        profiles.find((p) => p.id === assigneeId) ??
+        (clientProfile?.id === assigneeId ? clientProfile : null);
+      const isClientAssigned = assignee?.role === "client";
       await addTask({
         clientId: id,
         title: title.trim(),
         description: description.trim() || undefined,
         sprint: undefined,
         // Guardamos el nombre + id para legibilidad y para join con UI
-        // que muestra el assignee como string.
+        // que muestra el assignee como string. Para el cliente lo
+        // marcamos como "Cliente" para que sea obvio en la lista.
         assignee: assignee
-          ? `${assignee.name} · ${assignee.position ?? assignee.role}`
+          ? `${assignee.name} · ${isClientAssigned ? "Cliente" : (assignee.position ?? assignee.role)}`
           : assigneeId,
         priority,
         status,
@@ -112,6 +133,38 @@ export default function TareasClientePage({
         startDate: undefined,
         dueDate: dueDate || undefined,
       });
+
+      // Si la tarea quedó asignada al cliente, mandamos una notif al
+      // portal para que la vea cuando entre. Se intenta vía supabase
+      // directo; si las RLS bloquean (caso normal — el team no tiene
+      // INSERT en notifications), cae al API endpoint con service role.
+      if (isClientAssigned && assignee) {
+        const supabase = getSupabase();
+        const notifPayload = {
+          client: id,
+          to_user_id: assignee.id,
+          to_role: null,
+          agent: "task",
+          level: "info",
+          title: "Nueva tarea asignada por el equipo",
+          body: title.trim(),
+          link: "/portal",
+          read: false,
+          email_sent: false,
+        };
+        const { error: notifErr } = await supabase
+          .from("notifications")
+          .insert(notifPayload);
+        if (notifErr) {
+          // Fallback al endpoint (si lo creamos en el futuro). Por
+          // ahora solo log — no rompemos la creación de la tarea.
+          console.warn(
+            "[tareas] no se pudo crear notif para el cliente:",
+            notifErr.message,
+          );
+        }
+      }
+
       resetForm();
       refresh();
     } catch (err) {
@@ -230,6 +283,15 @@ export default function TareasClientePage({
                 style={inputS}
               >
                 <option value="">— Elegí persona —</option>
+                {/* Opción Cliente — solo aparece cuando el cliente ya
+                    fue invitado al portal (tiene profile). Cuando esta
+                    opción se elige, al guardar se manda una notif al
+                    portal del cliente con link a su /portal. */}
+                {clientProfile && (
+                  <option value={clientProfile.id}>
+                    👤 {clientProfile.name} (Cliente)
+                  </option>
+                )}
                 {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}

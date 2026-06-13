@@ -38,7 +38,11 @@ import {
 } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import { getSupabase } from "@/lib/supabase/client";
-import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
+import {
+  canEditContent,
+  getCurrentProfile,
+  type Profile,
+} from "@/lib/supabase/auth";
 import { uploadContentPreview } from "@/lib/upload";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
 import type {
@@ -371,6 +375,12 @@ export default function ContenidoPage({
   const [client, setClient] = useState<Client | null>(null);
   const [posts, setPosts] = useState<ContentPost[]>([]);
   const [isDirector, setIsDirector] = useState(false);
+  /** Puede editar piezas (aprobar/desaprobar/eliminar/editar inline).
+   *  Director siempre; team solo si tiene permissions.content_admin=true.
+   *  Sirve para mostrar/ocultar checkboxes, botones de bulk y RowEditor
+   *  inputs. El asistente creativo IA sigue siendo director-only por
+   *  costo de tokens. */
+  const [canEdit, setCanEdit] = useState(false);
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [filter, setFilter] = useState<"all" | ContentStatus>("all");
   const [periodMode, setPeriodMode] = useState<
@@ -446,7 +456,10 @@ export default function ContenidoPage({
   useEffect(() => {
     refresh();
     getClient(id).then((c) => setClient(c ?? null));
-    getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
+    getCurrentProfile().then((p) => {
+      setIsDirector(p?.role === "director");
+      setCanEdit(canEditContent(p));
+    });
     listProfiles().then((profs) =>
       setTeamMembers(profs.filter((p) => p.role !== "client")),
     );
@@ -979,7 +992,7 @@ export default function ContenidoPage({
             />
           </div>
         )}
-        {isDirector && (
+        {canEdit && (
           <button
             onClick={() => setShowNewIdea(true)}
             style={{
@@ -1033,7 +1046,7 @@ export default function ContenidoPage({
       {/* BARRA DE ACCIONES BULK — solo aparece cuando hay items
           seleccionados en la tabla. Permite eliminar, aprobar,
           desaprobar o marcar publicada masivamente. Director only. */}
-      {isDirector && viewMode === "table" && selectedIds.size > 0 && (
+      {canEdit && viewMode === "table" && selectedIds.size > 0 && (
         <div
           style={{
             display: "flex",
@@ -1216,7 +1229,7 @@ export default function ContenidoPage({
                       aparece cuando hay algunas seleccionadas pero no
                       todas. Solo para director — el team no edita ni borra. */}
                   <th style={{ ...thStyle, width: 36, paddingLeft: 14 }}>
-                    {isDirector && sortedFiltered.length > 0 && (() => {
+                    {canEdit && sortedFiltered.length > 0 && (() => {
                       const visibleIds = sortedFiltered.map((p) => p.id);
                       const allSelected = visibleIds.every((id) =>
                         selectedIds.has(id),
@@ -1462,7 +1475,7 @@ export default function ContenidoPage({
                         onUnapprove={() => unapprove(p)}
                         onPublish={() => markPublished(p)}
                         onDelete={() => deleteOne(p)}
-                        isDirector={isDirector}
+                        isDirector={canEdit}
                         teamMembers={teamMembers}
                         selected={selectedIds.has(p.id)}
                         onToggleSelect={() =>
