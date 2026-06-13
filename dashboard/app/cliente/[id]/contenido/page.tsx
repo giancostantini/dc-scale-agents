@@ -416,6 +416,10 @@ export default function ContenidoPage({
   // Modal de "nueva idea manual"
   const [showNewIdea, setShowNewIdea] = useState(false);
   const [savingNewIdea, setSavingNewIdea] = useState(false);
+  // Multi-select para acciones en bloque sobre la tabla. Set<post.id>.
+  // El bar de acciones bulk solo aparece cuando hay al menos 1 elegido.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Fallback id → "C-XXXX" para posts sin `code` en DB (entornos donde
   // la migración 050 todavía no corrió). El path normal usa
@@ -1026,6 +1030,159 @@ export default function ContenidoPage({
         </button>
       </div>
 
+      {/* BARRA DE ACCIONES BULK — solo aparece cuando hay items
+          seleccionados en la tabla. Permite eliminar, aprobar,
+          desaprobar o marcar publicada masivamente. Director only. */}
+      {isDirector && viewMode === "table" && selectedIds.size > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 16px",
+            background: "var(--deep-green)",
+            color: "var(--off-white)",
+            borderRadius: "var(--r-sm)",
+            marginBottom: 14,
+            flexWrap: "wrap",
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700 }}>
+            {selectedIds.size}{" "}
+            {selectedIds.size === 1
+              ? "pieza seleccionada"
+              : "piezas seleccionadas"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            style={{
+              padding: "4px 10px",
+              fontSize: 11,
+              fontWeight: 600,
+              background: "transparent",
+              color: "rgba(255,255,255,0.7)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Limpiar
+          </button>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={async () => {
+              if (bulkBusy) return;
+              setBulkBusy(true);
+              try {
+                const ids = [...selectedIds];
+                await Promise.all(
+                  ids.map((id) =>
+                    updateContent(id, { status: "scheduled" }),
+                  ),
+                );
+                setSelectedIds(new Set());
+                refresh();
+              } catch (e) {
+                alert(`No se pudo aprobar:\n${(e as Error).message}`);
+              } finally {
+                setBulkBusy(false);
+              }
+            }}
+            style={bulkBtn}
+          >
+            ✓ Aprobar
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={async () => {
+              if (bulkBusy) return;
+              setBulkBusy(true);
+              try {
+                const ids = [...selectedIds];
+                await Promise.all(
+                  ids.map((id) => updateContent(id, { status: "draft" })),
+                );
+                setSelectedIds(new Set());
+                refresh();
+              } catch (e) {
+                alert(`No se pudo desaprobar:\n${(e as Error).message}`);
+              } finally {
+                setBulkBusy(false);
+              }
+            }}
+            style={bulkBtn}
+          >
+            ↶ Desaprobar
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={async () => {
+              if (bulkBusy) return;
+              setBulkBusy(true);
+              try {
+                const ids = [...selectedIds];
+                await Promise.all(
+                  ids.map((id) =>
+                    updateContent(id, { status: "published" }),
+                  ),
+                );
+                setSelectedIds(new Set());
+                refresh();
+              } catch (e) {
+                alert(`No se pudo marcar publicadas:\n${(e as Error).message}`);
+              } finally {
+                setBulkBusy(false);
+              }
+            }}
+            style={bulkBtn}
+          >
+            📤 Publicadas
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={async () => {
+              if (bulkBusy) return;
+              if (
+                !confirm(
+                  `¿Eliminar ${selectedIds.size} pieza${selectedIds.size === 1 ? "" : "s"}? No se puede deshacer.`,
+                )
+              )
+                return;
+              setBulkBusy(true);
+              try {
+                const ids = [...selectedIds];
+                await Promise.all(ids.map((id) => deleteContent(id)));
+                setSelectedIds(new Set());
+                refresh();
+              } catch (e) {
+                alert(`No se pudieron borrar:\n${(e as Error).message}`);
+              } finally {
+                setBulkBusy(false);
+              }
+            }}
+            style={{
+              ...bulkBtn,
+              background: "var(--red-warn)",
+              border: "1px solid var(--red-warn)",
+            }}
+          >
+            🗑 Eliminar
+          </button>
+        </div>
+      )}
+
       {/* TABLA de ideas — solo visible en modo "table". El modo "feed"
           renderiza el preview IG/FB en su propio bloque más abajo. */}
       {viewMode === "table" && (
@@ -1054,6 +1211,49 @@ export default function ContenidoPage({
             <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "var(--off-white)", borderBottom: "1px solid rgba(10,26,12,0.1)" }}>
+                  {/* Master checkbox: marca/desmarca TODAS las filas filtradas
+                      actualmente visibles. El estado indeterminado (-)
+                      aparece cuando hay algunas seleccionadas pero no
+                      todas. Solo para director — el team no edita ni borra. */}
+                  <th style={{ ...thStyle, width: 36, paddingLeft: 14 }}>
+                    {isDirector && sortedFiltered.length > 0 && (() => {
+                      const visibleIds = sortedFiltered.map((p) => p.id);
+                      const allSelected = visibleIds.every((id) =>
+                        selectedIds.has(id),
+                      );
+                      const someSelected = visibleIds.some((id) =>
+                        selectedIds.has(id),
+                      );
+                      return (
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el)
+                              el.indeterminate =
+                                !allSelected && someSelected;
+                          }}
+                          onChange={(e) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) {
+                                for (const id of visibleIds) next.add(id);
+                              } else {
+                                for (const id of visibleIds) next.delete(id);
+                              }
+                              return next;
+                            });
+                          }}
+                          style={{ cursor: "pointer" }}
+                          title={
+                            allSelected
+                              ? "Deseleccionar todo"
+                              : "Seleccionar todo lo visible"
+                          }
+                        />
+                      );
+                    })()}
+                  </th>
                   <th style={thStyle}>Código</th>
                   <th style={thStyle}>Red</th>
                   <th style={thStyle}>Formato</th>
@@ -1066,6 +1266,9 @@ export default function ContenidoPage({
                 </tr>
                 {/* Fila de filtros por columna — combinables con el chip de estado y el período */}
                 <tr style={{ background: "var(--white)", borderBottom: "1px solid rgba(10,26,12,0.08)" }}>
+                  {/* Celda vacía debajo del master checkbox para
+                      mantener el alineado de columnas. */}
+                  <th style={thFilterCell} />
                   <th style={thFilterCell}>
                     <input
                       type="text"
@@ -1196,7 +1399,7 @@ export default function ContenidoPage({
                 {sortedFiltered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       style={{
                         padding: "32px 20px",
                         textAlign: "center",
@@ -1261,6 +1464,15 @@ export default function ContenidoPage({
                         onDelete={() => deleteOne(p)}
                         isDirector={isDirector}
                         teamMembers={teamMembers}
+                        selected={selectedIds.has(p.id)}
+                        onToggleSelect={() =>
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(p.id)) next.delete(p.id);
+                            else next.add(p.id);
+                            return next;
+                          })
+                        }
                       />
                     );
                   })
@@ -1639,6 +1851,8 @@ function RowEditor({
   onDelete,
   isDirector,
   teamMembers,
+  selected,
+  onToggleSelect,
 }: {
   post: ContentPost;
   code: string;
@@ -1653,6 +1867,10 @@ function RowEditor({
   onDelete: () => Promise<void>;
   isDirector: boolean;
   teamMembers: Profile[];
+  /** Si el post está incluido en la selección bulk actual. */
+  selected: boolean;
+  /** Toggle del checkbox de selección. Solo se renderea para director. */
+  onToggleSelect: () => void;
 }) {
   // Catálogo de clasificaciones del cliente actual — leemos del
   // ClassificationsContext seteado por ContenidoPage.
@@ -1681,11 +1899,31 @@ function RowEditor({
       <tr
         style={{
           borderBottom: "1px solid rgba(10,26,12,0.05)",
-          background: isExpanded ? "rgba(196,168,130,0.06)" : undefined,
+          background: selected
+            ? "rgba(47,125,79,0.06)"
+            : isExpanded
+              ? "rgba(196,168,130,0.06)"
+              : undefined,
           cursor: "pointer",
         }}
         onClick={onExpand}
       >
+        {/* Checkbox de selección. Solo el director puede usarlo. Click
+            sobre el checkbox NO debe disparar onExpand (toggle visual). */}
+        <td
+          style={{ ...tdStyle, width: 36, paddingLeft: 14 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {isDirector && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              style={{ cursor: "pointer" }}
+              title={selected ? "Quitar de la selección" : "Agregar a la selección"}
+            />
+          )}
+        </td>
         <td style={{ ...tdStyle, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>
           {isExpanded ? "▼ " : "▶ "}
           {code}
@@ -1860,7 +2098,7 @@ function RowEditor({
       {/* Detalle expandido — editable */}
       {isExpanded && (
         <tr style={{ background: "var(--off-white)" }}>
-          <td colSpan={9} style={{ padding: "16px 20px" }}>
+          <td colSpan={10} style={{ padding: "16px 20px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {/* Columna izquierda: idea + copy */}
               <div>
@@ -2415,6 +2653,20 @@ const btnDelete: React.CSSProperties = {
   background: "transparent",
   border: "1px solid rgba(176,75,58,0.2)",
   color: "#B91C1C",
+};
+
+/** Botones de la barra de acciones bulk (sticky encima de la tabla). */
+const bulkBtn: React.CSSProperties = {
+  padding: "6px 12px",
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: "0.04em",
+  background: "rgba(255,255,255,0.08)",
+  color: "var(--off-white)",
+  border: "1px solid rgba(255,255,255,0.25)",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontFamily: "inherit",
 };
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
