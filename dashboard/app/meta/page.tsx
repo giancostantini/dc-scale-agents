@@ -23,7 +23,7 @@
  * instrucciones de qué setear.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import { getClients } from "@/lib/storage";
@@ -55,7 +55,22 @@ interface AdSetInput {
   creative_ids: string[];
 }
 
+/**
+ * Default export: envuelve el contenido en un Suspense porque
+ * useSearchParams() (que usamos para preseleccionar el cliente desde
+ * ?client=<id>) lo exige en Next.js 16. Sin el wrapper, el build
+ * server-side falla con "useSearchParams() should be wrapped in a
+ * suspense boundary".
+ */
 export default function MetaPage() {
+  return (
+    <Suspense fallback={null}>
+      <MetaPageInner />
+    </Suspense>
+  );
+}
+
+function MetaPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedClient = searchParams.get("client") ?? "";
