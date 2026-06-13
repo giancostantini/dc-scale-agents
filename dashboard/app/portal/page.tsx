@@ -370,6 +370,25 @@ export default function PortalPage() {
             {/* Estado de pago: ahora vive en el PortalHeader como CTA con
                 semáforo (verde / ámbar / rojo según fecha del mes). */}
 
+            {/* CTA Agenda de publicaciones — el cliente ve lo que el
+                equipo planeó subir y puede agregar recomendaciones por
+                pieza (no edita). Las recomendaciones llegan al menú
+                "Solicitudes" del dashboard GP. */}
+            <Link href="/portal/agenda" className={styles.requestCta}>
+              <div className={styles.requestCtaEyebrow}>
+                Agenda de publicaciones
+              </div>
+              <div className={styles.requestCtaTitle}>
+                Mirá lo que se viene en tus redes
+              </div>
+              <div className={styles.requestCtaBody}>
+                Tabla y vista feed con las publicaciones que el equipo
+                planeó. Podés agregar recomendaciones — te respondemos
+                por el portal.
+              </div>
+              <div className={styles.requestCtaArrow}>Ver agenda →</div>
+            </Link>
+
             {/* CTA Solicitudes — generar nueva oferta o acción */}
             <Link href="/portal/solicitudes" className={styles.requestCta}>
               <div className={styles.requestCtaEyebrow}>Cargar solicitud</div>

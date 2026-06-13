@@ -1067,7 +1067,7 @@ export function nextPhase(current: PhaseKey): PhaseKey | null {
 // Inbox de cosas que el cliente carga desde su portal: ofertas
 // (campañas/promos específicas) y acciones (ideas/pedidos libres).
 
-export type ClientRequestType = "oferta" | "accion";
+export type ClientRequestType = "oferta" | "accion" | "recomendacion";
 
 export type ClientRequestUrgency = "baja" | "media" | "alta";
 
@@ -1091,13 +1091,30 @@ export interface AccionMetadata {
   desiredDate?: string;
 }
 
+/**
+ * Metadata para client_requests con type='recomendacion'.
+ * El cliente carga estas desde /portal/agenda al apretar
+ * "+ Recomendación" sobre una pieza concreta — referenciamos
+ * el post por uuid + code C-XXXX + un excerpt de la idea para
+ * que el director vea contexto sin tener que abrir el post.
+ */
+export interface RecomendacionMetadata {
+  post_id?: string;
+  post_code?: string;
+  post_idea_excerpt?: string;
+}
+
 export interface ClientRequest {
   id: string;
   client_id: string;
   type: ClientRequestType;
   title: string;
   description: string;
-  metadata: OfertaMetadata | AccionMetadata | Record<string, unknown>;
+  metadata:
+    | OfertaMetadata
+    | AccionMetadata
+    | RecomendacionMetadata
+    | Record<string, unknown>;
   urgency: ClientRequestUrgency;
   status: ClientRequestStatus;
   submitted_by: string;

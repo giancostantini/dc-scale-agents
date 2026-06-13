@@ -9,6 +9,7 @@ import {
   ICalendario,
   IFinanzas,
   IEquipo,
+  IMail,
 } from "./icons/BrandIcons";
 import {
   getCurrentProfile,
@@ -89,6 +90,20 @@ export default function Topbar({
             onClick={() => router.push("/calendario")}
           >
             <ICalendario size={15} /> Calendario
+          </button>
+        )}
+
+        {/* Solicitudes del cliente — inbox global de recomendaciones,
+            ofertas y acciones que cargan los clientes desde su portal.
+            Director y team siempre lo ven (las RLS filtran por
+            cliente asignado). El cliente no — sus solicitudes las
+            maneja desde su propio portal. */}
+        {!isClient && (
+          <button
+            className={styles.btn}
+            onClick={() => router.push("/solicitudes")}
+          >
+            <IMail size={15} /> Solicitudes
           </button>
         )}
 
