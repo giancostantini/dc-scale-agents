@@ -244,6 +244,11 @@ export interface ClientExternalLinks {
    *  universal. Patrón típico:
    *    https://business.facebook.com/latest/home?asset_id=<page_id>  */
   meta_business_suite_url?: string;
+  /** ID del Ad Account del cliente en Meta Ads Manager (sin el prefijo
+   *  "act_"). Se usa desde /meta para pushear campañas generadas con
+   *  Claude. Ejemplo: 123456789012345. El director lo obtiene desde
+   *  Ads Manager → Configuración del negocio → Cuentas publicitarias. */
+  meta_ad_account_id?: string;
 }
 
 /**

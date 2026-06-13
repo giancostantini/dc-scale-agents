@@ -1038,30 +1038,49 @@ function MetaBusinessSuitePanel({
   onSaved: (url: string) => void;
 }) {
   const initial = client.external_links?.meta_business_suite_url ?? "";
+  const initialAdAccount = client.external_links?.meta_ad_account_id ?? "";
   const [url, setUrl] = useState(initial);
+  const [adAccountId, setAdAccountId] = useState(initialAdAccount);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(!initial);
+  const [editing, setEditing] = useState(!initial && !initialAdAccount);
   const [error, setError] = useState("");
 
   // Si cambia el cliente desde afuera, resync.
   useEffect(() => {
     setUrl(client.external_links?.meta_business_suite_url ?? "");
-    if (!client.external_links?.meta_business_suite_url) setEditing(true);
-  }, [client.external_links?.meta_business_suite_url]);
+    setAdAccountId(client.external_links?.meta_ad_account_id ?? "");
+    if (
+      !client.external_links?.meta_business_suite_url &&
+      !client.external_links?.meta_ad_account_id
+    ) {
+      setEditing(true);
+    }
+  }, [
+    client.external_links?.meta_business_suite_url,
+    client.external_links?.meta_ad_account_id,
+  ]);
 
   async function save() {
     setError("");
-    const clean = url.trim();
-    if (clean && !/^https?:\/\//i.test(clean)) {
+    const cleanUrl = url.trim();
+    const cleanAdAccount = adAccountId.trim();
+    if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
       setError("La URL tiene que empezar con http:// o https://");
+      return;
+    }
+    if (cleanAdAccount && !/^\d+$/.test(cleanAdAccount)) {
+      setError(
+        "El Ad Account ID tiene que ser solo números (sin el prefijo 'act_').",
+      );
       return;
     }
     setSaving(true);
     try {
       await updateClientExternalLinks(client.id, {
-        meta_business_suite_url: clean || null,
+        meta_business_suite_url: cleanUrl || null,
+        meta_ad_account_id: cleanAdAccount || null,
       });
-      onSaved(clean);
+      onSaved(cleanUrl);
       setEditing(false);
     } catch (err) {
       const e = err as Error;
@@ -1071,7 +1090,7 @@ function MetaBusinessSuitePanel({
     }
   }
 
-  const configured = !!initial;
+  const configured = !!initial || !!initialAdAccount;
 
   return (
     <div className={ui.panel} style={{ marginBottom: 24 }}>
@@ -1079,8 +1098,9 @@ function MetaBusinessSuitePanel({
         <div>
           <div className={ui.panelTitle}>Meta Business Suite</div>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            URL al planner de IG/FB del cliente. El botón "Programar"
-            del calendario lleva acá cuando el post es de IG o FB.
+            URL al planner de IG/FB (botón "Programar" del calendario) y{" "}
+            <strong>Ad Account ID</strong> (necesario para generar y
+            pushear campañas desde /meta).
           </p>
         </div>
         {configured && !editing && (
@@ -1095,46 +1115,95 @@ function MetaBusinessSuitePanel({
       </div>
 
       {editing ? (
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <input
-            type="url"
-            placeholder="https://business.facebook.com/latest/home?asset_id=..."
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            disabled={saving}
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              border: "1px solid rgba(10,26,12,0.15)",
-              borderRadius: 6,
-              fontFamily: "inherit",
-              fontSize: 13,
-              background: "var(--white)",
-              color: "var(--deep-green)",
-              outline: "none",
-            }}
-          />
-          <button
-            onClick={save}
-            disabled={saving}
-            className={ui.btnSolid}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            {saving ? "Guardando…" : "Guardar"}
-          </button>
-          {configured && (
-            <button
-              onClick={() => {
-                setUrl(initial);
-                setEditing(false);
-                setError("");
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
               }}
-              disabled={saving}
-              className={ui.btnGhost}
             >
-              Cancelar
+              URL del planner (opcional)
+            </div>
+            <input
+              type="url"
+              placeholder="https://business.facebook.com/latest/home?asset_id=..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={saving}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: 6,
+                fontFamily: "inherit",
+                fontSize: 13,
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                outline: "none",
+              }}
+            />
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Ad Account ID (solo números, sin "act_")
+            </div>
+            <input
+              type="text"
+              placeholder="123456789012345"
+              value={adAccountId}
+              onChange={(e) => setAdAccountId(e.target.value)}
+              disabled={saving}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: 6,
+                fontFamily: "monospace",
+                fontSize: 13,
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                outline: "none",
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={save}
+              disabled={saving}
+              className={ui.btnSolid}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {saving ? "Guardando…" : "Guardar"}
             </button>
-          )}
+            {configured && (
+              <button
+                onClick={() => {
+                  setUrl(initial);
+                  setAdAccountId(initialAdAccount);
+                  setEditing(false);
+                  setError("");
+                }}
+                disabled={saving}
+                className={ui.btnGhost}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div
@@ -1149,21 +1218,37 @@ function MetaBusinessSuitePanel({
             fontSize: 12,
           }}
         >
-          <a
-            href={initial}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: "var(--deep-green)",
-              textDecoration: "underline",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "100%",
-            }}
-          >
-            {initial}
-          </a>
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            {initial && (
+              <a
+                href={initial}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "block",
+                  color: "var(--deep-green)",
+                  textDecoration: "underline",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  marginBottom: 4,
+                }}
+              >
+                {initial}
+              </a>
+            )}
+            {initialAdAccount && (
+              <div
+                style={{
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  color: "var(--text-muted)",
+                }}
+              >
+                Ad Account: act_{initialAdAccount}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
