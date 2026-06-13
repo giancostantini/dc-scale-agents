@@ -229,6 +229,95 @@ function GPDashboard({
         </button>
       )}
 
+      {/* Card "Solicitudes del cliente" — entrypoint al inbox de
+          recomendaciones / ofertas / acciones que el cliente carga
+          desde su portal. Antes vivía como botón en el Topbar global,
+          pero quedaba lejos del contexto del cliente. Acá aparece
+          siempre (incluso si no hay solicitudes), porque la card sirve
+          también como recordatorio de que el módulo existe. */}
+      <button
+        type="button"
+        onClick={() => router.push(`/cliente/${client.id}/solicitudes`)}
+        className={ui.panel}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          cursor: "pointer",
+          marginBottom: 20,
+          borderLeft:
+            pendingRequests.length > 0
+              ? "3px solid var(--sand-dark)"
+              : "3px solid var(--sand)",
+          fontFamily: "inherit",
+          background: "var(--white)",
+          border: "1px solid rgba(10,26,12,0.08)",
+          padding: 18,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 26,
+            color: "var(--sand-dark)",
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          ✉
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 6,
+            }}
+          >
+            Solicitudes del cliente
+          </div>
+          <div
+            style={{
+              fontSize: 14,
+              color: "var(--deep-green)",
+              lineHeight: 1.5,
+            }}
+          >
+            {pendingRequests.length === 0 ? (
+              <span style={{ color: "var(--text-muted)" }}>
+                Sin solicitudes abiertas. Las recomendaciones, ofertas y
+                pedidos del cliente aparecen acá.
+              </span>
+            ) : (
+              <>
+                <strong style={{ fontSize: 17, fontWeight: 700 }}>
+                  {pendingRequests.length}
+                </strong>{" "}
+                solicitud{pendingRequests.length === 1 ? "" : "es"}{" "}
+                abierta{pendingRequests.length === 1 ? "" : "s"}{" "}
+                — recomendaciones, ofertas y acciones cargadas desde el
+                portal.
+              </>
+            )}
+          </div>
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--deep-green)",
+            letterSpacing: "0.04em",
+            flexShrink: 0,
+          }}
+        >
+          Ver solicitudes →
+        </div>
+      </button>
+
       {/* Presupuestos del mes — producciones + ads.
           Solo aparece para clientes GP. Director puede editar; team
           solo ve los números y la barra de saldo. */}

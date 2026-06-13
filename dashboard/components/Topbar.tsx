@@ -9,7 +9,6 @@ import {
   ICalendario,
   IFinanzas,
   IEquipo,
-  IMail,
 } from "./icons/BrandIcons";
 import {
   getCurrentProfile,
@@ -93,19 +92,10 @@ export default function Topbar({
           </button>
         )}
 
-        {/* Solicitudes del cliente — inbox global de recomendaciones,
-            ofertas y acciones que cargan los clientes desde su portal.
-            Director y team siempre lo ven (las RLS filtran por
-            cliente asignado). El cliente no — sus solicitudes las
-            maneja desde su propio portal. */}
-        {!isClient && (
-          <button
-            className={styles.btn}
-            onClick={() => router.push("/solicitudes")}
-          >
-            <IMail size={15} /> Solicitudes
-          </button>
-        )}
+        {/* Solicitudes ya no vive en el Topbar — el director / team
+            entran al inbox desde cada cliente puntual (card debajo de
+            "Tareas pendientes" en /cliente/[id]). Eso evita tener
+            menúes globales que se pisan con el dashboard del cliente. */}
 
         {/* Finanzas: solo director */}
         {showFinanzas && (
