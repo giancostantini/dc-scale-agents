@@ -317,9 +317,12 @@ function MetaPageInner() {
       });
       const json = await res.json();
       // 207 = éxito parcial (campaign creada pero algún adset/ad falló).
-      // Lo mostramos en el PushResultView con banner amarillo en lugar
-      // de tirar — el director quiere ver qué quedó creado y qué no.
-      if (!res.ok && res.status !== 207) {
+      // 502 = la llamada a Meta falló (campaign no creada o error de
+      // red). En ambos casos NO tiramos un Error genérico — guardamos
+      // el JSON en pushResult para que PushResultView muestre el
+      // step/meta_response/hint exacto. Solo tiramos para errores
+      // de auth/permisos nuestros (401, 403) o body inválido (400).
+      if (!res.ok && res.status !== 207 && res.status !== 502) {
         const hint = json.hint ? `\n\n${json.hint}` : "";
         throw new Error(`${json.error}${hint}`);
       }
@@ -1048,11 +1051,114 @@ interface PushResult {
   manage_url?: string;
   preview?: unknown;
   ad_account?: string;
+  // Cuando el endpoint devuelve 502 (Meta rechazó el create de la
+  // campaign) viene este shape.
+  error?: string;
+  step?: string;
+  status?: number;
+  sent?: unknown;
+  meta_response?: unknown;
+  hint?: string;
+  detail?: string;
 }
 
 function PushResultView({ result }: { result: unknown }) {
   const r = (result ?? {}) as PushResult;
   const [showRaw, setShowRaw] = useState(false);
+
+  // Error hard del lado del server (típico: la create de la Campaign
+  // se cayó por objective inválido / token / payment method). Mostramos
+  // el motivo de Meta de forma amigable + collapsible con el JSON
+  // crudo de lo que mandamos y lo que respondió.
+  if (r.error && !r.campaign_id && !r.dry_run) {
+    return (
+      <div>
+        <div
+          style={{
+            padding: "10px 14px",
+            background: "rgba(196,82,82,0.10)",
+            border: "1px solid rgba(196,82,82,0.4)",
+            color: "#a94343",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 12,
+          }}
+        >
+          ✗ {r.error}
+          {r.step && (
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "#7a3030",
+                background: "rgba(196,82,82,0.18)",
+                padding: "2px 6px",
+                borderRadius: 3,
+              }}
+            >
+              step: {r.step}
+            </span>
+          )}
+        </div>
+
+        {r.hint && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--deep-green)",
+              padding: "10px 12px",
+              background: "rgba(196,168,130,0.14)",
+              border: "1px solid rgba(196,168,130,0.4)",
+              borderRadius: 6,
+              lineHeight: 1.5,
+              marginBottom: 12,
+            }}
+          >
+            <strong>Pista:</strong> {r.hint}
+          </div>
+        )}
+
+        {r.meta_response !== undefined && (
+          <div style={{ marginBottom: 12 }}>
+            <Label>Respuesta cruda de Meta</Label>
+            <pre style={preBox}>
+              {JSON.stringify(r.meta_response, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {r.sent !== undefined && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowRaw((v) => !v)}
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+                fontFamily: "inherit",
+              }}
+            >
+              {showRaw ? "Ocultar payload que mandamos" : "Ver payload que mandamos"}
+            </button>
+            {showRaw && (
+              <pre style={{ ...preBox, marginTop: 8 }}>
+                {JSON.stringify(r.sent, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Dry-run — solo mostramos el JSON del preview porque lo que importa
   // ahí es ver qué body se mandaría.

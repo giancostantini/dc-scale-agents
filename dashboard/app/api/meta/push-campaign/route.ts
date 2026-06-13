@@ -191,29 +191,61 @@ export async function POST(req: NextRequest) {
   const graphBase = `https://graph.facebook.com/${apiVersion}/act_${adAccountId}`;
 
   // 1) Crear Campaign.
+  //
+  // Antes pasábamos el objective tal cual lo generaba Claude. Meta
+  // Marketing API v18+ ya NO acepta los objectives legacy (CONVERSIONS,
+  // LINK_CLICKS, REACH, MESSAGES, LEAD_GENERATION, BRAND_AWARENESS,
+  // POST_ENGAGEMENT…). Hay que mandar OUTCOME_*. Como red de seguridad
+  // mapeamos acá antes de enviar — así si Claude o el director pegan
+  // un objective viejo no se cae el push.
+  const normalizedCampaign = {
+    ...body.spec.campaign,
+    objective: normalizeObjective(body.spec.campaign.objective),
+    // special_ad_categories TIENE que ser array — algunas tools lo
+    // mandan como string vacío. Lo forzamos.
+    special_ad_categories: Array.isArray(body.spec.campaign.special_ad_categories)
+      ? body.spec.campaign.special_ad_categories
+      : [],
+  };
+
   let campaignId: string;
   try {
+    console.log("[meta-push] creating campaign", {
+      account: `act_${adAccountId}`,
+      payload: normalizedCampaign,
+    });
     const campaignRes = await fetch(`${graphBase}/campaigns`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...body.spec.campaign,
+        ...normalizedCampaign,
         access_token: metaToken,
       }),
     });
     const campaignData = await campaignRes.json();
     if (!campaignRes.ok || !campaignData.id) {
+      console.error("[meta-push] campaign create failed", {
+        status: campaignRes.status,
+        sent: normalizedCampaign,
+        meta_response: campaignData,
+      });
       return Response.json(
         {
           error: "Falló crear campaign en Meta",
           step: "campaign",
+          status: campaignRes.status,
+          sent: normalizedCampaign,
           meta_response: campaignData,
+          hint: campaignHintFromMetaResponse(campaignData),
         },
         { status: 502 },
       );
     }
     campaignId = campaignData.id;
   } catch (e) {
+    console.error("[meta-push] campaign network error", {
+      err: (e as Error).message,
+    });
     return Response.json(
       {
         error: "Error de red al crear campaign",
@@ -537,6 +569,84 @@ async function uploadAdImage(
     );
   }
   return hash;
+}
+
+/**
+ * Mapea objectives legacy de Meta Marketing API (deprecados en v18+)
+ * a sus equivalentes OUTCOME_*. Si el objective ya es OUTCOME_* o no
+ * lo conocemos, lo devolvemos tal cual.
+ *
+ * Tabla oficial de migración (Meta docs):
+ *   BRAND_AWARENESS / REACH        → OUTCOME_AWARENESS
+ *   LINK_CLICKS / TRAFFIC          → OUTCOME_TRAFFIC
+ *   POST_ENGAGEMENT / PAGE_LIKES /
+ *     EVENT_RESPONSES / MESSAGES /
+ *     VIDEO_VIEWS                  → OUTCOME_ENGAGEMENT
+ *   LEAD_GENERATION                → OUTCOME_LEADS
+ *   APP_INSTALLS                   → OUTCOME_APP_PROMOTION
+ *   CONVERSIONS / CATALOG_SALES /
+ *     STORE_VISITS / PRODUCT_CATALOG_SALES
+ *                                  → OUTCOME_SALES
+ */
+function normalizeObjective(obj: string | undefined | null): string {
+  if (!obj) return "OUTCOME_TRAFFIC";
+  const v = obj.trim().toUpperCase();
+  if (v.startsWith("OUTCOME_")) return v;
+  const map: Record<string, string> = {
+    BRAND_AWARENESS: "OUTCOME_AWARENESS",
+    REACH: "OUTCOME_AWARENESS",
+    LINK_CLICKS: "OUTCOME_TRAFFIC",
+    TRAFFIC: "OUTCOME_TRAFFIC",
+    POST_ENGAGEMENT: "OUTCOME_ENGAGEMENT",
+    PAGE_LIKES: "OUTCOME_ENGAGEMENT",
+    EVENT_RESPONSES: "OUTCOME_ENGAGEMENT",
+    MESSAGES: "OUTCOME_ENGAGEMENT",
+    VIDEO_VIEWS: "OUTCOME_ENGAGEMENT",
+    LEAD_GENERATION: "OUTCOME_LEADS",
+    APP_INSTALLS: "OUTCOME_APP_PROMOTION",
+    CONVERSIONS: "OUTCOME_SALES",
+    CATALOG_SALES: "OUTCOME_SALES",
+    PRODUCT_CATALOG_SALES: "OUTCOME_SALES",
+    STORE_VISITS: "OUTCOME_SALES",
+  };
+  return map[v] ?? "OUTCOME_TRAFFIC";
+}
+
+/**
+ * Mira el JSON que devolvió Meta y arma una pista en español para el
+ * director. Cubre los errores típicos que vemos: objective inválido,
+ * special_ad_categories, token sin permiso, ad account sin payment
+ * method, app no aprobada para Marketing API, page no asignada al
+ * business, etc. Si no matchea ninguno, devolvemos null.
+ */
+function campaignHintFromMetaResponse(meta: unknown): string | null {
+  const m = meta as { error?: { code?: number; message?: string; error_subcode?: number; error_user_msg?: string } };
+  const code = m?.error?.code;
+  const subcode = m?.error?.error_subcode;
+  const msg = (m?.error?.message ?? "").toLowerCase();
+  const userMsg = m?.error?.error_user_msg;
+
+  if (userMsg) return userMsg;
+
+  if (code === 100 && msg.includes("objective")) {
+    return "Meta rechazó el objective. Asegurate de usar OUTCOME_TRAFFIC / OUTCOME_AWARENESS / OUTCOME_ENGAGEMENT / OUTCOME_LEADS / OUTCOME_SALES — los viejos (CONVERSIONS, LINK_CLICKS, REACH…) ya no se aceptan en v21.";
+  }
+  if (code === 100 && msg.includes("special_ad_categor")) {
+    return "Meta rechazó special_ad_categories. Tiene que ser un array — vacío [] si no aplica, o ['HOUSING'|'EMPLOYMENT'|'CREDIT'] cuando corresponde por regulación.";
+  }
+  if (code === 190 || code === 102 || msg.includes("access token")) {
+    return "META_ACCESS_TOKEN inválido o expiró. Re-generá el System User Token con scope ads_management + business_management y actualizalo en Vercel.";
+  }
+  if (code === 200 || msg.includes("permission")) {
+    return "El token no tiene permisos sobre este Ad Account. En business.facebook.com → Configuración → Usuarios del sistema → tu System User, asignale la Ad Account con rol 'Anunciante' o 'Administrador'.";
+  }
+  if (msg.includes("payment") || msg.includes("billing") || subcode === 1487390) {
+    return "El Ad Account no tiene método de pago configurado o tiene la facturación bloqueada. Abrí business.facebook.com → Facturación y verificá que haya tarjeta + cuenta activa.";
+  }
+  if (msg.includes("not authorized") || msg.includes("not configured")) {
+    return "La App o System User no están autorizados sobre este Ad Account. Revisá que (1) la App esté en modo Live, (2) tenga el producto Marketing API habilitado, (3) el System User esté asignado al Ad Account.";
+  }
+  return null;
 }
 
 /** Construye los payloads que se mandarían a Meta. Usado para
