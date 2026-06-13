@@ -918,6 +918,13 @@ export interface ContentPost {
    *  final que se publica, eso vive en Drive/OneDrive. NULL = sin imagen,
    *  el tile usa el color de la clasificación. Ver migración 064. */
   imageUrl?: string | null;
+  /** Link externo (OneDrive / Drive) al archivo FINAL del creative.
+   *  Distinto de imageUrl (esa es la preview que vive en Supabase).
+   *  El GP pega acá la URL de la carpeta o archivo donde se está
+   *  produciendo / guardando la pieza. NULL = todavía no se subió a
+   *  OneDrive. La tabla muestra un mini-icono 📎 cuando hay valor.
+   *  Ver migración 071. */
+  assetUrl?: string | null;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;

@@ -2216,6 +2216,8 @@ interface ContentRow {
   classification?: string | null;
   // Migración 064 — imagen de preview para el feed.
   image_url?: string | null;
+  // Migración 071 — link externo (OneDrive / Drive) al archivo final.
+  asset_url?: string | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
@@ -2244,6 +2246,7 @@ function contentFromRow(r: ContentRow): ContentPost {
     assignedTo: r.assigned_to ?? null,
     classification: r.classification ?? null,
     imageUrl: r.image_url ?? null,
+    assetUrl: r.asset_url ?? null,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -2288,6 +2291,7 @@ export async function addContent(
       assigned_to: data.assignedTo ?? null,
       classification: data.classification ?? null,
       image_url: data.imageUrl ?? null,
+      asset_url: data.assetUrl ?? null,
       status: data.status,
       source: data.source,
     })
@@ -2323,6 +2327,8 @@ export interface UpdateContentInput {
   classification?: string | null;
   /** URL pública de la imagen de preview. null para limpiar. */
   imageUrl?: string | null;
+  /** Link externo (OneDrive / Drive) al archivo final. null para limpiar. */
+  assetUrl?: string | null;
   status?: ContentStatus;
 }
 
@@ -2354,6 +2360,7 @@ export async function updateContent(
   if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
   if (patch.classification !== undefined) dbPatch.classification = patch.classification;
   if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
+  if (patch.assetUrl !== undefined) dbPatch.asset_url = patch.assetUrl;
   if (patch.status !== undefined) dbPatch.status = patch.status;
   const { data, error } = await supabase
     .from("content_posts")

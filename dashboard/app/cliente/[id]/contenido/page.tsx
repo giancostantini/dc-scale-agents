@@ -593,6 +593,7 @@ export default function ContenidoPage({
         assignedTo: patch.assignedTo,
         classification: patch.classification,
         imageUrl: patch.imageUrl,
+        assetUrl: patch.assetUrl,
         status: patch.status,
       });
       refresh();
@@ -606,9 +607,11 @@ export default function ContenidoPage({
         ? "\n\nProbablemente falta correr la migración 065 (columna networks[]). Pegá el SQL en Supabase."
         : msg.toLowerCase().includes("image_url")
           ? "\n\nProbablemente falta correr la migración 064 (columna image_url)."
-          : msg.toLowerCase().includes("classification")
-            ? "\n\nProbablemente falta correr la migración 063 + 066 (clasificaciones)."
-            : "";
+          : msg.toLowerCase().includes("asset_url")
+            ? "\n\nProbablemente falta correr la migración 071 (columna asset_url)."
+            : msg.toLowerCase().includes("classification")
+              ? "\n\nProbablemente falta correr la migración 063 + 066 (clasificaciones)."
+              : "";
       alert(`No se pudo guardar el cambio:\n${msg}${hint}`);
     }
   }
@@ -1895,6 +1898,7 @@ function RowEditor({
   const [ctaDraft, setCtaDraft] = useState(post.cta ?? "");
   const [influencerDraft, setInfluencerDraft] = useState(post.influencer ?? "");
   const [briefDraft, setBriefDraft] = useState(post.brief ?? "");
+  const [assetUrlDraft, setAssetUrlDraft] = useState(post.assetUrl ?? "");
 
   // Sync cuando cambia el post desde afuera
   useEffect(() => {
@@ -1903,7 +1907,16 @@ function RowEditor({
     setCtaDraft(post.cta ?? "");
     setInfluencerDraft(post.influencer ?? "");
     setBriefDraft(post.brief ?? "");
-  }, [post.id, post.idea, post.copy, post.cta, post.influencer, post.brief]);
+    setAssetUrlDraft(post.assetUrl ?? "");
+  }, [
+    post.id,
+    post.idea,
+    post.copy,
+    post.cta,
+    post.influencer,
+    post.brief,
+    post.assetUrl,
+  ]);
 
   const assignedMember = teamMembers.find((t) => t.id === post.assignedTo);
 
@@ -2085,6 +2098,34 @@ function RowEditor({
           )}
         </td>
         <td style={{ ...tdStyle, textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+          {/* 📎 Atajo al archivo en OneDrive / Drive. Solo aparece si
+              está cargado el link. Lo ponemos antes de las acciones de
+              estado para que sea lo primero a la izquierda del bloque. */}
+          {post.assetUrl && (
+            <a
+              href={post.assetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Abrir archivo (OneDrive / Drive)"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 26,
+                height: 26,
+                marginRight: 6,
+                borderRadius: 4,
+                background: "rgba(10,26,12,0.05)",
+                color: "var(--deep-green)",
+                textDecoration: "none",
+                fontSize: 13,
+                verticalAlign: "middle",
+              }}
+            >
+              📎
+            </a>
+          )}
           {isDirector && post.status === "draft" && (
             <button onClick={onApprove} style={btnApprove}>
               ✓ Aprobar
@@ -2378,6 +2419,43 @@ function RowEditor({
                   isDirector={isDirector}
                   onSaved={(url) => onPatch({ imageUrl: url })}
                 />
+
+                {/* Link al archivo final — OneDrive / Drive. Distinto
+                    de la imagen de preview: acá se pega el link a la
+                    carpeta o archivo donde vive el creative real. La
+                    tabla muestra un 📎 en la fila cuando hay valor. */}
+                <FieldLabel>Link al archivo (OneDrive / Drive)</FieldLabel>
+                <input
+                  type="url"
+                  value={assetUrlDraft}
+                  onChange={(e) => setAssetUrlDraft(e.target.value)}
+                  onBlur={() => {
+                    const cleaned = assetUrlDraft.trim();
+                    if (cleaned !== (post.assetUrl ?? "")) {
+                      onPatch({ assetUrl: cleaned || null });
+                    }
+                  }}
+                  disabled={!isDirector}
+                  style={editorStyle}
+                  placeholder="https://onedrive.live.com/..."
+                />
+                {post.assetUrl && (
+                  <div style={{ marginTop: 6 }}>
+                    <a
+                      href={post.assetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 11,
+                        color: "var(--deep-green)",
+                        textDecoration: "underline",
+                        textDecorationStyle: "dotted",
+                      }}
+                    >
+                      📎 Abrir archivo en pestaña nueva ↗
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
