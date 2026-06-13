@@ -1042,23 +1042,22 @@ function MetaBusinessSuitePanel({
   const [url, setUrl] = useState(initial);
   const [adAccountId, setAdAccountId] = useState(initialAdAccount);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(!initial && !initialAdAccount);
   const [error, setError] = useState("");
 
   // Si cambia el cliente desde afuera, resync.
   useEffect(() => {
     setUrl(client.external_links?.meta_business_suite_url ?? "");
     setAdAccountId(client.external_links?.meta_ad_account_id ?? "");
-    if (
-      !client.external_links?.meta_business_suite_url &&
-      !client.external_links?.meta_ad_account_id
-    ) {
-      setEditing(true);
-    }
   }, [
     client.external_links?.meta_business_suite_url,
     client.external_links?.meta_ad_account_id,
   ]);
+
+  // Hay cambios sin guardar si los valores actuales difieren de lo
+  // que está en DB. Lo usamos para enable/disable del botón Guardar.
+  const dirty =
+    url.trim() !== initial.trim() ||
+    adAccountId.trim() !== initialAdAccount.trim();
 
   async function save() {
     setError("");
@@ -1081,7 +1080,6 @@ function MetaBusinessSuitePanel({
         meta_ad_account_id: cleanAdAccount || null,
       });
       onSaved(cleanUrl);
-      setEditing(false);
     } catch (err) {
       const e = err as Error;
       setError(e.message);
@@ -1089,8 +1087,6 @@ function MetaBusinessSuitePanel({
       setSaving(false);
     }
   }
-
-  const configured = !!initial || !!initialAdAccount;
 
   return (
     <div className={ui.panel} style={{ marginBottom: 24 }}>
@@ -1103,154 +1099,132 @@ function MetaBusinessSuitePanel({
             pushear campañas desde /meta).
           </p>
         </div>
-        {configured && !editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className={ui.btnGhost}
-            style={{ fontSize: 11 }}
-          >
-            Editar
-          </button>
-        )}
       </div>
 
-      {editing ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              URL del planner (opcional)
-            </div>
-            <input
-              type="url"
-              placeholder="https://business.facebook.com/latest/home?asset_id=..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={saving}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid rgba(10,26,12,0.15)",
-                borderRadius: 6,
-                fontFamily: "inherit",
-                fontSize: 13,
-                background: "var(--white)",
-                color: "var(--deep-green)",
-                outline: "none",
-              }}
-            />
+      {/* Inputs SIEMPRE visibles — sin modo colapsado. Antes había un
+          toggle "Editar" pero el director pidió ver los valores siempre
+          sin tener que abrir un editor. El botón Guardar se prende solo
+          cuando hay cambios sin guardar. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 4,
+            }}
+          >
+            URL del planner (opcional)
           </div>
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              Ad Account ID (solo números, sin "act_")
-            </div>
-            <input
-              type="text"
-              placeholder="123456789012345"
-              value={adAccountId}
-              onChange={(e) => setAdAccountId(e.target.value)}
-              disabled={saving}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid rgba(10,26,12,0.15)",
-                borderRadius: 6,
-                fontFamily: "monospace",
-                fontSize: 13,
-                background: "var(--white)",
-                color: "var(--deep-green)",
-                outline: "none",
-              }}
-            />
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={save}
-              disabled={saving}
-              className={ui.btnSolid}
-              style={{ whiteSpace: "nowrap" }}
-            >
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            {configured && (
-              <button
-                onClick={() => {
-                  setUrl(initial);
-                  setAdAccountId(initialAdAccount);
-                  setEditing(false);
-                  setError("");
-                }}
-                disabled={saving}
-                className={ui.btnGhost}
-              >
-                Cancelar
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 14px",
-            background: "var(--off-white)",
-            borderRadius: 6,
-            fontSize: 12,
-          }}
-        >
-          <div style={{ flex: 1, overflow: "hidden" }}>
-            {initial && (
+          <input
+            type="url"
+            placeholder="https://business.facebook.com/latest/home?asset_id=..."
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            disabled={saving}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 6,
+              fontFamily: "inherit",
+              fontSize: 13,
+              background: "var(--white)",
+              color: "var(--deep-green)",
+              outline: "none",
+            }}
+          />
+          {initial && (
+            <div style={{ marginTop: 6 }}>
               <a
                 href={initial}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                  display: "block",
-                  color: "var(--deep-green)",
-                  textDecoration: "underline",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  marginBottom: 4,
-                }}
-              >
-                {initial}
-              </a>
-            )}
-            {initialAdAccount && (
-              <div
-                style={{
                   fontSize: 11,
-                  fontFamily: "monospace",
                   color: "var(--text-muted)",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
                 }}
               >
-                Ad Account: act_{initialAdAccount}
-              </div>
-            )}
-          </div>
+                Abrir en pestaña nueva ↗
+              </a>
+            </div>
+          )}
         </div>
-      )}
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 4,
+            }}
+          >
+            Ad Account ID (solo números, sin "act_")
+          </div>
+          <input
+            type="text"
+            placeholder="123456789012345"
+            value={adAccountId}
+            onChange={(e) => setAdAccountId(e.target.value)}
+            disabled={saving}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 6,
+              fontFamily: "monospace",
+              fontSize: 13,
+              background: "var(--white)",
+              color: "var(--deep-green)",
+              outline: "none",
+            }}
+          />
+          {initialAdAccount && (
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: "var(--text-muted)",
+                fontFamily: "monospace",
+              }}
+            >
+              Guardado como: <strong>act_{initialAdAccount}</strong>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && (
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--sand-dark)",
+                flex: 1,
+              }}
+            >
+              Hay cambios sin guardar.
+            </span>
+          )}
+          <div style={{ flex: dirty ? 0 : 1 }} />
+          <button
+            onClick={save}
+            disabled={saving || !dirty}
+            className={ui.btnSolid}
+            style={{
+              whiteSpace: "nowrap",
+              opacity: saving || !dirty ? 0.55 : 1,
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
 
       {error && (
         <div
