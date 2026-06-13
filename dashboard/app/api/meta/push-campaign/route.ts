@@ -198,6 +198,17 @@ export async function POST(req: NextRequest) {
   // POST_ENGAGEMENT…). Hay que mandar OUTCOME_*. Como red de seguridad
   // mapeamos acá antes de enviar — así si Claude o el director pegan
   // un objective viejo no se cae el push.
+  // ¿La campaña tiene presupuesto centralizado (CBO / Advantage
+  // Budget) o cada AdSet maneja el suyo? Como nuestro spec setea
+  // daily_budget/lifetime_budget por AdSet (no en la Campaign),
+  // estamos siempre en modo "per-adset budget". Lo guardamos para
+  // decidir is_adset_budget_sharing_enabled abajo.
+  const campaignHasOwnBudget =
+    typeof (body.spec.campaign as Record<string, unknown>).daily_budget ===
+      "number" ||
+    typeof (body.spec.campaign as Record<string, unknown>).lifetime_budget ===
+      "number";
+
   const normalizedCampaign = {
     ...body.spec.campaign,
     objective: normalizeObjective(body.spec.campaign.objective),
@@ -206,6 +217,24 @@ export async function POST(req: NextRequest) {
     special_ad_categories: Array.isArray(body.spec.campaign.special_ad_categories)
       ? body.spec.campaign.special_ad_categories
       : [],
+    // Meta v21 exige declarar is_adset_budget_sharing_enabled de
+    // forma explícita cuando NO se usa Campaign Budget Optimization
+    // (CBO). Sin esto Meta devuelve:
+    //   "Se debe especificar Verdadero o Falso en el campo
+    //    is_adset_budget_sharing_enabled si no estás usando el
+    //    presupuesto de campaña."
+    // Nuestro generator pone daily_budget en cada AdSet (no en la
+    // Campaign), así que vamos con `false` por defecto — cada AdSet
+    // gestiona su propio presupuesto sin compartirlo. Si la spec
+    // ya trajo el campo, lo respetamos.
+    is_adset_budget_sharing_enabled:
+      typeof (body.spec.campaign as Record<string, unknown>)
+        .is_adset_budget_sharing_enabled === "boolean"
+        ? (body.spec.campaign as Record<string, unknown>)
+            .is_adset_budget_sharing_enabled
+        : campaignHasOwnBudget
+          ? undefined // si la Campaign sí tiene budget, dejá que Meta default
+          : false,
   };
 
   let campaignId: string;
