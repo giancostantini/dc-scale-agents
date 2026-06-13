@@ -336,71 +336,12 @@ export default function HubPage() {
               />
             </div>
 
-            {/* CTA META — director-only. Lanza el dashboard /meta donde
-                se generan campañas Meta Ads con Claude a partir de un
-                prompt + creativos. Lo mostramos solo al director porque
-                la creación de campañas paga es una acción ejecutiva. */}
-            {profile.role === "director" && (
-              <Link
-                href="/meta"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginTop: 18,
-                  padding: "12px 18px",
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: 8,
-                  color: "var(--off-white)",
-                  textDecoration: "none",
-                  transition: "all 0.15s",
-                  cursor: "pointer",
-                }}
-              >
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    background:
-                      "linear-gradient(135deg, #1877F2 0%, #166FE5 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 800,
-                    fontSize: 16,
-                    color: "#fff",
-                    fontFamily: "system-ui, sans-serif",
-                  }}
-                >
-                  M
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      letterSpacing: "0.22em",
-                      textTransform: "uppercase",
-                      color: "var(--sand)",
-                      fontWeight: 700,
-                      marginBottom: 2,
-                    }}
-                  >
-                    Beta · Solo director
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "var(--off-white)",
-                    }}
-                  >
-                    Meta — Generar campañas con Claude →
-                  </div>
-                </div>
-              </Link>
-            )}
+            {/* NOTA: el CTA META vivía acá (director-only). Lo sacamos
+                porque el generador de campañas se accede desde Paid
+                Media de cada cliente, que ya pre-selecciona el cliente
+                y muestra el estado del Ad Account. Tener el botón en
+                el hub era redundante. La página /meta sigue existiendo
+                y accesible directo por URL. */}
 
             {/* ============ MIS CLIENTES (dentro del hero verde) ============
                 Antes este grid vivía en una sección aparte abajo del
