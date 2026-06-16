@@ -375,12 +375,11 @@ export default function ContenidoPage({
   const [client, setClient] = useState<Client | null>(null);
   const [posts, setPosts] = useState<ContentPost[]>([]);
   const [isDirector, setIsDirector] = useState(false);
-  /** Puede editar piezas (aprobar/desaprobar/eliminar/editar inline).
-   *  Director siempre; team solo si tiene permissions.content_admin=true.
-   *  Sirve para mostrar/ocultar checkboxes, botones de bulk y RowEditor
-   *  inputs. El asistente creativo IA sigue siendo director-only por
-   *  costo de tokens. */
-  const [canEdit, setCanEdit] = useState(false);
+  /** Guardamos el profile entero (no solo isDirector) porque
+   *  canEdit ahora depende del tipo del cliente además del perfil
+   *  (team puede editar contenido en clientes GP sin content_admin).
+   *  Ver canEditContent(profile, client.type). */
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [filter, setFilter] = useState<"all" | ContentStatus>("all");
   const [periodMode, setPeriodMode] = useState<
@@ -458,12 +457,23 @@ export default function ContenidoPage({
     getClient(id).then((c) => setClient(c ?? null));
     getCurrentProfile().then((p) => {
       setIsDirector(p?.role === "director");
-      setCanEdit(canEditContent(p));
+      setProfile(p);
     });
     listProfiles().then((profs) =>
       setTeamMembers(profs.filter((p) => p.role !== "client")),
     );
   }, [id, refresh]);
+
+  /**
+   * canEdit deriva de profile + client.type:
+   *   - Director siempre.
+   *   - Team con content_admin → siempre.
+   *   - Team sin content_admin → solo si el cliente es GP.
+   *   - Cliente → nunca.
+   * Recalculamos cada vez que cambia profile o client (ej. cuando el
+   * primer fetch resuelve después del segundo).
+   */
+  const canEdit = canEditContent(profile, client?.type ?? null);
 
   const sortedFiltered = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);

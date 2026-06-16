@@ -216,7 +216,15 @@ export default function EquipoPage() {
         <div className={styles.list}>
           {profiles.map((p) => {
             const isMe = p.id === me.id;
-            const linkHref = isDirector || isMe ? `/equipo/${p.id}` : `/perfil`;
+            // Team members no entran al detalle de OTRO compañero — no
+            // tendría info útil para ellos. Cuando es su propio perfil
+            // sí los mandamos a /perfil. El director siempre puede entrar
+            // a editar a cualquiera. Para el team viendo a un compañero,
+            // mostramos las celdas como divs (no links) y agregamos un
+            // botón mailto al lado del email para que el contacto sea el
+            // CTA en lugar del click en el card.
+            const canOpenDetail = isDirector || isMe;
+            const linkHref = isMe ? "/perfil" : `/equipo/${p.id}`;
             const rowBusy = busyId === p.id;
             return (
               <div
@@ -224,24 +232,67 @@ export default function EquipoPage() {
                 className={styles.row}
                 style={rowBusy ? { opacity: 0.5, pointerEvents: "none" } : undefined}
               >
-                <Link
-                  href={linkHref}
-                  className={styles.avatar}
-                  style={{ textDecoration: "none" }}
-                >
-                  {p.initials || "??"}
-                </Link>
-                <Link
-                  href={linkHref}
-                  className={styles.info}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <div className={styles.name}>
-                    {p.name}
-                    {isMe && <span className={styles.youTag}>Vos</span>}
+                {canOpenDetail ? (
+                  <Link
+                    href={linkHref}
+                    className={styles.avatar}
+                    style={{ textDecoration: "none" }}
+                  >
+                    {p.initials || "??"}
+                  </Link>
+                ) : (
+                  <div className={styles.avatar}>{p.initials || "??"}</div>
+                )}
+                {canOpenDetail ? (
+                  <Link
+                    href={linkHref}
+                    className={styles.info}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <div className={styles.name}>
+                      {p.name}
+                      {isMe && <span className={styles.youTag}>Vos</span>}
+                    </div>
+                    <div className={styles.email}>{p.email}</div>
+                  </Link>
+                ) : (
+                  <div className={styles.info}>
+                    <div className={styles.name}>{p.name}</div>
+                    <div
+                      className={styles.email}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ userSelect: "all" }}>{p.email}</span>
+                      {p.email && (
+                        <a
+                          href={`mailto:${p.email}`}
+                          title={`Enviar email a ${p.name}`}
+                          aria-label={`Enviar email a ${p.name}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 24,
+                            height: 24,
+                            background: "rgba(10,26,12,0.06)",
+                            border: "1px solid rgba(10,26,12,0.1)",
+                            color: "var(--deep-green)",
+                            textDecoration: "none",
+                            borderRadius: 4,
+                            fontSize: 12,
+                            lineHeight: 1,
+                          }}
+                        >
+                          ✉
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <div className={styles.email}>{p.email}</div>
-                </Link>
+                )}
                 <div className={styles.position}>{p.position || "—"}</div>
                 <div className={styles.roleCol}>
                   {isDirector && !isMe ? (

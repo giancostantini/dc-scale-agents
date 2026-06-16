@@ -587,8 +587,13 @@ export default function EquipoDetailPage({
 
             {/* Control total de Contenido — habilita editar piezas,
                 aprobar/desaprobar, eliminar y subir imagen de preview
-                en /cliente/[id]/contenido. Sin esto, el team es solo
-                lectura. El director siempre tiene este permiso. */}
+                en /cliente/[id]/contenido. El director siempre tiene
+                este permiso.
+
+                Nota: para clientes GP (Growth Partners) el equipo
+                puede editar contenido SIN este flag — el director
+                decidió que los GP fluyen mejor con edición abierta.
+                Este toggle ahora aplica realmente solo a clientes DEV. */}
             <label
               style={{
                 display: "flex",
@@ -609,7 +614,7 @@ export default function EquipoDetailPage({
               />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                  Control total de Contenido
+                  Control total de Contenido en clientes DEV
                 </div>
                 <div
                   style={{
@@ -618,11 +623,12 @@ export default function EquipoDetailPage({
                     lineHeight: 1.5,
                   }}
                 >
-                  Sin esto, {profile.name.split(" ")[0]} solo ve el menú
-                  Contenido en modo lectura. Activá para permitirle
-                  editar ideas, aprobar/desaprobar, eliminar piezas y
-                  subir imagen de preview — los mismos permisos que
-                  tiene un director sobre Contenido.
+                  En clientes <strong>GP (Growth)</strong>,{" "}
+                  {profile.name.split(" ")[0]} ya puede editar contenido
+                  sin necesidad de este permiso. Activalo si querés que
+                  también pueda editar contenido de clientes{" "}
+                  <strong>DEV</strong> (donde el contenido suele estar
+                  asociado a landings y sitios publicados).
                 </div>
               </div>
             </label>

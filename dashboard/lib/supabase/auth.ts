@@ -150,20 +150,34 @@ export function hasFinanzasAccess(
 /**
  * Puede el viewer editar piezas en /cliente/[id]/contenido?
  *   - Director: siempre.
- *   - Team con permissions.content_admin === true: sí.
- *   - Team sin ese flag: solo lectura.
+ *   - Team con permissions.content_admin === true: sí, en cualquier cliente.
+ *   - Team SIN content_admin pero el cliente es GP (tipo "gp"): SÍ. El
+ *     director decidió que todo el equipo puede colaborar en la edición
+ *     de contenido de los clientes Growth — esos viven de cadencia
+ *     editorial y necesitan que cualquiera pueda corregir un copy
+ *     sin estar pidiendo permisos. Para clientes DEV mantenemos la
+ *     restricción de content_admin porque son sitios/landings y la
+ *     edición ahí impacta el código publicado.
  *   - Cliente: nunca (su edición vive en el portal vía recomendaciones).
  *
  * Se usa para mostrar/ocultar botones de aprobar, desaprobar, eliminar,
  * editar inline y para enable de los inputs del RowEditor en /contenido.
+ *
+ * `clientType` es opcional: si no se pasa, mantenemos la semántica
+ * vieja (solo content_admin para team). Los call sites que sí saben
+ * del cliente actual (la página /contenido siempre lo sabe) lo pasan
+ * para habilitar el branch GP-friendly.
  */
 export function canEditContent(
   profile: Profile | null | undefined,
+  clientType?: "gp" | "dev" | null,
 ): boolean {
   if (!profile) return false;
   if (profile.role === "director") return true;
   if (profile.role === "team") {
-    return profile.permissions?.content_admin === true;
+    if (profile.permissions?.content_admin === true) return true;
+    if (clientType === "gp") return true;
+    return false;
   }
   return false;
 }
