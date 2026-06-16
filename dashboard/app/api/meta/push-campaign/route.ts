@@ -514,7 +514,7 @@ export async function POST(req: NextRequest) {
           status: campaignRes.status,
           sent: normalizedCampaign,
           meta_response: campaignData,
-          hint: campaignHintFromMetaResponse(campaignData),
+          hint: hintForMetaError(campaignData),
         },
         { status: 502 },
       );
@@ -581,8 +581,14 @@ export async function POST(req: NextRequest) {
       ad_id?: string;
       creative_id?: string;
       error?: string;
+      /** Pista en español derivada de la respuesta de Meta — sale en
+       *  la UI debajo del error técnico cuando podemos diagnosticarlo
+       *  (ej. App en Dev mode, CTA inválido, token expirado, etc). */
+      hint?: string;
     }>;
     error?: string;
+    /** Idem `hint` pero a nivel AdSet. */
+    hint?: string;
   }> = [];
 
   for (const adsetSpec of adsetsList) {
@@ -621,6 +627,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           ads: [],
           error: `adset: ${JSON.stringify(adsetData)}`,
+          hint: hintForMetaError(adsetData) ?? undefined,
         });
         continue;
       }
@@ -713,6 +720,7 @@ export async function POST(req: NextRequest) {
             name: ad.name,
             ok: false,
             error: `creative: ${JSON.stringify(creativeData)}`,
+            hint: hintForMetaError(creativeData) ?? undefined,
           });
           continue;
         }
@@ -740,6 +748,7 @@ export async function POST(req: NextRequest) {
             ok: false,
             creative_id: creativeId,
             error: `ad: ${JSON.stringify(adData)}`,
+            hint: hintForMetaError(adData) ?? undefined,
           });
           continue;
         }
@@ -1009,17 +1018,46 @@ function normalizeObjective(obj: string | undefined | null): string {
 
 /**
  * Mira el JSON que devolvió Meta y arma una pista en español para el
- * director. Cubre los errores típicos que vemos: objective inválido,
+ * director. Antes era específica de campaign, pero los mismos códigos
+ * de error aparecen en cualquier nivel (Campaign / AdSet / AdCreative
+ * / Ad). Ahora es genérica.
+ *
+ * Cubre los errores típicos que vimos: objective inválido,
  * special_ad_categories, token sin permiso, ad account sin payment
- * method, app no aprobada para Marketing API, page no asignada al
- * business, etc. Si no matchea ninguno, devolvemos null.
+ * method, App de Meta en modo Development, etc.
  */
-function campaignHintFromMetaResponse(meta: unknown): string | null {
-  const m = meta as { error?: { code?: number; message?: string; error_subcode?: number; error_user_msg?: string } };
+function hintForMetaError(meta: unknown): string | null {
+  const m = meta as { error?: { code?: number; message?: string; error_subcode?: number; error_user_msg?: string; error_user_title?: string } };
   const code = m?.error?.code;
   const subcode = m?.error?.error_subcode;
   const msg = (m?.error?.message ?? "").toLowerCase();
   const userMsg = m?.error?.error_user_msg;
+
+  // App en modo Development — sale en AdCreative cuando la App de
+  // developers.facebook.com no está en Live mode. Caso muy común en
+  // setups nuevos. Lo chequeamos ANTES del userMsg porque queremos
+  // mostrar la pista accionable, no solo el mensaje literal de Meta.
+  if (
+    subcode === 1885183 ||
+    msg.includes("modo de desarrollo") ||
+    msg.includes("development mode")
+  ) {
+    return [
+      "Tu App de Meta Developers está en MODO DE DESARROLLO. Para crear anuncios en cuentas externas tiene que estar LIVE.",
+      "",
+      "Camino corto (testing, solo tu ad account):",
+      "  1) developers.facebook.com → tu App → Roles → Roles → Add People",
+      "  2) Agregá tu cuenta personal de Facebook como Administrator o Tester.",
+      "  3) Pueden crear ads en modo Dev SIEMPRE QUE el ad account les pertenezca.",
+      "",
+      "Camino correcto (producción, cualquier cliente):",
+      "  1) developers.facebook.com → tu App → Settings → Basic.",
+      "     Completá: Privacy Policy URL, Category, Business Use.",
+      "  2) Asociá la App a un Business Manager verificado.",
+      "  3) App Review → solicitá los permisos: ads_management + business_management con Standard Access.",
+      "  4) Una vez aprobada, el toggle 'App Mode' lo podés pasar a Live.",
+    ].join("\n");
+  }
 
   if (userMsg) return userMsg;
 

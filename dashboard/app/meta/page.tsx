@@ -1041,6 +1041,10 @@ interface PushAd {
   ad_id?: string;
   creative_id?: string;
   error?: string;
+  /** Pista en español derivada del error de Meta — la mostramos
+   *  destacada para que el director vea qué cambiar sin tener que
+   *  parsear el JSON crudo. */
+  hint?: string;
 }
 interface PushAdset {
   name: string;
@@ -1048,6 +1052,7 @@ interface PushAdset {
   adset_id?: string;
   ads: PushAd[];
   error?: string;
+  hint?: string;
 }
 interface PushResult {
   success?: boolean;
@@ -1325,6 +1330,23 @@ function PushResultView({ result }: { result: unknown }) {
                   id: {adset.adset_id}
                 </div>
               )}
+              {adset.hint && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--deep-green)",
+                    padding: "8px 10px",
+                    background: "rgba(196,168,130,0.16)",
+                    border: "1px solid rgba(196,168,130,0.4)",
+                    borderRadius: 4,
+                    marginBottom: 6,
+                    lineHeight: 1.45,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  <strong>Pista:</strong> {adset.hint}
+                </div>
+              )}
               {adset.error && (
                 <div
                   style={{
@@ -1369,6 +1391,23 @@ function PushResultView({ result }: { result: unknown }) {
                           </span>
                         )}
                       </div>
+                      {ad.hint && (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            padding: "6px 8px",
+                            background: "rgba(196,168,130,0.16)",
+                            border: "1px solid rgba(196,168,130,0.4)",
+                            borderRadius: 3,
+                            fontSize: 11,
+                            color: "var(--deep-green)",
+                            lineHeight: 1.45,
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          <strong>Pista:</strong> {ad.hint}
+                        </div>
+                      )}
                       {ad.error && (
                         <div
                           style={{
