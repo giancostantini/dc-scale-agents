@@ -36,6 +36,7 @@ import {
   classificationsFor,
   classificationMetaById,
 } from "@/lib/types";
+import ContentFeedPreview from "@/components/content/ContentFeedPreview";
 import type {
   Client,
   ClientRequest,
@@ -116,6 +117,10 @@ export default function PortalAgendaPage() {
   const [viewMode, setViewMode] = useState<"table" | "feed">("table");
   const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
   const [recoModal, setRecoModal] = useState<ContentPost | null>(null);
+  // Tile detail vivía dentro de PortalAgendaFeed (state local). Ahora
+  // que reusamos <ContentFeedPreview>, lo subimos al nivel de página
+  // para poder renderizar TileDetailModal afuera del componente común.
+  const [tileDetail, setTileDetail] = useState<ContentPost | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -176,17 +181,6 @@ export default function PortalAgendaPage() {
         return (b.time ?? "").localeCompare(a.time ?? "");
       }),
     [posts],
-  );
-
-  // Para la vista feed: filtrar por red elegida.
-  const networkPosts = useMemo(
-    () =>
-      sortedPosts.filter((p) =>
-        p.networks && p.networks.length > 0
-          ? p.networks.includes(feedNetwork)
-          : p.network === feedNetwork,
-      ),
-    [sortedPosts, feedNetwork],
   );
 
   const classifications = classificationsFor(client);
@@ -319,18 +313,32 @@ export default function PortalAgendaPage() {
             onAddReco={(p) => setRecoModal(p)}
           />
         ) : (
-          <PortalAgendaFeed
-            posts={networkPosts}
+          <ContentFeedPreview
+            posts={sortedPosts}
             network={feedNetwork}
             onNetworkChange={setFeedNetwork}
             clientName={client?.name ?? ""}
             clientLogoUrl={client?.logo_url ?? null}
+            clientSocialLinks={client?.social_links ?? null}
             classifications={classifications}
-            recoCountByPost={recoCountByPost}
-            onAddReco={(p) => setRecoModal(p)}
+            badgeByPostId={recoCountByPost}
+            onTileClick={setTileDetail}
           />
         )}
       </main>
+
+      {tileDetail && (
+        <TileDetailModal
+          post={tileDetail}
+          existingCount={recoCountByPost.get(tileDetail.id) ?? 0}
+          onClose={() => setTileDetail(null)}
+          onAddReco={() => {
+            const p = tileDetail;
+            setTileDetail(null);
+            setRecoModal(p);
+          }}
+        />
+      )}
 
       {recoModal && (
         <RecommendationModal
@@ -560,288 +568,6 @@ function PortalAgendaTable({
   );
 }
 
-// ============================================================
-// PortalAgendaFeed — vista feed simulada simple. Selector de red +
-// grilla 3-col cuadrada (IG-style). Click en tile abre modal con
-// detalle + botón "+ Recomendación". No reusamos FeedPreview de
-// /contenido para no arrastrar toda su complejidad (size toggle,
-// headers nativos por red, etc).
-// ============================================================
-function PortalAgendaFeed({
-  posts,
-  network,
-  onNetworkChange,
-  clientName,
-  clientLogoUrl,
-  classifications,
-  recoCountByPost,
-  onAddReco,
-}: {
-  posts: ContentPost[];
-  network: ContentNetwork;
-  onNetworkChange: (n: ContentNetwork) => void;
-  clientName: string;
-  clientLogoUrl: string | null;
-  classifications: ReturnType<typeof classificationsFor>;
-  recoCountByPost: Map<string, number>;
-  onAddReco: (p: ContentPost) => void;
-}) {
-  const [tileDetail, setTileDetail] = useState<ContentPost | null>(null);
-
-  return (
-    <>
-      <div
-        style={{
-          background: "var(--white)",
-          border: "1px solid rgba(10,26,12,0.08)",
-          borderRadius: "var(--r-lg)",
-          maxWidth: 720,
-          margin: "0 auto",
-          overflow: "hidden",
-        }}
-      >
-        {/* Selector de red */}
-        <div
-          style={{
-            padding: "12px 14px",
-            display: "flex",
-            gap: 6,
-            background: "var(--off-white)",
-            borderBottom: "1px solid rgba(10,26,12,0.06)",
-            alignItems: "center",
-          }}
-        >
-          {clientLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={clientLogoUrl}
-              alt={clientName}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                objectFit: "cover",
-                background: "#fff",
-                border: "1px solid rgba(10,26,12,0.08)",
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: "var(--sand)",
-                color: "var(--deep-green)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 800,
-                fontSize: 13,
-              }}
-            >
-              {clientName.slice(0, 2).toUpperCase()}
-            </div>
-          )}
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "var(--deep-green)",
-              marginRight: 10,
-            }}
-          >
-            {clientName || "Cliente"}
-          </div>
-          <div style={{ flex: 1 }} />
-          {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
-            const active = network === n;
-            return (
-              <button
-                key={n}
-                type="button"
-                onClick={() => onNetworkChange(n)}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  background: active ? "var(--deep-green)" : "transparent",
-                  color: active ? "var(--off-white)" : "var(--deep-green)",
-                  border: "1px solid rgba(10,26,12,0.12)",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {NETWORK_LABEL[n]}
-              </button>
-            );
-          })}
-        </div>
-
-        {posts.length === 0 ? (
-          <div
-            style={{
-              padding: "40px 20px",
-              textAlign: "center",
-              color: "var(--text-muted)",
-              fontSize: 12,
-              fontStyle: "italic",
-            }}
-          >
-            Sin contenido planeado para {NETWORK_LABEL[network]}.
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 2,
-              padding: 2,
-              background: "rgba(10,26,12,0.06)",
-            }}
-          >
-            {posts.map((p) => {
-              const classMeta = classificationMetaById(
-                classifications,
-                p.classification,
-              );
-              const bg =
-                classMeta?.color ??
-                NETWORK_COLORS[p.network]?.solid ??
-                "#0A1A0C";
-              const recoCount = recoCountByPost.get(p.id) ?? 0;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setTileDetail(p)}
-                  style={{
-                    position: "relative",
-                    aspectRatio: "1 / 1",
-                    background: bg,
-                    color: "var(--off-white)",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                    overflow: "hidden",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {p.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.imageUrl}
-                      alt=""
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  )}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: p.imageUrl
-                        ? "rgba(0,0,0,0.42)"
-                        : "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 100%)",
-                    }}
-                  />
-                  {/* Concepto centrado */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "28px 12px 22px",
-                      zIndex: 1,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        lineHeight: 1.3,
-                        color: "rgba(255,255,255,0.98)",
-                        textAlign: "center",
-                        textShadow: p.imageUrl
-                          ? "0 1px 4px rgba(0,0,0,0.6)"
-                          : "none",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 5,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {(p.idea ?? p.brief ?? "Sin idea").slice(0, 100)}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 6,
-                      left: 6,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: "2px 6px",
-                      background: "rgba(0,0,0,0.45)",
-                      color: "rgba(255,255,255,0.92)",
-                      borderRadius: 3,
-                      zIndex: 2,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {formatShortDate(p.date)}
-                  </div>
-                  {recoCount > 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 6,
-                        right: 6,
-                        fontSize: 9,
-                        fontWeight: 800,
-                        padding: "2px 6px",
-                        background: "var(--sand-dark)",
-                        color: "#fff",
-                        borderRadius: 999,
-                        zIndex: 2,
-                      }}
-                      title={`${recoCount} recomendación${recoCount === 1 ? "" : "es"} enviada${recoCount === 1 ? "" : "s"}`}
-                    >
-                      ✎ {recoCount}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {tileDetail && (
-        <TileDetailModal
-          post={tileDetail}
-          existingCount={recoCountByPost.get(tileDetail.id) ?? 0}
-          onClose={() => setTileDetail(null)}
-          onAddReco={() => {
-            const p = tileDetail;
-            setTileDetail(null);
-            onAddReco(p);
-          }}
-        />
-      )}
-    </>
-  );
-}
 
 // Modal mostrando el detalle de un post (read-only) cuando el cliente
 // toca un tile de la grilla. Botón CTA para abrir el modal de
