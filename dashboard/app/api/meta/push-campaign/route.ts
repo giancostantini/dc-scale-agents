@@ -346,18 +346,56 @@ export async function POST(req: NextRequest) {
     // 2.x) Crear AdSet linkeado a la campaign.
     let adSetId = "";
     try {
-      const { ads: _ignoreAds, ...adsetFields } = adsetSpec;
+      const { ads: _ignoreAds, ...adsetRaw } = adsetSpec;
+      // Normalizamos el AdSet antes de mandarlo a Meta:
+      //
+      // bid_strategy — si no viene, Meta intenta usar la que
+      //   "convenga" según el objective y a veces exige bid_amount o
+      //   bid_constraints. Error real que vimos:
+      //     "Se requiere un importe de puja o limitaciones de puja para
+      //      la estrategia de puja…"
+      //   La elección segura por default es LOWEST_COST_WITHOUT_CAP
+      //   (auto-bid, sin tope). Si después el director quiere capar el
+      //   bid, puede editar el AdSet directo en Ads Manager.
+      //
+      // start_time — Meta lo quiere en ISO con TZ. Si vino solo
+      //   YYYY-MM-DD lo convertimos a la medianoche del día en UTC
+      //   para que no falle el parse.
+      const adsetRawObj = adsetRaw as Record<string, unknown>;
+      const adsetNormalized: Record<string, unknown> = {
+        ...adsetRawObj,
+        bid_strategy:
+          typeof adsetRawObj.bid_strategy === "string" &&
+          adsetRawObj.bid_strategy.trim() !== ""
+            ? adsetRawObj.bid_strategy
+            : "LOWEST_COST_WITHOUT_CAP",
+        start_time: ensureIsoDate(adsetRawObj.start_time),
+        end_time:
+          adsetRawObj.end_time == null
+            ? undefined
+            : ensureIsoDate(adsetRawObj.end_time),
+      };
+      console.log("[meta-push] creating adset", {
+        adset: adsetSpec.name,
+        payload: adsetNormalized,
+      });
       const adsetRes = await fetch(`${graphBase}/adsets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...adsetFields,
+          ...adsetNormalized,
           campaign_id: campaignId,
           access_token: metaToken,
         }),
       });
       const adsetData = await adsetRes.json();
       if (!adsetRes.ok || !adsetData.id) {
+        console.error("[meta-push] adset create failed", {
+          adset: adsetSpec.name,
+          status: adsetRes.status,
+          sent: adsetNormalized,
+          meta_response: adsetData,
+        });
         adsetResults.push({
           name: adsetSpec.name,
           ok: false,
@@ -368,6 +406,10 @@ export async function POST(req: NextRequest) {
       }
       adSetId = adsetData.id as string;
     } catch (e) {
+      console.error("[meta-push] adset network error", {
+        adset: adsetSpec.name,
+        err: (e as Error).message,
+      });
       adsetResults.push({
         name: adsetSpec.name,
         ok: false,
@@ -611,6 +653,27 @@ async function uploadAdImage(
 }
 
 /**
+ * Asegura que un valor de fecha (string | Date | nada) salga como ISO
+ * 8601 con offset, que es lo que Meta acepta sin discutir. Si nos
+ * llega "2026-06-20" plano (sin hora), lo convertimos a la medianoche
+ * UTC de ese día — Claude a veces lo devuelve así desde el spec.
+ */
+function ensureIsoDate(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v !== "string") return undefined;
+  const s = v.trim();
+  if (s === "") return undefined;
+  // Patrón YYYY-MM-DD (sin "T"). Ej: "2026-06-20".
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return new Date(`${s}T00:00:00Z`).toISOString();
+  }
+  // Si ya tiene "T" lo asumimos válido; si Meta lo rechaza, va a
+  // surfacear el error.
+  return s;
+}
+
+/**
  * Mapea objectives legacy de Meta Marketing API (deprecados en v18+)
  * a sus equivalentes OUTCOME_*. Si el objective ya es OUTCOME_* o no
  * lo conocemos, lo devolvemos tal cual.
@@ -669,6 +732,9 @@ function campaignHintFromMetaResponse(meta: unknown): string | null {
 
   if (code === 100 && msg.includes("objective")) {
     return "Meta rechazó el objective. Asegurate de usar OUTCOME_TRAFFIC / OUTCOME_AWARENESS / OUTCOME_ENGAGEMENT / OUTCOME_LEADS / OUTCOME_SALES — los viejos (CONVERSIONS, LINK_CLICKS, REACH…) ya no se aceptan en v21.";
+  }
+  if (code === 100 && (msg.includes("bid") || subcode === 2490487)) {
+    return "Meta exige bid_strategy explícito. Ya seteamos LOWEST_COST_WITHOUT_CAP por default — si querés capar el bid o usar COST_CAP/TARGET_ROAS, editá el AdSet desde Ads Manager después.";
   }
   if (code === 100 && msg.includes("special_ad_categor")) {
     return "Meta rechazó special_ad_categories. Tiene que ser un array — vacío [] si no aplica, o ['HOUSING'|'EMPLOYMENT'|'CREDIT'] cuando corresponde por regulación.";
