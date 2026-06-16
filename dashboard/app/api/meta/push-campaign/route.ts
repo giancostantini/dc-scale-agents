@@ -711,6 +711,20 @@ function normalizeTargeting(t: unknown): Record<string, unknown> | undefined {
       delete out.instagram_positions;
     }
   }
+  // Meta v21+ exige declarar Advantage Audience explícitamente.
+  // Sin esto el create del AdSet falla con:
+  //   "Se requiere la marca de audiencia de Advantage. Para crear
+  //    tu conjunto de anuncios, debes activar o desactivar la
+  //    función de audiencia de Advantage."
+  // Default 0 = OFF — Meta respeta nuestra segmentación tal cual.
+  // Si querés "ampliación inteligente", el director puede prenderlo
+  // después desde Ads Manager. Si la spec ya lo trae seteado, no lo
+  // pisamos.
+  const ta = (out.targeting_automation ?? {}) as Record<string, unknown>;
+  if (typeof ta.advantage_audience !== "number") {
+    ta.advantage_audience = 0;
+  }
+  out.targeting_automation = ta;
   return out;
 }
 
