@@ -374,6 +374,10 @@ export async function POST(req: NextRequest) {
           adsetRawObj.end_time == null
             ? undefined
             : ensureIsoDate(adsetRawObj.end_time),
+        // Limpiamos posiciones de FB/IG que Meta haya deprecado.
+        // Ver normalizeTargeting() — saca video_feeds (removido en
+        // v18+), entre otros, para no romper el create del AdSet.
+        targeting: normalizeTargeting(adsetRawObj.targeting),
       };
       console.log("[meta-push] creating adset", {
         adset: adsetSpec.name,
@@ -650,6 +654,64 @@ async function uploadAdImage(
     );
   }
   return hash;
+}
+
+/**
+ * Limpia el objeto de targeting de placements que Meta v21 deprecó.
+ * Los más comunes que Claude genera y rompen el create del AdSet:
+ *
+ *   facebook_positions:
+ *     - "video_feeds" → eliminado en v18+ (sale como
+ *       "ubicación de feeds de vídeo obsoleta")
+ *
+ *   instagram_positions:
+ *     - "explore_home" → solo válido en algunos objectives
+ *
+ * Conservamos solo placements del allowlist por red. Si después un
+ * valor concreto no aplica al objective, Meta lo va a rechazar y se
+ * verá en el error de la siguiente capa, pero al menos eliminamos los
+ * deprecados conocidos.
+ */
+const FB_POSITIONS_OK = new Set([
+  "feed",
+  "right_hand_column",
+  "marketplace",
+  "story",
+  "search",
+  "instream_video",
+  "facebook_reels",
+  "facebook_reels_overlay",
+]);
+const IG_POSITIONS_OK = new Set([
+  "stream",
+  "story",
+  "reels",
+  "explore",
+  "ig_search",
+  "shop",
+  "profile_feed",
+]);
+
+function normalizeTargeting(t: unknown): Record<string, unknown> | undefined {
+  if (!t || typeof t !== "object") return undefined;
+  const out: Record<string, unknown> = { ...(t as Record<string, unknown>) };
+  if (Array.isArray(out.facebook_positions)) {
+    out.facebook_positions = (out.facebook_positions as string[]).filter((p) =>
+      FB_POSITIONS_OK.has(p),
+    );
+    if ((out.facebook_positions as string[]).length === 0) {
+      delete out.facebook_positions;
+    }
+  }
+  if (Array.isArray(out.instagram_positions)) {
+    out.instagram_positions = (out.instagram_positions as string[]).filter(
+      (p) => IG_POSITIONS_OK.has(p),
+    );
+    if ((out.instagram_positions as string[]).length === 0) {
+      delete out.instagram_positions;
+    }
+  }
+  return out;
 }
 
 /**

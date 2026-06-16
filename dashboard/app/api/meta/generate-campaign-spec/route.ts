@@ -118,7 +118,7 @@ MÚLTIPLES AdSets (el director elige cuántos):
         "age_max": 55,
         "genders": [],
         "publisher_platforms": ["facebook", "instagram"],
-        "facebook_positions": ["feed", "story", "video_feeds"],
+        "facebook_positions": ["feed", "story", "instream_video", "facebook_reels"],
         "instagram_positions": ["stream", "story", "reels"],
         "device_platforms": ["mobile", "desktop"]
       },
