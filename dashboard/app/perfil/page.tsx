@@ -10,11 +10,14 @@ import {
   signOut,
   type Profile,
   type ClientAssignment,
+  CLIENT_ROLES,
 } from "@/lib/supabase/auth";
 import {
   listAssignmentsForUser,
   updateProfile,
   makeInitialsFromName,
+  addAssignment,
+  removeAssignment,
 } from "@/lib/team";
 import { getClients } from "@/lib/storage";
 import { getSupabase } from "@/lib/supabase/client";
@@ -33,6 +36,17 @@ export default function PerfilPage() {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Form de "Asignar cliente nuevo" — solo para director/team. Vive
+  // acá en /perfil ahora; antes solo estaba en /equipo/[id] y obligaba
+  // al director a navegar a su propio detalle para asignarse roles
+  // (Account Manager, System Manager, etc.).
+  const [asgClientId, setAsgClientId] = useState("");
+  const [asgRole, setAsgRole] = useState<string>(
+    CLIENT_ROLES[0] ?? "Account Manager",
+  );
+  const [asgError, setAsgError] = useState("");
+  const [asgBusy, setAsgBusy] = useState(false);
 
   useEffect(() => {
     hasSession().then(async (has) => {
@@ -85,6 +99,93 @@ export default function PerfilPage() {
   async function handleSignOut() {
     await signOut();
     router.replace("/");
+  }
+
+  /** Refrescar la lista de asignaciones desde DB. */
+  async function refreshAssignments() {
+    if (!profile) return;
+    const fresh = await listAssignmentsForUser(profile.id);
+    setAssignments(fresh);
+  }
+
+  /** Asignar el usuario actual a un cliente con un rol. */
+  async function handleAddAssignment() {
+    if (!profile) return;
+    setAsgError("");
+    if (!asgClientId) {
+      setAsgError("Elegí un cliente.");
+      return;
+    }
+    setAsgBusy(true);
+    try {
+      await addAssignment({
+        client_id: asgClientId,
+        user_id: profile.id,
+        role_in_client: asgRole,
+        // visible_menus null = ver todos los menús del cliente
+        // (default). El editor granular de menús vive en /equipo/[id].
+        visible_menus: null,
+      });
+      await refreshAssignments();
+      setAsgClientId("");
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      if (e.code === "23505") {
+        setAsgError("Ya existe esta asignación (mismo cliente y rol).");
+      } else {
+        setAsgError(e.message ?? "No se pudo asignar.");
+      }
+    } finally {
+      setAsgBusy(false);
+    }
+  }
+
+  /** Quitar una asignación existente. */
+  async function handleRemoveAssignment(a: ClientAssignment) {
+    const c = clientsById[a.client_id];
+    const msg = `¿Quitarte como ${a.role_in_client} de ${c?.name ?? a.client_id}?`;
+    if (!confirm(msg)) return;
+    try {
+      await removeAssignment(a.client_id, a.user_id, a.role_in_client);
+      await refreshAssignments();
+    } catch (err) {
+      console.error("remove assignment error:", err);
+      alert("No se pudo quitar la asignación.");
+    }
+  }
+
+  /** Cambiar el rol de una asignación existente.
+   *  Como role_in_client es parte del PK compuesto, hacemos
+   *  remove + add (mismo patrón que en /equipo/[id]). */
+  async function handleChangeRole(
+    a: ClientAssignment,
+    newRole: string,
+  ) {
+    if (newRole === a.role_in_client) return;
+    if (!confirm(`¿Cambiar el rol de ${a.role_in_client} a ${newRole}?`)) {
+      return;
+    }
+    try {
+      await removeAssignment(a.client_id, a.user_id, a.role_in_client);
+    } catch (err) {
+      console.error("change role: remove failed", err);
+      alert("No se pudo quitar la asignación vieja.");
+      return;
+    }
+    try {
+      await addAssignment({
+        client_id: a.client_id,
+        user_id: a.user_id,
+        role_in_client: newRole,
+        visible_menus: a.visible_menus ?? null,
+      });
+      await refreshAssignments();
+    } catch (err) {
+      alert(
+        `Se quitó el rol viejo pero falló crear el nuevo: ${(err as Error).message}\n\nVolvé a asignar manualmente desde el formulario.`,
+      );
+      await refreshAssignments();
+    }
   }
 
   const isDirector = profile.role === "director";
@@ -267,18 +368,7 @@ export default function PerfilPage() {
                 <strong>formales</strong> — quedan registradas como rol de
                 cuenta (típicamente <em>Account Manager</em> o{" "}
                 <em>System Manager</em>) y aparecen en el cliente como
-                responsable. Si querés agregar una, andá a{" "}
-                <Link
-                  href="/equipo"
-                  style={{
-                    color: "var(--deep-green)",
-                    fontWeight: 600,
-                    textDecoration: "underline",
-                  }}
-                >
-                  Equipo
-                </Link>{" "}
-                → tu nombre.
+                responsable.
               </div>
             )}
             {assignments.length === 0 ? (
@@ -292,27 +382,237 @@ export default function PerfilPage() {
                 {assignments.map((a) => {
                   const client = clientsById[a.client_id];
                   return (
-                    <Link
+                    <div
                       key={`${a.client_id}-${a.role_in_client}`}
-                      href={`/cliente/${a.client_id}`}
                       className={styles.assignCard}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
                     >
-                      <div className={styles.assignInitials}>
-                        {client?.initials ?? "??"}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div className={styles.assignName}>
-                          {client?.name ?? a.client_id}
+                      {/* Avatar + nombre/sector como Link al cliente */}
+                      <Link
+                        href={`/cliente/${a.client_id}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          flex: 1,
+                          textDecoration: "none",
+                          color: "inherit",
+                        }}
+                      >
+                        <div className={styles.assignInitials}>
+                          {client?.initials ?? "??"}
                         </div>
-                        <div className={styles.assignSector}>
-                          {client?.sector ?? "—"}
+                        <div style={{ flex: 1 }}>
+                          <div className={styles.assignName}>
+                            {client?.name ?? a.client_id}
+                          </div>
+                          <div className={styles.assignSector}>
+                            {client?.sector ?? "—"}
+                          </div>
                         </div>
-                      </div>
-                      <div className={styles.assignRole}>{a.role_in_client}</div>
-                      <div className={styles.assignArrow}>→</div>
-                    </Link>
+                      </Link>
+
+                      {/* Rol editable inline (mismo patrón que /equipo/[id]) */}
+                      <select
+                        value={a.role_in_client}
+                        onChange={(e) =>
+                          handleChangeRole(a, e.target.value)
+                        }
+                        title="Cambiar rol"
+                        style={{
+                          fontSize: 11,
+                          padding: "5px 10px",
+                          border: "1px solid rgba(10,26,12,0.15)",
+                          borderRadius: 4,
+                          background: "var(--white)",
+                          fontFamily: "inherit",
+                          fontWeight: 600,
+                          color: "var(--deep-green)",
+                          cursor: "pointer",
+                          minWidth: 140,
+                        }}
+                      >
+                        {!CLIENT_ROLES.includes(a.role_in_client) && (
+                          <option value={a.role_in_client}>
+                            {a.role_in_client}
+                          </option>
+                        )}
+                        {CLIENT_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Quitar asignación */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAssignment(a)}
+                        title="Quitar asignación"
+                        style={{
+                          padding: "4px 10px",
+                          background: "transparent",
+                          border: "1px solid var(--red-warn)",
+                          color: "var(--red-warn)",
+                          borderRadius: 4,
+                          fontSize: 14,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Form de asignar nuevo cliente (solo director / team). */}
+            {!isClient && (
+              <div
+                style={{
+                  marginTop: 18,
+                  padding: 16,
+                  background: "var(--off-white)",
+                  borderRadius: 6,
+                  border: "1px solid rgba(10,26,12,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                    marginBottom: 10,
+                  }}
+                >
+                  Asignarte a un cliente
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <select
+                    value={asgClientId}
+                    onChange={(e) => setAsgClientId(e.target.value)}
+                    disabled={asgBusy}
+                    style={{
+                      flex: "1 1 220px",
+                      padding: "8px 12px",
+                      border: "1px solid rgba(10,26,12,0.15)",
+                      borderRadius: 4,
+                      fontSize: 13,
+                      background: "var(--white)",
+                      color: "var(--deep-green)",
+                      fontFamily: "inherit",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="">— elegí un cliente —</option>
+                    {Object.values(clientsById)
+                      .filter(
+                        (c) =>
+                          !assignments.some(
+                            (a) =>
+                              a.client_id === c.id &&
+                              a.role_in_client === asgRole,
+                          ),
+                      )
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} — {c.sector}
+                        </option>
+                      ))}
+                  </select>
+                  <select
+                    value={asgRole}
+                    onChange={(e) => setAsgRole(e.target.value)}
+                    disabled={asgBusy}
+                    style={{
+                      flex: "0 1 180px",
+                      padding: "8px 12px",
+                      border: "1px solid rgba(10,26,12,0.15)",
+                      borderRadius: 4,
+                      fontSize: 13,
+                      background: "var(--white)",
+                      color: "var(--deep-green)",
+                      fontFamily: "inherit",
+                      outline: "none",
+                    }}
+                  >
+                    {CLIENT_ROLES.map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddAssignment}
+                    disabled={asgBusy || !asgClientId}
+                    style={{
+                      padding: "8px 16px",
+                      background: "var(--deep-green)",
+                      color: "var(--off-white)",
+                      border: "none",
+                      borderRadius: 4,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      cursor:
+                        asgBusy || !asgClientId ? "default" : "pointer",
+                      opacity: asgBusy || !asgClientId ? 0.55 : 1,
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {asgBusy ? "Asignando…" : "Asignar"}
+                  </button>
+                </div>
+                {asgError && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 12,
+                      color: "var(--red-warn)",
+                    }}
+                  >
+                    {asgError}
+                  </div>
+                )}
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Para editar qué <strong>menús</strong> ve cada
+                  asignación dentro del cliente, andá a{" "}
+                  <Link
+                    href={`/equipo/${profile.id}`}
+                    style={{
+                      color: "var(--deep-green)",
+                      fontWeight: 600,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Equipo → tu perfil
+                  </Link>
+                  .
+                </div>
               </div>
             )}
           </div>
