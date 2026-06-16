@@ -9,6 +9,7 @@ import {
   ICalendario,
   IFinanzas,
   IEquipo,
+  IConfiguracion,
 } from "./icons/BrandIcons";
 import {
   getCurrentProfile,
@@ -114,6 +115,16 @@ export default function Topbar({
             onClick={() => router.push("/equipo")}
           >
             <IEquipo size={15} /> Equipo
+          </button>
+        )}
+
+        {/* Bóveda de empresa (credenciales de D&C): solo director */}
+        {isDirector && (
+          <button
+            className={styles.btn}
+            onClick={() => router.push("/accesos")}
+          >
+            <IConfiguracion size={15} /> Bóveda
           </button>
         )}
 

@@ -40,7 +40,8 @@ export type AuditTargetType =
   | "agent_run"
   | "expense"
   | "kpis"
-  | "client_credential";
+  | "client_credential"
+  | "agency_credential";
 
 export interface AuditLogInput {
   actorId: string | null;
