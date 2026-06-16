@@ -231,44 +231,61 @@ export default function PerfilPage() {
           </div>
         )}
 
-        {/* ===== Clientes asignados — solo team (los directores ven
-             todo por su rol y no necesitan asignaciones explícitas) ===== */}
-        {!isClient && profile.role === "director" && (
-          <div className={styles.panel}>
-            <div className={styles.panelHead}>
-              <div className={styles.panelTitle}>
-                Acceso a clientes
-              </div>
-            </div>
-            <div
-              style={{
-                padding: 18,
-                background: "var(--off-white)",
-                borderLeft: "3px solid var(--sand)",
-                fontSize: 13,
-                color: "var(--deep-green)",
-                lineHeight: 1.6,
-                borderRadius: "0 6px 6px 0",
-              }}
-            >
-              Como <strong>director</strong>, tenés acceso global a{" "}
-              <strong>todos los clientes</strong> del sistema. No necesitás
-              asignaciones explícitas para verlos o trabajar con ellos.
-              Las asignaciones se usan para distribuir el trabajo entre el
-              equipo (saber quién es responsable de qué).
-            </div>
-          </div>
-        )}
-        {!isClient && profile.role !== "director" && (
+        {/* ===== Clientes asignados =====
+             Antes para directores mostrábamos un cartelito "tenés
+             acceso global" en lugar del panel — era engañoso porque
+             el director ahora puede ser nombrado formalmente como
+             Account Manager / System Manager de un cliente. Ahora
+             mostramos el panel completo a todos los no-clientes,
+             agregando una nota arriba solo para director explicando
+             la dualidad (acceso global + asignación formal).
+
+             La edición (agregar/quitar asignaciones) sigue viviendo
+             en /equipo/[id] — acá es solo lista. */}
+        {!isClient && (
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <div className={styles.panelTitle}>
                 Clientes asignados ({assignments.length})
               </div>
             </div>
+            {profile.role === "director" && (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  background: "var(--off-white)",
+                  borderLeft: "3px solid var(--sand)",
+                  fontSize: 12,
+                  color: "var(--deep-green)",
+                  lineHeight: 1.5,
+                  marginBottom: 14,
+                  borderRadius: "0 4px 4px 0",
+                }}
+              >
+                Como <strong>director</strong>, ya tenés acceso global a
+                todos los clientes por tu rol. Estas asignaciones son{" "}
+                <strong>formales</strong> — quedan registradas como rol de
+                cuenta (típicamente <em>Account Manager</em> o{" "}
+                <em>System Manager</em>) y aparecen en el cliente como
+                responsable. Si querés agregar una, andá a{" "}
+                <Link
+                  href="/equipo"
+                  style={{
+                    color: "var(--deep-green)",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Equipo
+                </Link>{" "}
+                → tu nombre.
+              </div>
+            )}
             {assignments.length === 0 ? (
               <div className={styles.empty}>
-                Todavía no tenés clientes asignados.
+                {profile.role === "director"
+                  ? "Todavía no tenés asignaciones formales."
+                  : "Todavía no tenés clientes asignados."}
               </div>
             ) : (
               <div className={styles.assignList}>
