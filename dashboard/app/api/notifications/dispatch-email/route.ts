@@ -145,11 +145,11 @@ export async function POST(req: NextRequest) {
         (n) => n.to_role === "client",
       );
       if (clientNotif) {
-        const clientEmail = await getClientEmail(admin, request.client_id);
-        if (clientEmail) {
+        const clientEmails = await getClientEmailRecipients(admin, request.client_id);
+        if (clientEmails.length > 0) {
           try {
             await emailRequestStatusChangeToClient({
-              clientEmail,
+              clientEmail: clientEmails,
               requestTitle: request.title,
               newStatus: request.status as
                 | "reviewing"
@@ -225,11 +225,11 @@ export async function POST(req: NextRequest) {
         .select("name")
         .eq("id", body.clientId)
         .maybeSingle();
-      const clientEmail = await getClientEmail(admin, body.clientId);
-      if (clientEmail && client) {
+      const clientEmails = await getClientEmailRecipients(admin, body.clientId);
+      if (clientEmails.length > 0 && client) {
         try {
           await emailPhaseApprovedToClient({
-            clientEmail,
+            clientEmail: clientEmails,
             clientName: client.name,
             phaseLabel: PHASE_LABELS[body.phase],
           });
@@ -275,27 +275,66 @@ export async function POST(req: NextRequest) {
 // Helpers internos
 // ============================================================
 
-async function getClientEmail(
+async function getClientEmailRecipients(
   admin: ReturnType<typeof getSupabaseAdmin>,
   clientId: string,
-): Promise<string | null> {
-  // El email del cliente = profile con role='client' y client_id=X
-  const { data } = await admin
+): Promise<string[]> {
+  // Lista de destinatarios para una notif que tiene como destino el
+  // cliente. Combinamos 3 fuentes:
+  //   1. profiles con role='client' y client_id=X — usuarios del portal.
+  //      Suele ser una persona, a veces más (varios users del portal
+  //      por la misma empresa).
+  //   2. client_contacts del cliente con email no nulo — contactos de
+  //      referencia que el director cargó. Antes solo recibían el
+  //      usuario del portal; ahora los contactos también, así no se
+  //      pierden eventos cuando rotan personas o si el dueño cambia
+  //      operativo (pidió este behavior el director).
+  //   3. Fallback contact_email de clients (legacy) — solo si las
+  //      anteriores quedaron vacías, para no romper notifs en
+  //      cuentas viejas que todavía no migraron a client_contacts.
+  //
+  // Devolvemos array deduplicado. Si quedó vacío, devolvemos [] —
+  // el caller decide si mandar o saltearse.
+  const emails: string[] = [];
+
+  const { data: portalUsers } = await admin
     .from("profiles")
     .select("email")
     .eq("client_id", clientId)
-    .eq("role", "client")
-    .limit(1)
-    .maybeSingle();
-  if (data?.email) return data.email;
+    .eq("role", "client");
+  for (const u of portalUsers ?? []) {
+    if (u.email) emails.push(u.email);
+  }
 
-  // Fallback: contact_email del cliente (si no hay user del portal todavía)
-  const { data: client } = await admin
-    .from("clients")
-    .select("contact_email")
-    .eq("id", clientId)
-    .maybeSingle();
-  return client?.contact_email ?? null;
+  const { data: contacts } = await admin
+    .from("client_contacts")
+    .select("email")
+    .eq("client_id", clientId)
+    .not("email", "is", null);
+  for (const c of contacts ?? []) {
+    if (c.email) emails.push(c.email);
+  }
+
+  if (emails.length === 0) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("contact_email")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (client?.contact_email) emails.push(client.contact_email);
+  }
+
+  // Dedupe case-insensitive (Gmail/Outlook normalizan así).
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const e of emails) {
+    const lower = e.trim().toLowerCase();
+    if (lower && !seen.has(lower)) {
+      seen.add(lower);
+      unique.push(e);
+    }
+  }
+  return unique;
 }
 
 async function getTeamEmailsForClient(

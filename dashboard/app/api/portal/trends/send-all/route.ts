@@ -74,14 +74,41 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const email = prof?.email ?? (c.contact_email as string | null) ?? null;
-      if (!email) {
+      // Destinatarios: usuario del portal + contactos de referencia
+      // con email. Si el usuario del portal optó-out por
+      // weekly_digest_enabled, salteamos TODO (incluyendo contactos)
+      // — respetamos la voluntad del cliente principal de no recibir
+      // el digest. Si no hay portal user, caemos al contact_email
+      // legacy + contactos para no perder el envío.
+      const recipients: string[] = [];
+      if (prof?.email) recipients.push(prof.email);
+      const { data: contacts } = await admin
+        .from("client_contacts")
+        .select("email")
+        .eq("client_id", clientId)
+        .not("email", "is", null);
+      for (const cc of contacts ?? []) {
+        if (cc.email) recipients.push(cc.email);
+      }
+      if (recipients.length === 0) {
+        const legacy = (c.contact_email as string | null) ?? null;
+        if (legacy) recipients.push(legacy);
+      }
+      // Dedupe case-insensitive
+      const seen = new Set<string>();
+      const unique = recipients.filter((e) => {
+        const l = e.trim().toLowerCase();
+        if (!l || seen.has(l)) return false;
+        seen.add(l);
+        return true;
+      });
+      if (unique.length === 0) {
         results.skipped++;
         continue;
       }
 
       await emailSectorTrendsToClient({
-        clientEmail: email,
+        clientEmail: unique,
         clientName: (c.name as string) ?? clientId,
         items,
       });

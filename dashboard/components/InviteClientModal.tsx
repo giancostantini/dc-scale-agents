@@ -28,6 +28,15 @@ export default function InviteClientModal({
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  // Resultado del POST exitoso: lo guardamos para mostrar credenciales
+  // + estado de envío de email al director. Cuando es null, mostramos
+  // el form normal.
+  const [result, setResult] = useState<{
+    email: string;
+    password: string;
+    emailSent: boolean;
+    emailError: string | null;
+  } | null>(null);
 
   if (!open) return null;
 
@@ -38,6 +47,13 @@ export default function InviteClientModal({
     setName("");
     setPhone("");
     setError("");
+    setResult(null);
+  }
+
+  function copyToClipboard(text: string) {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    }
   }
 
   async function submit() {
@@ -73,8 +89,15 @@ export default function InviteClientModal({
         setError(`${data.error ?? "Error desconocido"}${data.hint ? `\n${data.hint}` : ""}`);
         return;
       }
-      reset();
-      onClose();
+      // En lugar de cerrar de una, mostramos al director un panel con
+      // las credenciales generadas + estado de envío de email — sirve
+      // como backup si el mail no llegó.
+      setResult({
+        email: email.trim(),
+        password: data.defaultPassword as string,
+        emailSent: !!data.emailSent,
+        emailError: data.emailError ?? null,
+      });
       onCreated?.();
     } catch (err) {
       console.error("invite client error:", err);
@@ -90,16 +113,160 @@ export default function InviteClientModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className={styles.modal} style={{ maxWidth: 540 }}>
-        <button className={styles.close} onClick={onClose}>
+        <button
+          className={styles.close}
+          onClick={() => {
+            reset();
+            onClose();
+          }}
+        >
           ×
         </button>
+
+        {result ? (
+          // Vista post-creación: credenciales generadas + estado del mail
+          // automático. El director puede copiar la password como
+          // backup por si el mail no llega o el cliente la pierde.
+          <>
+            <div className={styles.eyebrow}>Cliente · Acceso al portal</div>
+            <h2 className={styles.title}>Cuenta creada</h2>
+            <p className={styles.sub}>
+              {result.emailSent
+                ? `Ya le mandamos un mail a ${result.email} con las credenciales y las instrucciones para cambiar la contraseña en el primer login.`
+                : `Cuenta creada, pero el envío del mail falló. Pasale los datos por WhatsApp o verbalmente — abajo tenés todo para copiar.`}
+            </p>
+
+            <div
+              style={{
+                marginTop: 16,
+                padding: 18,
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 10,
+                }}
+              >
+                Credenciales
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 10 }}>
+                <strong>Email:</strong>{" "}
+                <span style={{ fontFamily: "monospace" }}>{result.email}</span>{" "}
+                <button
+                  onClick={() => copyToClipboard(result.email)}
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 10,
+                    padding: "2px 8px",
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.18)",
+                    cursor: "pointer",
+                    borderRadius: 3,
+                    fontFamily: "inherit",
+                    color: "var(--deep-green)",
+                  }}
+                >
+                  copiar
+                </button>
+              </div>
+              <div style={{ fontSize: 13 }}>
+                <strong>Contraseña temporal:</strong>{" "}
+                <span
+                  style={{
+                    fontFamily: "monospace",
+                    background: "var(--deep-green)",
+                    color: "var(--off-white)",
+                    padding: "2px 10px",
+                    borderRadius: 3,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {result.password}
+                </span>{" "}
+                <button
+                  onClick={() => copyToClipboard(result.password)}
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 10,
+                    padding: "2px 8px",
+                    background: "transparent",
+                    border: "1px solid rgba(10,26,12,0.18)",
+                    cursor: "pointer",
+                    borderRadius: 3,
+                    fontFamily: "inherit",
+                    color: "var(--deep-green)",
+                  }}
+                >
+                  copiar
+                </button>
+              </div>
+            </div>
+
+            {result.emailError && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  background: "rgba(176,75,58,0.1)",
+                  borderLeft: "3px solid var(--red-warn)",
+                  color: "var(--red-warn)",
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>El envío del mail falló:</strong> {result.emailError}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: 14,
+                fontSize: 12,
+                color: "var(--text-muted)",
+                lineHeight: 1.55,
+              }}
+            >
+              En el primer login el cliente va a ser redirigido a una
+              pantalla para que elija su propia contraseña. Después de
+              eso, esta temporal deja de funcionar.
+            </div>
+
+            <div className={styles.actions}>
+              <button
+                className={styles.btnGhost}
+                onClick={() => {
+                  reset();
+                }}
+              >
+                Crear otra cuenta
+              </button>
+              <button
+                className={styles.btnSolid}
+                onClick={() => {
+                  reset();
+                  onClose();
+                }}
+              >
+                Listo
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
 
         <div className={styles.eyebrow}>Cliente · Acceso al portal</div>
         <h2 className={styles.title}>Invitar a {clientName} al portal</h2>
         <p className={styles.sub}>
-          Mandamos un email de invitación. Cuando lo abre y crea contraseña,
-          puede entrar al portal con acceso de solo lectura a sus métricas,
-          reportes aprobados, contenido publicado y D&C Advisor.
+          Le mandamos un mail con su email + una contraseña temporal
+          única. En el primer login el sistema lo redirige a elegir
+          su propia contraseña.
         </p>
 
         <div className={styles.fieldGrid2}>
@@ -164,7 +331,13 @@ export default function InviteClientModal({
         )}
 
         <div className={styles.actions}>
-          <button className={styles.btnGhost} onClick={onClose}>
+          <button
+            className={styles.btnGhost}
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+          >
             Cancelar
           </button>
           <button
@@ -175,6 +348,8 @@ export default function InviteClientModal({
             {sending ? "Enviando…" : "Invitar →"}
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

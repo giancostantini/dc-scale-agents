@@ -58,6 +58,11 @@ export interface Profile {
   // Migración 051: foto de perfil. Public URL del bucket "avatars".
   // Si está vacía, el UI cae a las iniciales coloreadas (default).
   avatar_url?: string | null;
+  // Migración 072: cliente recién creado con password aleatoria — el
+  // gate del portal lo redirige a /portal/cambiar-password hasta que
+  // elija una propia. Se limpia automáticamente cuando el endpoint
+  // /api/portal/change-password completa.
+  must_change_password?: boolean;
 }
 
 export type TeamPosition =
@@ -184,7 +189,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, avatar_url",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, avatar_url, must_change_password",
     )
     .eq("id", user.id)
     .single();

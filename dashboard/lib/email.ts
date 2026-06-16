@@ -171,7 +171,10 @@ export async function emailNewRequestToTeam(input: {
  * 2. Director/team cambia status de solicitud → email al cliente.
  */
 export async function emailRequestStatusChangeToClient(input: {
-  clientEmail: string;
+  /** Uno o múltiples destinatarios — el cliente del portal +
+   *  contactos de referencia con email. Ver
+   *  getClientEmailRecipients en dispatch-email. */
+  clientEmail: string | string[];
   requestTitle: string;
   newStatus: "reviewing" | "in_progress" | "done" | "rejected";
   response?: string | null;
@@ -268,7 +271,9 @@ export async function emailRequestAssignedToTeam(input: {
  * 4. Director aprueba reporte de fase → email al cliente.
  */
 export async function emailPhaseApprovedToClient(input: {
-  clientEmail: string;
+  /** Uno o múltiples destinatarios — el cliente del portal +
+   *  contactos de referencia con email. */
+  clientEmail: string | string[];
   clientName: string;
   phaseLabel: string;
 }): Promise<{ id: string }> {
@@ -296,7 +301,8 @@ export async function emailPhaseApprovedToClient(input: {
  * 5. Tendencias semanales del nicho → email al cliente con CTA al portal.
  */
 export async function emailSectorTrendsToClient(input: {
-  clientEmail: string;
+  /** Uno o múltiples destinatarios (cliente del portal + contactos). */
+  clientEmail: string | string[];
   clientName: string;
   items: {
     title: string;
@@ -477,6 +483,65 @@ export async function emailPaymentReceived(input: {
   return sendEmail({
     to: input.directorEmail,
     subject: `Cobro: ${input.clientName} — ${input.amount}`,
+    html,
+  });
+}
+
+/**
+ * 6. Director creó el acceso al portal de un cliente con una
+ *    contraseña aleatoria → mail al cliente con sus credenciales y
+ *    aviso de que tiene que cambiarla en su primer login.
+ */
+export async function emailPortalAccessCreated(input: {
+  to: string;
+  recipientName: string;
+  clientName: string;
+  email: string;
+  password: string;
+}): Promise<{ id: string }> {
+  const portalUrl = `${PORTAL_URL}/portal`;
+  const html = baseLayout(
+    `
+      <h1 style="font-size:24px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        Tu acceso al portal de ${escapeHtml(input.clientName)}
+      </h1>
+      <p style="margin:0 0 16px;font-size:15px;color:#0a1a0c;">
+        Hola ${escapeHtml(input.recipientName.split(" ")[0])}, creamos tu cuenta para que puedas seguir el día a día de la sociedad con Dearmas Costantini desde el portal del cliente.
+      </p>
+
+      <div style="background:#f5f1e9;padding:20px;border-left:3px solid #c4a882;margin:24px 0;">
+        <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#8b7355;font-weight:600;margin-bottom:10px;">
+          Credenciales
+        </div>
+        <div style="font-size:13px;margin-bottom:6px;">
+          <strong>Email:</strong> ${escapeHtml(input.email)}
+        </div>
+        <div style="font-size:13px;font-family:'SF Mono',Consolas,monospace;">
+          <strong>Contraseña temporal:</strong> <span style="background:#0a1a0c;color:#f5f1e9;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;">${escapeHtml(input.password)}</span>
+        </div>
+      </div>
+
+      <div style="background:#fef3c7;padding:16px;border-left:3px solid #d97706;margin:24px 0;font-size:13px;color:#0a1a0c;">
+        <strong>Importante:</strong> Esta contraseña es temporal. En tu primera entrada el sistema te va a pedir que elijas una nueva. Guardala en un lugar seguro y no la compartas con nadie.
+      </div>
+
+      <p style="margin:0 0 8px;font-size:14px;color:#5a5a5a;">
+        Una vez adentro vas a poder:
+      </p>
+      <ul style="margin:0 0 16px;padding-left:22px;font-size:14px;color:#0a1a0c;line-height:1.7;">
+        <li>Ver el avance de la sociedad y los reportes de cada fase.</li>
+        <li>Aprobar contenidos del calendario editorial.</li>
+        <li>Cargar solicitudes (ofertas, acciones, recomendaciones).</li>
+        <li>Revisar las tareas asignadas y dejar comentarios.</li>
+      </ul>
+    `,
+    portalUrl,
+    "Ir al portal",
+  );
+
+  return sendEmail({
+    to: input.to,
+    subject: `Tu acceso al portal de ${input.clientName}`,
     html,
   });
 }

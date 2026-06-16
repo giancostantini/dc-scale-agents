@@ -26,6 +26,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { logAction } from "@/lib/audit";
+import { generatePortalPassword } from "@/lib/portal-password";
+import { emailPortalAccessCreated } from "@/lib/email";
 
 function makeInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -138,25 +140,28 @@ export async function POST(req: NextRequest) {
   });
 
   /**
-   * Flujo simplificado: el director quería poder agregar usuarios
-   * sin depender del SMTP de Supabase (que no está configurado /
-   * tiene rate limit bajo). Estrategia:
-   *   1. createUser con password fija = "12345678" y email ya
-   *      confirmado (email_confirm: true).
-   *   2. El director le pasa al usuario su email + esa password
-   *      por WhatsApp / verbalmente / etc.
-   *   3. El usuario entra y la cambia desde /perfil (panel
-   *      "Cambiar contraseña").
+   * Estrategia de password por tipo de usuario:
    *
-   * Esto reemplaza el invite-by-email anterior. No depende del SMTP.
-   * El UI del modal le muestra esa info al director después de crear.
+   * · role='client' → generamos una contraseña aleatoria fuerte
+   *   (lib/portal-password.ts), seteamos must_change_password=true
+   *   en el profile, y le mandamos al cliente un email con las
+   *   credenciales. Cuando entra al portal por primera vez, el
+   *   middleware lo redirige a /portal/cambiar-password y no le
+   *   deja navegar hasta cambiarla.
+   *
+   * · role='team' → seguimos con la password fija "12345678" que
+   *   el director comparte por canal interno (Slack, WhatsApp), y
+   *   el team member la cambia desde /perfil cuando entra. Es team
+   *   nuestro, no expone secretos.
    */
-  const DEFAULT_PASSWORD = "12345678";
+  const TEAM_DEFAULT_PASSWORD = "12345678";
+  const portalPassword =
+    targetRole === "client" ? generatePortalPassword() : TEAM_DEFAULT_PASSWORD;
 
   const { data: created, error: createErr } =
     await admin.auth.admin.createUser({
       email,
-      password: DEFAULT_PASSWORD,
+      password: portalPassword,
       email_confirm: true,
       user_metadata: { name },
     });
@@ -202,6 +207,9 @@ export async function POST(req: NextRequest) {
     if (targetRole === "client") {
       // Cliente final: profile con role='client', client_id seteado.
       // Sin info de pago (eso es interno del equipo).
+      // must_change_password=true porque la password se la generamos
+      // nosotros — necesitamos que elija una propia en el primer login
+      // (ver migración 072 + middleware en /portal/layout).
       await admin
         .from("profiles")
         .update({
@@ -210,6 +218,7 @@ export async function POST(req: NextRequest) {
           role: "client",
           client_id: clientId,
           phone: body.phone ?? null,
+          must_change_password: true,
         })
         .eq("id", newUserId);
     } else {
@@ -240,6 +249,41 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ====== 5. Mandar email con credenciales (solo cliente) ======
+  // El team member sigue recibiendo la contraseña por canal interno;
+  // el cliente recibe un mail automático con su email + password
+  // generada + aviso de que tiene que cambiarla en el primer login.
+  //
+  // Si el envío falla NO tiramos el endpoint — el usuario ya está
+  // creado en auth.users y el director ve la password en el modal,
+  // se la puede pasar manualmente.
+  let emailSent = false;
+  let emailError: string | null = null;
+  if (targetRole === "client") {
+    try {
+      // Necesitamos el nombre del cliente para personalizar el
+      // mail. Si no podemos leerlo, usamos un genérico.
+      const { data: clientRow } = await admin
+        .from("clients")
+        .select("name")
+        .eq("id", clientId!)
+        .maybeSingle();
+      await emailPortalAccessCreated({
+        to: email,
+        recipientName: name,
+        clientName: clientRow?.name ?? "tu cuenta",
+        email,
+        password: portalPassword,
+      });
+      emailSent = true;
+    } catch (e) {
+      emailError = (e as Error).message;
+      // No tiramos — el endpoint sigue siendo "success" porque el
+      // usuario quedó creado en auth.users. El frontend muestra la
+      // password al director como backup.
+    }
+  }
+
   await logAction({
     actorId: caller.id,
     actorEmail: caller.email ?? null,
@@ -251,16 +295,25 @@ export async function POST(req: NextRequest) {
       name,
       role: targetRole,
       clientId: clientId ?? null,
+      email_sent: emailSent,
+      email_error: emailError,
     },
   });
 
   return NextResponse.json({
     success: true,
     userId: newUserId,
-    // El usuario fue creado con la password default. El UI del modal
-    // se la muestra al director junto con el email para que se la
-    // pase al nuevo miembro.
-    defaultPassword: DEFAULT_PASSWORD,
-    message: `Usuario creado. Pasale el email y la contraseña por defecto al miembro — cuando entre, va a cambiarla desde su perfil.`,
+    // Para team: la password fija "12345678" se le pasa por canal
+    // interno. Para cliente: la generada se le mandó por mail y se
+    // muestra como backup en el modal.
+    defaultPassword: portalPassword,
+    emailSent,
+    emailError,
+    message:
+      targetRole === "client"
+        ? emailSent
+          ? `Cuenta creada y mail enviado a ${email} con las credenciales. La password queda visible acá por si necesitás pasársela por otro canal.`
+          : `Cuenta creada, pero el mail falló. Pasale email y password al cliente por WhatsApp / verbalmente.`
+        : `Usuario creado. Pasale el email y la contraseña por defecto al miembro — cuando entre, va a cambiarla desde su perfil.`,
   });
 }
