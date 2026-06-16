@@ -11,6 +11,7 @@ import {
   type Profile,
   type ClientAssignment,
   CLIENT_ROLES,
+  TEAM_POSITIONS,
 } from "@/lib/supabase/auth";
 import {
   listAssignmentsForUser,
@@ -31,9 +32,13 @@ export default function PerfilPage() {
   const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
   const [clientsById, setClientsById] = useState<Record<string, Client>>({});
 
-  // Edit local fields (name + phone)
+  // Edit local fields (name + position + phone). Antes solo eran
+  // name + phone; el director pidió que también se pueda editar la
+  // posición en la firma (Account Lead, Director, etc) desde su
+  // propio perfil sin tener que ir a /equipo/[id].
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editPosition, setEditPosition] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -59,6 +64,7 @@ export default function PerfilPage() {
       setProfile(p);
       if (p) {
         setEditName(p.name);
+        setEditPosition(p.position ?? "");
         setEditPhone(p.phone ?? "");
         const [asg, clis] = await Promise.all([
           listAssignmentsForUser(p.id),
@@ -83,6 +89,7 @@ export default function PerfilPage() {
     try {
       const updated = await updateProfile(profile.id, {
         name: editName.trim() || profile.name,
+        position: editPosition.trim() || null,
         phone: editPhone.trim() || null,
         initials: makeInitialsFromName(editName.trim() || profile.name),
       });
@@ -248,6 +255,24 @@ export default function PerfilPage() {
                 />
               </div>
               <div className={styles.field}>
+                <label>Posición en la firma</label>
+                {/* Datalist: el user puede elegir de TEAM_POSITIONS o
+                    escribir uno libre. Usamos datalist en lugar de
+                    select para no perder posiciones legacy / custom
+                    que no estén en el catálogo. */}
+                <input
+                  list="perfil-positions"
+                  value={editPosition}
+                  onChange={(e) => setEditPosition(e.target.value)}
+                  placeholder="Director, Account Lead…"
+                />
+                <datalist id="perfil-positions">
+                  {TEAM_POSITIONS.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </div>
+              <div className={styles.field}>
                 <label>Teléfono</label>
                 <input
                   value={editPhone}
@@ -268,6 +293,7 @@ export default function PerfilPage() {
                   onClick={() => {
                     setEditing(false);
                     setEditName(profile.name);
+                    setEditPosition(profile.position ?? "");
                     setEditPhone(profile.phone ?? "");
                   }}
                   disabled={saving}
