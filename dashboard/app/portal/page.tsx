@@ -9,7 +9,7 @@ import {
   signOut,
   type Profile,
 } from "@/lib/supabase/auth";
-import { getClient, getObjectives, getEvents } from "@/lib/storage";
+import { getClient, getObjectives, getEventsByClient } from "@/lib/storage";
 import { listPhaseReports } from "@/lib/phases";
 import { getSupabase } from "@/lib/supabase/client";
 import { getDownloadUrl } from "@/lib/upload";
@@ -166,7 +166,13 @@ export default function PortalPage() {
       const [c, o, ev, rs, ct] = await Promise.all([
         getClient(p.client_id),
         getObjectives(p.client_id),
-        getEvents(),
+        // Antes: getEvents() + filter client-side. El filter incluía
+        // un fallback "clientLabel === c?.name" para eventos viejos
+        // sin client_id, pero con eso colaban eventos globales si
+        // alguien escribió el nombre del cliente como label. Ahora
+        // filtramos en DB con getEventsByClient → solo los del
+        // cliente, garantizado.
+        getEventsByClient(p.client_id),
         listPhaseReports(p.client_id),
         supabase
           .from("content_posts")
@@ -180,9 +186,7 @@ export default function PortalPage() {
 
       setClient(c ?? null);
       setObjectives(o ?? null);
-      setEvents(
-        ev.filter((e) => e.clientId === p.client_id || e.clientLabel === c?.name),
-      );
+      setEvents(ev);
       // Reportes: TODOS los estados — el PhaseRoadmap necesita ver
       // approved/draft/review/pending para pintar la barra de fases.
       // El detalle (incluido botón "Ver PDF") vive ahora dentro del modal

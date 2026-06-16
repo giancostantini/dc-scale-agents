@@ -1076,6 +1076,27 @@ export async function getEvents(): Promise<CalEvent[]> {
   return (data as EventRow[]).map(eventFromRow);
 }
 
+/**
+ * Solo los eventos asociados a un cliente específico. Antes los
+ * dashboards del cliente (planificador GP y home del portal)
+ * traían todos los eventos con getEvents() y filtraban client-side,
+ * lo que dejaba pasar eventos sin client_id (caso "global") como si
+ * fueran del cliente. Acá filtramos en DB con eq("client_id", X),
+ * así el bug es imposible y además bajamos payload.
+ */
+export async function getEventsByClient(
+  clientId: string,
+): Promise<CalEvent[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("cal_events")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("date", { ascending: true });
+  if (error) return [];
+  return (data as EventRow[]).map(eventFromRow);
+}
+
 export async function addEvent(data: Omit<CalEvent, "id">): Promise<CalEvent> {
   const supabase = getSupabase();
   const { data: inserted, error } = await supabase

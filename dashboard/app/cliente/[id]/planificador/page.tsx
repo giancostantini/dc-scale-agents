@@ -6,7 +6,7 @@ import {
   deleteContent,
   getClient,
   getContent,
-  getEvents,
+  getEventsByClient,
   updateRoadmapMonthNote,
 } from "@/lib/storage";
 import { getCurrentProfile } from "@/lib/supabase/auth";
@@ -107,11 +107,13 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
-    // Eventos: traemos TODOS y filtramos por cliente del lado del cliente.
-    // Es chico — los eventos no escalan a miles para un cliente individual.
-    getEvents().then((all) =>
-      setEvents(all.filter((e) => e.clientId === id || e.clientId === undefined || e.clientId === null)),
-    );
+    // Eventos: solo los de ESTE cliente. Antes traíamos TODOS y
+    // filtrábamos con un check permisivo (clientId === id ||
+    // clientId === undefined || clientId === null) — eso dejaba
+    // pasar eventos sin client_id (los "globales" del calendario
+    // del topbar) como si fueran del cliente. Ahora pegamos directo
+    // a getEventsByClient que filtra en DB.
+    getEventsByClient(id).then(setEvents);
   }, [id]);
 
   useEffect(() => refresh(), [refresh]);
