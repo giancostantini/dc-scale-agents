@@ -1074,7 +1074,22 @@ function hintForMetaError(meta: unknown): string | null {
     return "META_ACCESS_TOKEN inválido o expiró. Re-generá el System User Token con scope ads_management + business_management y actualizalo en Vercel.";
   }
   if (code === 200 || msg.includes("permission")) {
-    return "El token no tiene permisos sobre este Ad Account. En business.facebook.com → Configuración → Usuarios del sistema → tu System User, asignale la Ad Account con rol 'Anunciante' o 'Administrador'.";
+    return [
+      "Meta dice que el token no tiene permisos sobre este Ad Account. Esto puede pasar por VARIAS razones — chequealas en orden:",
+      "",
+      "1) ¿Es el MISMO Business Manager? El Ad Account del cliente tiene que estar dentro del MISMO Business Manager donde generaste el System User Token. Si el cliente lo tiene en su propio BM, primero hay que claim/share el Ad Account hacia tu BM:",
+      "   business.facebook.com → Configuración → Cuentas publicitarias → 'Solicitar acceso a una cuenta publicitaria' o pedirle al cliente que te la comparta.",
+      "",
+      "2) ¿El System User está asignado al Ad Account? business.facebook.com → Configuración → Usuarios del sistema → tu System User → 'Activos asignados' → agregá la Ad Account con rol 'Administrador' o 'Anunciante'.",
+      "",
+      "3) ¿La APP está asignada al Ad Account? Además del System User, la App misma debe figurar. En la pantalla del System User → 'Activos asignados' → revisá que tu App esté listada. Si no, agregala con permission 'Administrar campañas'.",
+      "",
+      "4) ¿El token actual es del MISMO System User? Si generaste un token, después eliminaste el System User y creaste otro, el token viejo deja de funcionar. Re-generá el token (System User → Generar token → con scope ads_management + business_management) y actualizalo en Vercel.",
+      "",
+      "5) ¿El meta_ad_account_id del cliente está bien? En Cliente → Configuración → Meta Business Suite, verificá que el número del Ad Account ID coincide con el que ves en business.facebook.com (sin el prefijo 'act_').",
+      "",
+      "Si tras revisar todo lo anterior sigue fallando, abrí 'Ver JSON crudo' abajo y mandanos el error_message + error_subcode — es el dato que diferencia los casos.",
+    ].join("\n");
   }
   if (msg.includes("payment") || msg.includes("billing") || subcode === 1487390) {
     return "El Ad Account no tiene método de pago configurado o tiene la facturación bloqueada. Abrí business.facebook.com → Facturación y verificá que haya tarjeta + cuenta activa.";
