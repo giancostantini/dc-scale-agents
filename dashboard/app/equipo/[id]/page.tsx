@@ -672,57 +672,47 @@ export default function EquipoDetailPage({
         )}
 
         {/* ===== Asignaciones a clientes (solo team — los clients no se
-             asignan a clientes, ellos SON el cliente. Los directores
-             tienen acceso global por su rol y no necesitan asignaciones
-             explícitas — mostramos un cartel informativo en su lugar) ===== */}
-        {editRole === "director" && (
-          <Section title="Acceso a clientes">
-            <div
-              style={{
-                padding: 18,
-                background: "var(--off-white)",
-                borderLeft: "3px solid var(--sand)",
-                fontSize: 13,
-                color: "var(--deep-green)",
-                lineHeight: 1.6,
-                borderRadius: "0 6px 6px 0",
-              }}
-            >
-              <strong>{profile?.name}</strong> es director — tiene acceso a{" "}
-              <strong>todos los clientes</strong> del sistema sin necesidad
-              de asignaciones explícitas. Las asignaciones se usan solo para
-              distribuir trabajo entre miembros del equipo.
-              {assignments.length > 0 && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    paddingTop: 12,
-                    borderTop: "1px solid rgba(10,26,12,0.08)",
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  Hay <strong>{assignments.length}</strong> asignación(es)
-                  histórica(s) en el sistema, pero no impactan el acceso —
-                  se pueden eliminar sin problema.
-                </div>
-              )}
-            </div>
-          </Section>
-        )}
-        {/* Antes esta sección excluía a los directores
-            (editRole !== "director") porque se asumía que el director
-            tenía acceso global automático y no necesitaba asignaciones
-            explícitas. Pero el director pidió poder ser nombrado como
-            Account Manager / System Manager de clientes específicos
-            para que figure formalmente en la cuenta (visible para el
-            cliente, para reportes, etc). Ahora dejamos que el director
+             asignan a clientes, ellos SON el cliente).
+
+             Antes la sección excluía a los directores (editRole !==
+             "director") y mostraba un cartelito "tiene acceso global"
+             en lugar del panel. El director pidió poder ser nombrado
+             como Account Manager / System Manager de clientes
+             específicos para figurar formalmente en la cuenta (visible
+             para el cliente, para reportes, etc). Ahora dejamos que el
+             director
             también tenga asignaciones — su acceso global no cambia,
             pero la asignación queda registrada con el role_in_client
             correspondiente. */}
         {editRole !== "client" && (
           <>
         <Section title={`Clientes asignados (${assignments.length})`}>
+          {/* Nota explicativa solo para directores: la asignación es
+              FORMAL (figurar como Account Manager / System Manager
+              de un cliente). El acceso global no cambia — un
+              director sigue viendo todos los clientes desde el hub
+              aunque no esté asignado a ninguno. */}
+          {editRole === "director" && (
+            <div
+              style={{
+                padding: "12px 14px",
+                background: "var(--off-white)",
+                borderLeft: "3px solid var(--sand)",
+                fontSize: 12,
+                color: "var(--deep-green)",
+                lineHeight: 1.5,
+                marginBottom: 14,
+                borderRadius: "0 4px 4px 0",
+              }}
+            >
+              <strong>{profile?.name}</strong> es director y ya tiene
+              acceso a todos los clientes por su rol. Estas
+              asignaciones son <strong>formales</strong> — quedan
+              registradas como rol de cuenta (típicamente{" "}
+              <em>Account Manager</em> o <em>System Manager</em>) y
+              aparecen en el cliente como responsable.
+            </div>
+          )}
           {assignments.length === 0 ? (
             <div className={detail.empty}>
               Sin asignaciones todavía.
