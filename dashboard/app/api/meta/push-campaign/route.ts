@@ -406,11 +406,24 @@ export async function POST(req: NextRequest) {
   }
 
   // ====== Cargar Ad Account ID + website del cliente ======
-  const { data: client } = await admin
+  // Importante: la columna es website_url (mig 053), no "website".
+  // Si Supabase tira error de columna inexistente, queremos surfacearlo
+  // tal cual en lugar de devolver "Cliente no encontrado" genérico —
+  // antes nos comíamos esos errores y costaba diagnosticarlos.
+  const { data: client, error: clientErr } = await admin
     .from("clients")
-    .select("name, external_links, website")
+    .select("name, external_links, website_url")
     .eq("id", body.client_id)
     .single();
+  if (clientErr) {
+    return Response.json(
+      {
+        error: "Error leyendo el cliente",
+        detail: clientErr.message,
+      },
+      { status: 500 },
+    );
+  }
   if (!client) {
     return Response.json({ error: "Cliente no encontrado" }, { status: 404 });
   }
@@ -420,7 +433,7 @@ export async function POST(req: NextRequest) {
   // destination_url upfront para evitar la cadena de 5 errores que sufrimos
   // antes. Devuelve también warnings de lo que ajustó.
   const { spec: safeSpec, warnings } = bulletproofSpec(body.spec, {
-    clientWebsite: (client as { website?: string | null }).website,
+    clientWebsite: (client as { website_url?: string | null }).website_url,
   });
 
   const adAccountId = (
