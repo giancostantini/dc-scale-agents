@@ -710,7 +710,17 @@ export default function EquipoDetailPage({
             </div>
           </Section>
         )}
-        {editRole !== "client" && editRole !== "director" && (
+        {/* Antes esta sección excluía a los directores
+            (editRole !== "director") porque se asumía que el director
+            tenía acceso global automático y no necesitaba asignaciones
+            explícitas. Pero el director pidió poder ser nombrado como
+            Account Manager / System Manager de clientes específicos
+            para que figure formalmente en la cuenta (visible para el
+            cliente, para reportes, etc). Ahora dejamos que el director
+            también tenga asignaciones — su acceso global no cambia,
+            pero la asignación queda registrada con el role_in_client
+            correspondiente. */}
+        {editRole !== "client" && (
           <>
         <Section title={`Clientes asignados (${assignments.length})`}>
           {assignments.length === 0 ? (

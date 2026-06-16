@@ -97,7 +97,15 @@ export const TEAM_POSITIONS: TeamPosition[] = [
 
 // Roles que se pueden asignar a un usuario en un cliente específico
 // (puede ser distinto al `position` general del usuario).
+// "Account Manager" y "System Manager" se agregaron para que un
+// director pueda ser nombrado como owner ejecutivo de la cuenta
+// (Account Manager) o como responsable de la infraestructura /
+// sistema del cliente (System Manager) — antes solo había roles
+// operativos tipo "Account Lead" que se asociaban más a team
+// members del día a día.
 export const CLIENT_ROLES: string[] = [
+  "Account Manager",
+  "System Manager",
   "Account Lead",
   "Paid Media Lead",
   "Content Lead",

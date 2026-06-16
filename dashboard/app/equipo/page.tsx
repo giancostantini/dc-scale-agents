@@ -332,13 +332,19 @@ export default function EquipoPage() {
                 <div className={styles.assignCount}>
                   {p.role === "director" ? (
                     <span
-                      title="Los directores ven todos los clientes por su rol — no requieren asignaciones explícitas."
+                      title="Los directores ven todos los clientes por su rol. Si además tienen asignaciones formales (Account Manager / System Manager), figuran como responsable de la cuenta sin perder el acceso global."
                       style={{
                         fontStyle: "italic",
                         color: "var(--text-muted)",
                       }}
                     >
                       Acceso global
+                      {(countByUser[p.id] ?? 0) > 0 && (
+                        <>
+                          {" "}
+                          · <strong>{countByUser[p.id]}</strong> a cargo
+                        </>
+                      )}
                     </span>
                   ) : (
                     `${countByUser[p.id] ?? 0} clientes`
