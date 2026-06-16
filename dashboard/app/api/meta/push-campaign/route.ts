@@ -85,6 +85,274 @@ interface RequestBody {
   dry_run?: boolean;
 }
 
+// ============================================================
+// BULLETPROOFING — defaults por objective que sabemos que funcionan
+// en Meta v21+ sin requerir pixel, lead form ni otra config previa.
+//
+// Idea central: en lugar de jugar al whack-a-mole con cada nuevo
+// error de Meta, normalizamos AGRESIVO upfront a un set mínimo que
+// SIEMPRE funciona. El director puede subir la complejidad después
+// editando en Ads Manager.
+// ============================================================
+interface ObjectiveDefaults {
+  optimization_goal: string;
+  billing_event: string;
+  /** CTAs que Meta acepta para este objective. */
+  cta_allowlist: string[];
+  /** CTA que usamos si Claude generó uno inválido. */
+  default_cta: string;
+}
+
+const OBJECTIVE_DEFAULTS: Record<string, ObjectiveDefaults> = {
+  OUTCOME_TRAFFIC: {
+    optimization_goal: "LINK_CLICKS",
+    billing_event: "IMPRESSIONS",
+    cta_allowlist: [
+      "LEARN_MORE",
+      "SHOP_NOW",
+      "SIGN_UP",
+      "BOOK_NOW",
+      "DOWNLOAD",
+      "GET_OFFER",
+      "APPLY_NOW",
+      "ORDER_NOW",
+      "SEE_MORE",
+    ],
+    default_cta: "LEARN_MORE",
+  },
+  OUTCOME_AWARENESS: {
+    optimization_goal: "REACH",
+    billing_event: "IMPRESSIONS",
+    cta_allowlist: ["LEARN_MORE", "SHOP_NOW", "WATCH_MORE", "SEE_MORE"],
+    default_cta: "LEARN_MORE",
+  },
+  OUTCOME_ENGAGEMENT: {
+    optimization_goal: "POST_ENGAGEMENT",
+    billing_event: "IMPRESSIONS",
+    cta_allowlist: [
+      "LEARN_MORE",
+      "MESSAGE_PAGE",
+      "LIKE_PAGE",
+      "SEE_MORE",
+      "WATCH_MORE",
+    ],
+    default_cta: "LEARN_MORE",
+  },
+  OUTCOME_LEADS: {
+    // OUTCOME_LEADS con LEAD_GENERATION exige un lead_gen_form_id que
+    // no tenemos. Como fallback seguro usamos LINK_CLICKS — la campaña
+    // va a generar tráfico al sitio. Si el director necesita lead form
+    // de verdad, lo arma directo en Ads Manager.
+    optimization_goal: "LINK_CLICKS",
+    billing_event: "IMPRESSIONS",
+    cta_allowlist: ["SIGN_UP", "LEARN_MORE", "CONTACT_US", "APPLY_NOW"],
+    default_cta: "SIGN_UP",
+  },
+  OUTCOME_SALES: {
+    // OUTCOME_SALES con OFFSITE_CONVERSIONS exige promoted_object con
+    // pixel + custom_event_type. Fallback a LINK_CLICKS para que no
+    // se caiga el push si todavía no está pixeleado el cliente.
+    optimization_goal: "LINK_CLICKS",
+    billing_event: "IMPRESSIONS",
+    cta_allowlist: ["SHOP_NOW", "ORDER_NOW", "GET_OFFER", "LEARN_MORE"],
+    default_cta: "SHOP_NOW",
+  },
+  OUTCOME_APP_PROMOTION: {
+    optimization_goal: "LINK_CLICKS",
+    billing_event: "IMPRESSIONS",
+    cta_allowlist: ["DOWNLOAD", "INSTALL_MOBILE_APP", "USE_APP"],
+    default_cta: "DOWNLOAD",
+  },
+};
+
+/**
+ * Toma el spec crudo (de Claude o pegado a mano) y lo deja en una
+ * forma que Meta v21+ acepta sin discutir. Devuelve también los
+ * warnings de lo que ajustamos para que el director los vea en la UI.
+ *
+ * Reglas:
+ *   1. objective → normalizar a OUTCOME_* (red de seguridad, el
+ *      generator nuevo ya los devuelve así).
+ *   2. campaign.is_adset_budget_sharing_enabled = false (no CBO).
+ *   3. campaign.special_ad_categories = [] si no es array.
+ *   4. Por cada AdSet:
+ *      a. optimization_goal + billing_event forzados desde
+ *         OBJECTIVE_DEFAULTS[objective] (no confiamos en lo que
+ *         haya generado Claude — esto causaba combos imposibles).
+ *      b. bid_strategy = LOWEST_COST_WITHOUT_CAP (auto-bid sin tope).
+ *      c. start_time/end_time → ISO 8601 con UTC.
+ *      d. targeting: SOLO conservamos geo_locations + age + genders
+ *         + publisher_platforms. Borramos facebook_positions /
+ *         instagram_positions / device_platforms — Meta usa
+ *         Advantage+ Placements por default, que es lo
+ *         recomendado en v21 y nunca rompe.
+ *      e. targeting_automation.advantage_audience = 0.
+ *      f. Filtramos ads con creative_type=video (no soportamos
+ *         /advideos aún; se acumula warning).
+ *      g. cta_type validado contra OBJECTIVE_DEFAULTS[objective]
+ *         .cta_allowlist. Si está fuera de la lista, fallback al
+ *         default_cta.
+ *      h. destination_url: si falta o no empieza con http(s),
+ *         intentamos client.website; si no hay, warning.
+ */
+function bulletproofSpec(
+  spec: CampaignSpec,
+  ctx: { clientWebsite?: string | null },
+): { spec: CampaignSpec; warnings: string[] } {
+  const warnings: string[] = [];
+  const fallbackUrl =
+    (ctx.clientWebsite ?? "").trim() || "https://example.com";
+
+  // ---- Campaign ----
+  const rawCampaign = (spec.campaign ?? {}) as Record<string, unknown>;
+  const objective = normalizeObjective(rawCampaign.objective as string);
+  if (
+    typeof rawCampaign.objective === "string" &&
+    rawCampaign.objective !== objective
+  ) {
+    warnings.push(
+      `Objective normalizado a ${objective} (entró como "${rawCampaign.objective}", que ya no acepta Meta v21).`,
+    );
+  }
+  const defaults = OBJECTIVE_DEFAULTS[objective] ?? OBJECTIVE_DEFAULTS.OUTCOME_TRAFFIC;
+
+  const campaign = {
+    name: (rawCampaign.name as string) ?? `Campaña · ${new Date().toISOString().slice(0, 10)}`,
+    objective,
+    special_ad_categories: Array.isArray(rawCampaign.special_ad_categories)
+      ? rawCampaign.special_ad_categories
+      : [],
+    status: (rawCampaign.status as string) ?? "PAUSED",
+    buying_type: (rawCampaign.buying_type as string) ?? "AUCTION",
+    is_adset_budget_sharing_enabled: false,
+  };
+
+  // ---- AdSets ----
+  const adsetsList: AdSet[] =
+    spec.adsets && spec.adsets.length > 0
+      ? spec.adsets
+      : spec.adset
+        ? [{ ...spec.adset, ads: spec.ads }]
+        : [];
+
+  const cleanAdsets: AdSet[] = adsetsList.map((adsetRaw, idx) => {
+    const raw = adsetRaw as unknown as Record<string, unknown>;
+    const adsetName = (raw.name as string) ?? `AdSet ${idx + 1}`;
+
+    // Targeting limpio: solo lo seguro.
+    const rawT = (raw.targeting ?? {}) as Record<string, unknown>;
+    const cleanTargeting: Record<string, unknown> = {};
+    if (rawT.geo_locations) cleanTargeting.geo_locations = rawT.geo_locations;
+    else
+      cleanTargeting.geo_locations = { countries: ["AR", "UY"] }; // default LATAM
+    if (typeof rawT.age_min === "number") cleanTargeting.age_min = rawT.age_min;
+    if (typeof rawT.age_max === "number") cleanTargeting.age_max = rawT.age_max;
+    if (Array.isArray(rawT.genders) && rawT.genders.length > 0)
+      cleanTargeting.genders = rawT.genders;
+    if (Array.isArray(rawT.publisher_platforms))
+      cleanTargeting.publisher_platforms = rawT.publisher_platforms;
+    else cleanTargeting.publisher_platforms = ["facebook", "instagram"];
+    // targeting_automation.advantage_audience SIEMPRE explícito.
+    cleanTargeting.targeting_automation = { advantage_audience: 0 };
+
+    if (rawT.facebook_positions || rawT.instagram_positions) {
+      warnings.push(
+        `AdSet "${adsetName}": placements específicos descartados — usamos Advantage+ Placements (recomendado por Meta v21).`,
+      );
+    }
+
+    // optimization_goal + billing_event: forzados desde la tabla.
+    if (
+      typeof raw.optimization_goal === "string" &&
+      raw.optimization_goal !== defaults.optimization_goal
+    ) {
+      warnings.push(
+        `AdSet "${adsetName}": optimization_goal "${raw.optimization_goal}" reemplazado por "${defaults.optimization_goal}" (compatible con ${objective}).`,
+      );
+    }
+    if (
+      typeof raw.billing_event === "string" &&
+      raw.billing_event !== defaults.billing_event
+    ) {
+      warnings.push(
+        `AdSet "${adsetName}": billing_event "${raw.billing_event}" reemplazado por "${defaults.billing_event}".`,
+      );
+    }
+
+    // Ads: filtrar videos + validar CTA + destination.
+    const ads = ((raw.ads as unknown[]) ?? []) as Ad[];
+    const cleanAds: Ad[] = [];
+    for (const ad of ads) {
+      const adName = (ad.name as string) ?? "Ad sin nombre";
+      if (ad.creative_type === "video") {
+        warnings.push(
+          `Ad "${adName}" descartado: creative_type=video todavía no se soporta (falta integración /advideos). Subilo manual en Ads Manager.`,
+        );
+        continue;
+      }
+      const cta = defaults.cta_allowlist.includes(ad.cta_type)
+        ? ad.cta_type
+        : defaults.default_cta;
+      if (cta !== ad.cta_type) {
+        warnings.push(
+          `Ad "${adName}": cta_type "${ad.cta_type}" no es válido para ${objective} → reemplazado por "${cta}".`,
+        );
+      }
+      const url =
+        ad.destination_url && /^https?:\/\//i.test(ad.destination_url.trim())
+          ? ad.destination_url.trim()
+          : fallbackUrl;
+      if (url !== ad.destination_url) {
+        warnings.push(
+          `Ad "${adName}": destination_url inválida o vacía → usamos "${url}" como fallback.`,
+        );
+      }
+      cleanAds.push({
+        name: adName,
+        creative_ref: ad.creative_ref,
+        creative_type: "image",
+        headline: ad.headline ?? "",
+        primary_text: ad.primary_text ?? "",
+        description: ad.description,
+        cta_type: cta,
+        destination_url: url,
+        status: "PAUSED",
+      });
+    }
+
+    if (cleanAds.length === 0) {
+      warnings.push(
+        `AdSet "${adsetName}": no quedó ningún Ad válido después de filtrar. Va a quedar vacío en Meta.`,
+      );
+    }
+
+    return {
+      name: adsetName,
+      billing_event: defaults.billing_event,
+      optimization_goal: defaults.optimization_goal,
+      daily_budget:
+        typeof raw.daily_budget === "number" ? raw.daily_budget : null,
+      lifetime_budget:
+        typeof raw.lifetime_budget === "number" ? raw.lifetime_budget : null,
+      start_time: ensureIsoDate(raw.start_time) ?? new Date().toISOString(),
+      end_time: raw.end_time == null ? null : (ensureIsoDate(raw.end_time) ?? null),
+      targeting: cleanTargeting,
+      status: "PAUSED",
+      bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+      ads: cleanAds,
+    } as AdSet & { bid_strategy: string };
+  });
+
+  return {
+    spec: {
+      campaign,
+      adsets: cleanAdsets,
+      reasoning: spec.reasoning,
+    } as CampaignSpec,
+    warnings,
+  };
+}
+
 export async function POST(req: NextRequest) {
   // ====== Validación de auth ======
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -137,15 +405,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ====== Cargar Ad Account ID del cliente ======
+  // ====== Cargar Ad Account ID + website del cliente ======
   const { data: client } = await admin
     .from("clients")
-    .select("name, external_links")
+    .select("name, external_links, website")
     .eq("id", body.client_id)
     .single();
   if (!client) {
     return Response.json({ error: "Cliente no encontrado" }, { status: 404 });
   }
+
+  // ====== BULLETPROOF SPEC ======
+  // Normaliza objective/optimization_goal/billing_event/bid/targeting/CTA/
+  // destination_url upfront para evitar la cadena de 5 errores que sufrimos
+  // antes. Devuelve también warnings de lo que ajustó.
+  const { spec: safeSpec, warnings } = bulletproofSpec(body.spec, {
+    clientWebsite: (client as { website?: string | null }).website,
+  });
 
   const adAccountId = (
     client.external_links as { meta_ad_account_id?: string } | null
@@ -180,7 +456,8 @@ export async function POST(req: NextRequest) {
       dry_run: true,
       ad_account: `act_${adAccountId}`,
       api_version: apiVersion,
-      preview: buildPayloads(body.spec, adAccountId),
+      warnings,
+      preview: buildPayloads(safeSpec, adAccountId),
     });
   }
 
@@ -191,51 +468,10 @@ export async function POST(req: NextRequest) {
   const graphBase = `https://graph.facebook.com/${apiVersion}/act_${adAccountId}`;
 
   // 1) Crear Campaign.
-  //
-  // Antes pasábamos el objective tal cual lo generaba Claude. Meta
-  // Marketing API v18+ ya NO acepta los objectives legacy (CONVERSIONS,
-  // LINK_CLICKS, REACH, MESSAGES, LEAD_GENERATION, BRAND_AWARENESS,
-  // POST_ENGAGEMENT…). Hay que mandar OUTCOME_*. Como red de seguridad
-  // mapeamos acá antes de enviar — así si Claude o el director pegan
-  // un objective viejo no se cae el push.
-  // ¿La campaña tiene presupuesto centralizado (CBO / Advantage
-  // Budget) o cada AdSet maneja el suyo? Como nuestro spec setea
-  // daily_budget/lifetime_budget por AdSet (no en la Campaign),
-  // estamos siempre en modo "per-adset budget". Lo guardamos para
-  // decidir is_adset_budget_sharing_enabled abajo.
-  const campaignHasOwnBudget =
-    typeof (body.spec.campaign as Record<string, unknown>).daily_budget ===
-      "number" ||
-    typeof (body.spec.campaign as Record<string, unknown>).lifetime_budget ===
-      "number";
-
-  const normalizedCampaign = {
-    ...body.spec.campaign,
-    objective: normalizeObjective(body.spec.campaign.objective),
-    // special_ad_categories TIENE que ser array — algunas tools lo
-    // mandan como string vacío. Lo forzamos.
-    special_ad_categories: Array.isArray(body.spec.campaign.special_ad_categories)
-      ? body.spec.campaign.special_ad_categories
-      : [],
-    // Meta v21 exige declarar is_adset_budget_sharing_enabled de
-    // forma explícita cuando NO se usa Campaign Budget Optimization
-    // (CBO). Sin esto Meta devuelve:
-    //   "Se debe especificar Verdadero o Falso en el campo
-    //    is_adset_budget_sharing_enabled si no estás usando el
-    //    presupuesto de campaña."
-    // Nuestro generator pone daily_budget en cada AdSet (no en la
-    // Campaign), así que vamos con `false` por defecto — cada AdSet
-    // gestiona su propio presupuesto sin compartirlo. Si la spec
-    // ya trajo el campo, lo respetamos.
-    is_adset_budget_sharing_enabled:
-      typeof (body.spec.campaign as Record<string, unknown>)
-        .is_adset_budget_sharing_enabled === "boolean"
-        ? (body.spec.campaign as Record<string, unknown>)
-            .is_adset_budget_sharing_enabled
-        : campaignHasOwnBudget
-          ? undefined // si la Campaign sí tiene budget, dejá que Meta default
-          : false,
-  };
+  // bulletproofSpec() ya forzó objective válido (OUTCOME_*),
+  // special_ad_categories array, status PAUSED, buying_type AUCTION
+  // y is_adset_budget_sharing_enabled=false. Mandamos tal cual.
+  const normalizedCampaign = safeSpec.campaign;
 
   let campaignId: string;
   try {
@@ -285,14 +521,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2-3) Iterar sobre los AdSets (multi). Si el spec viejo solo tiene
-  // adset+ads (legacy), lo normalizamos a un array de 1.
-  const adsetsList: AdSet[] =
-    body.spec.adsets && body.spec.adsets.length > 0
-      ? body.spec.adsets
-      : body.spec.adset
-        ? [{ ...body.spec.adset, ads: body.spec.ads }]
-        : [];
+  // 2-3) Iterar sobre los AdSets bulletproofed.
+  const adsetsList: AdSet[] = safeSpec.adsets ?? [];
 
   if (adsetsList.length === 0) {
     return Response.json(
@@ -343,51 +573,24 @@ export async function POST(req: NextRequest) {
   }> = [];
 
   for (const adsetSpec of adsetsList) {
-    // 2.x) Crear AdSet linkeado a la campaign.
+    // 2.x) Crear AdSet linkeado a la campaign. Ya pasó por
+    // bulletproofSpec(): optimization_goal + billing_event
+    // compatibles, bid_strategy LOWEST_COST_WITHOUT_CAP, targeting
+    // limpio con advantage_audience explícito, ISO dates.
     let adSetId = "";
     try {
-      const { ads: _ignoreAds, ...adsetRaw } = adsetSpec;
-      // Normalizamos el AdSet antes de mandarlo a Meta:
-      //
-      // bid_strategy — si no viene, Meta intenta usar la que
-      //   "convenga" según el objective y a veces exige bid_amount o
-      //   bid_constraints. Error real que vimos:
-      //     "Se requiere un importe de puja o limitaciones de puja para
-      //      la estrategia de puja…"
-      //   La elección segura por default es LOWEST_COST_WITHOUT_CAP
-      //   (auto-bid, sin tope). Si después el director quiere capar el
-      //   bid, puede editar el AdSet directo en Ads Manager.
-      //
-      // start_time — Meta lo quiere en ISO con TZ. Si vino solo
-      //   YYYY-MM-DD lo convertimos a la medianoche del día en UTC
-      //   para que no falle el parse.
-      const adsetRawObj = adsetRaw as Record<string, unknown>;
-      const adsetNormalized: Record<string, unknown> = {
-        ...adsetRawObj,
-        bid_strategy:
-          typeof adsetRawObj.bid_strategy === "string" &&
-          adsetRawObj.bid_strategy.trim() !== ""
-            ? adsetRawObj.bid_strategy
-            : "LOWEST_COST_WITHOUT_CAP",
-        start_time: ensureIsoDate(adsetRawObj.start_time),
-        end_time:
-          adsetRawObj.end_time == null
-            ? undefined
-            : ensureIsoDate(adsetRawObj.end_time),
-        // Limpiamos posiciones de FB/IG que Meta haya deprecado.
-        // Ver normalizeTargeting() — saca video_feeds (removido en
-        // v18+), entre otros, para no romper el create del AdSet.
-        targeting: normalizeTargeting(adsetRawObj.targeting),
+      const { ads: _ignoreAds, ...adsetClean } = adsetSpec as AdSet & {
+        bid_strategy?: string;
       };
       console.log("[meta-push] creating adset", {
         adset: adsetSpec.name,
-        payload: adsetNormalized,
+        payload: adsetClean,
       });
       const adsetRes = await fetch(`${graphBase}/adsets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...adsetNormalized,
+          ...adsetClean,
           campaign_id: campaignId,
           access_token: metaToken,
         }),
@@ -397,7 +600,7 @@ export async function POST(req: NextRequest) {
         console.error("[meta-push] adset create failed", {
           adset: adsetSpec.name,
           status: adsetRes.status,
-          sent: adsetNormalized,
+          sent: adsetClean,
           meta_response: adsetData,
         });
         adsetResults.push({
@@ -578,6 +781,7 @@ export async function POST(req: NextRequest) {
       campaign_id: campaignId,
       adsets: adsetResults,
       failures,
+      warnings,
       note: success
         ? "Todo creado en status=PAUSED. Revisá en Ads Manager y activá manualmente."
         : "Campaign creada, pero al menos un adset o ad falló. Mirá `failures` y los logs del servidor para el detalle de Meta.",

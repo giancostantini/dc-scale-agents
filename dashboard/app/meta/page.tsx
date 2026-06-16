@@ -1055,6 +1055,10 @@ interface PushResult {
   campaign_id?: string;
   adsets?: PushAdset[];
   failures?: string[];
+  /** Ajustes aplicados por bulletproofSpec antes de enviar a Meta
+   *  (cta_type reemplazada, placements descartados, etc). Los
+   *  mostramos en la UI para que el director sepa qué se cambió. */
+  warnings?: string[];
   note?: string;
   manage_url?: string;
   preview?: unknown;
@@ -1243,6 +1247,44 @@ function PushResultView({ result }: { result: unknown }) {
         <div style={{ marginBottom: 12, fontSize: 12 }}>
           <strong style={{ color: "var(--deep-green)" }}>Campaign ID:</strong>{" "}
           <span style={{ fontFamily: "monospace" }}>{r.campaign_id}</span>
+        </div>
+      )}
+
+      {/* Warnings — ajustes que aplicó bulletproofSpec antes de enviar
+          (cta cambiada, placements descartados, optimization_goal
+          reemplazado, etc). Si está vacío no se renderea. */}
+      {r.warnings && r.warnings.length > 0 && (
+        <div
+          style={{
+            padding: "10px 12px",
+            background: "rgba(196,168,130,0.14)",
+            border: "1px solid rgba(196,168,130,0.4)",
+            borderRadius: 6,
+            fontSize: 12,
+            color: "var(--deep-green)",
+            marginBottom: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              marginBottom: 6,
+            }}
+          >
+            Ajustes aplicados antes de enviar a Meta
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {r.warnings.map((w, i) => (
+              <li key={i} style={{ marginBottom: 3 }}>
+                {w}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
