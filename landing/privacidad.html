@@ -206,7 +206,7 @@
   <div class="doc-eyebrow">Documento legal</div>
   <h1>Política de Privacidad</h1>
   <p class="doc-meta">
-    <strong>Última actualización:</strong> mayo 2026<br>
+    <strong>Última actualización:</strong> junio 2026<br>
     <strong>Responsable del tratamiento:</strong> Dearmas Costantini · Business Growth Partners · LATAM
   </p>
 
@@ -222,6 +222,7 @@
       <li><a href="#derechos">Tus derechos</a></li>
       <li><a href="#cookies">Cookies y tecnologías similares</a></li>
       <li><a href="#chatbot">Asistente IA del sitio</a></li>
+      <li><a href="#meta">Integración con Meta Platforms (Facebook e Instagram)</a></li>
       <li><a href="#seguridad">Seguridad de la información</a></li>
       <li><a href="#cambios">Cambios a esta política</a></li>
       <li><a href="#contacto">Contacto</a></li>
@@ -322,17 +323,71 @@
     <li>Si compartís datos sensibles en el chat (ej. cifras confidenciales de tu empresa), tené presente que la conversación atraviesa los servicios de los proveedores listados arriba.</li>
   </ul>
 
-  <h2 id="seguridad">10. Seguridad de la información</h2>
+  <h2 id="meta">10. Integración con Meta Platforms (Facebook e Instagram)</h2>
   <p>
-    Aplicamos medidas técnicas y organizativas razonables para proteger tu información: conexiones cifradas (HTTPS), control de acceso al sistema interno, autenticación de los administradores y backups regulares de la base de datos. Aún así, ningún sistema puede garantizar seguridad absoluta. En caso de detectar un incidente que afecte tus datos, te lo notificaremos según corresponda.
+    Como Growth Partner, gestionamos campañas publicitarias y contenidos en <strong>Facebook</strong> e <strong>Instagram</strong> en nombre de los clientes que se asocian con nosotros. Para hacerlo, nuestro sistema interno se conecta a las APIs oficiales de Meta Platforms, Inc. (Marketing API, Pages API y Graph API). Esta sección describe esa integración con el detalle que exige el proceso de revisión de Meta para apps que usan permisos avanzados.
   </p>
 
-  <h2 id="cambios">11. Cambios a esta política</h2>
+  <h3>10.1. A qué cuentas accedemos</h3>
+  <p>
+    Únicamente accedemos a Ad Accounts, Páginas de Facebook y cuentas de Instagram Business que pertenecen a clientes con los cuales tenemos una sociedad comercial vigente y que nos han otorgado acceso expreso a través de Meta Business Manager. <strong>No accedemos ni almacenamos información de cuentas personales</strong> de usuarios finales de Facebook o Instagram.
+  </p>
+
+  <h3>10.2. Qué datos consumimos de Meta</h3>
+  <ul>
+    <li><strong>Ad Account ID</strong> del cliente (numérico, sin información personal).</li>
+    <li><strong>Facebook Page ID</strong> del cliente que pública los anuncios.</li>
+    <li><strong>Campañas, conjuntos de anuncios y anuncios</strong> que creamos en su nombre (estructura, copy, creativos, presupuesto, segmentación).</li>
+    <li><strong>Métricas agregadas de rendimiento</strong> de las campañas (impresiones, clicks, costo, conversiones), únicamente de los anuncios que gestionamos para el cliente.</li>
+    <li><strong>Tokens de acceso del System User</strong> emitidos por el Business Manager del cliente — cifrados en tránsito y nunca expuestos al cliente del navegador.</li>
+  </ul>
+  <p>
+    No consumimos, ni almacenamos, ni analizamos información de usuarios finales que interactúen con los anuncios (audiencias, comentarios, mensajes personales, perfiles, etc).
+  </p>
+
+  <h3>10.3. Para qué los usamos</h3>
+  <ul>
+    <li><strong>Crear y modificar campañas</strong> de Meta Ads programáticamente desde nuestro dashboard, en estado pausado, para que el director del cliente las revise y active.</li>
+    <li><strong>Programar publicaciones orgánicas</strong> en Facebook e Instagram con contenido previamente aprobado por el cliente.</li>
+    <li><strong>Mostrar reportes de rendimiento</strong> de las campañas activas al equipo del cliente dentro de nuestro sistema interno.</li>
+    <li><strong>Mejorar la toma de decisiones</strong> del cliente sobre presupuestos publicitarios.</li>
+  </ul>
+  <p>
+    <strong>No</strong> usamos los datos de Meta para perfilar usuarios, construir audiencias propias, revender información o entrenar modelos de IA.
+  </p>
+
+  <h3>10.4. Cuánto los retenemos</h3>
+  <ul>
+    <li>Los <strong>tokens de acceso</strong> se guardan cifrados en nuestra base de datos mientras la sociedad con el cliente esté vigente. Al finalizar la relación, son eliminados dentro de los 30 días.</li>
+    <li>Las <strong>métricas históricas</strong> de campañas se conservan hasta 24 meses para reportes anuales, después se anonimizan.</li>
+    <li>Los <strong>creativos y copys</strong> generados quedan en nuestro almacenamiento durante la sociedad y se eliminan dentro de los 30 días posteriores a su finalización, salvo que el cliente solicite conservarlos.</li>
+  </ul>
+
+  <h3>10.5. Cómo solicitar la eliminación de tus datos</h3>
+  <p>
+    Si sos cliente nuestro y querés que eliminemos los datos asociados a tu cuenta de Meta (ad account, página, campañas que gestionamos), podés hacerlo de dos formas:
+  </p>
+  <ul>
+    <li><strong>Solicitud directa</strong>: enviá un email a <a href="mailto:hola@dearmascostantini.com">hola@dearmascostantini.com</a> con asunto "Eliminación de datos Meta". Procesamos la solicitud dentro de los 10 días hábiles y te confirmamos por escrito.</li>
+    <li><strong>Revocación desde Meta</strong>: andá a <a href="https://business.facebook.com" target="_blank" rel="noopener">business.facebook.com</a> → Configuración del Negocio → Usuarios del Sistema → quitanos como Usuario del Sistema o revocá los permisos a la App "Dearmas Costantini Ads". Esto inhabilita inmediatamente nuestro acceso, y en un plazo máximo de 30 días eliminamos cualquier dato relacionado de nuestros sistemas.</li>
+  </ul>
+
+  <h3>10.6. Cumplimiento con políticas de Meta</h3>
+  <p>
+    Nuestro uso de las APIs de Meta cumple con la <a href="https://developers.facebook.com/terms" target="_blank" rel="noopener">Plataforma de Meta — Términos</a>, la <a href="https://www.facebook.com/legal/technology_terms" target="_blank" rel="noopener">Tecnología de Plataforma</a> y los <a href="https://www.facebook.com/policies_center/ads" target="_blank" rel="noopener">Estándares de Anuncios</a>. No replicamos, mostramos ni distribuimos datos de Meta fuera de los propósitos descritos arriba, ni los compartimos con terceros que no estén explícitamente listados en la sección 6.
+  </p>
+
+  <h2 id="seguridad">11. Seguridad de la información</h2>
+  <p>
+    Aplicamos medidas técnicas y organizativas razonables para proteger tu información: conexiones cifradas (HTTPS/TLS 1.2+), cifrado en reposo de tokens y credenciales sensibles, control de acceso al sistema interno por roles, autenticación de los administradores con contraseñas robustas y backups regulares de la base de datos. Aún así, ningún sistema puede garantizar seguridad absoluta. En caso de detectar un incidente que afecte tus datos, te lo notificaremos según corresponda y dentro de los plazos que exija la regulación aplicable.
+  </p>
+
+  <h2 id="cambios">12. Cambios a esta política</h2>
   <p>
     Podemos actualizar esta política periódicamente. Cuando hagamos cambios significativos, actualizaremos la fecha de "Última actualización" en la parte superior y, si corresponde, te lo informaremos por email a quienes tengan una sociedad activa con la firma. Te recomendamos revisar esta página de tanto en tanto.
   </p>
 
-  <h2 id="contacto">12. Contacto</h2>
+  <h2 id="contacto">13. Contacto</h2>
   <div class="callout">
     <p>
       Si tenés preguntas sobre esta política o querés ejercer alguno de tus derechos, escribinos:
@@ -351,7 +406,7 @@
 
 <footer>
   © 2026 Dearmas Costantini · Business Growth Partners · LATAM ·
-  <a href="/">Volver al sitio</a>
+  <a href="/">Inicio</a> · <a href="/terminos">Términos</a>
 </footer>
 
 </body>

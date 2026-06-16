@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Términos y Condiciones — Dearmas Costantini</title>
+<meta name="description" content="Términos y condiciones de uso del sitio y los servicios de Dearmas Costantini.">
+<meta name="robots" content="index, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@200;300;400&family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bosque: #0A1A0C;
+    --noche: #0F1F12;
+    --selva: #1E3A28;
+    --pasto: #2C5038;
+    --arena: #C4A882;
+    --trigo: #D9C4A3;
+    --dorado: #9B8259;
+    --lino: #E8E4DC;
+    --marfil: #F5F2EC;
+    --neblina: #7A8A7E;
+    --white: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--marfil);
+    color: var(--bosque);
+    font-weight: 300;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--dorado); text-decoration: none; transition: color 0.2s; }
+  a:hover { color: var(--bosque); text-decoration: underline; }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    background: var(--bosque);
+    color: var(--lino);
+    padding: 18px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    border-bottom: 1px solid rgba(196, 168, 130, 0.15);
+  }
+  .nav-brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--lino);
+  }
+  .nav-brand .soft { font-weight: 300; opacity: 0.55; }
+  .nav-back {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232, 228, 220, 0.7);
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--arena); text-decoration: none; }
+
+  .container {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+  }
+
+  .doc-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin-bottom: 16px;
+  }
+
+  .doc-meta {
+    font-size: 13px;
+    color: var(--neblina);
+    margin-bottom: 56px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid rgba(10, 26, 12, 0.1);
+  }
+  .doc-meta strong { color: var(--bosque); font-weight: 600; }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    color: var(--bosque);
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 24px;
+    margin-bottom: 8px;
+    color: var(--bosque);
+  }
+
+  p {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    color: rgba(10, 26, 12, 0.85);
+  }
+
+  ul, ol {
+    margin-left: 22px;
+    margin-bottom: 20px;
+  }
+  li {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 8px;
+    color: rgba(10, 26, 12, 0.85);
+  }
+
+  strong { font-weight: 600; color: var(--bosque); }
+
+  .callout {
+    background: var(--lino);
+    border-left: 3px solid var(--arena);
+    padding: 24px 28px;
+    margin: 32px 0;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .toc {
+    background: var(--lino);
+    padding: 28px 32px;
+    margin-bottom: 56px;
+    border-left: 3px solid var(--arena);
+  }
+  .toc-title {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dorado);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .toc ol {
+    margin-left: 18px;
+    margin-bottom: 0;
+  }
+  .toc li {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .toc a { color: var(--bosque); }
+  .toc a:hover { color: var(--dorado); }
+
+  footer {
+    background: var(--noche);
+    color: rgba(232, 228, 220, 0.65);
+    padding: 40px 48px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+  footer a { color: var(--arena); }
+
+  @media (max-width: 700px) {
+    .nav { padding: 14px 20px; }
+    .container { padding: 48px 20px 80px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 40px; }
+    .toc { padding: 22px; }
+    footer { padding: 28px 20px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-brand">Dearmas <span class="soft">Costantini</span></a>
+  <a href="/" class="nav-back">← Volver al inicio</a>
+</nav>
+
+<main class="container">
+  <div class="doc-eyebrow">Documento legal</div>
+  <h1>Términos y Condiciones</h1>
+  <p class="doc-meta">
+    <strong>Última actualización:</strong> junio 2026<br>
+    <strong>Titular:</strong> Dearmas Costantini · Business Growth Partners · LATAM
+  </p>
+
+  <div class="toc">
+    <div class="toc-title">Contenido</div>
+    <ol>
+      <li><a href="#aceptacion">Aceptación de los términos</a></li>
+      <li><a href="#alcance">Quiénes somos y qué ofrecemos</a></li>
+      <li><a href="#sitio">Uso del sitio público</a></li>
+      <li><a href="#asistente">Asistente IA del sitio</a></li>
+      <li><a href="#sociedad">Relación comercial con la firma</a></li>
+      <li><a href="#sistema">Sistema interno (sistemadearmascostantini.com)</a></li>
+      <li><a href="#meta">Gestión de cuentas Meta (Facebook e Instagram) del cliente</a></li>
+      <li><a href="#contenido">Contenidos generados, propiedad intelectual</a></li>
+      <li><a href="#prohibido">Conductas prohibidas</a></li>
+      <li><a href="#garantias">Limitación de responsabilidad y garantías</a></li>
+      <li><a href="#indemnidad">Indemnidad</a></li>
+      <li><a href="#suspension">Suspensión y terminación</a></li>
+      <li><a href="#ley">Ley aplicable y jurisdicción</a></li>
+      <li><a href="#cambios">Cambios a estos términos</a></li>
+      <li><a href="#contacto">Contacto</a></li>
+    </ol>
+  </div>
+
+  <h2 id="aceptacion">1. Aceptación de los términos</h2>
+  <p>
+    Al ingresar y usar el sitio <a href="https://dearmascostantini.com" target="_blank" rel="noopener">dearmascostantini.com</a>, el sistema interno <a href="https://sistemadearmascostantini.com" target="_blank" rel="noopener">sistemadearmascostantini.com</a>, o cualquier servicio prestado por <strong>Dearmas Costantini</strong> ("la firma"), aceptás estos Términos y Condiciones, junto con nuestra <a href="/privacidad">Política de Privacidad</a>. Si no estás de acuerdo con alguna parte, te pedimos que no uses el sitio ni los servicios.
+  </p>
+
+  <h2 id="alcance">2. Quiénes somos y qué ofrecemos</h2>
+  <p>
+    Dearmas Costantini es una firma de <strong>Business Growth Partners</strong> que opera en LATAM, conformada por <strong>Federico Dearmas</strong> (Uruguay) y <strong>Gianluca Costantini</strong> (Argentina). No somos una agencia. Trabajamos con un número limitado de empresas como socios estratégicos del crecimiento, con un modelo de remuneración mixto (fee + variable) atado a objetivos de negocio acordados.
+  </p>
+  <p>
+    Esto NO es:
+  </p>
+  <ul>
+    <li>Una agencia de marketing tradicional con servicios por hora.</li>
+    <li>Un proveedor de leads o tráfico pago a granel.</li>
+    <li>Un consultor de proyectos one-off.</li>
+  </ul>
+  <p>
+    Cualquier sociedad comercial se formaliza mediante un contrato escrito y firmado entre las partes.
+  </p>
+
+  <h2 id="sitio">3. Uso del sitio público</h2>
+  <p>
+    El sitio dearmascostantini.com es de carácter informativo. Te otorgamos una licencia limitada, no exclusiva y revocable para navegarlo con fines personales o de evaluación comercial de la firma. Te pedimos que:
+  </p>
+  <ul>
+    <li>No uses el sitio para fines ilícitos ni dañinos.</li>
+    <li>No intentes acceder a áreas restringidas, vulnerar la seguridad o ejecutar ataques automatizados.</li>
+    <li>No copies, reproduzcas o distribuyas el contenido del sitio sin autorización escrita.</li>
+    <li>No uses scrapers o bots para extraer información de forma masiva.</li>
+  </ul>
+
+  <h2 id="asistente">4. Asistente IA del sitio</h2>
+  <p>
+    El chatbot que aparece en el sitio está potenciado por modelos de inteligencia artificial generativa (Anthropic Claude). Sus respuestas son <strong>orientativas</strong>, no constituyen asesoría profesional certificada y no reemplazan una conversación directa con los socios.
+  </p>
+  <p>
+    Al interactuar con el asistente entendés que:
+  </p>
+  <ul>
+    <li>Tus mensajes se procesan en tiempo real por terceros (ver Política de Privacidad).</li>
+    <li>El modelo puede cometer errores fácticos o omitir información.</li>
+    <li>No debés compartir información confidencial sensible que no quieras que pase por servicios de terceros.</li>
+    <li>Las recomendaciones del asistente no son vinculantes para la firma.</li>
+  </ul>
+
+  <h2 id="sociedad">5. Relación comercial con la firma</h2>
+  <p>
+    Si avanzás más allá de la reunión inicial y nos asociamos comercialmente, los términos específicos (alcance del trabajo, fee estructural, % variable, objetivos, duración, condiciones de salida) quedan establecidos en un contrato bilateral firmado entre las partes. Estos Términos y Condiciones son complementarios a ese contrato — en caso de conflicto, prevalece lo acordado en el contrato firmado.
+  </p>
+  <p>
+    La aceptación de una propuesta comercial y la firma del contrato son requisitos previos para que comencemos a operar como Growth Partner.
+  </p>
+
+  <h2 id="sistema">6. Sistema interno (sistemadearmascostantini.com)</h2>
+  <p>
+    El sistema interno es una plataforma privada accesible únicamente para los socios, el equipo de la firma y usuarios del portal de cada cliente. El acceso es nominal, autenticado y bajo permisos por rol.
+  </p>
+  <p>
+    Al usar el sistema te comprometés a:
+  </p>
+  <ul>
+    <li>Mantener confidencial tu usuario y contraseña; sos responsable de cualquier actividad realizada con ellos.</li>
+    <li>No compartir tus credenciales con terceros, ni siquiera de tu propia organización.</li>
+    <li>Notificarnos inmediatamente si sospechás un acceso no autorizado.</li>
+    <li>Usar el sistema únicamente para los fines de la sociedad comercial vigente.</li>
+    <li>No intentar acceder a información de otros clientes, ni vulnerar los controles de seguridad.</li>
+  </ul>
+  <p>
+    Nos reservamos el derecho de suspender o revocar el acceso ante cualquier uso indebido.
+  </p>
+
+  <h2 id="meta">7. Gestión de cuentas Meta (Facebook e Instagram) del cliente</h2>
+  <p>
+    Cuando el cliente nos otorga acceso a su cuenta de Meta Business Manager para que gestionemos sus campañas y contenidos:
+  </p>
+  <ul>
+    <li>Operamos como <strong>partner publicitario</strong> en nombre del cliente, sin convertirnos en titulares de su Ad Account, su Página de Facebook ni su cuenta de Instagram Business.</li>
+    <li>Las campañas que creamos se publican siempre en estado <strong>pausado</strong>; el director o el equipo del cliente las activa manualmente luego de revisar.</li>
+    <li>El cliente conserva el control total sobre su Ad Account, presupuesto, facturación y datos. Puede revocar nuestro acceso en cualquier momento desde business.facebook.com.</li>
+    <li>Cualquier costo de medios pagos (gasto en Meta Ads) corre por cuenta del cliente y se factura directamente a su tarjeta o método de pago configurado en Meta — la firma no intermedia esos pagos.</li>
+    <li>La firma <strong>no garantiza resultados específicos</strong> en términos de impresiones, clicks, conversiones o ventas. El rendimiento de las campañas depende de múltiples factores fuera de nuestro control (algoritmos de Meta, competencia, calidad del producto/oferta, mercado).</li>
+  </ul>
+  <p>
+    Cumplimos con las <a href="https://www.facebook.com/policies_center/ads" target="_blank" rel="noopener">Políticas Publicitarias de Meta</a> y la <a href="https://www.facebook.com/communitystandards" target="_blank" rel="noopener">Normativa Comunitaria</a>. Si una campaña es rechazada o suspendida por Meta, lo informamos al cliente y revisamos el creativo/copy según corresponda. No nos responsabilizamos por suspensiones del Ad Account del cliente derivadas de violaciones a las políticas de Meta cometidas fuera del alcance de nuestra gestión.
+  </p>
+
+  <h2 id="contenido">8. Contenidos generados, propiedad intelectual</h2>
+  <p>
+    <strong>Contenidos creados por la firma para el cliente</strong> en el marco de una sociedad comercial (estrategias, copys, creativos visuales, calendarios editoriales, reportes): la propiedad intelectual queda en el cliente, con licencia perpetua e irrevocable a la firma para usarlos como material de portfolio y casos de éxito (de forma anonimizada cuando el cliente lo solicite expresamente).
+  </p>
+  <p>
+    <strong>Contenidos del sitio público</strong> (textos, diseños, marca Dearmas Costantini): son propiedad exclusiva de la firma. El logo, nombre comercial y elementos visuales no pueden replicarse sin autorización escrita.
+  </p>
+  <p>
+    <strong>Contenidos generados por IA en el sistema</strong> (ideas de contenido, copys, recomendaciones): la firma usa estos outputs como insumo de trabajo. El cliente puede usar libremente los contenidos aprobados; la firma se reserva el derecho de mejorar sus prompts y modelos a partir del feedback agregado, sin reutilizar información identificable.
+  </p>
+
+  <h2 id="prohibido">9. Conductas prohibidas</h2>
+  <p>Al usar nuestros sitios y servicios, te comprometés a NO:</p>
+  <ul>
+    <li>Suplantar la identidad de la firma, sus socios o cualquier otro cliente.</li>
+    <li>Usar nuestros servicios para difundir contenido ilegal, discriminatorio, fraudulento o que vulnere derechos de terceros.</li>
+    <li>Realizar ingeniería inversa, descompilar o intentar acceder al código fuente del sistema interno.</li>
+    <li>Sobrecargar nuestros servidores con peticiones automatizadas o ataques de denegación de servicio.</li>
+    <li>Vender o ceder acceso al sistema interno o las credenciales de tu cuenta a terceros.</li>
+    <li>Usar los datos de Meta que gestionamos en tu nombre para fines distintos a los acordados.</li>
+  </ul>
+
+  <h2 id="garantias">10. Limitación de responsabilidad y garantías</h2>
+  <p>
+    El sitio y los servicios se ofrecen "tal cual" y "según disponibilidad". En la máxima medida permitida por la ley:
+  </p>
+  <ul>
+    <li>No garantizamos que el sitio o el sistema interno estén libres de errores, interrupciones o vulnerabilidades.</li>
+    <li>No nos hacemos responsables por daños indirectos, lucro cesante o pérdida de oportunidades comerciales derivadas del uso o imposibilidad de uso del sitio o servicios.</li>
+    <li>No garantizamos resultados comerciales específicos derivados de la sociedad con la firma — el éxito depende de múltiples factores externos.</li>
+    <li>Nuestra responsabilidad total frente al cliente, por cualquier reclamo derivado de estos términos, está limitada al monto efectivamente pagado en concepto de fee estructural durante los últimos 3 meses previos al hecho generador.</li>
+  </ul>
+  <p>
+    Estas limitaciones no aplican en casos de dolo, fraude o cuando la ley aplicable las prohíba.
+  </p>
+
+  <h2 id="indemnidad">11. Indemnidad</h2>
+  <p>
+    El cliente se compromete a mantener indemne a la firma, sus socios y empleados, frente a cualquier reclamo de terceros derivado de:
+  </p>
+  <ul>
+    <li>Información falsa, engañosa o ilegal provista por el cliente para usar en sus campañas.</li>
+    <li>Productos, servicios u ofertas promocionadas que violen leyes aplicables.</li>
+    <li>Uso indebido del sistema interno por parte del cliente o sus empleados.</li>
+    <li>Reclamos de Meta, Google o cualquier plataforma derivados del incumplimiento, por parte del cliente, de las políticas de dichas plataformas.</li>
+  </ul>
+
+  <h2 id="suspension">12. Suspensión y terminación</h2>
+  <p>
+    Podemos suspender o terminar el acceso al sitio, al sistema interno o a los servicios si:
+  </p>
+  <ul>
+    <li>Detectamos uso indebido o violación grave de estos términos.</li>
+    <li>El cliente entra en mora prolongada con los pagos acordados.</li>
+    <li>Existe un riesgo legal o reputacional que afecte a la firma.</li>
+    <li>Lo solicita una autoridad competente.</li>
+  </ul>
+  <p>
+    En caso de terminación de la sociedad comercial, las condiciones de salida (datos, accesos, propiedad intelectual, pagos pendientes) son las que estén establecidas en el contrato bilateral firmado entre las partes.
+  </p>
+
+  <h2 id="ley">13. Ley aplicable y jurisdicción</h2>
+  <p>
+    Estos términos se rigen por las leyes de la <strong>República Oriental del Uruguay</strong>, jurisdicción de los Tribunales de Montevideo, salvo que el contrato bilateral firmado con un cliente específico establezca lo contrario. Para clientes de Argentina aplicará subsidiariamente la legislación argentina cuando corresponda.
+  </p>
+  <p>
+    Las partes acuerdan intentar resolver cualquier disputa de buena fe a través de diálogo directo antes de recurrir a vía judicial.
+  </p>
+
+  <h2 id="cambios">14. Cambios a estos términos</h2>
+  <p>
+    Podemos actualizar estos términos periódicamente. Cuando hagamos cambios sustanciales, actualizaremos la fecha de "Última actualización" en la parte superior y, si tenés una sociedad activa con la firma, te lo notificaremos por email. El uso continuado del sitio o servicios después de la actualización implica aceptación de los nuevos términos.
+  </p>
+
+  <h2 id="contacto">15. Contacto</h2>
+  <div class="callout">
+    <p>
+      Si tenés preguntas sobre estos términos o querés iniciar una conversación comercial, escribinos:
+    </p>
+    <p>
+      <strong>Email general</strong>: <a href="mailto:hola@dearmascostantini.com">hola@dearmascostantini.com</a><br>
+      <strong>Federico Dearmas</strong>: <a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a><br>
+      <strong>Gianluca Costantini</strong>: <a href="mailto:gianluca@dearmascostantini.com">gianluca@dearmascostantini.com</a>
+    </p>
+  </div>
+
+  <p style="margin-top: 56px; font-size: 14px; color: var(--neblina); text-align: center;">
+    Estos términos están redactados en español y se rigen por las leyes aplicables en los países de LATAM donde Dearmas Costantini opera.
+  </p>
+</main>
+
+<footer>
+  © 2026 Dearmas Costantini · Business Growth Partners · LATAM ·
+  <a href="/">Inicio</a> · <a href="/privacidad">Privacidad</a>
+</footer>
+
+</body>
+</html>
