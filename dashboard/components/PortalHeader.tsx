@@ -71,7 +71,21 @@ export default function PortalHeader({
             className={styles.clientLogo}
           />
         )}
-        <Lockup size="md" />
+        {/* Lockup de D&C es link al home del portal — el cliente
+            espera ese comportamiento cuando está navegando dentro
+            de /portal/agenda, /portal/documentos, etc. */}
+        <Link
+          href="/portal"
+          aria-label="Volver al portal"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <Lockup size="md" />
+        </Link>
 
         {/* Nav del portal — botones principales que el cliente usa
             recurrente. Los CTAs descubribles (Solicitudes, Agenda,
