@@ -35,6 +35,7 @@ import {
   type ClientSocialLinks,
 } from "@/lib/types";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { getSupabase } from "@/lib/supabase/client";
 import { uploadContentPreview } from "@/lib/upload";
 import type { Client, ClientContact, OnboardingFile } from "@/lib/types";
 import InviteUserModal from "@/components/InviteUserModal";
@@ -1261,6 +1262,13 @@ function MetaBusinessSuitePanel({
             página". NO es el username, es el número.
           </div>
         </div>
+
+        {/* Panel del Meta Access Token — vive en su propio sub-componente
+            porque tiene su propio endpoint (set/clear) y necesita
+            preview-only del valor cargado por seguridad. Ver
+            MetaAccessTokenField abajo. */}
+        <MetaAccessTokenField clientId={client.id} />
+
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && (
             <span
@@ -2045,6 +2053,307 @@ function ContractPanel({
         accept=".pdf"
         onUploaded={onChange}
       />
+    </div>
+  );
+}
+
+// ============================================================
+// MetaAccessTokenField — campo dedicado para el access token de
+// Meta Marketing API del cliente. Lo separamos del resto del panel
+// porque:
+//   · No se lee desde getClient (eso viaja al browser) — solo se lee
+//     server-side desde /api/meta/push-campaign.
+//   · Tiene su propio endpoint para set/clear (server-side, role-checked).
+//   · La UI muestra un preview redactado ("EAAB…xyz") en lugar del
+//     valor completo, para confirmar visualmente que está cargado el
+//     correcto sin filtrarlo.
+//
+// Si el cliente no carga token, el push cae a la env var
+// META_ACCESS_TOKEN como fallback (compat con setups viejos).
+// ============================================================
+function MetaAccessTokenField({ clientId }: { clientId: string }) {
+  const [loading, setLoading] = useState(true);
+  const [hasToken, setHasToken] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [draftToken, setDraftToken] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // Carga inicial del estado (¿tiene token? ¿qué preview?).
+  const refresh = async () => {
+    try {
+      const supabase = getSupabase();
+      const { data: sess } = await supabase.auth.getSession();
+      const tok = sess.session?.access_token;
+      if (!tok) return;
+      const res = await fetch(`/api/clients/${clientId}/meta-token`, {
+        headers: { Authorization: `Bearer ${tok}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "No se pudo leer el token");
+      setHasToken(!!json.hasToken);
+      setPreview((json.tokenPreview as string | null) ?? null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
+
+  async function save() {
+    if (!draftToken.trim()) {
+      setError("Pegá el token antes de guardar.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const supabase = getSupabase();
+      const { data: sess } = await supabase.auth.getSession();
+      const tok = sess.session?.access_token;
+      if (!tok) throw new Error("Sesión expirada");
+      const res = await fetch(`/api/clients/${clientId}/meta-token`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tok}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: draftToken.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "No se pudo guardar");
+      setDraftToken("");
+      setEditing(false);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clearToken() {
+    if (
+      !confirm(
+        "¿Quitar el token del cliente? El push de campañas va a caer al fallback de META_ACCESS_TOKEN env var (si existe).",
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const supabase = getSupabase();
+      const { data: sess } = await supabase.auth.getSession();
+      const tok = sess.session?.access_token;
+      if (!tok) throw new Error("Sesión expirada");
+      const res = await fetch(`/api/clients/${clientId}/meta-token`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${tok}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "No se pudo limpiar");
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 700,
+          marginBottom: 4,
+        }}
+      >
+        Meta Access Token (System User)
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          Cargando…
+        </div>
+      ) : hasToken && !editing ? (
+        <div
+          style={{
+            padding: "10px 12px",
+            background: "var(--off-white)",
+            border: "1px solid rgba(10,26,12,0.1)",
+            borderRadius: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--green-ok)",
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+            }}
+          >
+            ✓ Cargado
+          </div>
+          <div
+            style={{
+              fontFamily: "monospace",
+              fontSize: 11,
+              color: "var(--deep-green)",
+              flex: 1,
+            }}
+          >
+            {preview ?? "•••"}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(true);
+              setDraftToken("");
+            }}
+            disabled={saving}
+            style={{
+              fontSize: 11,
+              padding: "5px 10px",
+              background: "transparent",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              color: "var(--deep-green)",
+            }}
+          >
+            Reemplazar
+          </button>
+          <button
+            type="button"
+            onClick={clearToken}
+            disabled={saving}
+            style={{
+              fontSize: 11,
+              padding: "5px 10px",
+              background: "transparent",
+              border: "1px solid var(--red-warn)",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              color: "var(--red-warn)",
+            }}
+          >
+            Quitar
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="password"
+            value={draftToken}
+            onChange={(e) => setDraftToken(e.target.value)}
+            placeholder="EAA... (pegá el access token del System User)"
+            disabled={saving}
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: 6,
+              fontFamily: "monospace",
+              fontSize: 12,
+              background: "var(--white)",
+              color: "var(--deep-green)",
+              outline: "none",
+            }}
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !draftToken.trim()}
+            style={{
+              padding: "10px 14px",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: "var(--deep-green)",
+              color: "var(--off-white)",
+              border: "none",
+              borderRadius: 4,
+              cursor:
+                saving || !draftToken.trim() ? "default" : "pointer",
+              opacity: saving || !draftToken.trim() ? 0.55 : 1,
+              fontFamily: "inherit",
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+          {hasToken && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setDraftToken("");
+                setError("");
+              }}
+              disabled={saving}
+              style={{
+                padding: "10px 12px",
+                fontSize: 11,
+                background: "transparent",
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: "var(--text-muted)",
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            color: "var(--red-warn)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 11,
+          color: "var(--text-muted)",
+          lineHeight: 1.5,
+        }}
+      >
+        Token del <strong>System User</strong> del Business Manager de
+        este cliente, con scope{" "}
+        <code>ads_management + business_management + pages_*</code>. Lo
+        generás en business.facebook.com → Usuarios del sistema → tu
+        System User → "Generar nuevo token". Si dejás vacío, el push
+        cae al token global (env var META_ACCESS_TOKEN). Cada cliente
+        con su propio BM tiene que cargar el suyo.
+      </div>
     </div>
   );
 }

@@ -405,14 +405,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ====== Cargar Ad Account ID + website del cliente ======
+  // ====== Cargar Ad Account ID + website + token del cliente ======
   // Importante: la columna es website_url (mig 053), no "website".
   // Si Supabase tira error de columna inexistente, queremos surfacearlo
   // tal cual en lugar de devolver "Cliente no encontrado" genérico —
   // antes nos comíamos esos errores y costaba diagnosticarlos.
+  // meta_access_token (mig 073) lo leemos solo acá server-side — NUNCA
+  // se devuelve al frontend.
   const { data: client, error: clientErr } = await admin
     .from("clients")
-    .select("name, external_links, website_url")
+    .select("name, external_links, website_url, meta_access_token")
     .eq("id", body.client_id)
     .single();
   if (clientErr) {
@@ -450,14 +452,42 @@ export async function POST(req: NextRequest) {
   }
 
   // ====== Cargar META_ACCESS_TOKEN ======
-  const metaToken = process.env.META_ACCESS_TOKEN;
+  // Prioridad:
+  //   1. clients.meta_access_token (per-cliente) — para clientes con
+  //      su propio Business Manager / App de Meta Developers. Cada
+  //      cliente carga su token desde /cliente/[id]/configuracion →
+  //      panel Meta Business Suite.
+  //   2. META_ACCESS_TOKEN env var (global, fallback) — para los setups
+  //      donde todos los Ad Accounts viven en el mismo BM (típicamente
+  //      el de la agencia).
+  // Si no hay ni uno ni otro → 400 con hint para cargarlo.
+  const clientToken = (
+    client as { meta_access_token?: string | null }
+  ).meta_access_token;
+  const metaToken =
+    (clientToken && clientToken.trim().length > 0
+      ? clientToken
+      : process.env.META_ACCESS_TOKEN) ?? "";
   const apiVersion = process.env.META_API_VERSION ?? "v21.0";
 
   if (!metaToken) {
     return Response.json(
       {
-        error: "META_ACCESS_TOKEN no configurado en el servidor",
-        hint: `Setear la env var META_ACCESS_TOKEN con un token de System User con scope ads_management. Lo generás en developers.facebook.com → tu App → System Users → Generate Token con permission "ads_management" + "business_management". Pegarlo en Vercel → Project Settings → Environment Variables.`,
+        error:
+          "Falta el Meta Access Token para este cliente. No hay token cargado en el cliente ni env var de fallback.",
+        hint: [
+          "Tenés dos opciones para cargar el token:",
+          "",
+          "1) Per-cliente (recomendado si cada cliente tiene su propio BM):",
+          "   Cliente → Configuración → Meta Business Suite → campo 'Meta Access Token'.",
+          "   Pegá el token del System User del BM de este cliente.",
+          "",
+          "2) Global vía env var (si todos los clientes están en TU BM):",
+          "   Vercel → Project Settings → Environment Variables → agregar",
+          "   META_ACCESS_TOKEN con el token del System User de tu BM.",
+          "",
+          "Lo generás en business.facebook.com → Usuarios del sistema → tu System User → 'Generar nuevo token', con scope ads_management + business_management + pages_*.",
+        ].join("\n"),
       },
       { status: 400 },
     );
