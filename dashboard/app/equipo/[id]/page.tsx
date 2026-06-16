@@ -329,6 +329,56 @@ export default function EquipoDetailPage({
     }
   }
 
+  /**
+   * Cambiar el rol de una asignación existente.
+   *
+   * client_assignments tiene PK compuesto (client_id, user_id,
+   * role_in_client), entonces no podemos hacer UPDATE del role
+   * directamente. Implementamos como remove + add atómico desde
+   * el cliente:
+   *   1) Eliminar la fila con el rol viejo.
+   *   2) Crear una nueva con el rol nuevo, preservando visible_menus.
+   *
+   * Si el paso 2 falla, la asignación queda eliminada sin reemplazo
+   * — se lo mostramos al user. No es lo ideal pero el approach
+   * sigue siendo más seguro que un UPDATE que rompería la PK.
+   */
+  async function handleChangeRole(
+    a: ClientAssignment,
+    newRole: string,
+  ) {
+    if (newRole === a.role_in_client) return;
+    if (
+      !confirm(
+        `¿Cambiar el rol de ${a.role_in_client} a ${newRole}?`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await removeAssignment(a.client_id, a.user_id, a.role_in_client);
+    } catch (err) {
+      console.error("change role: remove failed", err);
+      alert("No se pudo quitar la asignación vieja.");
+      return;
+    }
+    try {
+      await addAssignment({
+        client_id: a.client_id,
+        user_id: a.user_id,
+        role_in_client: newRole,
+        visible_menus: a.visible_menus ?? null,
+      });
+      await loadAssignments();
+    } catch (err) {
+      console.error("change role: add failed", err);
+      alert(
+        `Se quitó el rol viejo pero falló crear el nuevo: ${(err as Error).message}\n\nVolvé a asignar manualmente desde el formulario de abajo.`,
+      );
+      await loadAssignments();
+    }
+  }
+
   const assignedClientIds = new Set(assignments.map((a) => a.client_id));
   const availableClients = clients.filter(
     (c) => !assignedClientIds.has(c.id) || asgRole !== assignments.find((a) => a.client_id === c.id)?.role_in_client,
@@ -742,9 +792,53 @@ export default function EquipoDetailPage({
                         </div>
                       </div>
                     </Link>
-                    <div className={detail.assignRole}>
-                      {a.role_in_client}
-                    </div>
+                    {/* Rol editable inline. Antes era texto plano
+                        sin forma de cambiarlo; el director tenía
+                        que eliminar y volver a asignar. Ahora un
+                        select inline llama handleChangeRole, que
+                        internamente hace remove + add (el rol es
+                        parte del PK compuesto). Read-only si no
+                        canEdit. */}
+                    {canEdit ? (
+                      <select
+                        value={a.role_in_client}
+                        onChange={(e) =>
+                          handleChangeRole(a, e.target.value)
+                        }
+                        onClick={(e) => e.preventDefault()}
+                        title="Cambiar rol"
+                        style={{
+                          fontSize: 11,
+                          padding: "4px 8px",
+                          border: "1px solid rgba(10,26,12,0.15)",
+                          borderRadius: 4,
+                          background: "var(--white)",
+                          fontFamily: "inherit",
+                          fontWeight: 600,
+                          color: "var(--deep-green)",
+                          cursor: "pointer",
+                          minWidth: 140,
+                        }}
+                      >
+                        {/* Si el role actual no está en CLIENT_ROLES
+                            (datos viejos), lo agregamos como opción
+                            extra para no perderlo. */}
+                        {!CLIENT_ROLES.includes(a.role_in_client) && (
+                          <option value={a.role_in_client}>
+                            {a.role_in_client}
+                          </option>
+                        )}
+                        {CLIENT_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className={detail.assignRole}>
+                        {a.role_in_client}
+                      </div>
+                    )}
                     <div className={detail.assignSince}>
                       desde {a.since}
                     </div>
