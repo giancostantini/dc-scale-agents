@@ -16,6 +16,15 @@ import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/client";
 import styles from "./PaymentCTA.module.css";
 
+interface HistoryEntry {
+  month: string;          // "2026-06"
+  monthLabel: string;     // "junio"
+  status: "paid" | "pending" | "late" | "cancelled";
+  amount: number | null;  // monto facturado (amount_override). null = no facturado todavía.
+  paidDate: string | null;
+  pdfUrl: string | null;
+}
+
 interface PaymentStatus {
   status: "paid" | "pending";
   color: "green" | "neutral" | "amber" | "red";
@@ -28,8 +37,14 @@ interface PaymentStatus {
   progress: number;
   month: string;
   monthLabel: string;
+  /** Monto REAL del mes — viene de payments.amount_override si hay
+   *  factura emitida, sino del fee base del cliente. */
   fee: number | null;
+  /** Fee mensual base del cliente (solo referencia). */
+  baseFee: number | null;
   clientName: string | null;
+  /** Últimos 6 meses para el popover. */
+  history: HistoryEntry[];
 }
 
 // Número de WhatsApp del fundador para coordinar pagos (formato
@@ -165,7 +180,7 @@ export default function PaymentCTA() {
           <div className={styles.popRow}>
             <span className={styles.popRowLabel}>Monto</span>
             <span className={styles.popRowValue}>
-              {formattedFee ? `${formattedFee} / mes` : "—"}
+              {formattedFee ? formattedFee : "—"}
             </span>
           </div>
           <div className={styles.popRow}>
@@ -197,6 +212,92 @@ export default function PaymentCTA() {
               </Link>
             );
           })()}
+
+          {/* Historial — últimos meses facturados. Cuando hay PDF
+              cargado, lo linkeamos. Cuando el row no existe en
+              payments, mostramos "—" (todavía no facturado). */}
+          {data.history && data.history.filter((h) => h.month !== data.month).length > 0 && (
+            <div
+              style={{
+                marginTop: 16,
+                paddingTop: 14,
+                borderTop: "1px solid rgba(10,26,12,0.08)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 8,
+                }}
+              >
+                Historial reciente
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {data.history
+                  .filter((h) => h.month !== data.month)
+                  .slice(0, 5)
+                  .map((h) => (
+                    <div
+                      key={h.month}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 11,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background:
+                            h.status === "paid"
+                              ? "var(--green-ok)"
+                              : h.status === "cancelled"
+                                ? "rgba(10,26,12,0.3)"
+                                : "var(--red-warn)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ textTransform: "capitalize", flex: 1 }}>
+                        {h.monthLabel}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          fontWeight: 600,
+                          color: "var(--deep-green)",
+                        }}
+                      >
+                        {h.amount != null
+                          ? `US$ ${h.amount.toLocaleString("es-AR")}`
+                          : "—"}
+                      </span>
+                      {h.pdfUrl && (
+                        <a
+                          href={h.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Descargar factura"
+                          style={{
+                            fontSize: 10,
+                            color: "var(--deep-green)",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          PDF
+                        </a>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

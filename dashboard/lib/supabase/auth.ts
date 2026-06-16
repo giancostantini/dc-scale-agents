@@ -46,12 +46,21 @@ export interface Profile {
   permissions?: ProfilePermissions | null;
   // Migration 024: jerarquía organizacional
   reports_to_id?: string | null;
-  // Migración 047: preferencias granulares de email
+  // Migración 047: preferencias granulares de email (mayormente
+  // usado por team / director). Para clientes solo aplican
+  // email_on_task_assigned y weekly_digest_enabled — el resto se
+  // oculta del UI en /perfil.
   email_on_new_request?: boolean;
   email_on_task_assigned?: boolean;
   email_on_client_assigned?: boolean;
   email_on_payment_received?: boolean;
   email_on_content_approved?: boolean;
+  // Migración 017: newsletter / reporte de tendencias semanal.
+  // Opt-in por default. Si el cliente lo apaga, no recibe ni el
+  // digest ni el envío manual de tendencias (también respeta a
+  // los contactos del cliente — si el portal user opta-out, no se
+  // manda a nadie del cliente).
+  weekly_digest_enabled?: boolean;
   // Migración 047: integración Outlook
   outlook_email?: string | null;
   outlook_connected_at?: string | null;
@@ -203,7 +212,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, avatar_url, must_change_password",
+      "id, email, name, role, initials, position, payment_amount, payment_currency, payment_type, payment_day, start_date, phone, notes, client_id, permissions, reports_to_id, avatar_url, must_change_password, email_on_task_assigned, weekly_digest_enabled",
     )
     .eq("id", user.id)
     .single();

@@ -18,8 +18,9 @@ import PortalOnboardingTour from "@/components/PortalOnboardingTour";
 import PortalHeader from "@/components/PortalHeader";
 import ConsultorChatPanel from "@/components/ConsultorChatPanel";
 import ConsultorHistoryPanel from "@/components/ConsultorHistoryPanel";
-import PhaseRoadmap from "@/components/PhaseRoadmap";
-import ReportCommentsDrawer from "@/components/ReportCommentsDrawer";
+// PhaseRoadmap se movió a /portal/documentos para limpiar el home.
+// Si lo necesitás en otro lugar, importalo desde @/components/PhaseRoadmap.
+// ReportCommentsDrawer se movió a /portal/documentos junto con PhaseRoadmap.
 import LookerStudioCard from "@/components/LookerStudioCard";
 import TeamCard from "@/components/TeamCard";
 import SectorTrendsCard from "@/components/SectorTrendsCard";
@@ -60,11 +61,7 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
-  const [commentsDrawer, setCommentsDrawer] = useState<{
-    open: boolean;
-    reportId: string | null;
-    reportLabel: string;
-  }>({ open: false, reportId: null, reportLabel: "" });
+  // commentsDrawer + ReportCommentsDrawer se movieron a /portal/documentos.
   // null = todavía no hay conversación (se crea lazy al primer mensaje del user).
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   // Tick que se incrementa después de cada actividad → fuerza al HistoryPanel a refetch.
@@ -262,14 +259,13 @@ export default function PortalPage() {
           </nav>
         </section>
 
-        {/* ROADMAP DE FASES — visible siempre, da contexto del progreso */}
-        <PhaseRoadmap
-          client={client}
-          reports={reports}
-          onCommentReport={(reportId, reportLabel) =>
-            setCommentsDrawer({ open: true, reportId, reportLabel })
-          }
-        />
+        {/* El roadmap de fases del negocio (PhaseRoadmap) vivía acá
+            como sección destacada del home. Lo movimos a
+            /portal/documentos para limpiar el home — el cliente
+            entraba seguido al home y la sección "Tus fases" ocupaba
+            mucho real estate sin cambiar día a día. Ahora se accede
+            desde el item "Documentos" del header del portal cuando
+            necesita revisar reportes / leer comentarios. */}
 
         {/* CHAT-FIRST LAYOUT */}
         <section className={styles.chatLayout}>
@@ -427,15 +423,9 @@ export default function PortalPage() {
             ejecutivo + botón "Ver PDF" + "Comentar" viven ahora dentro del
             modal de cada fase en el PhaseRoadmap (más arriba). */}
 
-        <ReportCommentsDrawer
-          open={commentsDrawer.open}
-          reportId={commentsDrawer.reportId}
-          reportLabel={commentsDrawer.reportLabel}
-          onClose={() =>
-            setCommentsDrawer({ open: false, reportId: null, reportLabel: "" })
-          }
-        />
-
+        {/* ReportCommentsDrawer se movió a /portal/documentos junto con
+            el PhaseRoadmap — antes era abierto por el roadmap (que
+            estaba acá) y por nada más en el home. */}
 
         {content.length > 0 && (
           <section className={styles.detailSection}>

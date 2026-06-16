@@ -607,46 +607,60 @@ function EmailPreferencesPanel({
   onUpdated: (p: Profile) => void;
 }) {
   const [saving, setSaving] = useState(false);
-  const PREFS: {
-    key:
-      | "email_on_new_request"
-      | "email_on_task_assigned"
-      | "email_on_client_assigned"
-      | "email_on_payment_received"
-      | "email_on_content_approved";
+  type PrefKey =
+    | "email_on_new_request"
+    | "email_on_task_assigned"
+    | "email_on_client_assigned"
+    | "email_on_payment_received"
+    | "email_on_content_approved"
+    | "weekly_digest_enabled";
+  type PrefDef = {
+    key: PrefKey;
     label: string;
     desc: string;
-    directorOnly?: boolean;
-  }[] = [
+    /** Si está seteado, este pref SOLO se muestra a esos roles.
+     *  Si no, se muestra a todos. */
+    onlyRoles?: ("director" | "team" | "client")[];
+  };
+  const PREFS: PrefDef[] = [
     {
       key: "email_on_new_request",
       label: "Nuevas solicitudes del cliente",
       desc: "Cuando un cliente sube una solicitud al portal.",
+      onlyRoles: ["director", "team"],
     },
     {
       key: "email_on_task_assigned",
       label: "Tareas asignadas",
-      desc: "Cuando me asignan una tarea nueva.",
+      desc: "Cuando te asignan una tarea nueva pendiente.",
     },
     {
       key: "email_on_client_assigned",
       label: "Cliente asignado",
       desc: "Cuando me asignan a trabajar con un cliente.",
+      onlyRoles: ["team"],
     },
     {
       key: "email_on_payment_received",
       label: "Cobros recibidos",
       desc: "Cuando una factura se marca como pagada.",
-      directorOnly: true,
+      onlyRoles: ["director"],
     },
     {
       key: "email_on_content_approved",
       label: "Contenido aprobado",
       desc: "Cuando una idea de contenido pasa al calendario.",
+      onlyRoles: ["director", "team"],
+    },
+    {
+      key: "weekly_digest_enabled",
+      label: "Newsletter (tendencias del mercado)",
+      desc: "Reporte semanal de tendencias de tu sector + lo que está funcionando ahora en el nicho. Llega como digest los lunes.",
+      onlyRoles: ["client"],
     },
   ];
   async function toggle(
-    key: typeof PREFS[number]["key"],
+    key: PrefKey,
     value: boolean,
   ) {
     if (saving) return;
@@ -661,7 +675,14 @@ function EmailPreferencesPanel({
       setSaving(false);
     }
   }
-  const visible = PREFS.filter((p) => !p.directorOnly || profile.role === "director");
+  // Filtramos por rol — si el pref tiene onlyRoles, solo se muestra a
+  // los roles listados. Los sin onlyRoles aparecen para todos (compat).
+  const visible = PREFS.filter((p) => {
+    if (!p.onlyRoles) return true;
+    return p.onlyRoles.includes(
+      profile.role as "director" | "team" | "client",
+    );
+  });
   return (
     <div className={styles.panel}>
       <div className={styles.panelHead}>
