@@ -38,6 +38,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { recordApiUsage } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -160,6 +161,11 @@ async function callClaude(model, prompt, maxTokens = 1500) {
     throw new Error(`Claude API error ${res.status}: ${err}`);
   }
   const data = await res.json();
+  recordApiUsage({
+    source: "agent:morning-briefing",
+    model,
+    usage: data.usage,
+  }).catch(() => {});
   return data.content[0].text;
 }
 

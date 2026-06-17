@@ -23,6 +23,7 @@ import {
   registerAgentOutput,
   pushNotification,
   fetchClient,
+  recordApiUsage,
 } from "../lib/supabase.js";
 
 const AGENT = "creative-assistant";
@@ -95,6 +96,11 @@ async function callClaude(prompt, maxTokens = 4096) {
   }
 
   const data = await res.json();
+  recordApiUsage({
+    source: `agent:${AGENT}`,
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+  }).catch(() => {});
   return data.content[0].text;
 }
 

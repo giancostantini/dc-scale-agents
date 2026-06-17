@@ -28,6 +28,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { recordApiUsage } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -132,6 +133,11 @@ async function callClaudeWebSearch(
   }
 
   const data = await res.json();
+  recordApiUsage({
+    source: "agent:client-research",
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+  }).catch(() => {});
   return extractTextAndSources(data);
 }
 
