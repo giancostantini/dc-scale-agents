@@ -25,6 +25,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext, buildVaultBlock } from "@/lib/vault-loader";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 const MODEL = CLAUDE_MODEL_OPUS;
 
@@ -349,6 +350,13 @@ export async function POST(req: NextRequest) {
         : dispatched
         ? `Dispatché el agente ${dispatched.agent}. Te aviso cuando termine.`
         : "Procesado.";
+
+    await recordApiUsage({
+      source: "dashboard:consultant",
+      clientId,
+      model: response.model,
+      usage: response.usage,
+    });
 
     return Response.json({
       reply,

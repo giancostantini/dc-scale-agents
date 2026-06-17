@@ -9,11 +9,13 @@
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
+// Acepta el tipo `Usage` del SDK de Anthropic (campos `number | null`) sin
+// acoplarnos a él. Width subtyping: un objeto con más campos es asignable.
 interface UsageLike {
-  input_tokens?: number;
-  output_tokens?: number;
-  cache_read_input_tokens?: number;
-  cache_creation_input_tokens?: number;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
 }
 
 export async function recordApiUsage(params: {
