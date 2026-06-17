@@ -128,6 +128,16 @@ export default function Topbar({
           </button>
         )}
 
+        {/* Costos API: solo director */}
+        {isDirector && (
+          <button
+            className={styles.btn}
+            onClick={() => router.push("/configuracion/costos")}
+          >
+            <IConfiguracion size={15} /> Costos
+          </button>
+        )}
+
         {/* Notificaciones: para todos */}
         <NotificationBell />
 

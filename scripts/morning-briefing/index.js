@@ -47,8 +47,13 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
 const SUPABASE_KEY = process.env.SUPABASE_KEY?.trim();
 
-const MODEL_CLIENT_BRIEFING = "claude-sonnet-4-6"; // legacy mode
-const MODEL_USER_BRIEFING = "claude-opus-4-7";     // per-user, más nuanced
+const MODEL_CLIENT_BRIEFING =
+  process.env.ANTHROPIC_MODEL_CLIENT_BRIEFING || "claude-sonnet-4-6"; // legacy mode
+// Per-user briefing: antes Opus 4.7 (corre 1×/usuario/día → era el gasto
+// recurrente #1). Bajado a Sonnet por costo (~1.7× más barato); override por
+// env si se quiere volver a Opus para un brief más "nuanced".
+const MODEL_USER_BRIEFING =
+  process.env.ANTHROPIC_MODEL_USER_BRIEFING || "claude-sonnet-4-6";
 
 const TITLE_MAX_CHARS = 60;
 
