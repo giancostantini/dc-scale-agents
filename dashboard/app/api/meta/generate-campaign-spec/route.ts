@@ -34,6 +34,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 export const maxDuration = 180;
 export const dynamic = "force-dynamic";
@@ -340,6 +341,12 @@ y copy específico para esa audiencia.`;
         { status: 500 },
       );
     }
+
+    await recordApiUsage({
+      source: "dashboard:meta-campaign-spec",
+      model: completion.model,
+      usage: completion.usage,
+    });
 
     return Response.json({ spec });
   } catch (e) {

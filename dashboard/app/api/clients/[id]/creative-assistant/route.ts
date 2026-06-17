@@ -28,6 +28,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 export const maxDuration = 180;
 export const dynamic = "force-dynamic";
@@ -432,6 +433,12 @@ RECORDÁ: devolvés SOLO el JSON con la estructura definida arriba. Sin code fen
     modelUsed: string,
     note?: string,
   ): Record<string, unknown> {
+    recordApiUsage({
+      source: "dashboard:creative-assistant",
+      clientId,
+      model: modelUsed,
+      usage: response.usage,
+    }).catch(() => {});
     const textBlock = response.content.find((b) => b.type === "text");
     const reply = textBlock?.text ? textBlock.text.trim() : "";
 
