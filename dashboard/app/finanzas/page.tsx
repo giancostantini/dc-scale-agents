@@ -44,6 +44,7 @@ import {
   TeamCostView,
 } from "./FinanzasViews";
 import ReportesView from "@/components/finanzas/ReportesView";
+import CostosApiView from "@/components/finanzas/CostosApiView";
 import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
 import { PremiumDocumentos } from "@/components/finanzas/PremiumDocumentos";
@@ -71,7 +72,8 @@ type FinPage =
   | "clientes"
   | "facturacion"
   | "documentos"
-  | "cuentas";
+  | "cuentas"
+  | "costos_api";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
 
@@ -180,6 +182,7 @@ export default function FinanzasPage() {
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "documentos", icon: "▤", label: "Documentos" },
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
+        { key: "costos_api", icon: "⊛", label: "Costos API (Claude)" },
       ],
     },
   ];
@@ -235,6 +238,7 @@ export default function FinanzasPage() {
             {page === "facturacion" && <PremiumFacturacion />}
             {page === "documentos" && <PremiumDocumentos />}
             {page === "cuentas" && <PremiumCuentasBancarias />}
+            {page === "costos_api" && <CostosApiView />}
             {page === "mkt_clientes" && (
               <MktClientesView
                 clients={clients}
