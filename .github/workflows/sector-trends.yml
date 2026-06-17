@@ -1,11 +1,13 @@
 name: Sector Trends
 
-# Semanal: martes 12:00 UTC = 9:00 AM Uruguay. Trae tendencias del nicho para
+# Semanal: viernes 12:00 UTC = 9:00 AM Uruguay. Trae tendencias del nicho para
 # cada cliente Growth Partner activo, las escribe al vault (sector-trends.md) +
 # agent_outputs, commitea, y dispara el mail de tendencias.
+# Una sola corrida alimenta las 3 superficies: interno (/tendencias), equipo, y
+# portal del cliente (/portal/tendencias + email via /api/portal/trends/send-all).
 on:
   schedule:
-    - cron: '0 12 * * 2'
+    - cron: '0 12 * * 5'
   workflow_dispatch:
     inputs:
       client:
