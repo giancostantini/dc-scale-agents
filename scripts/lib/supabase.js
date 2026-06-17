@@ -413,3 +413,36 @@ export async function pushNotification(client, level, title, body, opts = {}) {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// api_usage — registro de gasto por llamada a Claude (panel de costos)
+// ---------------------------------------------------------------------------
+
+/**
+ * Registra el uso de tokens de una llamada a Claude. Fire-and-forget: nunca
+ * rompe al agente. El costo se calcula al leer (dashboard).
+ *
+ * @param {Object} p
+ * @param {string} p.source        - 'agent:<slug>' (ej. 'agent:morning-briefing')
+ * @param {string|null} [p.client] - slug del cliente (null si no aplica)
+ * @param {string} p.model         - model ID usado
+ * @param {Object} p.usage         - response.usage de la API (input_tokens, output_tokens, cache_*_input_tokens)
+ * @returns {Promise<Object|null>}
+ */
+export async function recordApiUsage({ source, client = null, model, usage }) {
+  if (!usage) return null;
+  try {
+    return await insert("api_usage", {
+      source,
+      client_id: client ?? null,
+      model,
+      input_tokens: usage.input_tokens ?? 0,
+      output_tokens: usage.output_tokens ?? 0,
+      cache_read_tokens: usage.cache_read_input_tokens ?? 0,
+      cache_creation_tokens: usage.cache_creation_input_tokens ?? 0,
+    });
+  } catch (err) {
+    console.warn(`[supabase] recordApiUsage failed (non-fatal): ${err.message}`);
+    return null;
+  }
+}
