@@ -118,6 +118,16 @@ export default function Topbar({
           </button>
         )}
 
+        {/* Bóveda de empresa (credenciales de D&C): solo director */}
+        {isDirector && (
+          <button
+            className={styles.btn}
+            onClick={() => router.push("/accesos")}
+          >
+            <IConfiguracion size={15} /> Bóveda
+          </button>
+        )}
+
         {/* Costos API: solo director */}
         {isDirector && (
           <button

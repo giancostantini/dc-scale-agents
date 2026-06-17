@@ -644,6 +644,63 @@ export default function HubPage() {
                 con sus fuentes.
               </div>
             </Link>
+
+            {/* Bóveda de empresa — credenciales de D&C, solo director */}
+            {profile.role === "director" && (
+              <Link
+                href="/accesos"
+                style={{
+                  background: "var(--white)",
+                  border: "1px solid var(--hairline)",
+                  borderRadius: "var(--r-lg)",
+                  padding: "20px 22px",
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "block",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    marginBottom: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Bóveda de empresa
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Abrir →
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Contraseñas y accesos de D&amp;C (banco, fiscal, infra).
+                  Cifradas, solo directores.
+                </div>
+              </Link>
+            )}
           </div>
         </div>
 
