@@ -18,6 +18,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 export const maxDuration = 180;
 export const dynamic = "force-dynamic";
@@ -262,6 +263,12 @@ Output: SOLO el markdown del reporte. Sin preámbulo. Empezá con el H1 del tít
     const textBlock = response.content.find((b) => b.type === "text");
     const reply =
       textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
+
+    await recordApiUsage({
+      source: "dashboard:finanzas-report",
+      model: response.model,
+      usage: response.usage,
+    });
 
     return Response.json({
       success: true,
