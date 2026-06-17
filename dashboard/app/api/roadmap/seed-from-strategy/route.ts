@@ -26,6 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -465,6 +466,13 @@ ${strategyReport.content_md}`;
       { status: 500 },
     );
   }
+
+  await recordApiUsage({
+    source: "dashboard:roadmap-seed",
+    clientId,
+    model: claudeResponse.model,
+    usage: claudeResponse.usage,
+  });
 
   return Response.json({
     success: true,

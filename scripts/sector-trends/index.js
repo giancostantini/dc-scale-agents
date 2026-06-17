@@ -32,6 +32,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { recordApiUsage } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -133,6 +134,11 @@ async function callClaudeWebSearch(
   }
 
   const data = await res.json();
+  recordApiUsage({
+    source: "agent:sector-trends",
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+  }).catch(() => {});
   return extractTextAndSources(data);
 }
 
@@ -261,6 +267,11 @@ async function structureTrends(rawText, attempt = 1) {
   }
 
   const data = await res.json();
+  recordApiUsage({
+    source: "agent:sector-trends",
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+  }).catch(() => {});
   const blocks = Array.isArray(data?.content) ? data.content : [];
   const toolBlock = blocks.find(
     (b) => b.type === "tool_use" && b.name === "report_sector_trends",

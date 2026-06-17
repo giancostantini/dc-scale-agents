@@ -24,6 +24,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { recordApiUsage } from "../lib/supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -177,6 +178,11 @@ async function callClaude(prompt, maxTokens = 16384, attempt = 1) {
   }
 
   const data = await res.json();
+  recordApiUsage({
+    source: "agent:brandbook-processor",
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+  }).catch(() => {});
   return data.content[0].text;
 }
 

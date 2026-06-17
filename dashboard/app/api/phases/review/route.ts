@@ -17,6 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 // Vercel route config: el análisis crítico también es largo, le damos
 // hasta 300s. Default de Pro es 60s y muchos reviews lo pasan.
@@ -213,6 +214,12 @@ Generá el análisis siguiendo la estructura del system prompt.`;
       throw new Error("Respuesta vacía de Claude.");
     }
     reviewMd = block.text.trim();
+    await recordApiUsage({
+      source: "dashboard:phases-review",
+      clientId,
+      model: resp.model,
+      usage: resp.usage,
+    });
   } catch (err) {
     console.error("[phases.review] Claude error:", err);
     const e = err as { message?: string };

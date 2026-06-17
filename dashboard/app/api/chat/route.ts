@@ -26,6 +26,7 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { CLAUDE_MODEL_SONNET } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 const ALLOWED_ORIGINS = new Set([
   "https://dearmascostantini.com",
@@ -234,6 +235,12 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const finalMessage = await stream.finalMessage();
+          recordApiUsage({
+            source: "dashboard:chat-landing",
+            model: finalMessage.model,
+            usage: finalMessage.usage,
+          }).catch(() => {});
           controller.close();
         } catch (err) {
           console.error("[chat] stream error:", err);

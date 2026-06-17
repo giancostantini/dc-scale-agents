@@ -25,6 +25,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 import {
   PHASE_PROMPTS,
   PHASE_PROMPTS_BRAND_LAUNCH,
@@ -517,6 +518,13 @@ Reglas absolutas:
     cacheCreation: claudeResponse.usage.cache_creation_input_tokens ?? 0,
     cacheRead: claudeResponse.usage.cache_read_input_tokens ?? 0,
   };
+
+  await recordApiUsage({
+    source: "dashboard:phases-generate",
+    clientId,
+    model: claudeResponse.model,
+    usage: claudeResponse.usage,
+  });
 
   await admin
     .from("phase_reports")

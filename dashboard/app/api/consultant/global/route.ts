@@ -39,6 +39,7 @@ import {
 } from "@/lib/consultant-global-context";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 export const dynamic = "force-dynamic";
 
@@ -261,6 +262,12 @@ export async function POST(req: NextRequest) {
           .from("consultant_conversations")
           .update(updatePayload)
           .eq("id", conversation!.id);
+
+        await recordApiUsage({
+          source: "dashboard:consultant-global",
+          model: finalMessage.model,
+          usage: finalMessage.usage,
+        });
 
         send({
           type: "done",

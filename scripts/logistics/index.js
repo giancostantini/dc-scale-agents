@@ -9,6 +9,7 @@ import {
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
+import { recordApiUsage } from "../lib/supabase.js";
 
 const AGENT = "logistics";
 
@@ -88,6 +89,11 @@ async function callClaude(prompt, maxTokens = 8192) {
   }
 
   const data = await res.json();
+  recordApiUsage({
+    source: "agent:logistics",
+    model: "claude-sonnet-4-6",
+    usage: data.usage,
+  }).catch(() => {});
   return data.content[0].text;
 }
 

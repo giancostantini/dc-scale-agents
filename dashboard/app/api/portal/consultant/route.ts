@@ -42,6 +42,7 @@ import {
   buildPortalVaultBlock,
 } from "@/lib/portal-vault-context";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 const MODEL = CLAUDE_MODEL_OPUS;
 
@@ -378,6 +379,13 @@ export async function POST(req: NextRequest) {
         .update(updatePayload)
         .eq("id", conversation.id);
     }
+
+    await recordApiUsage({
+      source: "dashboard:portal-consultant",
+      clientId,
+      model: response.model,
+      usage: response.usage,
+    });
 
     return Response.json({
       reply,

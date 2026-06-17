@@ -32,6 +32,7 @@ import {
   vaultSignatureFragment,
 } from "@/lib/portal-vault-context";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { recordApiUsage } from "@/lib/api-usage";
 
 const MODEL = CLAUDE_MODEL_OPUS;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
@@ -209,6 +210,12 @@ export async function GET(req: NextRequest) {
       textBlock && textBlock.type === "text"
         ? textBlock.text.trim()
         : "Bienvenido a tu portal.";
+    await recordApiUsage({
+      source: "dashboard:portal-welcome",
+      clientId,
+      model: response.model,
+      usage: response.usage,
+    });
   } catch (err) {
     console.error("welcome generation error:", err);
     if (err instanceof Anthropic.AuthenticationError) {
