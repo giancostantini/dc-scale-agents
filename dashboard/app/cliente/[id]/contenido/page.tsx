@@ -55,6 +55,7 @@ import type {
   ContentStatus,
 } from "@/lib/types";
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
+import ContentConsultantPanel from "@/components/ContentConsultantPanel";
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
   classificationsFor,
@@ -1529,6 +1530,12 @@ export default function ContenidoPage({
           onClose={() => setFeedPostDetail(null)}
         />
       )}
+
+      {/* ============== CONSULTOR DE CONTENIDO (ideas: marca + tendencias) ==============
+          Chat interno que propone ideas alineadas al brandbook + estrategia y a las
+          últimas tendencias del nicho. Complementa al Asistente Creativo de abajo:
+          acá se idea/explora, el Asistente Creativo formaliza en batch de piezas. */}
+      <ContentConsultantPanel clientId={id} clientName={client?.name} />
 
       {/* ============== ASISTENTE CREATIVO HORIZONTAL ============== */}
       <div
