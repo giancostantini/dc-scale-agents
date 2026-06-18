@@ -310,7 +310,14 @@ y copy específico para esa audiencia.`;
   try {
     const completion = await anthropic.messages.create({
       model: CLAUDE_MODEL_OPUS,
-      max_tokens: 4000,
+      // Antes era 4000, pero con 2+ AdSets el spec se cortaba
+      // mid-JSON (el director reportó: "no es JSON parseable" con
+      // la respuesta cortada en mitad de un string). Subimos a
+      // 16000 — un spec típico de 4 AdSets con 3 ads cada uno entra
+      // cómodo en ~6-8k tokens, así que 16000 da margen amplio
+      // sin desperdiciar mucho cuando es chico. Claude solo gasta
+      // lo que necesita.
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -332,11 +339,25 @@ y copy específico para esa audiencia.`;
     let spec: unknown;
     try {
       spec = JSON.parse(raw);
-    } catch {
+    } catch (parseErr) {
+      // Si stop_reason === "max_tokens", Claude se cortó por
+      // límite — devolvemos un error específico que distingue
+      // de un JSON sintácticamente roto. La UI puede sugerir al
+      // director que simplifique el prompt o que el cliente baje
+      // la cantidad de AdSets.
+      const wasTruncated = completion.stop_reason === "max_tokens";
       return Response.json(
         {
-          error: "El spec devuelto por Claude no es JSON parseable",
-          detail: raw.slice(0, 500),
+          error: wasTruncated
+            ? "Claude se quedó sin tokens generando el spec — la respuesta quedó cortada al medio."
+            : "El spec devuelto por Claude no es JSON parseable",
+          hint: wasTruncated
+            ? "Probá una de estas: (1) reducí la cantidad de AdSets o creativos, (2) hacé el prompt más conciso, (3) avisanos para subir max_tokens más. El spec hasta donde llegó está en `detail` por si querés revisarlo."
+            : undefined,
+          parse_error: (parseErr as Error).message,
+          detail: raw.slice(0, 2000),
+          stop_reason: completion.stop_reason,
+          tokens_used: completion.usage,
         },
         { status: 500 },
       );

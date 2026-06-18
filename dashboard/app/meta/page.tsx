@@ -280,9 +280,14 @@ function MetaPageInner() {
       });
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(
-          `${json.error}${json.detail ? `\n${json.detail}` : ""}`,
-        );
+        // Antes concatenábamos error + detail; perdíamos la hint que
+        // devuelve el endpoint cuando Claude se queda sin tokens.
+        // Ahora priorizamos error + hint y dejamos el detail para
+        // último (es el JSON parcial).
+        const parts: string[] = [json.error ?? "Error desconocido"];
+        if (json.hint) parts.push(json.hint);
+        if (json.detail) parts.push(`\n${json.detail}`);
+        throw new Error(parts.join("\n\n"));
       }
       setSpec(json.spec);
     } catch (e) {
