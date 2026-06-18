@@ -22,10 +22,10 @@ interface ChatMessage {
 }
 
 const SUGGESTIONS = [
-  "Dame 5 ideas alineadas a la última tendencia del nicho",
-  "Ideas de Reels para esta semana",
-  "Ángulos de contenido para nuestro producto estrella",
-  "¿Qué tendencia podemos aprovechar sin salirnos de la marca?",
+  "Texto para una placa sobre una oferta/novedad",
+  "Textos placa por placa para un carrusel",
+  "3 variantes de título para una placa",
+  "Referencias de cómo escribir el texto de las placas del nicho",
 ];
 
 export default function ContentConsultantPanel({
@@ -177,9 +177,10 @@ export default function ContentConsultantPanel({
           💡 Consultor de Contenido
         </div>
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-          Ideas alineadas a la marca{clientName ? ` de ${clientName}` : ""} y a
-          las últimas tendencias del nicho. Conversá: pedí ángulos, iterá,
-          enfocá por formato o campaña.
+          Te ayuda a escribir el texto de las placas/statics (título en imagen,
+          bajada, CTA, textos de carrusel) alineado a la marca
+          {clientName ? ` de ${clientName}` : ""} y a las tendencias del nicho.
+          Pensado para la CM al producir las piezas.
         </div>
       </div>
 
@@ -284,7 +285,7 @@ export default function ContentConsultantPanel({
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pedile ideas de contenido… (ej: 'ángulos para el lanzamiento de invierno')"
+          placeholder="Pedile el texto de una placa… (ej: 'título y bajada para una placa de promo de invierno')"
           rows={2}
           disabled={sending || loading}
           onKeyDown={(e) => {
