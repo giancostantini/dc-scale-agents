@@ -1,0 +1,58 @@
+name: Distill Learnings
+
+# Semanal: domingo 13:00 UTC = 10:00 AM Uruguay. Revisa las interacciones
+# recientes del Consultor de Contenido de cada cliente GP y destila aprendizajes
+# nuevos a `consultant_memory_v2` (kind='learning'). Como toda la flota ya lee
+# esa tabla, los agentes se afinan sin sumar tokens por consulta. Pasada barata:
+# modelo Haiku, incremental (solo lo nuevo). NO commitea el vault.
+on:
+  schedule:
+    - cron: '0 13 * * 0'
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (opcional; si se pasa, corre solo ese)'
+        required: false
+
+jobs:
+  distill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run distill-learnings for active GP clients
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
+            exit 1
+          fi
+          MANUAL="${{ github.event.inputs.client }}"
+          if [ -n "$MANUAL" ]; then
+            slugs="[\"$MANUAL\"]"
+          else
+            # Clientes Growth Partner (incluye onboarding, ej. WizTrip); los DEV quedan afuera por type.
+            resp=$(curl -fsS \
+              "${SUPABASE_URL}/rest/v1/clients?type=eq.gp&select=id" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}")
+            slugs=$(echo "$resp" | jq -c '[.[] | .id]')
+          fi
+          echo "Clientes a procesar: $slugs"
+          echo "$slugs" | jq -r '.[]' | while read -r slug; do
+            [ -z "$slug" ] && continue
+            echo "=== distill-learnings: $slug ==="
+            printf '{ "client": "%s", "source": "scheduled" }' "$slug" > /tmp/brief.json
+            node scripts/distill-learnings/index.js --brief /tmp/brief.json \
+              || echo "::warning::distill-learnings falló para $slug (sigo con el resto)"
+          done

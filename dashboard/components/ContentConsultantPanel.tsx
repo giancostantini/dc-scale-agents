@@ -12,21 +12,48 @@
  * Creativo (batch de piezas) ni con el Consultor del cliente (portal).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { getSupabase } from "@/lib/supabase/client";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface ChatMessage {
+  /** id de DB (solo mensajes persistidos; los recién enviados lo reciben del POST). */
+  id?: string | null;
   role: "user" | "assistant";
   content: string;
+  /** 👍=1, 👎=-1, null=sin calificar. Solo en respuestas del asistente. */
+  rating?: number | null;
 }
 
 const SUGGESTIONS = [
-  "Dame 5 ideas alineadas a la última tendencia del nicho",
-  "Ideas de Reels para esta semana",
-  "Ángulos de contenido para nuestro producto estrella",
-  "¿Qué tendencia podemos aprovechar sin salirnos de la marca?",
+  "Texto para una placa sobre una oferta/novedad",
+  "Textos placa por placa para un carrusel",
+  "3 variantes de título para una placa",
+  "Referencias de cómo escribir el texto de las placas del nicho",
 ];
+
+/** Estilo del botón 👍/👎. Resaltado cuando es el voto activo. */
+function ratePillStyle(active: boolean): CSSProperties {
+  return {
+    fontSize: 13,
+    lineHeight: 1,
+    padding: "3px 9px",
+    background: active ? "var(--deep-green)" : "transparent",
+    border: active
+      ? "1px solid var(--deep-green)"
+      : "1px solid rgba(10,26,12,0.15)",
+    borderRadius: "var(--r-pill)",
+    cursor: "pointer",
+    opacity: active ? 1 : 0.5,
+    fontFamily: "inherit",
+  };
+}
 
 export default function ContentConsultantPanel({
   clientId,
@@ -126,6 +153,7 @@ export default function ContentConsultantPanel({
         });
         const data = (await res.json().catch(() => ({}))) as {
           reply?: string;
+          messageId?: string | null;
           error?: string;
           detail?: string;
         };
@@ -140,7 +168,12 @@ export default function ContentConsultantPanel({
         }
         setMessages([
           ...next,
-          { role: "assistant", content: data.reply ?? "" },
+          {
+            id: data.messageId ?? null,
+            role: "assistant",
+            content: data.reply ?? "",
+            rating: null,
+          },
         ]);
       } catch {
         setError("Error de red. Probá de nuevo.");
@@ -150,6 +183,38 @@ export default function ContentConsultantPanel({
       }
     },
     [clientId, messages, sending],
+  );
+
+  // 👍/👎 sobre una respuesta del asistente. Toggle: reclickear quita el voto.
+  // Optimista; si el PATCH falla, el próximo GET reconcilia.
+  const rate = useCallback(
+    async (messageId: string, value: 1 | -1) => {
+      const current = messages.find((m) => m.id === messageId)?.rating ?? null;
+      const nextRating = current === value ? null : value;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, rating: nextRating } : m,
+        ),
+      );
+      try {
+        const supabase = getSupabase();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+        await fetch(`/api/clients/${clientId}/content-consultant`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ messageId, rating: nextRating }),
+        });
+      } catch {
+        /* no rompemos la UI; el GET siguiente reconcilia */
+      }
+    },
+    [clientId, messages],
   );
 
   const showSuggestions = !loading && messages.length === 0;
@@ -177,9 +242,10 @@ export default function ContentConsultantPanel({
           💡 Consultor de Contenido
         </div>
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-          Ideas alineadas a la marca{clientName ? ` de ${clientName}` : ""} y a
-          las últimas tendencias del nicho. Conversá: pedí ángulos, iterá,
-          enfocá por formato o campaña.
+          Te ayuda a escribir el texto de las placas/statics (título en imagen,
+          bajada, CTA, textos de carrusel) alineado a la marca
+          {clientName ? ` de ${clientName}` : ""} y a las tendencias del nicho.
+          Pensado para la CM al producir las piezas.
         </div>
       </div>
 
@@ -225,7 +291,41 @@ export default function ContentConsultantPanel({
               }}
             >
               {m.role === "assistant" ? (
-                <MarkdownRenderer content={m.content} shiftHeadings />
+                <>
+                  <MarkdownRenderer content={m.content} shiftHeadings />
+                  {m.id && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 6,
+                        marginTop: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <span
+                        style={{ fontSize: 10, color: "var(--text-muted)" }}
+                      >
+                        ¿Te sirvió?
+                      </span>
+                      <button
+                        type="button"
+                        title="Sí, útil"
+                        onClick={() => rate(m.id as string, 1)}
+                        style={ratePillStyle(m.rating === 1)}
+                      >
+                        👍
+                      </button>
+                      <button
+                        type="button"
+                        title="No sirvió"
+                        onClick={() => rate(m.id as string, -1)}
+                        style={ratePillStyle(m.rating === -1)}
+                      >
+                        👎
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <span style={{ whiteSpace: "pre-wrap" }}>{m.content}</span>
               )}
@@ -284,7 +384,7 @@ export default function ContentConsultantPanel({
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pedile ideas de contenido… (ej: 'ángulos para el lanzamiento de invierno')"
+          placeholder="Pedile el texto de una placa… (ej: 'título y bajada para una placa de promo de invierno')"
           rows={2}
           disabled={sending || loading}
           onKeyDown={(e) => {

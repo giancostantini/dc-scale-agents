@@ -18,6 +18,10 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MAX_ATTEMPTS = 3;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
+/** Modelo barato para tareas de fondo (destilar aprendizajes, resúmenes). */
+export const CLAUDE_MODEL_HAIKU =
+  process.env.ANTHROPIC_MODEL_HAIKU || "claude-haiku-4-5";
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
