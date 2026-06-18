@@ -109,6 +109,62 @@ async function buildTrendsBlock(clientId: string): Promise<string | null> {
   ].join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// Memoria / aprendizajes del cliente (consultant_memory_v2).
+// Acá es donde el destilador semanal (scripts/distill-learnings) escribe
+// kind='learning', y donde el equipo deja directivas vía el Consultor. Leerla
+// es lo que hace que el consultor "se afine" con el tiempo. Bloque chico y
+// acotado (no crece con el historial) → costo por llamada plano.
+// ---------------------------------------------------------------------------
+
+const MEMORY_KIND_LABEL: Record<string, string> = {
+  constraint: "Restricción",
+  preference: "Preferencia",
+  past_decision: "Decisión previa",
+  learning: "Aprendizaje",
+};
+// Reglas duras primero, aprendizajes al final.
+const MEMORY_KIND_ORDER = ["constraint", "preference", "past_decision", "learning"];
+
+interface ClientMemoryRow {
+  kind: string;
+  content: string;
+  importance: number;
+}
+
+async function loadClientLearnings(
+  admin: SupabaseClient,
+  clientId: string,
+): Promise<ClientMemoryRow[]> {
+  const { data, error } = await admin
+    .from("consultant_memory_v2")
+    .select("kind, content, importance")
+    .eq("scope_type", "client")
+    .eq("client_id", clientId)
+    .or("expires_at.is.null,expires_at.gt.now()")
+    .order("importance", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(25);
+  if (error || !data) return [];
+  return data as ClientMemoryRow[];
+}
+
+/** Bloque de directivas + aprendizajes para el system prompt. null si no hay. */
+function buildLearningsBlock(rows: ClientMemoryRow[]): string | null {
+  if (!rows || rows.length === 0) return null;
+  const sorted = [...rows].sort(
+    (a, b) =>
+      MEMORY_KIND_ORDER.indexOf(a.kind) - MEMORY_KIND_ORDER.indexOf(b.kind),
+  );
+  return [
+    "--- DIRECTIVAS Y APRENDIZAJES DEL EQUIPO (memoria de este cliente) ---",
+    "Lo que el equipo pidió para este cliente + lo aprendido de charlas previas",
+    "(se afina con el tiempo). Tienen PRIORIDAD sobre tu criterio general; las",
+    "restricciones son reglas duras (nunca violarlas).",
+    ...sorted.map((r) => `- [${MEMORY_KIND_LABEL[r.kind] ?? r.kind}] ${r.content}`),
+  ].join("\n");
+}
+
 export interface ContentConsultantContext {
   /** Datos Supabase del cliente (contenido publicado, objetivos, fase…). */
   contextBlock: string;
@@ -116,21 +172,25 @@ export interface ContentConsultantContext {
   vaultBlock: string | null;
   /** Tendencias recientes del nicho. */
   trendsBlock: string | null;
+  /** Directivas + aprendizajes acumulados (memoria del cliente). */
+  learningsBlock: string | null;
   clientName: string;
 }
 
 /**
  * Arma el contexto completo del Consultor de Contenido en paralelo.
- * Reusa los loaders del consultor global + el helper de tendencias.
+ * Reusa los loaders del consultor global + el helper de tendencias + la
+ * memoria del cliente (aprendizajes acumulados).
  */
 export async function buildContentConsultantContext(
   admin: SupabaseClient,
   clientId: string,
 ): Promise<ContentConsultantContext> {
-  const [bundle, vault, trendsBlock] = await Promise.all([
+  const [bundle, vault, trendsBlock, memory] = await Promise.all([
     loadClientContext(admin, clientId),
     loadClientVaultContext(clientId).catch(() => null),
     buildTrendsBlock(clientId),
+    loadClientLearnings(admin, clientId).catch(() => []),
   ]);
 
   return {
@@ -139,6 +199,7 @@ export async function buildContentConsultantContext(
       : "CONTEXTO DEL CLIENTE: (sin datos en Supabase todavía).",
     vaultBlock: vault ? buildVaultBlock(vault) : null,
     trendsBlock,
+    learningsBlock: buildLearningsBlock(memory),
     clientName: bundle?.client?.name ?? clientId,
   };
 }

@@ -67,7 +67,7 @@ export async function GET(
 
   const { data: msgs } = await admin
     .from("content_ideas_messages")
-    .select("role, content")
+    .select("id, role, content, rating")
     .eq("thread_id", thread.id)
     .order("created_at", { ascending: true });
 
@@ -171,6 +171,15 @@ export async function POST(
       cache_control: { type: "ephemeral" },
     });
   }
+  if (ctx.learningsBlock) {
+    // Directivas + aprendizajes acumulados (memoria del cliente). Es lo que
+    // hace que el consultor se afine con el tiempo. Cacheado (estable en la sesión).
+    systemBlocks.push({
+      type: "text",
+      text: ctx.learningsBlock,
+      cache_control: { type: "ephemeral" },
+    });
+  }
 
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
@@ -209,11 +218,11 @@ export async function POST(
     role: "user",
     content: lastUser.content.trim(),
   });
-  await admin.from("content_ideas_messages").insert({
-    thread_id: threadId,
-    role: "assistant",
-    content: reply,
-  });
+  const { data: assistantMsg } = await admin
+    .from("content_ideas_messages")
+    .insert({ thread_id: threadId, role: "assistant", content: reply })
+    .select("id")
+    .single();
   await admin
     .from("content_ideas_threads")
     .update({ updated_at: new Date().toISOString() })
@@ -226,5 +235,76 @@ export async function POST(
     usage: response.usage,
   });
 
-  return Response.json({ reply });
+  // messageId → el panel lo usa para el 👍/👎 sobre esta respuesta.
+  return Response.json({ reply, messageId: assistantMsg?.id ?? null });
+}
+
+/**
+ * PATCH → setea el rating 👍/👎 de una respuesta del asistente.
+ * Body: { messageId: string, rating: 1 | -1 | null }.
+ * Solo el dueño del hilo (caller) puede calificar, y solo mensajes del asistente.
+ * Es la señal de calidad que consume el destilador de aprendizajes.
+ */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: clientId } = await params;
+
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
+  if (access.role === "client") {
+    return Response.json(
+      { error: "El Consultor de Contenido es para el equipo." },
+      { status: 403 },
+    );
+  }
+
+  const body = (await req.json().catch(() => ({}))) as {
+    messageId?: string;
+    rating?: number | null;
+  };
+  const messageId = body.messageId;
+  const rating = body.rating ?? null;
+  if (!messageId) {
+    return Response.json({ error: "messageId requerido." }, { status: 400 });
+  }
+  if (rating !== 1 && rating !== -1 && rating !== null) {
+    return Response.json(
+      { error: "rating inválido (1, -1 o null)." },
+      { status: 400 },
+    );
+  }
+
+  const admin = getSupabaseAdmin();
+
+  // Verificar pertenencia: el mensaje (assistant) debe estar en un hilo del
+  // caller para ESTE cliente. Dos queries simples (claro y robusto).
+  const { data: msg } = await admin
+    .from("content_ideas_messages")
+    .select("id, role, thread_id")
+    .eq("id", messageId)
+    .maybeSingle();
+  if (!msg || msg.role !== "assistant") {
+    return Response.json({ error: "Mensaje no encontrado." }, { status: 404 });
+  }
+  const { data: thread } = await admin
+    .from("content_ideas_threads")
+    .select("user_id, client_id")
+    .eq("id", msg.thread_id)
+    .maybeSingle();
+  if (
+    !thread ||
+    thread.client_id !== clientId ||
+    thread.user_id !== access.userId
+  ) {
+    return Response.json({ error: "Sin acceso a ese mensaje." }, { status: 403 });
+  }
+
+  await admin
+    .from("content_ideas_messages")
+    .update({ rating })
+    .eq("id", messageId);
+
+  return Response.json({ ok: true });
 }
