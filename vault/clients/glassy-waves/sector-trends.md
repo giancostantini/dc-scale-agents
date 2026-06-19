@@ -1,93 +1,94 @@
 # Tendencias del nicho — Glassy Waves
 
-> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-06-16.
+> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-06-19.
 > Tendencias recientes y accionables del nicho. Cada ítem cita su fuente.
 
 ### 🎬 Contenido que está funcionando
 
-- **UGC estilo "experiencia personal" en Reels e Instagram Feed** — El contenido que simula ser orgánico y auténtico (una persona mostrando el producto como si no fuera un ad) está dominando. Meta ha adaptado sus algoritmos para favorecer contenido que simule ser orgánico; los Reels Ads con estética UGC han incrementado las tasas de interacción hasta un 35% superior frente a creatividades más tradicionales. Para Glassy Waves: activar micro-creadores uruguayos que muestren el producto en uso real (no estudio). · (fuente: [agenciakarmina.com](https://agenciakarmina.com/blog/el-auge-del-ugc-en-meta-y-tiktok-en-2026/))
+- **Reels con product tagging en Instagram** — Para ecommerce, los Instagram Reels entregan 1.3× más conversión que TikTok, con mayor intención de compra post-visualización. El formato ya domina la plataforma: los Reels representan la mitad del tiempo total pasado en Instagram y más de un tercio del contenido del feed. Para Glassy Waves es el canal de contenido de mayor prioridad esta semana. · (fuente: https://www.loopexdigital.com/blog/instagram-reels-statistics)
 
-- **Narrativas nativas en TikTok (no parece ad, parece historia personal)** — TikTok sigue siendo el epicentro del UGC; su algoritmo prioriza la autenticidad y la capacidad de retención. En 2026 se consolidan los microcreadores especializados con audiencias pequeñas pero segmentadas, el UGC Ads escalable —reutilizando contenido orgánico como anuncios— y las narrativas nativas que no parecen publicidad, sino experiencia personal. Hook accionable esta semana: "Compré esto sin saber nada de la marca y…" · (fuente: [agenciakarmina.com](https://agenciakarmina.com/blog/el-auge-del-ugc-en-meta-y-tiktok-en-2026/))
+- **TikTok: contenido mundialista + moda aesthetic uruguaya** — En TikTok está traccionando fuerte el "nacionalismo uruguayo en la ropa aesthetic" vinculado al Mundial, con colecciones limitadas bajo hashtags como #modauruguaya, #aesthetic y #mundialesdefutbol. Si los productos de Glassy Waves tienen cualquier ángulo de identidad local o aesthetic sporty, este hook es accionable ahora mismo. · (fuente: https://www.tiktok.com/discover/tendencias-uruguay)
 
-- **Micro clips (5–15s) para viralidad + formato medio (15–60s) para discovery** — Para 2026 ya no es suficiente un solo formato: el contenido debe distribuirse en múltiples "tamaños": micro clips (5–15s) para Reels y Shorts con objetivo de viralidad, formato medio (15–60s) para discovery y engagement, y long form (5–12 min) para SEO educativo. Accionable: producir una misma pieza en las tres duraciones desde el mismo shoot. · (fuente: [hicari.io](https://hicari.io/tendencias-ugc-2026/))
+- **Affiliate commerce nativo en Reels (Instagram)** — Los creadores ya pueden etiquetar productos directamente en Reels y ganar comisiones de afiliado, sin necesidad de link en bio ni herramientas de terceros; el tagging nativo está integrado en el formato. Esto abre la puerta a activar microinfluencers uruguayos con zero fricción. · (fuente: https://joinbrands.com/blog/instagram-shop-2026/)
+
+- **Videos de unboxing/haul en TikTok con ángulo local** — Los productos de home y lifestyle funcionan bien en TikTok porque resuelven problemas visibles y encajan en rutinas diarias; los videos de transformación y before/after atraen tanto a Gen Z como a usuarios mayores que descubren productos. Adaptar este formato (unboxing + reacción + precio) al contexto uruguayo tiene potencial alto de viralización. · (fuente: https://ecommercefastlane.com/top-50-tiktok-trending-products-for-2026/)
 
 ---
 
 ### 📈 Tráfico a la web
 
-- **Mobile-first es obligatorio en Uruguay: 84% compra desde el celular** — El 84% de los compradores online en Uruguay lo hace a través del celular. El 64% del volumen de ventas por internet en Uruguay proviene de dispositivos móviles. Implicancia directa: toda landing, ficha de producto y flujo de checkout de Glassy Waves debe estar auditado en mobile antes de escalar paid. · (fuente: [ecommerceday.org.uy](https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region/) / [paymentscmi.com](https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/))
+- **Mobile-first es mandatorio en Uruguay** — El 64% del volumen de ventas por internet en Uruguay proviene de dispositivos móviles (dato 2024). Todo el tráfico que genere Glassy Waves debe estar pensado para experiencia mobile desde el primer clic. Si la web no carga rápido en celular, se pierde más de la mitad del tráfico. · (fuente: https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
 
-- **Google rankea videos cortos en mobile: oportunidad de tráfico SEO gratuito** — El formato UGC en video permite posicionarse directamente en la SERP de Google; el buscador cada vez más rankea videos en primeras posiciones e intermedias, especialmente en la sección de "videos cortos" en móvil, que representa la mayoría de las búsquedas. Táctica: subir Reels/Shorts con nombre del producto + intent de compra en el título. · (fuente: [hicari.io](https://hicari.io/tendencias-ugc-2026/))
+- **Instagram como motor de descubrimiento de producto** — Los usuarios buscan activamente inspiración de producto en Reels, Stories y Explore; para categorías como moda, belleza y decoración, Instagram es una herramienta primaria de búsqueda y descubrimiento, rivalizando con los buscadores tradicionales. Publicar consistentemente con producto etiquetado es una fuente directa de tráfico a la web. · (fuente: https://www.loungelizard.com/blog/the-essential-instagram-shopping/)
 
 ---
 
 ### 🛒 Ventas / conversión
 
-- **Advantage+ Shopping Campaigns como estructura dominante en Meta** — Collection Ads y Advantage+ Shopping son la combinación más fuerte para ecommerce en 2026; Advantage+ Shopping entrega aproximadamente un 32% menor CPA comparado con campañas configuradas manualmente. Advantage+ Shopping creció del 34% del gasto en conversiones en 2024 al 62% en 2025. Para Glassy Waves: migrar o testear ASC apenas se cuente con catálogo y al menos 15 creatividades activas. · (fuente: [dataslayer.ai](https://www.dataslayer.ai/blog/meta-ad-formats-in-2025-guide) / [mhigrowthengine.com](https://mhigrowthengine.com/blog/meta-ads-benchmarks-ecommerce-2026/))
+- **El mercado uruguayo crece al 35% interanual** — El ecommerce uruguayo muestra crecimiento sostenido: entre enero y marzo de 2026 las ventas alcanzaron los $31.333 millones (US$802 millones), un 2% más que el trimestre anterior, que ya era el pico estacional de fiestas. El piso de demanda está alto: hay contexto favorable para escalar. · (fuente: https://www.cedu.org.uy/ventas-por-comercio-electronico-aumentaron-35-interanual-en-el-primer-trimestre-de-2026/)
 
-- **Carousel Ads para retargeting: -30% a -50% en CPA vs. imagen única** — Los carousel ads son altamente efectivos para retargeting, entregando un 30–50% menor costo por conversión que los single-image ads. Accionable inmediato: armar una secuencia de 3–5 cards mostrando producto + beneficio + prueba social + CTA para el segmento que visitó la web sin comprar. · (fuente: [dataslayer.ai](https://www.dataslayer.ai/blog/meta-ad-formats-in-2025-guide))
+- **Prueba social como palanca de conversión** — El consumidor 2026 busca autenticidad y confía en vendedores que comunican beneficios reales y muestran prueba social, como reseñas y fotos de compradores. Activar UGC (fotos/videos de clientes reales) en la web y en ads es una palanca de conversión inmediata. · (fuente: https://academia.nubimetrics.com/tendencias-ecommerce)
 
-- **UGC en ecommerce: hasta 8x más ROI que creatividades estáticas** — En campañas de ecommerce, el UGC puede generar un ROI hasta 8 veces mayor que otros tipos de anuncios centrados en creatividades estáticas o videos comerciales y corporativos. Para Glassy Waves: priorizar la producción de 5–8 piezas UGC esta semana para alimentar tanto orgánico como paid. · (fuente: [puromarketing.com](https://www.puromarketing.com/30/216035/muchas-marcas-estan-haciendo-ugc))
+- **Sporty aesthetic + moda femenina: ángulo con alta conversión en el Mundial** — Existe una oportunidad muy clara en moda femenina vinculada a la estética sporty; este segmento creció mucho en anteriores eventos deportivos grandes y el Mundial 2026 no parece ser la excepción. Si los productos de Glassy Waves tienen ese ángulo, lanzar una colección o comunicación temática esta semana es accionable. · (fuente: https://www.upseller.com/es/blog-article-801)
 
 ---
 
 ### 📰 Noticias del sector
 
-- **Uruguay: top 10 mundial en crecimiento de ecommerce, 35% interanual** — El comercio electrónico representa el 2,4% del PBI uruguayo; con un crecimiento del 35% interanual, Uruguay se ubica en el top ten mundial en términos de crecimiento en ecommerce. En el último año se registraron 75 millones de transacciones con un monto promedio de 30 dólares. Contexto favorable: el mercado crece y el consumidor uruguayo está cada vez más educado digitalmente. · (fuente: [ecommerceday.org.uy](https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region/))
+- **Nueva normativa aduanera: "Impuesto Temu" desde mayo 2026** — A partir del 1 de mayo de 2026, entró en vigor el Decreto Nº 50/026 que redefine el régimen de compras web en Uruguay. La franquicia ya no significa "cero impuestos" sino "exoneración de aranceles de importación", pero el IVA del 22% se mantiene, encareciendo los productos importados frente al sistema anterior. Esto **favorece directamente a tiendas locales** como Glassy Waves frente a Temu, Shein y AliExpress. Comunicarlo en contenido ("comprá local, sin sorpresas de aduana") es un ángulo de conversión de alto valor ahora mismo. · (fuente: https://elpueblodigital.uy/nueva-normativa-de-aduanas-uruguay-2026-guia-completa-de-franquicias-y-compras-web/)
 
-- **Competencia transfronteriza: tiendas extranjeras capturan 42% del mercado** — Las tiendas extranjeras representan el 42% de las ventas por comercio electrónico en Uruguay, y el comercio transfronterizo proyecta un crecimiento del 25%. Implicancia: Glassy Waves compite directamente con marcas regionales e internacionales; la diferenciación local (origen, rapidez de entrega, atención en español rioplatense) es una palanca de conversión real. · (fuente: [paymentscmi.com](https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/))
-
-- **eCommerce Day Uruguay 2026 se realizará en Montevideo** — El eCommerce Day Uruguay 2026 se realizará en Montevideo, con conferencias, networking y tendencias del comercio digital. Oportunidad de networking y benchmarking sectorial para el equipo. · (fuente: [ecommerceday.org.uy/2026](https://ecommerceday.org.uy/2026/))
+- **Uruguay con crecimiento del 14,4% en ecommerce proyectado para 2026** — Uruguay se ubica entre los países con crecimiento acelerado en ventas minoristas de ecommerce, con un 14,4% proyectado. El mercado local tiene viento a favor y hay espacio para ganar share. · (fuente: https://www.shopify.com/es/blog/ventas-globales-de-ecommerce)
 
 ---
 
 ### 📣 Publicidad / campañas
 
-- **Reels Ads con overlay: 26% menos CPC que Feed para prospección** — Los Reels ads entregan un 26% menor CPC que los placements de Feed, siendo uno de los formatos más cost-efficient para alcance y awareness. Funcionan mejor con contenido estilo UGC, demos de producto y creatividades basadas en tendencias para audiencias jóvenes. Los post-loop Reels ads fueron removidos en noviembre de 2025; los overlay ads son el tipo de Reels ad que permanece. Accionable: usar overlay Reels para prospección top-of-funnel en Uruguay. · (fuente: [dataslayer.ai](https://www.dataslayer.ai/blog/meta-ad-formats-in-2025-guide))
+- **Reels como storefront: la era del "link en bio terminó"** — Meta declaró formalmente que "la era del link en bio terminó", aunque el checkout todavía ocurre fuera de Instagram; esto cambia cómo las marcas deben estructurar sus campañas frente a TikTok Shop. Para ads en Meta: priorizar Reels con producto taggeado sobre estáticos. El creative refresh frecuente es clave. · (fuente: https://joinbrands.com/blog/instagram-shop-2026/)
 
-- **WhatsApp Status Ads: nuevo placement con 1.500M usuarios diarios** — WhatsApp Status Ads es un nuevo placement que alcanza 1.500 millones de usuarios diarios vía la pestaña de actualizaciones. Uruguay tiene alta penetración de WhatsApp; testear este placement para retargeting o campañas de awareness de producto podría ser una ventaja temprana frente a competidores locales. · (fuente: [dataslayer.ai](https://www.dataslayer.ai/blog/meta-ad-formats-in-2025-guide))
+- **Campañas mundialistas: el ecommerce registra picos de búsqueda y ventas ahora** — Las plataformas de ecommerce registran incrementos significativos en búsquedas y ventas de productos relacionados con el torneo; camisetas, accesorios, banderas y artículos de colección son las categorías más demandadas, y el comercio electrónico se convirtió en el canal principal para estas compras. Lanzar una campaña de ads con copy mundialista esta semana es timing exacto. · (fuente: https://americaretail-malls.com/paises/uruguay/uruguay-encabeza-la-fiebre-mundialista-regional-entre-figuritas-y-camisetas/)
 
 ---
 
 ### 🗓️ Estacional / próximo
 
-- **⚡ URGENTE — Día del Padre: 12 de julio (en ~26 días)** — Según el calendario comercial 2026 de la Cámara de Comercio y Servicios del Uruguay, el Día del Padre es el 12 de julio. El Día del Padre es una gran fecha para la venta de tecnología, herramientas, ropa y experiencias. Accionar esta semana: creatividades, landings específicas y campaña de Meta con ventana de 3 semanas pre-fecha. · (fuente: [ccsuy.com.uy](https://ccsuy.com.uy/lanzamiento-de-fechas-comerciales-2026/) / [transparencia.org.ve](https://transparencia.org.ve/las-fechas-mas-importantes-en-el-e-commerce-de-uruguay/))
+- **Copa del Mundo 2026: ventana de ventas hasta el 19 de julio** — El Mundial 2026 se juega del 11 de junio al 19 de julio en Canadá, México y Estados Unidos, con 48 selecciones y más de 104 partidos. La fiebre de consumo en Uruguay ya empezó y el pico de ventas llega con los octavos de final (segunda quincena de julio). Cualquier producto que pueda linkarse con el evento tiene una ventana de al menos 4 semanas más. · (fuente: https://www.tiendanube.com/blog/ideas-para-el-mundial/)
 
-- **Día de los Niños: 16 de agosto** — El Día de los Niños en Uruguay es el 16 de agosto, la siguiente fecha de alto volumen comercial tras el Día del Padre. Preparar la campaña con al menos 3 semanas de anticipación; comenzar producción de contenido a fines de julio. · (fuente: [ccsuy.com.uy](https://ccsuy.com.uy/lanzamiento-de-fechas-comerciales-2026/))
-
-- **Inicio de temporada de invierno (ya activa)** — El 20 de junio marca el inicio de la temporada de invierno, que impulsa la venta de abrigos, calzado, productos de calefacción y accesorios de bienestar. La estación ya comenzó: si Glassy Waves tiene productos estacionales o de temporada, el peak de demanda es ahora. · (fuente: [transparencia.org.ve](https://transparencia.org.ve/las-fechas-mas-importantes-en-el-e-commerce-de-uruguay/))
+- **eCommerce Day Uruguay 2026** — El eCommerce Day Uruguay 2026 se realiza del 17 al 19 de septiembre en Montevideo e incluye visitas técnicas a empresas líderes del sector para conocer operaciones end-to-end de marketing, comercial, operaciones y logística. Es el evento de networking más relevante del ecosistema local para posicionar la marca B2B y detectar tendencias de cara al Q4. · (fuente: https://ecommerceday.org.uy/2026/)
 
 ## Fuentes
-- [Uruguay está en el top 10 de países con mayor crecimiento en las ventas por eCommerce | Cuti](https://cuti.org.uy/en/noticias/de-socios/uruguay-esta-en-el-top-10-de-paises-con-mayor-crecimiento-en-las-ventas-por-ecommerce/)
-- [El eCommerce Day Uruguay 2025 reafirmó el liderazgo del ...](https://ecommerceday.org.uy/2026/wp-content/uploads/2025/09/El-eCommerce-Day-Uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region.pdf)
-- [El eCommerce Day Uruguay 2025 reafirmó el liderazgo del ecosistema digital en la región - eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region/)
 - [eCommerce Day Uruguay 2026 | El evento más importante de Digital Commerce de la región - El tour de eventos que conecta, inspira y transforma el ecosistema digital de la región.](https://ecommerceday.org.uy/2026/)
-- [Más de 1.500 profesionales participaron del eCommerce Day Uruguay 2025](https://infonegocios.biz/y-ademas/mas-de-1-500-profesionales-participaron-del-ecommerce-day-uruguay-2025)
 - [E-commerce en Uruguay: datos clave y tendencias 2025](https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
+- [Ventas por comercio electrónico aumentaron 35% interanual en el primer trimestre de 2026 - CEDU](https://www.cedu.org.uy/ventas-por-comercio-electronico-aumentaron-35-interanual-en-el-primer-trimestre-de-2026/)
+- [eCommerce - Gecos - Montevideo, Uruguay 2026](https://gecos.com.uy/post/ecommerce-uruguay-montevideo/)
+- [Uruguay acelera hacia un e-commerce más inteligente y rentable rumbo a 2026 - AmericaMalls & Retail](https://americaretail-malls.com/paises/uruguay/uruguay-acelera-hacia-un-e-commerce-mas-inteligente-y-rentable-rumbo-a-2026/)
+- [Tendencias de mercado 2026: qué esperar del e-commerce](https://academia.nubimetrics.com/tendencias-ecommerce)
 - [Las 10 mejores plataformas de ecommerce en Uruguay (2026) | Neowyze](https://neowyze.tech/blog/mejores-plataformas-ecommerce-uruguay-2026)
-- [Tendencias De Contenido 2025 | TikTok](https://www.tiktok.com/discover/tendencias-de-contenido-2025)
-- [Top 20 TikTokers in Uruguay in 2026 [🏆 Rating] - Favikon](https://www.favikon.com/blog/top-tiktokers-uruguay)
-- [Top 20 TikTok Influencers in Uruguay: Find Uruguayan TikTokers (Dec 2025)](https://www.modash.io/find-influencers/tiktok/uruguay)
-- [Top 1000 Influencers on TikTok in Uruguay | HypeAuditor TikTok Ranking](https://hypeauditor.com/top-tiktok-uruguay/)
-- [#uruguay | TikTok](https://www.tiktok.com/tag/uruguay?lang=en)
-- [Top 1,000 tiktok Influencers In Uruguay | StarNgage Plus](https://starngage.com/plus/en-us/influencer/ranking/tiktok/uruguay)
-- [TikTok Shop Uruguay Como Funciona | TikTok](https://www.tiktok.com/discover/tiktok-shop-uruguay-como-funciona)
-- [TikTok Shop Como Activar Uruguay | TikTok](https://www.tiktok.com/discover/tiktok-shop-como-activar-uruguay)
-- [Meta Ad Formats 2026: Which One Converts Best? (With CPA Data)](https://www.dataslayer.ai/blog/meta-ad-formats-in-2025-guide)
-- [Meta Ads Best Practices 2026: Complete Guide to Advantage+ Shopping Campaigns & Ecommerce Strategy | OptiFOX Media Solutions](https://optifox.in/blog/meta-ads-best-practices-2026/)
-- [Facebook Ad Statistics 2026: Powerful Ad Insights • SQ Magazine](https://sqmagazine.co.uk/facebook-ad-statistics/)
-- [Facebook Ads Benchmarks: Performance Analysis (2026) - Visible Factors](https://visiblefactors.com/facebook-ads-benchmarks/)
-- [Meta Ads Benchmarks for Ecommerce 2026: CPM, CPC, CTR, and ROAS by Vertical | MHI Growth Engine](https://mhigrowthengine.com/blog/meta-ads-benchmarks-ecommerce-2026/)
-- [Google Ads vs Meta Ads for Shopify: Best Choice 2026](https://www.clickforest.com/en/blog/google-ads-vs-facebook-ads-for-shopify)
-- [Meta Ads Benchmarks 2026 | Enrich Labs](https://www.enrichlabs.ai/blog/meta-ads-benchmarks-2025)
-- [Lanzamiento de fechas comerciales 2026 – Cámara de Comercio y Servicios del Uruguay](https://ccsuy.com.uy/lanzamiento-de-fechas-comerciales-2026/)
-- [Las Fechas Más Importantes en el E-commerce de Uruguay – Transparencia](https://transparencia.org.ve/las-fechas-mas-importantes-en-el-e-commerce-de-uruguay/)
-- [Calendario Uruguay 2026: Días nacionales e internacionales - Yi Min Shum Xie](https://yiminshum.com/calendario-2026-dias-uruguay-nacional-mundial/)
-- [Fechas importantes del e-commerce ¡con calendario 2026 gratis!](https://www.tiendanube.com/blog/fechas-importantes-ecommerce/)
-- [Calendario 2026: las fechas comerciales más importantes del e-commerce](https://academia.nubimetrics.com/fechas-importantes-ecommerce)
-- [Tendencias de UGC y marketing de contenidos para 2026 - HICARI](https://hicari.io/tendencias-ugc-2026/)
-- [UGC Video: The Complete 2026 Guide to UGC That Drives Revenue | Videowise](https://videowise.com/blog/ugc-video-complete-guide)
-- [Las principales tendencias en eCommerce que marcarán el mercado en 2026](https://www.empresaactual.com/nuevas-tendencias-ecommerce/)
-- [El auge del UGC en Meta y TikTok en 2026: tendencias, plataformas y oportunidades reales para marcas - Karmina | Agencia de Marketing](https://agenciakarmina.com/blog/el-auge-del-ugc-en-meta-y-tiktok-en-2026/)
-- [¿Qué es UGC y por qué muchas marcas lo están haciendo mal?](https://www.puromarketing.com/30/216035/muchas-marcas-estan-haciendo-ugc)
-- [UGC en Video para Ecommerce: Guía Completa 2026 | EcomNinja](https://ecomninja.net/ugc-en-video-para-ecommerce-como-aprovechar-contenido-de-usuarios-2026/)
+- [e commerce shopping frequency in uruguay](https://www.statista.com/statistics/1612405/e-commerce-shopping-frequency-in-uruguay)
+- [Tendencias Uruguay | TikTok](https://www.tiktok.com/discover/tendencias-uruguay)
+- [Camisetas De Uruguay Mundial 2026 Por Mayor | TikTok](https://www.tiktok.com/discover/camisetas-de-uruguay-mundial-2026-por-mayor)
+- [Hashtags Mas Virales Para Ropa | TikTok](https://www.tiktok.com/discover/hashtags-mas-virales-para-ropa)
+- [Camiseta Oficial De Uruguay Para El Mundial 2026 | TikTok](https://www.tiktok.com/discover/camiseta-oficial-de-uruguay-para-el-mundial-2026)
+- [Productos Virales De TikTok 2026 | TikTok](https://www.tiktok.com/discover/productos-virales-de-tiktok-2026)
+- [Ropa Que Va A Estar En Tendencia En 2026 En Uruguay](https://www.tiktok.com/discover/ropa-que-va-a-estar-en-tendencia-en-2026-en-uruguay)
+- [Top 50 TikTok Trending Products For 2026 | Ecommerce Fastlane](https://ecommercefastlane.com/top-50-tiktok-trending-products-for-2026/)
+- [Tendencia Primavera Verano 2026 Uruguay](https://www.tiktok.com/discover/tendencia-primavera-verano-2026-uruguay)
+- [Estilos De Accesorios Tendencia 2026](https://www.tiktok.com/discover/estilos-de-accesorios-tendencia-2026)
+- [Uruguay encabeza la fiebre mundialista regional entre figuritas y camisetas - AmericaMalls & Retail](https://americaretail-malls.com/paises/uruguay/uruguay-encabeza-la-fiebre-mundialista-regional-entre-figuritas-y-camisetas/)
+- [Mundial 2026 – Servicios Online](https://tirolibreuy.com/collections/mundial-2026)
+- [Informe de crecimiento de las ventas globales de ecommerce (2026) - Shopify](https://www.shopify.com/es/blog/ventas-globales-de-ecommerce)
+- [Comprar Productos Mundial 2026 en GyL Enterprise](https://gylenterprise.com.ar/productos-mundial-2026/)
+- [Mundial 2026: Productos más vendidos en Mercado Libre — Blog oficial de UpSeller](https://www.upseller.com/es/blog-article-801)
+- [50 productos en tendencia para este 2026 que puedes vender](https://www.tiendanube.com/blog/productos-en-tendencia/)
+- [+15 ideas para el Mundial 2026 con las que puedes ganar dinero](https://www.tiendanube.com/blog/ideas-para-el-mundial/)
+- [Ofertas del día sin IVA 2026 ⇒ Chollometro](https://www.chollometro.com/evento/dia-sin-iva)
+- [Nueva Normativa de Aduanas Uruguay 2026: Guía completa de Franquicias y Compras Web](https://elpueblodigital.uy/nueva-normativa-de-aduanas-uruguay-2026-guia-completa-de-franquicias-y-compras-web/)
+- [Plazos para la declaración del IVA 2026: conoce las fechas y evita sanciones](https://actualicese.com/plazos-para-la-declaracion-del-iva-2026/)
+- [IVA Uruguay 2026: Qué Se Grava, Tasas y Lo Que No Sabías](https://www.ahorrin.app/blog/iva-uruguay-2026-que-se-grava-tasas)
+- [digital marketing kpis by type](https://www.statista.com/statistics/1129330/digital-marketing-kpis-by-type)
+- [Instagram Reels Statistics 2026: Key Stats and What They Mean for Growth](https://www.loopexdigital.com/blog/instagram-reels-statistics)
+- [Social Commerce in 2026 (How It’s Reshaping Ecommerce)](https://www.bigcommerce.com/articles/omnichannel-retail/social-commerce/)
+- [The Complete Guide to Social Commerce [2026] | SocialPilot](https://www.socialpilot.co/blog/social-commerce)
+- [Social Commerce Strategy 2026: How Retail Brands Win on TikTok, Instagram, and Beyond](https://www.genaiembed.ai/blog/social-commerce-strategy-retail-2026)
+- [Instagram Reels Now Has Native Affiliate Commerce: What It Means for Brands and Creators in 2026 - JoinBrands](https://joinbrands.com/blog/instagram-shop-2026/)
+- [The Essential Instagram Shopping Guide 2026 | Lounge Lizard](https://www.loungelizard.com/blog/the-essential-guide-to-instagram-shopping/)
+- [Social Commerce for Retail Marketers: Focus on Instagram](https://skai.io/blog/instagram-social-commerce/)
