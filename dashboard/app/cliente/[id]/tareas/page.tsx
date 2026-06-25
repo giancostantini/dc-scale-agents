@@ -61,6 +61,10 @@ export default function TareasClientePage({
   const [clientProfile, setClientProfile] = useState<Profile | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [isDirector, setIsDirector] = useState(false);
+  // Director o team pueden gestionar el estado de las tareas (marcar hecha /
+  // en curso). La RLS de dev_tasks (migración 079) enforce que un team solo
+  // escribe si está asignado al cliente; acá habilitamos la UI para ambos.
+  const [canManage, setCanManage] = useState(false);
 
   // Form
   const [showForm, setShowForm] = useState(false);
@@ -89,7 +93,10 @@ export default function TareasClientePage({
       setClientProfile(cp ?? null);
     });
     getClient(id).then((c) => setClient(c ?? null));
-    getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
+    getCurrentProfile().then((p) => {
+      setIsDirector(p?.role === "director");
+      setCanManage(p?.role === "director" || p?.role === "team");
+    });
   }, [refresh, id]);
 
   function resetForm() {
@@ -430,7 +437,7 @@ export default function TareasClientePage({
                         t.status === "done" ? "active" : "done",
                       )
                     }
-                    disabled={!isDirector}
+                    disabled={!canManage}
                     style={{ width: 16, height: 16 }}
                     title="Marcar como completada"
                   />
@@ -494,25 +501,25 @@ export default function TareasClientePage({
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    {/* Marcar en curso: director o team. Eliminar: solo director
+                        (acción destructiva). */}
+                    {canManage && t.status !== "active" && (
+                      <button
+                        onClick={() => changeStatus(t, "active")}
+                        style={mini}
+                        title="Marcar en curso"
+                      >
+                        ▶
+                      </button>
+                    )}
                     {isDirector && (
-                      <>
-                        {t.status !== "active" && (
-                          <button
-                            onClick={() => changeStatus(t, "active")}
-                            style={mini}
-                            title="Marcar en curso"
-                          >
-                            ▶
-                          </button>
-                        )}
-                        <button
-                          onClick={() => remove(t)}
-                          style={{ ...mini, color: "var(--red-warn)" }}
-                          title="Eliminar"
-                        >
-                          ×
-                        </button>
-                      </>
+                      <button
+                        onClick={() => remove(t)}
+                        style={{ ...mini, color: "var(--red-warn)" }}
+                        title="Eliminar"
+                      >
+                        ×
+                      </button>
                     )}
                   </div>
                 </div>
