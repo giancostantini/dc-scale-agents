@@ -1541,18 +1541,22 @@ export default function ContenidoPage({
         />
       )}
 
-      {/* Vista calendario — grid mensual de cuadrantes con drag & drop
-          desde la lista lateral de borradores. Al soltar un post sobre
-          una fecha, se le asigna esa fecha (patchPost). Solo cuando el
-          viewer puede editar — para clientes el portal no muestra esta
-          vista. */}
+      {/* Vista calendario — grid mensual con drop targets por día +
+          lista lateral de borradores arrastrables. Al soltar un
+          borrador sobre un día, se le asigna esa fecha Y se pasa a
+          status='scheduled' para que salga del pool de borradores.
+          El director pidió esa transición — "una vez que se arrastre
+          quiero que se vaya de la lista". */}
       {viewMode === "calendar" && (
         <ContentCalendarView
           posts={sortedFiltered}
           classifications={classifications}
           onPostClick={(p) => setFeedPostDetail(p)}
           onAssignDate={async (post, newDate) => {
-            await patchPost(post, { date: newDate });
+            await patchPost(post, {
+              date: newDate,
+              status: "scheduled",
+            });
           }}
         />
       )}

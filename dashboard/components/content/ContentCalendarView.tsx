@@ -1,26 +1,22 @@
 "use client";
 
 /**
- * ContentCalendarView — vista calendario editorial.
+ * ContentCalendarView — vista calendario editorial con drag & drop.
  *
  * Layout split:
- *   · Izquierda (~70%): grid mensual con cuadrantes por fecha. Cada
- *     cuadrante muestra los posts asignados a ese día (chips
- *     compactos con código + idea). VISTA DE LECTURA — no recibe
- *     drag & drop.
- *   · Derecha (~30%): lista de borradores (status='draft') con cada
- *     post mostrando código + idea/titular completo + status +
- *     formato + **date picker** para asignar fecha manualmente.
+ *   · Izquierda (~70%): calendario limpio. Cada cuadrante muestra el
+ *     número del día y, si hay posts asignados, chips compactos. Los
+ *     cuadrantes son destino de drop.
+ *   · Derecha (~30%): lista de borradores (status='draft') con
+ *     titular completo. Cada item es arrastrable.
  *
- * Flow de asignación (antes era drag al calendario, ahora es manual):
- *   El director quería tener control granular: en lugar de arrastrar
- *   y soltar (fácil de equivocarse), elige la fecha desde un input
- *   date al pie de cada chip. Al cambiar el valor:
- *     1. Se llama onAssignDate(post, newDate).
- *     2. El caller persiste con patchPost.
- *     3. El post aparece automáticamente en el cuadrante de esa
- *        fecha (la grid se rerenderea con la lista actualizada) y
- *        en el feed (que ordena por date desc).
+ * Flow:
+ *   1. Director agarra un borrador de la lista lateral.
+ *   2. Lo suelta sobre un día del calendario.
+ *   3. Se persiste: date = día elegido + status = 'scheduled' (el
+ *      post deja de ser borrador). El director pidió que el item
+ *      desaparezca de la lista al asignarlo.
+ *   4. El post aparece como chip en el cuadrante correspondiente.
  *
  * Navegación: botones < / > para cambiar de mes; "Hoy" vuelve al
  * mes corriente.
@@ -35,7 +31,9 @@ interface Props {
   classifications: ClientContentClassification[];
   /** Click en un chip de post → abre detalle. */
   onPostClick?: (p: ContentPost) => void;
-  /** Cambiar la fecha de un post. El caller persiste en DB y refresca. */
+  /** Asignar fecha por drag-and-drop. El caller persiste en DB
+   *  (fecha + status='scheduled' para que salga del pool de
+   *  borradores) y refresca la lista. */
   onAssignDate: (post: ContentPost, newDate: string) => Promise<void>;
 }
 
@@ -95,6 +93,8 @@ export default function ContentCalendarView({
     month: today.getMonth(),
   });
   const [busy, setBusy] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
 
   /** Posts agrupados por día. Clave = YYYY-MM-DD. */
   const postsByDay = useMemo(() => {
@@ -132,17 +132,23 @@ export default function ContentCalendarView({
     [cursor],
   );
 
-  /** Asignar fecha desde el date picker del chip lateral. El director
-   *  pidió explícitamente que la asignación sea manual (no drag-and-
-   *  drop sobre el calendario, que era propenso a errores). */
-  async function handleAssignFromPicker(post: ContentPost, newDate: string) {
-    if (!newDate || newDate === post.date) return;
+  /** Drop sobre un día del calendario. Persiste fecha + cambia
+   *  status a 'scheduled' (lo hace el caller dentro de onAssignDate).
+   *  Como el draftPool filtra por status='draft', el item desaparece
+   *  de la lista automáticamente cuando se refresca el state. */
+  async function handleDropOnDay(day: string) {
+    if (!draggingId) return;
+    const dragged = posts.find((p) => p.id === draggingId);
+    setDraggingId(null);
+    setDragOverDay(null);
+    if (!dragged) return;
+    if (dragged.date === day) return; // no-op si ya tiene esa fecha
     setBusy(true);
     try {
-      await onAssignDate(post, newDate);
+      await onAssignDate(dragged, day);
     } catch (err) {
       console.error("[ContentCalendarView] assign failed:", err);
-      alert(`No se pudo cambiar la fecha:\n${(err as Error).message}`);
+      alert(`No se pudo asignar la fecha:\n${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -276,18 +282,39 @@ export default function ContentCalendarView({
             const day = isoDay(date);
             const dayPosts = postsByDay.get(day) ?? [];
             const isToday = day === todayIso;
+            const isOver = dragOverDay === day && !!draggingId;
             return (
               <div
                 key={idx}
+                onDragOver={(e) => {
+                  if (!draggingId) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverDay !== day) setDragOverDay(day);
+                }}
+                onDragLeave={() => {
+                  if (dragOverDay === day) setDragOverDay(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  void handleDropOnDay(day);
+                }}
                 style={{
                   borderRight: "1px solid rgba(10,26,12,0.06)",
                   borderBottom: "1px solid rgba(10,26,12,0.06)",
                   padding: 6,
-                  background: inMonth ? "var(--white)" : "var(--off-white)",
+                  background: isOver
+                    ? "rgba(47,125,79,0.12)"
+                    : inMonth
+                      ? "var(--white)"
+                      : "var(--off-white)",
+                  outline: isOver ? "2px solid var(--green-ok)" : "none",
+                  outlineOffset: isOver ? -2 : 0,
                   display: "flex",
                   flexDirection: "column",
                   gap: 4,
                   minHeight: 100,
+                  transition: "background 0.12s",
                 }}
               >
                 <div
@@ -431,7 +458,12 @@ export default function ContentCalendarView({
                 post={p}
                 classifications={classifications}
                 onClick={onPostClick}
-                onAssignDate={(newDate) => handleAssignFromPicker(p, newDate)}
+                isDragging={draggingId === p.id}
+                onDragStart={() => setDraggingId(p.id)}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setDragOverDay(null);
+                }}
               />
             ))
           )}
@@ -516,21 +548,25 @@ function DayChip({
 }
 
 // ============================================================
-// DraftItem — fila expandida de la lista lateral. Muestra código,
-// status, formato, idea/titular COMPLETO (no truncado) y un date
-// picker para asignar fecha manualmente. Al cambiar la fecha del
-// picker se llama onAssignDate (que persiste con patchPost).
+// DraftItem — fila arrastrable de la lista lateral. Muestra código,
+// formato, clasificación y titular COMPLETO (no truncado). El user
+// arrastra el item y lo suelta sobre un día del calendario para
+// asignarle esa fecha. El componente padre maneja el state del drag.
 // ============================================================
 function DraftItem({
   post,
   classifications,
   onClick,
-  onAssignDate,
+  isDragging,
+  onDragStart,
+  onDragEnd,
 }: {
   post: ContentPost;
   classifications: ClientContentClassification[];
   onClick?: (p: ContentPost) => void;
-  onAssignDate: (newDate: string) => void | Promise<void>;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   const classMeta = classificationMetaById(classifications, post.classification);
   const accent = classMeta?.color ?? "var(--deep-green)";
@@ -542,6 +578,14 @@ function DraftItem({
 
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", post.id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      title="Arrastrá al día que quieras para asignarle esa fecha"
       style={{
         background: "var(--white)",
         border: "1px solid rgba(10,26,12,0.08)",
@@ -550,7 +594,10 @@ function DraftItem({
         padding: "10px 12px",
         display: "flex",
         flexDirection: "column",
-        gap: 8,
+        gap: 6,
+        cursor: "grab",
+        opacity: isDragging ? 0.35 : 1,
+        transition: "opacity 0.12s",
       }}
     >
       <div
@@ -584,11 +631,13 @@ function DraftItem({
         )}
       </div>
 
-      {/* Titular completo de la idea — el director pidió poder leer
-          aunque sea el titular, sin truncar.  */}
+      {/* Titular completo de la idea — sin truncar. */}
       <button
         type="button"
-        onClick={() => {
+        onClick={(e) => {
+          // Stopear el click cuando el user está arrastrando para que
+          // el modal no se abra cuando solo quiere mover.
+          e.stopPropagation();
           if (onClick) onClick(post);
         }}
         style={{
@@ -601,52 +650,11 @@ function DraftItem({
           fontWeight: 600,
           color: "var(--deep-green)",
           lineHeight: 1.4,
-          cursor: onClick ? "pointer" : "default",
+          cursor: "pointer",
         }}
       >
         {idea}
       </button>
-
-      {/* Date picker — al cambiarlo, se asigna la fecha. La fecha
-          actual del post sirve como defaultValue. */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          marginTop: 2,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 9,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "var(--sand-dark)",
-            fontWeight: 700,
-          }}
-        >
-          Fecha
-        </span>
-        <input
-          type="date"
-          value={post.date}
-          onChange={(e) => {
-            const next = e.target.value;
-            void onAssignDate(next);
-          }}
-          style={{
-            flex: 1,
-            padding: "5px 8px",
-            border: "1px solid rgba(10,26,12,0.15)",
-            borderRadius: 4,
-            fontSize: 12,
-            fontFamily: "inherit",
-            color: "var(--deep-green)",
-            background: "var(--white)",
-          }}
-        />
-      </div>
     </div>
   );
 }
