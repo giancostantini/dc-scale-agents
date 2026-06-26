@@ -104,6 +104,7 @@ export default function ContentCalendarView({
   const [busy, setBusy] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const [dragOverList, setDragOverList] = useState(false);
   // IDs de los posts que el director arrastró durante esta sesión.
   // El calendario muestra SOLO estos; la lista lateral muestra todos
   // los demás. Al refrescar la página, este state se pierde y el
@@ -149,10 +150,11 @@ export default function ContentCalendarView({
     [cursor],
   );
 
-  /** Drop sobre un día del calendario. Persiste fecha en DB y marca
-   *  el post como "asignado en esta sesión" — desde ese momento
-   *  desaparece de la lista lateral y aparece como chip en el
-   *  cuadrante correspondiente. */
+  /** Drop sobre un día del calendario. Maneja dos casos:
+   *  · El post venía de la lista lateral → persiste fecha + lo marca
+   *    como asignado-en-esta-sesión (aparece en el cuadrante).
+   *  · El post venía de OTRO cuadrante del calendario → cambia la
+   *    fecha en DB; sigue marcado como asignado (se mueve de día). */
   async function handleDropOnDay(day: string) {
     if (!draggingId) return;
     const dragged = posts.find((p) => p.id === draggingId);
@@ -160,11 +162,12 @@ export default function ContentCalendarView({
     setDraggingId(null);
     setDragOverDay(null);
     if (!dragged) return;
+    if (dragged.date === day && assignedThisSession.has(draggedId)) {
+      return; // no-op: ya está acá
+    }
     setBusy(true);
     try {
       await onAssignDate(dragged, day);
-      // Sumarlo al set DESPUÉS del await — si el patch falla, queda
-      // en la lista (no marcamos como asignado).
       setAssignedThisSession((prev) => {
         const next = new Set(prev);
         next.add(draggedId);
@@ -176,6 +179,24 @@ export default function ContentCalendarView({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Drop sobre la lista lateral. Si el post venía del calendario,
+   *  lo saca del set de "asignados en esta sesión" — vuelve a
+   *  aparecer en la lista para que el director pueda re-arrastrarlo
+   *  a otro día. NO toca la DB (la fecha del post sigue siendo la
+   *  que tenía); solo cambia la vista local. */
+  function handleDropOnList() {
+    if (!draggingId) return;
+    const id = draggingId;
+    setDraggingId(null);
+    setDragOverDay(null);
+    if (!assignedThisSession.has(id)) return; // ya estaba en la lista
+    setAssignedThisSession((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   }
 
   const monthLabel = `${MONTH_LABELS[cursor.month]} ${cursor.year}`;
@@ -375,9 +396,9 @@ export default function ContentCalendarView({
                   )}
                 </div>
 
-                {/* Chips de posts del día — solo lectura (click abre
-                    detalle). La asignación pasó al date picker de la
-                    lista lateral. */}
+                {/* Chips de posts del día — arrastrables. Permiten
+                    volver a la lista (drop sobre el panel lateral) o
+                    cambiar de día (drop sobre otro cuadrante). */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   {dayPosts.slice(0, 4).map((p) => (
                     <DayChip
@@ -385,6 +406,12 @@ export default function ContentCalendarView({
                       post={p}
                       classifications={classifications}
                       onClick={onPostClick}
+                      isDragging={draggingId === p.id}
+                      onDragStart={() => setDraggingId(p.id)}
+                      onDragEnd={() => {
+                        setDraggingId(null);
+                        setDragOverDay(null);
+                      }}
                     />
                   ))}
                   {dayPosts.length > 4 && (
@@ -406,11 +433,38 @@ export default function ContentCalendarView({
         </div>
       </div>
 
-      {/* ====================== LISTA LATERAL ====================== */}
+      {/* ====================== LISTA LATERAL ======================
+          También es drop target: si arrastrás un chip del calendario
+          aquí, lo saca del calendario y vuelve a estar disponible
+          en la lista. Solo se aplica para chips que ya están en
+          assignedThisSession (los de la lista no se "vuelven a la
+          lista" — ya están). */}
       <div
+        onDragOver={(e) => {
+          if (!draggingId) return;
+          // Solo aceptamos drop si viene del calendario.
+          if (!assignedThisSession.has(draggingId)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (!dragOverList) setDragOverList(true);
+        }}
+        onDragLeave={(e) => {
+          // El dragleave dispara también cuando el cursor entra a un
+          // hijo. Comparamos con currentTarget para distinguir.
+          if (e.currentTarget === e.target) setDragOverList(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOverList(false);
+          handleDropOnList();
+        }}
         style={{
-          background: "var(--white)",
-          border: "1px solid rgba(10,26,12,0.08)",
+          background: dragOverList
+            ? "rgba(47,125,79,0.06)"
+            : "var(--white)",
+          border: dragOverList
+            ? "2px dashed var(--green-ok)"
+            : "1px solid rgba(10,26,12,0.08)",
           borderRadius: "var(--r-md)",
           overflow: "hidden",
           display: "flex",
@@ -418,6 +472,7 @@ export default function ContentCalendarView({
           maxHeight: "calc(100vh - 240px)",
           position: "sticky",
           top: 16,
+          transition: "background 0.12s, border-color 0.12s",
         }}
       >
         <div
@@ -499,17 +554,25 @@ export default function ContentCalendarView({
 
 // ============================================================
 // DayChip — chip compacto que se renderea adentro de los cuadrantes
-// del calendario. Es solo lectura (click abre detalle). La
-// asignación de fecha vive en el DraftItem de la lista lateral.
+// del calendario. Es ARRASTRABLE:
+//   · Drop sobre otro cuadrante → cambia la fecha.
+//   · Drop sobre la lista lateral → vuelve a la lista (sin tocar DB).
+// Click (sin drag) abre el modal de detalle del post.
 // ============================================================
 function DayChip({
   post,
   classifications,
   onClick,
+  isDragging,
+  onDragStart,
+  onDragEnd,
 }: {
   post: ContentPost;
   classifications: ClientContentClassification[];
   onClick?: (p: ContentPost) => void;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   const classMeta = classificationMetaById(classifications, post.classification);
   const bg = classMeta?.bg ?? "rgba(10,26,12,0.06)";
@@ -521,18 +584,25 @@ function DayChip({
       : `C-${post.id.slice(0, 4).toUpperCase()}`;
 
   return (
-    <button
-      type="button"
-      onClick={() => {
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", post.id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      onClick={(e) => {
+        e.stopPropagation();
         if (onClick) onClick(post);
       }}
+      title="Arrastrá a otro día para cambiar la fecha, o a la lista para devolverlo"
       style={{
         background: bg,
         borderLeft: `3px solid ${color}`,
-        border: "none",
         borderRadius: 3,
         padding: "3px 6px",
-        cursor: onClick ? "pointer" : "default",
+        cursor: "grab",
         fontSize: 10,
         color: "var(--deep-green)",
         fontWeight: 600,
@@ -542,6 +612,8 @@ function DayChip({
         overflow: "hidden",
         textAlign: "left",
         fontFamily: "inherit",
+        opacity: isDragging ? 0.35 : 1,
+        transition: "opacity 0.12s",
       }}
     >
       <div
@@ -567,7 +639,7 @@ function DayChip({
       >
         {idea || "Sin idea"}
       </div>
-    </button>
+    </div>
   );
 }
 
