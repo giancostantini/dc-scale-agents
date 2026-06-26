@@ -3,20 +3,29 @@
 /**
  * ContentCalendarView — vista calendario editorial con drag & drop.
  *
+ * MODO "sesión limpia": al cargar, el calendario está vacío aunque
+ * en DB haya posts con fecha asignada. La idea es que el director
+ * arme la planificación de cero — todo el contenido aparece en la
+ * lista lateral y él va arrastrando lo que quiere ver programado.
+ * Trackeamos qué se asignó EN ESTA SESIÓN con un Set local; cuando
+ * refresca, vuelve a empezar limpio.
+ *
  * Layout split:
- *   · Izquierda (~70%): calendario limpio. Cada cuadrante muestra el
- *     número del día y, si hay posts asignados, chips compactos. Los
- *     cuadrantes son destino de drop.
- *   · Derecha (~30%): lista de borradores (status='draft') con
- *     titular completo. Cada item es arrastrable.
+ *   · Izquierda (~70%): calendario. Cuadrantes muestran SOLO los
+ *     posts asignados durante la sesión actual. Reciben drop.
+ *   · Derecha (~30%): lista de TODO el contenido que todavía no se
+ *     arrastró al calendario en esta sesión. Titular completo. Cada
+ *     item es arrastrable.
  *
  * Flow:
- *   1. Director agarra un borrador de la lista lateral.
+ *   1. Director agarra un item de la lista.
  *   2. Lo suelta sobre un día del calendario.
- *   3. Se persiste: date = día elegido + status = 'scheduled' (el
- *      post deja de ser borrador). El director pidió que el item
- *      desaparezca de la lista al asignarlo.
- *   4. El post aparece como chip en el cuadrante correspondiente.
+ *   3. Se persiste en DB: date = día elegido + status = 'scheduled'.
+ *   4. El item desaparece de la lista y aparece en el cuadrante.
+ *
+ * Si refresca, el state de sesión se pierde y el calendario vuelve
+ * a estar vacío — pero las fechas SÍ se persistieron en DB (visibles
+ * en Tabla y en Vista feed).
  *
  * Navegación: botones < / > para cambiar de mes; "Hoy" vuelve al
  * mes corriente.
@@ -95,12 +104,21 @@ export default function ContentCalendarView({
   const [busy, setBusy] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  // IDs de los posts que el director arrastró durante esta sesión.
+  // El calendario muestra SOLO estos; la lista lateral muestra todos
+  // los demás. Al refrescar la página, este state se pierde y el
+  // calendario vuelve a estar vacío — aunque las fechas SÍ quedan
+  // persistidas en DB.
+  const [assignedThisSession, setAssignedThisSession] = useState<Set<string>>(
+    () => new Set(),
+  );
 
-  /** Posts agrupados por día. Clave = YYYY-MM-DD. */
+  /** Posts agrupados por día — SOLO los asignados en esta sesión.
+   *  Clave = YYYY-MM-DD. */
   const postsByDay = useMemo(() => {
     const map = new Map<string, ContentPost[]>();
     for (const p of posts) {
-      // p.date ya está en YYYY-MM-DD (columna date de DB).
+      if (!assignedThisSession.has(p.id)) continue;
       const list = map.get(p.date) ?? [];
       list.push(p);
       map.set(p.date, list);
@@ -110,21 +128,20 @@ export default function ContentCalendarView({
       list.sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
     }
     return map;
-  }, [posts]);
+  }, [posts, assignedThisSession]);
 
-  /** Pool lateral: posts en draft que el director querría mover. Si
-   *  quisieras mostrar TODOS los drafts incluso de meses pasados,
-   *  acá los devolvés sin filtro. Para no abrumar limitamos a los
-   *  drafts ordenados por createdAt DESC. */
+  /** Pool lateral: TODO el contenido excepto lo que ya se arrastró
+   *  al calendario en esta sesión. Orden por createdAt DESC para que
+   *  lo más reciente quede arriba. */
   const draftPool = useMemo(
     () =>
       posts
-        .filter((p) => p.status === "draft")
+        .filter((p) => !assignedThisSession.has(p.id))
         .slice()
         .sort((a, b) =>
           a.createdAt > b.createdAt ? -1 : a.createdAt < b.createdAt ? 1 : 0,
         ),
-    [posts],
+    [posts, assignedThisSession],
   );
 
   const cells = useMemo(
@@ -132,20 +149,27 @@ export default function ContentCalendarView({
     [cursor],
   );
 
-  /** Drop sobre un día del calendario. Persiste fecha + cambia
-   *  status a 'scheduled' (lo hace el caller dentro de onAssignDate).
-   *  Como el draftPool filtra por status='draft', el item desaparece
-   *  de la lista automáticamente cuando se refresca el state. */
+  /** Drop sobre un día del calendario. Persiste fecha en DB y marca
+   *  el post como "asignado en esta sesión" — desde ese momento
+   *  desaparece de la lista lateral y aparece como chip en el
+   *  cuadrante correspondiente. */
   async function handleDropOnDay(day: string) {
     if (!draggingId) return;
     const dragged = posts.find((p) => p.id === draggingId);
+    const draggedId = draggingId;
     setDraggingId(null);
     setDragOverDay(null);
     if (!dragged) return;
-    if (dragged.date === day) return; // no-op si ya tiene esa fecha
     setBusy(true);
     try {
       await onAssignDate(dragged, day);
+      // Sumarlo al set DESPUÉS del await — si el patch falla, queda
+      // en la lista (no marcamos como asignado).
+      setAssignedThisSession((prev) => {
+        const next = new Set(prev);
+        next.add(draggedId);
+        return next;
+      });
     } catch (err) {
       console.error("[ContentCalendarView] assign failed:", err);
       alert(`No se pudo asignar la fecha:\n${(err as Error).message}`);
@@ -415,7 +439,7 @@ export default function ContentCalendarView({
               color: "var(--sand-dark)",
             }}
           >
-            Borradores
+            Contenido
           </div>
           <span
             style={{
