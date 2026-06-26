@@ -288,7 +288,13 @@ export default function ContentCalendarView({
           </div>
         </div>
 
-        {/* Cabecera de días de la semana */}
+        {/* Cabecera de días de la semana.
+            box-sizing border-box + borderRight en TODAS las celdas
+            menos la última hace que los anchos calculados con
+            1fr/7 coincidan con los del grid de cuadrantes abajo
+            (que también lleva borderRight). Antes los headers no
+            tenían borderRight y todas las columnas debajo aparecían
+            corridas un par de pixels a la izquierda. */}
         <div
           style={{
             display: "grid",
@@ -297,7 +303,7 @@ export default function ContentCalendarView({
             borderBottom: "1px solid rgba(10,26,12,0.08)",
           }}
         >
-          {DAY_LABELS.map((d) => (
+          {DAY_LABELS.map((d, i) => (
             <div
               key={d}
               style={{
@@ -308,6 +314,9 @@ export default function ContentCalendarView({
                 textTransform: "uppercase",
                 color: "var(--sand-dark)",
                 textAlign: "center",
+                boxSizing: "border-box",
+                borderRight:
+                  i < 6 ? "1px solid rgba(10,26,12,0.06)" : "none",
               }}
             >
               {d}
@@ -315,7 +324,8 @@ export default function ContentCalendarView({
           ))}
         </div>
 
-        {/* Grid 6x7 */}
+        {/* Grid 6x7 — mismo gridTemplateColumns + box-sizing que el
+            header para que las columnas alineen perfectamente. */}
         <div
           style={{
             display: "grid",
@@ -345,8 +355,15 @@ export default function ContentCalendarView({
                   void handleDropOnDay(day);
                 }}
                 style={{
-                  borderRight: "1px solid rgba(10,26,12,0.06)",
-                  borderBottom: "1px solid rgba(10,26,12,0.06)",
+                  boxSizing: "border-box",
+                  borderRight:
+                    (idx % 7) < 6
+                      ? "1px solid rgba(10,26,12,0.06)"
+                      : "none",
+                  borderBottom:
+                    idx < 35
+                      ? "1px solid rgba(10,26,12,0.06)"
+                      : "none",
                   padding: 6,
                   background: isOver
                     ? "rgba(47,125,79,0.12)"
