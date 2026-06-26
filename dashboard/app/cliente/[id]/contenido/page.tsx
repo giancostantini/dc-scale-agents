@@ -55,6 +55,7 @@ import type {
   ContentStatus,
 } from "@/lib/types";
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
+import ContentCalendarView from "@/components/content/ContentCalendarView";
 import ContentConsultantPanel from "@/components/ContentConsultantPanel";
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
@@ -409,7 +410,9 @@ export default function ContenidoPage({
    * la red social como una grilla 3-col estilo perfil). El selector
    * de red dentro de "feed" vive en feedNetwork.
    */
-  const [viewMode, setViewMode] = useState<"table" | "feed">("table");
+  const [viewMode, setViewMode] = useState<"table" | "feed" | "calendar">(
+    "table",
+  );
   const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
   /**
    * Cuando el usuario toca un tile de la grilla en modo feed, abrimos
@@ -855,10 +858,14 @@ export default function ContenidoPage({
           border: "1px solid rgba(10,26,12,0.08)",
         }}
       >
-        {(["table", "feed"] as const).map((mode) => {
+        {(["table", "feed", "calendar"] as const).map((mode) => {
           const active = viewMode === mode;
           const label =
-            mode === "table" ? "▤ Tabla" : "▦ Vista feed";
+            mode === "table"
+              ? "▤ Tabla"
+              : mode === "feed"
+                ? "▦ Vista feed"
+                : "📅 Calendario";
           return (
             <button
               key={mode}
@@ -1531,6 +1538,22 @@ export default function ContenidoPage({
                 }
               : undefined
           }
+        />
+      )}
+
+      {/* Vista calendario — grid mensual de cuadrantes con drag & drop
+          desde la lista lateral de borradores. Al soltar un post sobre
+          una fecha, se le asigna esa fecha (patchPost). Solo cuando el
+          viewer puede editar — para clientes el portal no muestra esta
+          vista. */}
+      {viewMode === "calendar" && (
+        <ContentCalendarView
+          posts={sortedFiltered}
+          classifications={classifications}
+          onPostClick={(p) => setFeedPostDetail(p)}
+          onAssignDate={async (post, newDate) => {
+            await patchPost(post, { date: newDate });
+          }}
         />
       )}
 
