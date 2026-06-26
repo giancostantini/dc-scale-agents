@@ -28,6 +28,7 @@ import type {
   ContentPost,
   ContentStatus,
 } from "@/lib/types";
+import { useEffect, useState } from "react";
 import {
   classificationMetaById,
   extractHandleFromUrl,
@@ -963,27 +964,472 @@ function InstagramGrid({
   onTileClick,
   clickable,
 }: GridProps) {
+  // Separamos posts del feed permanente (grid 3-col) de las stories
+  // (tray circular arriba). En IG real, las stories son una capa
+  // distinta del feed de perfil: se ven arriba como círculos y se
+  // abren en vertical 9:16 con auto-advance. Antes mostrábamos todo
+  // junto en la grid, lo que era inconsistente con el mental model
+  // del cliente.
+  const feedPosts = posts.filter((p) => p.format !== "story");
+  const storyPosts = posts.filter((p) => p.format === "story");
+  const [openStoryIdx, setOpenStoryIdx] = useState<number | null>(null);
+
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 2,
-        padding: 2,
-        background: "rgba(10,26,12,0.06)",
-      }}
-    >
-      {posts.map((p) => (
-        <FeedTile
-          key={p.id}
-          post={p}
-          code={codeOf(p)}
+    <>
+      {/* Stories tray — solo si hay alguna story. Círculos con
+          gradient ring (como IG real cuando hay story nueva). */}
+      {storyPosts.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            padding: "14px 14px 10px",
+            overflowX: "auto",
+            borderBottom: "1px solid rgba(10,26,12,0.06)",
+            background: "var(--white)",
+          }}
+        >
+          {storyPosts.map((p, idx) => {
+            const classMeta = classificationMetaById(
+              classifications,
+              p.classification,
+            );
+            const ringColor = classMeta?.color ?? "#E1306C"; // pink IG
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setOpenStoryIdx(idx)}
+                title={`Historia · ${codeOf(p)}`}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  padding: 0,
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    padding: 2.5,
+                    background: `linear-gradient(135deg, ${ringColor}, #F77737, #FCAF45)`,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                      background: p.imageUrl
+                        ? "transparent"
+                        : ringColor,
+                      backgroundImage: p.imageUrl
+                        ? `url(${p.imageUrl})`
+                        : undefined,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      border: "2px solid var(--white)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--off-white)",
+                      fontWeight: 700,
+                      fontSize: 10,
+                    }}
+                  >
+                    {!p.imageUrl &&
+                      (p.idea ?? p.brief ?? "")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "var(--deep-green)",
+                    fontWeight: 600,
+                    maxWidth: 70,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {codeOf(p)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Grid 3-col del feed permanente. Si no hay posts pero sí
+          stories, mostramos solo el tray (sin grid). */}
+      {feedPosts.length > 0 && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 2,
+            padding: 2,
+            background: "rgba(10,26,12,0.06)",
+          }}
+        >
+          {feedPosts.map((p) => (
+            <FeedTile
+              key={p.id}
+              post={p}
+              code={codeOf(p)}
+              classifications={classifications}
+              badge={badgeByPostId?.get(p.id)}
+              onClick={() => onTileClick(p)}
+              clickable={clickable}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Viewer fullscreen de stories. Auto-advance + tap-to-next. */}
+      {openStoryIdx !== null && storyPosts[openStoryIdx] && (
+        <StoryViewer
+          stories={storyPosts}
+          startIndex={openStoryIdx}
           classifications={classifications}
-          badge={badgeByPostId?.get(p.id)}
-          onClick={() => onTileClick(p)}
+          onClose={() => setOpenStoryIdx(null)}
+          onTileClick={onTileClick}
           clickable={clickable}
         />
-      ))}
+      )}
+    </>
+  );
+}
+
+/**
+ * StoryViewer — modal fullscreen que muestra las stories de IG en
+ * vertical 9:16, una a la vez, con auto-advance cada 6s y barras de
+ * progreso arriba (como IG real). Click izquierdo / derecho para
+ * navegar. ESC cierra.
+ */
+function StoryViewer({
+  stories,
+  startIndex,
+  classifications,
+  onClose,
+  onTileClick,
+  clickable,
+}: {
+  stories: ContentPost[];
+  startIndex: number;
+  classifications: ClientContentClassification[];
+  onClose: () => void;
+  onTileClick: (p: ContentPost) => void;
+  clickable: boolean;
+}) {
+  const [idx, setIdx] = useState(startIndex);
+  const [progress, setProgress] = useState(0);
+  const STORY_DURATION = 6000; // 6s por story
+
+  // Auto-advance — corre cada 50ms, suma % al progress; cuando llega
+  // a 100, salta a la próxima story. Si es la última, cierra.
+  useEffect(() => {
+    setProgress(0);
+    const step = 50;
+    const tick = setInterval(() => {
+      setProgress((p) => {
+        const next = p + (step / STORY_DURATION) * 100;
+        if (next >= 100) {
+          // Pasar a la próxima en el próximo tick para evitar setState
+          // dentro del setInterval que está corriendo.
+          setTimeout(() => {
+            if (idx < stories.length - 1) {
+              setIdx(idx + 1);
+            } else {
+              onClose();
+            }
+          }, 0);
+          return 100;
+        }
+        return next;
+      });
+    }, step);
+    return () => clearInterval(tick);
+  }, [idx, stories.length, onClose]);
+
+  // Navegación con teclado
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") {
+        if (idx < stories.length - 1) setIdx(idx + 1);
+        else onClose();
+      }
+      if (e.key === "ArrowLeft") {
+        if (idx > 0) setIdx(idx - 1);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [idx, stories.length, onClose]);
+
+  const current = stories[idx];
+  if (!current) return null;
+  const classMeta = classificationMetaById(
+    classifications,
+    current.classification,
+  );
+  const bg = classMeta?.color ?? "#0A1A0C";
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.92)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 380,
+          aspectRatio: "9 / 16",
+          background: current.imageUrl ? "#000" : bg,
+          backgroundImage: current.imageUrl
+            ? `url(${current.imageUrl})`
+            : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          borderRadius: 12,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Barras de progreso arriba — una por story, la actual
+            muestra el % en vivo. */}
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            padding: "10px 10px 0",
+            zIndex: 3,
+          }}
+        >
+          {stories.map((_, i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                height: 3,
+                background: "rgba(255,255,255,0.32)",
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width:
+                    i < idx
+                      ? "100%"
+                      : i === idx
+                        ? `${progress}%`
+                        : "0%",
+                  height: "100%",
+                  background: "rgba(255,255,255,0.95)",
+                  transition: i === idx ? "none" : "width 0.15s",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Header tipo IG story — código + close */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "10px 14px",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 700,
+            textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+            zIndex: 3,
+          }}
+        >
+          <span>{codeOf(current)}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#fff",
+              fontSize: 22,
+              cursor: "pointer",
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Overlay degradado para legibilidad del texto */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: current.imageUrl
+              ? "linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.55) 100%)"
+              : "none",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Concepto centrado / brief — el texto principal de la story */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 24px",
+            position: "relative",
+            zIndex: 2,
+          }}
+        >
+          <div
+            style={{
+              color: "#fff",
+              fontSize: 18,
+              fontWeight: 700,
+              lineHeight: 1.4,
+              textAlign: "center",
+              textShadow: current.imageUrl
+                ? "0 1px 6px rgba(0,0,0,0.7)"
+                : "none",
+            }}
+          >
+            {current.idea ?? current.brief ?? "Sin idea"}
+          </div>
+        </div>
+
+        {/* Footer: copy + CTA / abrir detalle */}
+        {(current.copy || clickable) && (
+          <div
+            style={{
+              padding: "12px 16px 16px",
+              color: "#fff",
+              fontSize: 12,
+              lineHeight: 1.45,
+              position: "relative",
+              zIndex: 2,
+              textShadow: current.imageUrl
+                ? "0 1px 4px rgba(0,0,0,0.7)"
+                : "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {current.copy && (
+              <div
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  opacity: 0.92,
+                }}
+              >
+                {current.copy}
+              </div>
+            )}
+            {clickable && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onTileClick(current);
+                }}
+                style={{
+                  padding: "8px 14px",
+                  background: "rgba(255,255,255,0.96)",
+                  color: "#0A1A0C",
+                  border: "none",
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  alignSelf: "flex-start",
+                }}
+              >
+                Ver detalle
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Tap zones invisibles — izquierda atrás, derecha adelante.
+            Tienen menos z-index que los botones del header. */}
+        <button
+          type="button"
+          aria-label="Story anterior"
+          onClick={() => {
+            if (idx > 0) setIdx(idx - 1);
+          }}
+          disabled={idx === 0}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 30,
+            bottom: 80,
+            width: "30%",
+            background: "transparent",
+            border: "none",
+            cursor: idx > 0 ? "pointer" : "default",
+            zIndex: 1,
+          }}
+        />
+        <button
+          type="button"
+          aria-label="Story siguiente"
+          onClick={() => {
+            if (idx < stories.length - 1) setIdx(idx + 1);
+            else onClose();
+          }}
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 30,
+            bottom: 80,
+            width: "30%",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            zIndex: 1,
+          }}
+        />
+      </div>
     </div>
   );
 }
