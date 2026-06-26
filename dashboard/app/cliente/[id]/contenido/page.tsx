@@ -1542,21 +1542,28 @@ export default function ContenidoPage({
       )}
 
       {/* Vista calendario — grid mensual con drop targets por día +
-          lista lateral de borradores arrastrables. Al soltar un
-          borrador sobre un día, se le asigna esa fecha Y se pasa a
-          status='scheduled' para que salga del pool de borradores.
-          El director pidió esa transición — "una vez que se arrastre
-          quiero que se vaya de la lista". */}
+          lista lateral arrastrable.
+
+          Al soltar en un día, solo persistimos la NUEVA FECHA — NO
+          cambiamos el status. Antes pasábamos status='scheduled'
+          automáticamente, pero eso rompía visibilidad en la vista
+          Feed cuando el filtro de status de la tabla estaba en
+          "draft" (el post recién asignado salía del sortedFiltered
+          porque ya no era draft). El requisito de "que salga de la
+          lista al arrastrarlo" lo resolvemos con el state local de
+          sesión (assignedThisSession) en el ContentCalendarView,
+          que es totalmente independiente del status en DB.
+
+          Le pasamos TODOS los posts (no sortedFiltered) para que el
+          calendario no dependa del filtro de status — siempre ves
+          tu contenido completo para planificar. */}
       {viewMode === "calendar" && (
         <ContentCalendarView
-          posts={sortedFiltered}
+          posts={posts}
           classifications={classifications}
           onPostClick={(p) => setFeedPostDetail(p)}
           onAssignDate={async (post, newDate) => {
-            await patchPost(post, {
-              date: newDate,
-              status: "scheduled",
-            });
+            await patchPost(post, { date: newDate });
           }}
         />
       )}
