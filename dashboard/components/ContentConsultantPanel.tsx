@@ -68,6 +68,8 @@ export default function ContentConsultantPanel({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Controlador del pedido en curso → permite "Detener" mientras piensa.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Cargar el hilo persistido al montar (memoria entre sesiones).
   useEffect(() => {
@@ -141,6 +143,8 @@ export default function ContentConsultantPanel({
           return;
         }
 
+        const ac = new AbortController();
+        abortRef.current = ac;
         const res = await fetch(`/api/clients/${clientId}/content-consultant`, {
           method: "POST",
           headers: {
@@ -150,6 +154,7 @@ export default function ContentConsultantPanel({
           body: JSON.stringify({
             messages: next.map((m) => ({ role: m.role, content: m.content })),
           }),
+          signal: ac.signal,
         });
         const data = (await res.json().catch(() => ({}))) as {
           reply?: string;
@@ -175,10 +180,18 @@ export default function ContentConsultantPanel({
             rating: null,
           },
         ]);
-      } catch {
-        setError("Error de red. Probá de nuevo.");
-        setMessages(messages);
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") {
+          // Detenido por el usuario: restauramos el estado sin marcar error
+          // y devolvemos el texto al input para que pueda reintentar.
+          setMessages(messages);
+          setInput(trimmed);
+        } else {
+          setError("Error de red. Probá de nuevo.");
+          setMessages(messages);
+        }
       } finally {
+        abortRef.current = null;
         setSending(false);
       }
     },
@@ -405,7 +418,29 @@ export default function ContentConsultantPanel({
             outline: "none",
           }}
         />
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          {sending && (
+            <button
+              type="button"
+              onClick={() => abortRef.current?.abort()}
+              title="Frenar al consultor"
+              style={{
+                padding: "8px 16px",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: "transparent",
+                color: "var(--red-warn)",
+                border: "1px solid var(--red-warn)",
+                borderRadius: "var(--r-sm)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              ■ Detener
+            </button>
+          )}
           <button
             type="submit"
             disabled={!input.trim() || sending || loading}
