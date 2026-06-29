@@ -190,6 +190,18 @@ export default function ContentFeedPreview({
 
   const maxWidth = size === "compact" ? 440 : 720;
 
+  // Diagnóstico: ¿cuántos posts tiene cada red? Cuando el feed sale
+  // vacío en una red pero tiene posts en otras, el director necesita
+  // ver dónde están sus posts para entender la causa.
+  const countsByNetwork: Record<string, number> = { ig: 0, tt: 0, fb: 0, in: 0 };
+  for (const p of posts) {
+    const ns =
+      p.networks && p.networks.length > 0 ? p.networks : p.network ? [p.network] : [];
+    for (const n of ns) {
+      if (n in countsByNetwork) countsByNetwork[n] += 1;
+    }
+  }
+
   const handleTileClick = (p: ContentPost) => {
     if (onTileClick) onTileClick(p);
   };
@@ -352,6 +364,48 @@ export default function ContentFeedPreview({
             >
               {NETWORK_LABEL[n]}
             </button>
+          );
+        })}
+      </div>
+
+      {/* Diagnóstico de distribución por red. Útil cuando el director
+          mira "Feed → IG" y aparece vacío: si esta línea muestra
+          "IG: 0 · TT: 0 · FB: 0 · IN: 33", la causa es que sus posts
+          están todos en LinkedIn, no en IG. */}
+      <div
+        style={{
+          padding: "8px 14px",
+          background: "rgba(196,168,130,0.08)",
+          borderTop: "1px solid rgba(10,26,12,0.06)",
+          fontSize: 10,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 600,
+          display: "flex",
+          gap: 14,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ opacity: 0.7 }}>Distribución:</span>
+        {(["ig", "tt", "fb", "in"] as const).map((n) => {
+          const c = countsByNetwork[n] ?? 0;
+          const isActive = n === network;
+          return (
+            <span
+              key={n}
+              style={{
+                fontWeight: isActive ? 800 : 600,
+                color: isActive
+                  ? "var(--deep-green)"
+                  : c > 0
+                    ? "var(--deep-green)"
+                    : "var(--text-muted)",
+              }}
+            >
+              {NETWORK_LABEL[n]}: <strong>{c}</strong>
+            </span>
           );
         })}
       </div>
