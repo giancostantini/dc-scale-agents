@@ -1017,18 +1017,37 @@ function InstagramGrid({
   return (
     <>
       {/* Stories tray — solo si hay alguna story. Círculos con
-          gradient ring (como IG real cuando hay story nueva). */}
+          gradient ring (como IG real cuando hay story nueva).
+          Antes era overflowX: auto y escondía las stories detrás
+          de scroll horizontal — el director no se daba cuenta de
+          que tenía decenas. Ahora flexWrap: wrap así se ven todas
+          en una grilla fluida. */}
       {storyPosts.length > 0 && (
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: 12,
             padding: "14px 14px 10px",
-            overflowX: "auto",
             borderBottom: "1px solid rgba(10,26,12,0.06)",
             background: "var(--white)",
           }}
         >
+          {storyPosts.length > 1 && (
+            <div
+              style={{
+                width: "100%",
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Stories ({storyPosts.length})
+            </div>
+          )}
           {storyPosts.map((p, idx) => {
             const classMeta = classificationMetaById(
               classifications,
