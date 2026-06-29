@@ -977,13 +977,17 @@ function InstagramGrid({
   clickable,
   onReorder,
 }: GridProps) {
-  // Separamos posts del feed permanente (grid 3-col) de las stories
-  // (tray circular arriba). En IG real, las stories son una capa
-  // distinta del feed de perfil: se ven arriba como círculos y se
-  // abren en vertical 9:16 con auto-advance. Antes mostrábamos todo
-  // junto en la grid, lo que era inconsistente con el mental model
-  // del cliente.
-  const feedPosts = posts.filter((p) => p.format !== "story");
+  // El director pidió: mostrar TODOS los posts en la grid 3x3 (sin
+  // separar stories en un tray). Antes habíamos hecho IG-style con
+  // stories en tray circular + posts en grid, pero el flow real que
+  // pide es "asigno fecha en calendario y veo el preview de la
+  // cuadrícula al toque" — sin esa distinción.
+  //
+  // Mantenemos el state openStoryIdx + el StoryViewer para que el
+  // click en un tile con format='story' siga abriendo el viewer en
+  // 9:16 con auto-advance (UX nicety). Las demás aperturas usan
+  // onTileClick normal.
+  const feedPosts = posts;
   const storyPosts = posts.filter((p) => p.format === "story");
   const [openStoryIdx, setOpenStoryIdx] = useState<number | null>(null);
 
@@ -1016,126 +1020,20 @@ function InstagramGrid({
 
   return (
     <>
-      {/* Stories tray — solo si hay alguna story. Círculos con
-          gradient ring (como IG real cuando hay story nueva).
-          Antes era overflowX: auto y escondía las stories detrás
-          de scroll horizontal — el director no se daba cuenta de
-          que tenía decenas. Ahora flexWrap: wrap así se ven todas
-          en una grilla fluida. */}
-      {storyPosts.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            padding: "14px 14px 10px",
-            borderBottom: "1px solid rgba(10,26,12,0.06)",
-            background: "var(--white)",
-          }}
-        >
-          {storyPosts.length > 1 && (
-            <div
-              style={{
-                width: "100%",
-                fontSize: 10,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              Stories ({storyPosts.length})
-            </div>
-          )}
-          {storyPosts.map((p, idx) => {
-            const classMeta = classificationMetaById(
-              classifications,
-              p.classification,
-            );
-            const ringColor = classMeta?.color ?? "#E1306C"; // pink IG
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setOpenStoryIdx(idx)}
-                title={`Historia · ${codeOf(p)}`}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  padding: 0,
-                  flexShrink: 0,
-                }}
-              >
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    padding: 2.5,
-                    background: `linear-gradient(135deg, ${ringColor}, #F77737, #FCAF45)`,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: "50%",
-                      background: p.imageUrl
-                        ? "transparent"
-                        : ringColor,
-                      backgroundImage: p.imageUrl
-                        ? `url(${p.imageUrl})`
-                        : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      border: "2px solid var(--white)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--off-white)",
-                      fontWeight: 700,
-                      fontSize: 10,
-                    }}
-                  >
-                    {!p.imageUrl &&
-                      (p.idea ?? p.brief ?? "")
-                        .slice(0, 2)
-                        .toUpperCase()}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "var(--deep-green)",
-                    fontWeight: 600,
-                    maxWidth: 70,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {codeOf(p)}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Grid 3-col — muestra TODOS los posts del cliente sin
+          distinguir entre stories y posts. El director pidió:
+          "cuando se asigna un contenido a una fecha desde el
+          calendario quiero que enseguida ese posteo se vea como un
+          preview en la cuadrícula". Es decir: cuadrícula = vista
+          única de toda la planificación visual.
 
-      {/* Grid 3-col del feed permanente. Si no hay posts pero sí
-          stories, mostramos solo el tray (sin grid).
+          Click sobre un tile con format='story' sigue abriendo el
+          StoryViewer (vertical 9:16 con auto-advance). Para los
+          demás formatos, dispara el onTileClick normal (modal de
+          detalle).
 
           Drag & drop: cada tile va dentro de un wrapper que maneja
-          drag events. El FeedTile original lo mantenemos puro
-          (no sabe nada de drag); el wrapper le agrega el
-          comportamiento solo cuando dragEnabled. */}
+          drag events. */}
       {feedPosts.length > 0 && (
         <div
           style={{
@@ -1198,12 +1096,39 @@ function InstagramGrid({
                   code={codeOf(p)}
                   classifications={classifications}
                   badge={badgeByPostId?.get(p.id)}
-                  onClick={() => onTileClick(p)}
+                  onClick={() => {
+                    // Si el tile es una story, abrimos el viewer
+                    // 9:16 con auto-advance navegable por las otras
+                    // stories. Para cualquier otro formato, abre el
+                    // modal de detalle estándar.
+                    if (p.format === "story") {
+                      const sIdx = storyPosts.findIndex((s) => s.id === p.id);
+                      if (sIdx >= 0) {
+                        setOpenStoryIdx(sIdx);
+                        return;
+                      }
+                    }
+                    onTileClick(p);
+                  }}
                   clickable={clickable}
                 />
               </div>
             );
           })}
+        </div>
+      )}
+
+      {feedPosts.length === 0 && (
+        <div
+          style={{
+            padding: "48px 20px",
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontStyle: "italic",
+          }}
+        >
+          Sin publicaciones planeadas todavía.
         </div>
       )}
 
