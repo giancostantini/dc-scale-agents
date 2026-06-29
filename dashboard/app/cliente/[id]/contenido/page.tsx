@@ -1518,7 +1518,17 @@ export default function ContenidoPage({
           formato + clasificación. Click en tile → modal con detalle. */}
       {viewMode === "feed" && (
         <ContentFeedPreview
-          posts={sortedFiltered}
+          // posts={posts} en lugar de sortedFiltered: el feed muestra
+          // TODOS los posts del cliente, sin importar los filtros de
+          // status / período / red / format de la tabla. Antes
+          // estaba ligado a sortedFiltered y el director reportaba
+          // que cuando asignaba un contenido a una fecha desde el
+          // calendario, NO aparecía en el feed — pasaba cuando la
+          // fecha caía fuera del periodMode activo (típicamente
+          // "este mes" cuando asignaba al mes próximo). El feed
+          // internamente sigue filtrando por la red activa, que es
+          // lo que tiene sentido.
+          posts={posts}
           network={feedNetwork}
           onNetworkChange={setFeedNetwork}
           clientName={client?.name ?? ""}
