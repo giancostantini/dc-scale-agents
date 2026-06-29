@@ -55,7 +55,6 @@ import type {
   ContentStatus,
 } from "@/lib/types";
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
-import ContentCalendarView from "@/components/content/ContentCalendarView";
 import ContentConsultantPanel from "@/components/ContentConsultantPanel";
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
@@ -410,9 +409,7 @@ export default function ContenidoPage({
    * la red social como una grilla 3-col estilo perfil). El selector
    * de red dentro de "feed" vive en feedNetwork.
    */
-  const [viewMode, setViewMode] = useState<"table" | "feed" | "calendar">(
-    "table",
-  );
+  const [viewMode, setViewMode] = useState<"table" | "feed">("table");
   const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
   /**
    * Cuando el usuario toca un tile de la grilla en modo feed, abrimos
@@ -858,14 +855,9 @@ export default function ContenidoPage({
           border: "1px solid rgba(10,26,12,0.08)",
         }}
       >
-        {(["table", "feed", "calendar"] as const).map((mode) => {
+        {(["table", "feed"] as const).map((mode) => {
           const active = viewMode === mode;
-          const label =
-            mode === "table"
-              ? "▤ Tabla"
-              : mode === "feed"
-                ? "▦ Vista feed"
-                : "📅 Calendario";
+          const label = mode === "table" ? "▤ Tabla" : "▦ Vista feed";
           return (
             <button
               key={mode}
@@ -1548,39 +1540,6 @@ export default function ContenidoPage({
                 }
               : undefined
           }
-        />
-      )}
-
-      {/* Vista calendario — grid mensual con drop targets por día +
-          lista lateral arrastrable.
-
-          Al soltar en un día, solo persistimos la NUEVA FECHA — NO
-          cambiamos el status. Antes pasábamos status='scheduled'
-          automáticamente, pero eso rompía visibilidad en la vista
-          Feed cuando el filtro de status de la tabla estaba en
-          "draft" (el post recién asignado salía del sortedFiltered
-          porque ya no era draft). El requisito de "que salga de la
-          lista al arrastrarlo" lo resolvemos con el state local de
-          sesión (assignedThisSession) en el ContentCalendarView,
-          que es totalmente independiente del status en DB.
-
-          Le pasamos TODOS los posts (no sortedFiltered) para que el
-          calendario no dependa del filtro de status — siempre ves
-          tu contenido completo para planificar. */}
-      {viewMode === "calendar" && (
-        <ContentCalendarView
-          posts={posts}
-          classifications={classifications}
-          onPostClick={(p) => setFeedPostDetail(p)}
-          onAssignDate={async (post, newDate) => {
-            await patchPost(post, { date: newDate });
-          }}
-          // storageKey por cliente: persiste el Set de "asignados
-          // al calendario" en localStorage scoped al cliente. Cuando
-          // el director vuelve después de navegar a otra página
-          // (o cierra y abre el browser), el calendario reaparece
-          // con lo que ya había planificado.
-          storageKey={id}
         />
       )}
 
