@@ -51,6 +51,22 @@ interface Props {
   storageKey?: string;
 }
 
+/** Resuelve las redes efectivas de un post: prefiere el array
+ *  networks (mig 065); si está vacío/null, cae al campo singular
+ *  network como fallback. Devuelve siempre un array. */
+function networksOf(post: ContentPost): string[] {
+  if (post.networks && post.networks.length > 0) return post.networks;
+  if (post.network) return [post.network];
+  return [];
+}
+
+const NETWORK_BADGE: Record<string, { label: string; bg: string }> = {
+  ig: { label: "IG", bg: "#E1306C" },
+  tt: { label: "TT", bg: "#000000" },
+  fb: { label: "FB", bg: "#1877F2" },
+  in: { label: "IN", bg: "#0A66C2" },
+};
+
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const MONTH_LABELS = [
@@ -679,10 +695,35 @@ function DayChip({
           color: "var(--text-muted)",
           display: "flex",
           gap: 4,
+          alignItems: "center",
         }}
       >
         <span>{code}</span>
         {post.time && <span>· {post.time}</span>}
+        {/* Badges de red — chiquitos al lado del code para que sea
+            evidente a qué red va el post (y aparecerá en el feed
+            correspondiente). */}
+        {networksOf(post).map((n) => {
+          const meta = NETWORK_BADGE[n];
+          if (!meta) return null;
+          return (
+            <span
+              key={n}
+              style={{
+                background: meta.bg,
+                color: "#fff",
+                padding: "0 4px",
+                borderRadius: 2,
+                fontSize: 8,
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+              }}
+              title={`Red: ${meta.label}`}
+            >
+              {meta.label}
+            </span>
+          );
+        })}
       </div>
       <div
         style={{
@@ -780,6 +821,32 @@ function DraftItem({
             {classMeta.short}
           </span>
         )}
+        {/* Badges de redes — el director arrastra contenido al
+            calendario y después se confunde si no lo ve en el feed
+            de IG. Estos badges hacen evidente a qué red va cada
+            post (un post de TT no aparece en el feed IG por
+            diseño — el feed filtra por red). */}
+        {networksOf(post).map((n) => {
+          const meta = NETWORK_BADGE[n];
+          if (!meta) return null;
+          return (
+            <span
+              key={n}
+              style={{
+                background: meta.bg,
+                color: "#fff",
+                padding: "1px 6px",
+                borderRadius: 3,
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+              }}
+              title={`Aparece en el feed de ${meta.label}`}
+            >
+              {meta.label}
+            </span>
+          );
+        })}
       </div>
 
       {/* Titular completo de la idea — sin truncar. */}
