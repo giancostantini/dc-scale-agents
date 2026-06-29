@@ -123,11 +123,6 @@ export interface ContentFeedPreviewProps {
   onTileClick?: (p: ContentPost) => void;
   /** Tamaño del feed: 'compact' (~440px) o 'regular' (~720px). Default regular. */
   size?: "compact" | "regular";
-  /** Si se pasa, las tiles de IG y TT son arrastrables. Al soltar una
-   *  sobre otra, le asigna la fecha del target (efecto: reordenar el
-   *  feed por fecha). El callback persiste el cambio en DB y luego
-   *  refresca la lista. El portal del cliente lo omite (read-only). */
-  onReorder?: (post: ContentPost, newDate: string) => Promise<void>;
 }
 
 // ============================================================
@@ -178,7 +173,6 @@ export default function ContentFeedPreview({
   badgeByPostId,
   onTileClick,
   size = "regular",
-  onReorder,
 }: ContentFeedPreviewProps) {
   const networkPosts = filterAndSortByNetwork(posts, network);
 
@@ -231,7 +225,6 @@ export default function ContentFeedPreview({
               badgeByPostId={badgeByPostId}
               onTileClick={handleTileClick}
               clickable={!!onTileClick}
-              onReorder={onReorder}
             />
           )
         : network === "tt"
@@ -241,7 +234,6 @@ export default function ContentFeedPreview({
                 classifications={classifications}
                 badgeByPostId={badgeByPostId}
                 onTileClick={handleTileClick}
-                onReorder={onReorder}
                 clickable={!!onTileClick}
               />
             )
@@ -1012,10 +1004,6 @@ interface GridProps {
   onTileClick: (p: ContentPost) => void;
   /** Si false, los tiles NO son clickeables (cursor default, no click handler). */
   clickable: boolean;
-  /** Si se pasa, las tiles son arrastrables. Al soltar A sobre B, se
-   *  llama con (postA, fechaB) — la tile arrastrada toma la fecha del
-   *  target, reordenando el feed. */
-  onReorder?: (post: ContentPost, newDate: string) => Promise<void>;
 }
 
 interface FeedProps extends GridProps {
@@ -1029,175 +1017,29 @@ function InstagramGrid({
   badgeByPostId,
   onTileClick,
   clickable,
-  onReorder,
 }: GridProps) {
-  // El director pidió: mostrar TODOS los posts en la grid 3x3 (sin
-  // separar stories en un tray). Antes habíamos hecho IG-style con
-  // stories en tray circular + posts en grid, pero el flow real que
-  // pide es "asigno fecha en calendario y veo el preview de la
-  // cuadrícula al toque" — sin esa distinción.
-  //
-  // Mantenemos el state openStoryIdx + el StoryViewer para que el
-  // click en un tile con format='story' siga abriendo el viewer en
-  // 9:16 con auto-advance (UX nicety). Las demás aperturas usan
-  // onTileClick normal.
-  const feedPosts = posts;
-  const storyPosts = posts.filter((p) => p.format === "story");
-  const [openStoryIdx, setOpenStoryIdx] = useState<number | null>(null);
-
-  // Drag & drop nativo HTML5 — sin libs externas.
-  // - draggingId: el id del post que el user está arrastrando AHORA.
-  // - dragOverId: el id del tile sobre el que está el cursor.
-  // Cuando suelta, llamamos onReorder(dragged, fecha del target). El
-  // efecto neto es: el post arrastrado toma la fecha del destino y
-  // el feed se reordena (ordenado por date desc, time desc).
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const dragEnabled = !!onReorder;
-
-  async function handleDrop(targetPost: ContentPost) {
-    if (!onReorder || !draggingId) return;
-    const draggedPost = feedPosts.find((p) => p.id === draggingId);
-    setDraggingId(null);
-    setDragOverId(null);
-    if (!draggedPost || draggedPost.id === targetPost.id) return;
-    if (draggedPost.date === targetPost.date) return; // ya tienen misma fecha
-    try {
-      await onReorder(draggedPost, targetPost.date);
-    } catch (err) {
-      // El error real lo surfacea el caller (alert/toast). Acá solo
-      // limpiamos el estado para que la UI quede consistente si el
-      // user reintenta.
-      console.error("[ContentFeedPreview] reorder failed:", err);
-    }
-  }
-
   return (
-    <>
-      {/* Grid 3-col — muestra TODOS los posts del cliente sin
-          distinguir entre stories y posts. El director pidió:
-          "cuando se asigna un contenido a una fecha desde el
-          calendario quiero que enseguida ese posteo se vea como un
-          preview en la cuadrícula". Es decir: cuadrícula = vista
-          única de toda la planificación visual.
-
-          Click sobre un tile con format='story' sigue abriendo el
-          StoryViewer (vertical 9:16 con auto-advance). Para los
-          demás formatos, dispara el onTileClick normal (modal de
-          detalle).
-
-          Drag & drop: cada tile va dentro de un wrapper que maneja
-          drag events. */}
-      {feedPosts.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 2,
-            padding: 2,
-            background: "rgba(10,26,12,0.06)",
-          }}
-        >
-          {feedPosts.map((p) => {
-            const isDragging = draggingId === p.id;
-            const isDragTarget = dragOverId === p.id && draggingId && draggingId !== p.id;
-            return (
-              <div
-                key={p.id}
-                draggable={dragEnabled}
-                onDragStart={(e) => {
-                  if (!dragEnabled) return;
-                  setDraggingId(p.id);
-                  e.dataTransfer.effectAllowed = "move";
-                  // Necesario en Firefox para que el drag arranque.
-                  e.dataTransfer.setData("text/plain", p.id);
-                }}
-                onDragEnd={() => {
-                  setDraggingId(null);
-                  setDragOverId(null);
-                }}
-                onDragOver={(e) => {
-                  if (!dragEnabled || !draggingId) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  if (dragOverId !== p.id) setDragOverId(p.id);
-                }}
-                onDragLeave={() => {
-                  if (dragOverId === p.id) setDragOverId(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  void handleDrop(p);
-                }}
-                style={{
-                  position: "relative",
-                  opacity: isDragging ? 0.35 : 1,
-                  outline: isDragTarget
-                    ? "3px solid var(--green-ok)"
-                    : "none",
-                  outlineOffset: isDragTarget ? -3 : 0,
-                  cursor: dragEnabled ? "grab" : undefined,
-                  transition: "opacity 0.12s",
-                }}
-                title={
-                  dragEnabled
-                    ? "Arrastrá para cambiar la fecha de publicación"
-                    : undefined
-                }
-              >
-                <FeedTile
-                  post={p}
-                  code={codeOf(p)}
-                  classifications={classifications}
-                  badge={badgeByPostId?.get(p.id)}
-                  onClick={() => {
-                    // Si el tile es una story, abrimos el viewer
-                    // 9:16 con auto-advance navegable por las otras
-                    // stories. Para cualquier otro formato, abre el
-                    // modal de detalle estándar.
-                    if (p.format === "story") {
-                      const sIdx = storyPosts.findIndex((s) => s.id === p.id);
-                      if (sIdx >= 0) {
-                        setOpenStoryIdx(sIdx);
-                        return;
-                      }
-                    }
-                    onTileClick(p);
-                  }}
-                  clickable={clickable}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {feedPosts.length === 0 && (
-        <div
-          style={{
-            padding: "48px 20px",
-            textAlign: "center",
-            color: "var(--text-muted)",
-            fontSize: 13,
-            fontStyle: "italic",
-          }}
-        >
-          Sin publicaciones planeadas todavía.
-        </div>
-      )}
-
-      {/* Viewer fullscreen de stories. Auto-advance + tap-to-next. */}
-      {openStoryIdx !== null && storyPosts[openStoryIdx] && (
-        <StoryViewer
-          stories={storyPosts}
-          startIndex={openStoryIdx}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 2,
+        padding: 2,
+        background: "rgba(10,26,12,0.06)",
+      }}
+    >
+      {posts.map((p) => (
+        <FeedTile
+          key={p.id}
+          post={p}
+          code={codeOf(p)}
           classifications={classifications}
-          onClose={() => setOpenStoryIdx(null)}
-          onTileClick={onTileClick}
+          badge={badgeByPostId?.get(p.id)}
+          onClick={() => onTileClick(p)}
           clickable={clickable}
         />
-      )}
-    </>
+      ))}
+    </div>
   );
 }
 
@@ -1530,29 +1372,7 @@ function TikTokGrid({
   badgeByPostId,
   onTileClick,
   clickable,
-  onReorder,
 }: GridProps) {
-  // Mismo flow de drag & drop que InstagramGrid — wrapper draggable
-  // alrededor de cada tile, drop dispara onReorder con la fecha del
-  // target. Ver comentario en InstagramGrid para detalles.
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const dragEnabled = !!onReorder;
-
-  async function handleDrop(targetPost: ContentPost) {
-    if (!onReorder || !draggingId) return;
-    const draggedPost = posts.find((p) => p.id === draggingId);
-    setDraggingId(null);
-    setDragOverId(null);
-    if (!draggedPost || draggedPost.id === targetPost.id) return;
-    if (draggedPost.date === targetPost.date) return;
-    try {
-      await onReorder(draggedPost, targetPost.date);
-    } catch (err) {
-      console.error("[ContentFeedPreview] reorder failed:", err);
-    }
-  }
-
   return (
     <div
       style={{
@@ -1563,63 +1383,17 @@ function TikTokGrid({
         background: "#000",
       }}
     >
-      {posts.map((p) => {
-        const isDragging = draggingId === p.id;
-        const isDragTarget = dragOverId === p.id && draggingId && draggingId !== p.id;
-        return (
-          <div
-            key={p.id}
-            draggable={dragEnabled}
-            onDragStart={(e) => {
-              if (!dragEnabled) return;
-              setDraggingId(p.id);
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", p.id);
-            }}
-            onDragEnd={() => {
-              setDraggingId(null);
-              setDragOverId(null);
-            }}
-            onDragOver={(e) => {
-              if (!dragEnabled || !draggingId) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-              if (dragOverId !== p.id) setDragOverId(p.id);
-            }}
-            onDragLeave={() => {
-              if (dragOverId === p.id) setDragOverId(null);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              void handleDrop(p);
-            }}
-            style={{
-              position: "relative",
-              opacity: isDragging ? 0.35 : 1,
-              outline: isDragTarget
-                ? "3px solid var(--green-ok)"
-                : "none",
-              outlineOffset: isDragTarget ? -3 : 0,
-              cursor: dragEnabled ? "grab" : undefined,
-              transition: "opacity 0.12s",
-            }}
-            title={
-              dragEnabled
-                ? "Arrastrá para cambiar la fecha de publicación"
-                : undefined
-            }
-          >
-            <TikTokTile
-              post={p}
-              code={codeOf(p)}
-              classifications={classifications}
-              badge={badgeByPostId?.get(p.id)}
-              onClick={() => onTileClick(p)}
-              clickable={clickable}
-            />
-          </div>
-        );
-      })}
+      {posts.map((p) => (
+        <TikTokTile
+          key={p.id}
+          post={p}
+          code={codeOf(p)}
+          classifications={classifications}
+          badge={badgeByPostId?.get(p.id)}
+          onClick={() => onTileClick(p)}
+          clickable={clickable}
+        />
+      ))}
     </div>
   );
 }

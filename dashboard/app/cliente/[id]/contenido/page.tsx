@@ -1528,18 +1528,6 @@ export default function ContenidoPage({
           clientSocialLinks={client?.social_links ?? null}
           classifications={classifications}
           onTileClick={(p) => setFeedPostDetail(p)}
-          // Drag & drop: solo si puede editar. Al soltar un post sobre
-          // otro, le copiamos la fecha del target — el feed (ordenado
-          // por date desc) refleja el nuevo orden inmediatamente.
-          // patchPost ya hace optimistic-update y refresca la lista.
-          // Para clientes en /portal/agenda NO se pasa onReorder.
-          onReorder={
-            canEdit
-              ? async (post, newDate) => {
-                  await patchPost(post, { date: newDate });
-                }
-              : undefined
-          }
         />
       )}
 
