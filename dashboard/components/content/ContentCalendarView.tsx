@@ -31,7 +31,7 @@
  * mes corriente.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ContentPost, ClientContentClassification } from "@/lib/types";
 import { classificationMetaById } from "@/lib/types";
 
@@ -44,6 +44,11 @@ interface Props {
    *  (fecha + status='scheduled' para que salga del pool de
    *  borradores) y refresca la lista. */
   onAssignDate: (post: ContentPost, newDate: string) => Promise<void>;
+  /** Clave para persistir el Set de "asignados en esta sesión" en
+   *  localStorage. Típicamente un client.id — así cada cliente tiene
+   *  su propio estado de "qué está en el calendario". Sin esto el
+   *  state vive solo en memoria y se pierde al cambiar de página. */
+  storageKey?: string;
 }
 
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -95,6 +100,7 @@ export default function ContentCalendarView({
   classifications,
   onPostClick,
   onAssignDate,
+  storageKey,
 }: Props) {
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState({
@@ -105,14 +111,46 @@ export default function ContentCalendarView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [dragOverList, setDragOverList] = useState(false);
-  // IDs de los posts que el director arrastró durante esta sesión.
-  // El calendario muestra SOLO estos; la lista lateral muestra todos
-  // los demás. Al refrescar la página, este state se pierde y el
-  // calendario vuelve a estar vacío — aunque las fechas SÍ quedan
-  // persistidas en DB.
+  // IDs de los posts que el director arrastró al calendario.
+  // Lo persistimos en localStorage con clave por cliente (storageKey)
+  // — así cuando el director vuelve después de navegar a otra página
+  // o cerrar el browser, el calendario sigue mostrando lo que ya
+  // había planificado. Antes vivía solo en memoria y se perdía al
+  // recargar.
+  //
+  // Si no hay storageKey, caemos a Set vacío y NO persistimos (caso
+  // edge de testing o de re-uso del componente).
+  const lsKey = storageKey
+    ? `calendar-assigned:${storageKey}`
+    : null;
   const [assignedThisSession, setAssignedThisSession] = useState<Set<string>>(
-    () => new Set(),
+    () => {
+      if (!lsKey || typeof window === "undefined") return new Set();
+      try {
+        const raw = window.localStorage.getItem(lsKey);
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw) as string[];
+        return new Set(arr);
+      } catch {
+        return new Set();
+      }
+    },
   );
+
+  // Persistir cada cambio en localStorage. Lo hacemos efecto-side
+  // para no bloquear el setState.
+  useEffect(() => {
+    if (!lsKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        lsKey,
+        JSON.stringify(Array.from(assignedThisSession)),
+      );
+    } catch {
+      // Si localStorage está bloqueado (modo privado / cuota llena),
+      // no rompemos — solo perdemos persistencia.
+    }
+  }, [assignedThisSession, lsKey]);
 
   /** Posts agrupados por día — SOLO los asignados en esta sesión.
    *  Clave = YYYY-MM-DD. */

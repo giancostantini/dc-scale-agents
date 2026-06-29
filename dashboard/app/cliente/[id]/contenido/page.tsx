@@ -1575,6 +1575,12 @@ export default function ContenidoPage({
           onAssignDate={async (post, newDate) => {
             await patchPost(post, { date: newDate });
           }}
+          // storageKey por cliente: persiste el Set de "asignados
+          // al calendario" en localStorage scoped al cliente. Cuando
+          // el director vuelve después de navegar a otra página
+          // (o cierra y abre el browser), el calendario reaparece
+          // con lo que ya había planificado.
+          storageKey={id}
         />
       )}
 
