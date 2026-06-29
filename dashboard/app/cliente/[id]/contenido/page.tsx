@@ -27,6 +27,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -35,6 +36,7 @@ import {
   updateContent,
   deleteContent,
   addContent,
+  updateClientExternalLinks,
 } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import { getSupabase } from "@/lib/supabase/client";
@@ -436,6 +438,8 @@ export default function ContenidoPage({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  // Controlador del pedido en curso del Asistente Creativo → botón "Detener".
+  const asistAbortRef = useRef<AbortController | null>(null);
   const [proposed, setProposed] = useState<{
     intro: string;
     pieces: ProposedPiece[];
@@ -638,6 +642,27 @@ export default function ContenidoPage({
     refresh();
   }
 
+  // Conectar / editar el GPT de contenido del cliente (solo director). Se guarda
+  // en external_links.content_gpt_url; el botón del header lo usa para abrirlo.
+  async function editGptUrl() {
+    const current = client?.external_links?.content_gpt_url ?? "";
+    const url = window.prompt(
+      "Link del GPT de contenido (dejá vacío para quitarlo):",
+      current,
+    );
+    if (url === null) return; // canceló
+    const cleaned = url.trim();
+    try {
+      await updateClientExternalLinks(id, {
+        content_gpt_url: cleaned === "" ? null : cleaned,
+      });
+      const c = await getClient(id);
+      setClient(c ?? null);
+    } catch (e) {
+      alert(`No se pudo guardar el link del GPT:\n${(e as Error).message}`);
+    }
+  }
+
   // ============ Asistente ============
   async function sendChat(mode: "chat" | "propose") {
     if (!input.trim() || thinking) return;
@@ -654,6 +679,8 @@ export default function ContenidoPage({
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Sin sesión");
 
+      const ac = new AbortController();
+      asistAbortRef.current = ac;
       const res = await fetch(`/api/clients/${id}/creative-assistant`, {
         method: "POST",
         headers: {
@@ -667,6 +694,7 @@ export default function ContenidoPage({
             ? { count: extractCountFromMessage(userMsg.content) }
             : undefined,
         }),
+        signal: ac.signal,
       });
       // Leer como texto primero — si la función falla en Vercel (timeout,
       // memory, crash), devuelve HTML/texto en vez de JSON y el .json()
@@ -747,11 +775,20 @@ export default function ContenidoPage({
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {
       const e = err as Error;
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `⚠ Error: ${e.message}` },
-      ]);
+      if (e?.name === "AbortError") {
+        // Detenido por el usuario: nota breve, sin marcar error.
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "⏹ Detenido." },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `⚠ Error: ${e.message}` },
+        ]);
+      }
     } finally {
+      asistAbortRef.current = null;
       setThinking(false);
     }
   }
@@ -834,6 +871,73 @@ export default function ContenidoPage({
               {client.name} · cuando aprobás una idea, pasa al{" "}
               <strong>Calendario</strong>.
             </div>
+          )}
+        </div>
+        {/* Botón al GPT de contenido (interno: director + equipo). Configurable
+            por cliente vía external_links.content_gpt_url. Queda a la derecha,
+            a la altura del título (ui.head es flex con space-between). */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {client?.external_links?.content_gpt_url ? (
+            <>
+              <a
+                href={client.external_links.content_gpt_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: "10px 18px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  textDecoration: "none",
+                  borderRadius: "var(--r-sm)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ✨ GPT de contenido
+              </a>
+              {isDirector && (
+                <button
+                  type="button"
+                  onClick={editGptUrl}
+                  title="Editar el link del GPT"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    textDecoration: "underline",
+                  }}
+                >
+                  editar
+                </button>
+              )}
+            </>
+          ) : (
+            isDirector && (
+              <button
+                type="button"
+                onClick={editGptUrl}
+                title="Conectar un GPT de contenido para este cliente"
+                style={{
+                  padding: "9px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: "transparent",
+                  border: "1px solid var(--sand-dark)",
+                  color: "var(--sand-dark)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  borderRadius: "var(--r-sm)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + Conectar GPT
+              </button>
+            )
           )}
         </div>
       </div>
@@ -1773,6 +1877,27 @@ export default function ContenidoPage({
               flexWrap: "wrap",
             }}
           >
+            {thinking && (
+              <button
+                type="button"
+                onClick={() => asistAbortRef.current?.abort()}
+                title="Frenar al asistente"
+                style={{
+                  padding: "10px 16px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: "transparent",
+                  color: "var(--red-warn)",
+                  border: "1px solid var(--red-warn)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  borderRadius: "var(--r-sm)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ■ Detener
+              </button>
+            )}
             <button
               onClick={() => sendChat("propose")}
               disabled={!isDirector || thinking || !input.trim()}
