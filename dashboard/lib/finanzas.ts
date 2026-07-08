@@ -239,6 +239,108 @@ export function distributeDividends(
   return { partnerA, partnerB, inversiones, back, totalDistributed, remainder };
 }
 
+/** Distribuye el net profit de un mes respetando el split PER-CLIENT
+ *  (migración 052). El net contribution de cada cliente (fees_paid
+ *  - expenses_asignados) se distribuye con SU split (si tiene uno
+ *  custom) o con el global (default). El neto no asignado a ningún
+ *  cliente (revenues sueltos, gastos corporativos) usa el global.
+ *
+ *  Esto permite que "el cliente que trajo Federico paga 40% para él,
+ *  20% para Gianluca" mientras que el resto sigue 30/30 o lo que
+ *  esté en `dividend_config`.
+ *
+ *  Devuelve el mismo shape que `distributeDividends` + el `net` total
+ *  para que el caller sepa qué persistir en el snapshot. */
+export function distributeMonthByClient(input: {
+  clients: Array<{
+    id: string;
+    name: string;
+    fee: number;
+    dividend_distribution?: {
+      use_default: boolean;
+      partner_a_pct: number;
+      partner_b_pct: number;
+      inversiones_pct: number;
+      back_pct: number;
+    } | null;
+  }>;
+  /** Payments del mes (ya filtrados por month=mk). */
+  clientPayments: Array<{
+    clientId: string;
+    status: string;
+    amountOverride?: number | null;
+  }>;
+  /** Egresos del mes con date que cae dentro (incluye monthly_fixed
+   *  vigentes). El caller ya filtró por período. */
+  monthExpenses: Array<{ assignedTo: string; amount: number }>;
+  /** Impacto de manual revenues del mes (ya sumado, solo paid). */
+  unassignedRevenue: number;
+  /** Config global de dividendos — se usa como fallback para clientes
+   *  con dividend_distribution=null y para revenues/expenses no
+   *  asignados. */
+  config: DividendConfig;
+}): {
+  net: number;
+  partnerA: number;
+  partnerB: number;
+  inversiones: number;
+  back: number;
+} {
+  let partnerA = 0;
+  let partnerB = 0;
+  let inversiones = 0;
+  let back = 0;
+  let net = 0;
+
+  const clientNames = new Set(input.clients.map((c) => c.name));
+
+  // Cada cliente tributa a su propio split (o al global si use_default)
+  for (const c of input.clients) {
+    const p = input.clientPayments.find((pp) => pp.clientId === c.id);
+    const revenue = p?.status === "paid" ? (p.amountOverride ?? c.fee) : 0;
+    const costs = input.monthExpenses
+      .filter((e) => e.assignedTo === c.name)
+      .reduce((s, e) => s + e.amount, 0);
+    const clientNet = revenue - costs;
+    if (clientNet === 0) continue;
+
+    const useCustom =
+      !!c.dividend_distribution && c.dividend_distribution.use_default === false;
+    const splitConfig: DividendConfig = useCustom
+      ? {
+          ...input.config,
+          partner_a_pct: c.dividend_distribution!.partner_a_pct,
+          partner_b_pct: c.dividend_distribution!.partner_b_pct,
+          inversiones_pct: c.dividend_distribution!.inversiones_pct,
+          back_pct: c.dividend_distribution!.back_pct,
+        }
+      : input.config;
+    const d = distributeDividends(clientNet, splitConfig);
+    partnerA += d.partnerA;
+    partnerB += d.partnerB;
+    inversiones += d.inversiones;
+    back += d.back;
+    net += clientNet;
+  }
+
+  // Egresos sin asignar a ningún cliente (corporativos) + revenues
+  // manuales → split global.
+  const unassignedExpenses = input.monthExpenses
+    .filter((e) => !clientNames.has(e.assignedTo))
+    .reduce((s, e) => s + e.amount, 0);
+  const unassignedNet = input.unassignedRevenue - unassignedExpenses;
+  if (unassignedNet !== 0) {
+    const d = distributeDividends(unassignedNet, input.config);
+    partnerA += d.partnerA;
+    partnerB += d.partnerB;
+    inversiones += d.inversiones;
+    back += d.back;
+    net += unassignedNet;
+  }
+
+  return { net, partnerA, partnerB, inversiones, back };
+}
+
 // ============ DIVIDEND DISTRIBUTIONS (snapshots) ============
 // Migración 057. Cada mes cerrado tiene una fila con el snapshot
 // de la distribución (net + amounts + config en el momento).

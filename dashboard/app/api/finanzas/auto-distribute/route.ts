@@ -19,7 +19,8 @@
 
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { distributeDividends } from "@/lib/finanzas";
+import { distributeMonthByClient } from "@/lib/finanzas";
+import type { ClientDividendDistribution } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ interface PaymentRow {
 interface ExpenseRow {
   date: string;
   amount: number | string;
+  assigned_to: string;
 }
 
 interface ManualRevRow {
@@ -54,7 +56,9 @@ interface ManualRevRow {
 
 interface ClientRow {
   id: string;
+  name: string;
   fee: number | string;
+  dividend_distribution: ClientDividendDistribution | null;
 }
 
 function monthsBetween(from: string, to: string): string[] {
@@ -160,9 +164,9 @@ export async function POST(req: NextRequest) {
   // al actual (no incluimos el mes en curso).
   const [{ data: clients }, { data: payments }, { data: expenses }, { data: manualRevs }] =
     await Promise.all([
-      admin.from("clients").select("id, fee"),
+      admin.from("clients").select("id, name, fee, dividend_distribution"),
       admin.from("payments").select("client_id, month, status, amount_override"),
-      admin.from("expenses").select("date, amount"),
+      admin.from("expenses").select("date, amount, assigned_to"),
       admin.from("manual_revenues").select("status, amount, date, recurrence, end_date"),
     ]);
 
@@ -217,44 +221,58 @@ export async function POST(req: NextRequest) {
       skipped++;
       continue;
     }
-    // Net: feesPaid + manualPaid - expenses (simplificado, no cubre
-    // recurrence de manualRevs ni amount_override edge cases — esos
-    // los usa el front más fino; este endpoint da una aproximación
-    // robusta para auto-cierre).
-    const feesPaid = allPayments
-      .filter((p) => p.month === mk && p.status === "paid")
-      .reduce((s, p) => {
-        const client = allClients.find((c) => c.id === p.client_id);
-        const baseFee = client ? Number(client.fee) : 0;
-        return s + Number(p.amount_override ?? baseFee);
-      }, 0);
+    // Split PER-CLIENT: cada cliente aplica su dividend_distribution
+    // al net que aportó (fees_paid - expenses_asignados). El neto no
+    // asignado (revenues sueltos, gastos corporativos) usa el split
+    // global. Ver distributeMonthByClient en lib/finanzas.ts.
+    const monthPayments = allPayments.filter(
+      (p) => p.month === mk && p.status === "paid",
+    );
+    const monthExpenses = allExpenses.filter((e) =>
+      (e.date ?? "").startsWith(mk),
+    );
     const manualPaid = allManual
       .filter(
         (r) =>
           (r.status ?? "paid") === "paid" && (r.date ?? "").startsWith(mk),
       )
       .reduce((s, r) => s + Number(r.amount), 0);
-    const expensesAmt = allExpenses
-      .filter((e) => (e.date ?? "").startsWith(mk))
-      .reduce((s, e) => s + Number(e.amount), 0);
-    const net = feesPaid + manualPaid - expensesAmt;
-    const dist = distributeDividends(net, configForDist);
+    const totals = distributeMonthByClient({
+      clients: allClients.map((c) => ({
+        id: c.id,
+        name: c.name,
+        fee: Number(c.fee),
+        dividend_distribution: c.dividend_distribution,
+      })),
+      clientPayments: monthPayments.map((p) => ({
+        clientId: p.client_id,
+        status: p.status,
+        amountOverride:
+          p.amount_override != null ? Number(p.amount_override) : null,
+      })),
+      monthExpenses: monthExpenses.map((e) => ({
+        assignedTo: e.assigned_to,
+        amount: Number(e.amount),
+      })),
+      unassignedRevenue: manualPaid,
+      config: configForDist,
+    });
     const { error: upErr } = await admin
       .from("dividend_distributions")
       .upsert(
         {
           month_key: mk,
-          net_profit: net,
+          net_profit: totals.net,
           partner_a_pct: configForDist.partner_a_pct,
           partner_b_pct: configForDist.partner_b_pct,
           inversiones_pct: configForDist.inversiones_pct,
           back_pct: configForDist.back_pct,
-          partner_a_amount: dist.partnerA,
-          partner_b_amount: dist.partnerB,
-          inversiones_amount: dist.inversiones,
-          back_amount: dist.back,
+          partner_a_amount: totals.partnerA,
+          partner_b_amount: totals.partnerB,
+          inversiones_amount: totals.inversiones,
+          back_amount: totals.back,
           auto_generated: true,
-          notes: "auto-distribute endpoint",
+          notes: "auto-distribute endpoint (per-client splits)",
         },
         { onConflict: "month_key" },
       );

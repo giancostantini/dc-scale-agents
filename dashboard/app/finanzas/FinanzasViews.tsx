@@ -38,6 +38,7 @@ import {
   createManualRevenue,
   deleteManualRevenue,
   distributeDividends,
+  distributeMonthByClient,
   getDividendConfig,
   listManualRevenues,
   revenueMonthlyImpact,
@@ -2831,33 +2832,48 @@ export function DividendosView({
 
       if (!hasPayment && !hasExpense && !hasRevenue) continue;
 
-      // Net real: solo fees de clientes con payment paid
-      const feesPaid = clients.reduce((s, c) => {
-        const p = payments.find(
-          (pp) => pp.clientId === c.id && pp.month === mk,
-        );
-        if (p?.status !== "paid") return s;
-        const amt = p.amountOverride ?? c.fee;
-        return s + amt;
-      }, 0);
-      const mExpenses = expenses
-        .filter((e) => (e.date ?? "").startsWith(mk))
-        .reduce((s, e) => s + e.amount, 0);
-      const net = feesPaid + mImpact - mExpenses;
+      // Split PER-CLIENT: cada cliente con dividend_distribution=null
+      // (o use_default=true) tributa al global; los que tienen
+      // porcentajes propios (ej "el cliente que trajo Federico paga
+      // 40% Federico + 20% Gianluca + 40% inversiones") aplican los
+      // suyos SOLO a su net contribution. Ver distributeMonthByClient
+      // en lib/finanzas.ts para el detalle.
+      const monthPayments = payments.filter((pp) => pp.month === mk);
+      const monthExpenses = expenses.filter((e) =>
+        (e.date ?? "").startsWith(mk),
+      );
+      const totals = distributeMonthByClient({
+        clients: clients.map((c) => ({
+          id: c.id,
+          name: c.name,
+          fee: c.fee,
+          dividend_distribution: c.dividend_distribution ?? null,
+        })),
+        clientPayments: monthPayments.map((p) => ({
+          clientId: p.clientId,
+          status: p.status,
+          amountOverride: p.amountOverride,
+        })),
+        monthExpenses: monthExpenses.map((e) => ({
+          assignedTo: e.assignedTo,
+          amount: e.amount,
+        })),
+        unassignedRevenue: mImpact,
+        config,
+      });
 
       const label = d.toLocaleDateString("es-AR", {
         month: "long",
         year: "numeric",
       });
-      const dist = distributeDividends(net, config);
       rows.push({
         monthKey: mk,
         label,
-        net,
-        partnerA: dist.partnerA,
-        partnerB: dist.partnerB,
-        inversiones: dist.inversiones,
-        back: dist.back,
+        net: totals.net,
+        partnerA: totals.partnerA,
+        partnerB: totals.partnerB,
+        inversiones: totals.inversiones,
+        back: totals.back,
       });
     }
     return rows;

@@ -32,6 +32,7 @@ import {
   Users,
   UserPlus,
   DollarSign,
+  Percent,
 } from "lucide-react";
 import {
   Area,
@@ -66,6 +67,7 @@ import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
 import { Field, Input } from "@/components/premium/Field";
 import NewClientModal from "@/components/NewClientModal";
+import EditClientDividendModal from "@/components/EditClientDividendModal";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 
@@ -116,6 +118,8 @@ export function PremiumClientes() {
   // Modales de acuerdo anual
   const [viewAgreementClient, setViewAgreementClient] = useState<Client | null>(null);
   const [editAgreementClient, setEditAgreementClient] = useState<Client | null>(null);
+  // Modal para editar split de dividendos por cliente (impacta DividendosView).
+  const [editDividendClient, setEditDividendClient] = useState<Client | null>(null);
 
   function refresh() {
     setLoading(true);
@@ -827,6 +831,25 @@ export function PremiumClientes() {
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
+                        {/* Editar split de dividendos para este cliente.
+                            Cambia cuánto le toca a cada socio del net
+                            profit generado por este cliente. Se marca
+                            filled cuando el cliente tiene split custom
+                            (use_default=false), así el director ve de
+                            un vistazo cuáles clientes se salen del
+                            porcentaje global. */}
+                        <button
+                          onClick={() => setEditDividendClient(row.c)}
+                          className={cn(
+                            "p-1.5 rounded-premium-sm transition-colors",
+                            row.c.dividend_distribution && row.c.dividend_distribution.use_default === false
+                              ? "bg-blue-900 text-white hover:bg-blue-800"
+                              : "text-ink-400 hover:text-ink hover:bg-paper-200",
+                          )}
+                          title="Editar distribución de dividendos"
+                        >
+                          <Percent className="w-3.5 h-3.5" />
+                        </button>
                         <Link
                           href={`/cliente/${row.c.id}`}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
@@ -924,6 +947,22 @@ export function PremiumClientes() {
           refresh();
         }}
       />
+
+      {/* Modal: Editar distribución de dividendos por cliente. Al
+          guardar refrescamos la lista para que el chip azul del
+          botón refleje el estado real (default vs custom). El impacto
+          en el cálculo se hace en DividendosView, que lee
+          clients.dividend_distribution al armar el snapshot mensual. */}
+      {editDividendClient && (
+        <EditClientDividendModal
+          client={editDividendClient}
+          onClose={() => setEditDividendClient(null)}
+          onSaved={() => {
+            setEditDividendClient(null);
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

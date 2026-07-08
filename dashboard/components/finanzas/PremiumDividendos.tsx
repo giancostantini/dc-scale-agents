@@ -57,6 +57,7 @@ import { toast } from "sonner";
 import {
   deleteDividendDistribution,
   distributeDividends,
+  distributeMonthByClient,
   getDividendConfig,
   listDividendDistributions,
   revenueMonthlyImpact,
@@ -492,13 +493,48 @@ export function PremiumDividendos({
           back: snap.back_amount,
         };
       } else {
-        net = monthNet(mk);
-        const dist = distributeDividends(net, config);
+        // Split PER-CLIENT (migración 052): cada cliente aplica su
+        // dividend_distribution al net que aportó al mes, y el resto
+        // (revenues sueltos, gastos corporativos) va al split global.
+        const monthPayments = payments.filter((pp) => pp.month === mk);
+        const monthExpensesArr = expenses.filter((e) => {
+          const dateMk = (e.date ?? "").slice(0, 7);
+          if (!dateMk) return false;
+          if (e.recurrence === "monthly_fixed") {
+            const endMk = e.recurrenceEndDate?.slice(0, 7) ?? "9999-99";
+            return mk >= dateMk && mk <= endMk;
+          }
+          return dateMk === mk;
+        });
+        const unassignedRev = manualRevs.reduce((s, r) => {
+          if ((r.status ?? "paid") !== "paid") return s;
+          return s + revenueMonthlyImpact(r, mk);
+        }, 0);
+        const totals = distributeMonthByClient({
+          clients: clients.map((c) => ({
+            id: c.id,
+            name: c.name,
+            fee: effectiveFeeForMonth(feeSchedules, c.id, mk) ?? c.fee,
+            dividend_distribution: c.dividend_distribution ?? null,
+          })),
+          clientPayments: monthPayments.map((p) => ({
+            clientId: p.clientId,
+            status: p.status,
+            amountOverride: p.amountOverride,
+          })),
+          monthExpenses: monthExpensesArr.map((e) => ({
+            assignedTo: e.assignedTo,
+            amount: e.amount,
+          })),
+          unassignedRevenue: unassignedRev,
+          config,
+        });
+        net = totals.net;
         amounts = {
-          partnerA: dist.partnerA,
-          partnerB: dist.partnerB,
-          inversiones: dist.inversiones,
-          back: dist.back,
+          partnerA: totals.partnerA,
+          partnerB: totals.partnerB,
+          inversiones: totals.inversiones,
+          back: totals.back,
         };
       }
       const importeDistribuido = amounts.partnerA + amounts.partnerB;
