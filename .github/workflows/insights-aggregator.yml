@@ -2,9 +2,10 @@ name: Insights Aggregator
 
 on:
   schedule:
-    # Daily: 8 AM Montevideo (11:00 UTC) — runs after social-media-metrics
-    # refreshed piece metrics the night before.
-    - cron: '0 11 * * *'
+    # Semanal: lunes 11:00 UTC (8 AM Montevideo). Antes era diario, pero es un
+    # agregador sin IA que depende de social-media-metrics (que no está en cron)
+    # → no hay datos nuevos cada día. Semanal alcanza y ahorra minutos.
+    - cron: '0 11 * * 1'
 
   workflow_dispatch:
     inputs:

@@ -8,8 +8,12 @@ name: Daily Morning Briefings
 # El job se puede ejecutar manualmente vía workflow_dispatch para testing.
 
 on:
-  schedule:
-    - cron: '0 11 * * *'
+  # PAUSADO (ahorro de minutos de Actions — jul 2026): nadie usaba el briefing
+  # diario per-cliente y el matrix diario era el mayor consumo. Se puede correr
+  # a mano con "Run workflow". Para reactivar: descomentar el schedule (y antes
+  # conviene pasar el job de matrix a un solo loop para que sea barato).
+  # schedule:
+  #   - cron: '0 11 * * *'
   workflow_dispatch:
 
 jobs:
