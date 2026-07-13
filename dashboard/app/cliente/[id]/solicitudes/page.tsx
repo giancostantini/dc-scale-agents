@@ -118,6 +118,25 @@ export default function ClientSolicitudesPage({
     (r) => r.status === "pending" || r.status === "reviewing",
   );
 
+  // Render de una fila — lo pasamos a RequestsGroup para no threadear todos
+  // los props/handlers.
+  const renderRow = (r: ClientRequest) => (
+    <RequestRow
+      key={r.id}
+      req={r}
+      me={me}
+      team={team}
+      isDirector={isDirector}
+      isTeam={isTeam}
+      canSetAssigned={canSetAssigned}
+      canEditResponse={canEditResponse}
+      busy={busy === r.id}
+      onChangeStatus={(s) => changeStatus(r, s)}
+      onChangeAssigned={(u) => changeAssigned(r, u)}
+      onSaveResponse={(t) => saveResponse(r, t)}
+    />
+  );
+
   return (
     <>
       <div className={ui.head}>
@@ -136,73 +155,58 @@ export default function ClientSolicitudesPage({
         </button>
       </div>
 
-      <Section
+      <RequestsGroup
         title={`Ofertas comerciales (${ofertas.length})`}
         empty="El cliente no cargó ofertas todavía."
-      >
-        {ofertas.map((r) => (
-          <RequestRow
-            key={r.id}
-            req={r}
-            me={me}
-            team={team}
-            isDirector={isDirector}
-            isTeam={isTeam}
-            canSetAssigned={canSetAssigned}
-            canEditResponse={canEditResponse}
-            busy={busy === r.id}
-            onChangeStatus={(s) => changeStatus(r, s)}
-            onChangeAssigned={(u) => changeAssigned(r, u)}
-            onSaveResponse={(t) => saveResponse(r, t)}
-          />
-        ))}
-      </Section>
+        reqs={ofertas}
+        renderRow={renderRow}
+      />
 
-      <Section
+      <RequestsGroup
         title={`Acciones (${acciones.length})`}
         empty="El cliente no cargó acciones todavía."
-      >
-        {acciones.map((r) => (
-          <RequestRow
-            key={r.id}
-            req={r}
-            me={me}
-            team={team}
-            isDirector={isDirector}
-            isTeam={isTeam}
-            canSetAssigned={canSetAssigned}
-            canEditResponse={canEditResponse}
-            busy={busy === r.id}
-            onChangeStatus={(s) => changeStatus(r, s)}
-            onChangeAssigned={(u) => changeAssigned(r, u)}
-            onSaveResponse={(t) => saveResponse(r, t)}
-          />
-        ))}
-      </Section>
+        reqs={acciones}
+        renderRow={renderRow}
+      />
     </>
   );
 }
 
-function Section({
+// Estados "activos" (pendientes de trabajo) vs el resto (cerrados: completada
+// o rechazada). Separar esto es lo que evita que quede todo entreverado.
+const ACTIVE_STATUSES: ClientRequestStatus[] = [
+  "pending",
+  "reviewing",
+  "in_progress",
+];
+
+/**
+ * Grupo de solicitudes de un tipo (Ofertas / Acciones): muestra las ACTIVAS
+ * arriba y mete las COMPLETADAS/CERRADAS en un desplegable colapsado por
+ * defecto (atenuadas), para que la bandeja no quede mezclada.
+ */
+function RequestsGroup({
   title,
   empty,
-  children,
+  reqs,
+  renderRow,
 }: {
   title: string;
   empty: string;
-  children: React.ReactNode;
+  reqs: ClientRequest[];
+  renderRow: (r: ClientRequest) => React.ReactNode;
 }) {
-  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
+  const [showClosed, setShowClosed] = useState(false);
+  const activos = reqs.filter((r) => ACTIVE_STATUSES.includes(r.status));
+  const cerrados = reqs.filter((r) => !ACTIVE_STATUSES.includes(r.status));
+
   return (
     <div className={ui.panel} style={{ marginBottom: 24 }}>
       <div className={ui.panelHead}>
         <div className={ui.panelTitle}>{title}</div>
       </div>
-      {hasChildren ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {children}
-        </div>
-      ) : (
+
+      {reqs.length === 0 ? (
         <div
           style={{
             padding: 24,
@@ -216,6 +220,66 @@ function Section({
           }}
         >
           {empty}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Activas primero */}
+          {activos.length > 0 ? (
+            activos.map(renderRow)
+          ) : (
+            <div
+              style={{
+                padding: 14,
+                textAlign: "center",
+                color: "var(--text-muted)",
+                fontSize: 12,
+                fontStyle: "italic",
+              }}
+            >
+              No hay solicitudes activas — todo al día ✅
+            </div>
+          )}
+
+          {/* Completadas / cerradas — colapsadas por defecto */}
+          {cerrados.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowClosed((s) => !s)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  marginTop: 4,
+                  background: "var(--off-white)",
+                  border: "1px solid rgba(10,26,12,0.1)",
+                  borderRadius: "var(--r-sm)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                <span>{showClosed ? "▾" : "▸"}</span>
+                Completadas y cerradas ({cerrados.length})
+              </button>
+              {showClosed && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    opacity: 0.7,
+                  }}
+                >
+                  {cerrados.map(renderRow)}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
