@@ -1,102 +1,109 @@
 # Tendencias del nicho — Glassy Waves
 
-> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-07-10.
+> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-07-17.
 > Tendencias recientes y accionables del nicho. Cada ítem cita su fuente.
 
 ### 🎬 Contenido que está funcionando
 
-- **TikTok "nativo" con hook en los primeros 2 segundos** — El formato que rompe el scroll en Uruguay combina cortes rápidos, audio con tendencia y subtítulos dinámicos. Lo que distingue un anuncio que funciona de uno que no son los primeros dos segundos: si el hook no detiene el scroll, el resto del video no importa. TikTok tiene una estética más "cruda" y real; un anuncio que se ve muy "publicitario" genera rechazo inmediato. **Acción esta semana:** grabá un video sin producción excesiva mostrando el producto en uso real, con texto en pantalla desde el primer frame. · Plataforma: TikTok · (fuente: https://neuratia.uy/nichos/publicidad-tiktok-uruguay.html)
+- **Reels/TikToks de demostración real del producto (sin producción cara)** — El formato que más convierte en redes latinas no es el aviso pulido, sino el producto en uso cotidiano. "El contenido que convierte en TikTok e Instagram no es el que parece un aviso": los formatos que mejor convierten son demostraciones de uso real en contexto cotidiano — la autenticidad tiene más impacto que la producción perfecta. Plataformas: TikTok + Instagram Reels. · (fuente: https://base.com/es-AR/blog/social-commerce-como-vender-en-tiktok-e-instagram/)
 
-- **Contenido educativo + reviews de producto en TikTok** — TikTok hoy es contenido educativo, reviews de productos y storytelling: no se necesita bailar, sino ser relevante y auténtico en menos de 15 segundos. TikTok aún da más alcance orgánico que otras plataformas para cuentas nuevas, y la combinación que funciona es contenido regular + amplificación pagada de los posts que ya mostraron buen rendimiento orgánico. **Acción:** publicar 1 review real por día + boostear el que tenga mejor tasa de retención. · Plataforma: TikTok · (fuente: https://neuratia.uy/nichos/publicidad-tiktok-uruguay.html)
+- **Videos "antes y después" y respuesta a preguntas frecuentes del producto** — El formato "antes y después" es especialmente efectivo en moda, belleza y deco porque el contraste visual genera interés inmediato y deseo de replicar el resultado. Un video que empieza con una pregunta frecuente ya tiene al comprador identificado desde el primer segundo. Plataformas: TikTok + Instagram. · (fuente: https://base.com/es-AR/blog/social-commerce-como-vender-en-tiktok-e-instagram/)
 
-- **UGC (video de clientes reales) como creative de pago** — Las tiendas digitales que aprovechan videos UGC compartidos por clientes reales en TikTok o Instagram consiguen un efecto amplificador que ningún anuncio pagado puede igualar en autenticidad. El video UGC puede usarse como anuncio pagado en campañas de Meta Ads, TikTok Ads o YouTube Ads y, con el enfoque correcto, puede multiplicar el retorno publicitario. **Acción:** pedirle a 3–5 compradores recientes un video corto de unboxing o uso a cambio de un descuento, y subirlo directo como creative de campaña. · Plataformas: Meta Ads, TikTok Ads · (fuente: https://nexougc.com/estrategia-ugc/)
+- **Reels con producto etiquetado (Instagram Shopping)** — Los Shoppable Reels y Stories que etiquetan productos directamente en el contenido de video corto registran un 30% más de engagement que los posts estándar. Plataformas: Instagram. · (fuente: https://blog.lueurexterne.com/en/blog/social-commerce-in-2026-how-to-sell-on-instagram-tiktok-pinterest/)
+
+- **Hauls y recorridos de tienda online** — En TikTok Uruguay los videos del tipo "recorrido de tienda" y "haul de compras" generan tráfico y consultas directas, con marcas locales usando el formato para captar órdenes por WhatsApp. Tiendas de Montevideo usan TikTok con fórmulas como "envíos a todo el país" + showroom disponible, integrando Instagram como canal complementario para novedades. Plataformas: TikTok. · (fuente: https://www.tiktok.com/discover/tiendas-de-uruguay)
 
 ---
 
 ### 📈 Tráfico a la web
 
-- **Mobile-first es la norma en Uruguay — el sitio debe convertir desde celular** — El 64% de las personas en Uruguay realizó alguna compra online, y el 84% de ellas lo hizo a través del celular. El 64% del volumen de ventas por internet proviene de dispositivos móviles. Un sitio lento o con UX de escritorio en el celular está perdiendo la mayoría del tráfico potencial. **Acción urgente:** auditar velocidad y checkout mobile esta semana. · (fuente: https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
+- **Mobile-first como canal dominante de tráfico y ventas** — El 84% de las personas en Uruguay que compraron online lo hizo a través del celular. El 64% del volumen de ventas por internet en Uruguay proviene de dispositivos móviles. Toda la experiencia — anuncios, landing pages y checkout — debe estar diseñada y testeada primero en mobile. · (fuentes: https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region/ y https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
 
-- **El tráfico desde IA como buscador crece brutalmente** — Aunque el dato directo es de mercados anglosajones, la señal es clara: el tráfico desde fuentes de inteligencia artificial a sitios minoristas durante la temporada navideña de 2025 aumentó un 693% interanual. Los compradores uruguayos cada vez más descubren productos vía ChatGPT, Perplexity o Google AI Overviews. **Acción:** optimizar descripciones de producto con lenguaje conversacional y preguntas frecuentes. · (fuente: https://onedigital.mx/2026/06/16/ecommerce-2026-5-tendencias-clave-que-redefinen-el-comercio-digital/)
+- **Social commerce como generador de tráfico directo** — En Uruguay, cada vez más ventas se originan directamente en redes sociales a través de Instagram Shopping y TikTok Shop. El tráfico que llega a la tienda ya viene con intención de compra activada desde el contenido. · (fuente: https://neowyze.tech/blog/mejores-plataformas-ecommerce-uruguay-2026)
+
+- **TikTok como motor de búsqueda (SEO en TikTok)** — Más del 40% de la generación Z usa TikTok como buscador; optimizar las descripciones de productos con keywords relevantes ya es parte del SEO de ecommerce en 2026. · (fuente: https://blog.lueurexterne.com/en/blog/social-commerce-in-2026-how-to-sell-on-instagram-tiktok-pinterest/)
 
 ---
 
 ### 🛒 Ventas / conversión
 
-- **UGC en página de producto = lift de conversión directo** — Las páginas de producto con galerías UGC verificadas entregan típicamente un 10–25% de aumento de conversión y 15–40% más tiempo en la página; los video reviews generan el mayor impacto, sumando 5–9% de tasa de add-to-cart. **Acción:** integrar al menos 3 videos de clientes reales en las fichas de producto más visitadas. · (fuente: https://www.cs-cart.com/blog/ugc-ecommerce/)
+- **Checkout sin fricción + medios de pago digitales como palanca de conversión** — La experiencia de usuario, la claridad en la navegación, la simplicidad del checkout y la transparencia en la información tienen un impacto directo en la conversión. En Uruguay, Mercado Pago concentra el 77% del volumen de pagos con billeteras digitales, lo que lo hace obligatorio como medio de pago disponible en el checkout. · (fuentes: https://www.id4you.com/blog/ecommerce/ecommerce-argentina-2026-estudio-cace/ y https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
 
-- **Ticket promedio en Uruguay: ~USD 33 — la propuesta de valor debe justificarse en ese rango** — A pesar del aumento en el volumen general de ventas, el gasto promedio por operación se mantuvo estable: el ticket medio en el arranque de 2026 se situó en 1.290 pesos (USD 33), sosteniéndose en los niveles promedio observados durante gran parte de 2025. **Acción:** evaluar si el precio de entrada de los productos está alineado, y activar cross-sells para subir ticket. · (fuente: https://lahora.gt/lh-economia/agenciaefe/2026/05/04/boom-digital-en-uruguay-el-e-commerce-despega-con-un-alza-del-35/)
+- **Live Shopping para picos de conversión** — Las transmisiones en vivo se convirtieron en el equivalente moderno de los canales de TV de ventas, con la ventaja de la interactividad: permiten responder dudas en tiempo real, mostrar el producto en detalle y crear urgencia con ofertas exclusivas para quien está mirando. Las flash sales de 24 horas en TikTok reportan picos de conversión de 2 a 5 veces. · (fuentes: https://www.abiadigital.pt/redes-sociais/social-commerce-o-futuro-das-vendas-diretas-nas-redes-sociais-em-2026/ y https://blog.lueurexterne.com/en/blog/social-commerce-in-2026-how-to-sell-on-instagram-tiktok-pinterest/)
 
-- **Tarjeta de crédito domina el ticket alto — activar cuotas o BNPL como argumento de venta** — Las tarjetas de crédito lideraron el mercado concentrando el 68% del monto total de las ventas, con el ticket promedio más alto (2.042 pesos). Casi la mitad de los consumidores latinoamericanos dejarían de comprar tras una mala experiencia; el pago a plazos sin intereses también sigue siendo relevante. **Acción:** comunicar en el checkout y en los ads la posibilidad de cuotas con tarjeta. · (fuente: https://lahora.gt/lh-economia/agenciaefe/2026/05/04/boom-digital-en-uruguay-el-e-commerce-despega-con-un-alza-del-35/)
+- **Tarjeta de crédito + cuotas como ángulo de oferta** — En el primer trimestre de 2026, el ticket promedio de compras con tarjeta de crédito ($2.042) casi triplica el de débito ($726), lo que indica que comunicar financiación en cuotas activa compras de mayor valor. Mostrar precio en cuotas en los creativos de pauta puede levantar el ticket promedio. · (fuente: https://www.cedu.org.uy/ventas-por-comercio-electronico-aumentaron-35-interanual-en-el-primer-trimestre-de-2026/)
 
 ---
 
 ### 📰 Noticias del sector
 
-- **Uruguay lidera crecimiento de ecommerce en LatAm con +35% interanual en Q1 2026** — Durante el primer trimestre de 2026, la facturación del sector creció un 35% interanual, alcanzando los 31.333 millones de pesos (unos USD 802 millones), según la CEDU y Exante. El principal motor fue el aumento en transacciones (24,3 millones, +36% interanual), con el ticket promedio estable: esto indica que el dinamismo se apoya en mayor frecuencia de consumo, más que en mayor gasto individual. La oportunidad está en capturar más compradores frecuentes, no en subir precios. · (fuente: https://www.montevideo.com.uy/Noticias/El-comercio-electronico-crece-35-en-Uruguay-y-supera-los-US-800-millones-uc960929)
+- **El ecommerce en Uruguay crece 35% interanual — mercado en plena expansión** — Durante el primer trimestre de 2026, la facturación del sector creció un 35% interanual, alcanzando los 31.333 millones de pesos (unos 802 millones de dólares), según un informe de la CEDU y la consultora Exante. El dinamismo del sector se apoya en una mayor frecuencia de consumo, más que en un incremento del gasto individual. Hay más gente comprando más seguido: el mercado para Glassy Waves está creciendo. · (fuente: https://www.montevideo.com.uy/Noticias/El-comercio-electronico-crece-35-en-Uruguay-y-supera-los-US-800-millones-uc960929)
 
-- **Competencia transfronteriza en alza: tiendas del exterior representan el 42% del ecommerce** — Las tiendas extranjeras representan el 42% de ventas por comercio electrónico en Uruguay, y el comercio transfronterizo proyecta un crecimiento del 25% en 2025. El diferenciador para un ecommerce local está en velocidad de entrega, posventa y vínculo con la marca. **Acción:** comunicar activamente el "comprado en Uruguay, entregado en Uruguay" como argumento anti-Amazon/Temu. · (fuente: https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
+- **Uruguay en el Top 10 mundial de crecimiento en ecommerce** — Según el informe de Shopify 2026, Uruguay tiene una proyección de crecimiento del 14,4% en ventas de ecommerce, posicionándose entre los mercados de mayor expansión global. El contexto macro favorece la inversión en adquisición. · (fuente: https://onedigital.mx/2026/06/16/ecommerce-2026-5-tendencias-clave-que-redefinen-el-comercio-digital/)
+
+- **Competencia cross-border: tiendas extranjeras representan el 42% del ecommerce uruguayo** — Las tiendas extranjeras representan el 42% de ventas por comercio electrónico en Uruguay, y el comercio electrónico transfronterizo proyecta un crecimiento del 25% en 2025. La presión competitiva de marketplaces internacionales es real; diferenciación local y velocidad de entrega son claves. · (fuente: https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
 
 ---
 
 ### 📣 Publicidad / campañas
 
-- **TikTok Ads: CPM más bajo que Meta en Uruguay por menor saturación de anunciantes** — TikTok tiene costos por mil impresiones (CPM) más bajos que Facebook e Instagram en muchos sectores de Uruguay, debido a que hay menos competencia pautando. Esto representa una ventana de oportunidad antes de que el mercado se sature. **Acción esta semana:** lanzar una campaña de conversión en TikTok Ads con el video orgánico de mejor retención como creative. · (fuente: https://neuratia.uy/nichos/publicidad-tiktok-uruguay.html)
+- **Retail Media + Social Commerce como combinación dominante en la región** — En el eCommerce Day Uruguay 2025 las conferencias clave giraron en torno a "integración multicanal, IA práctica, retail media y comercio unificado" como los ejes de mayor tracción. Las marcas que combinan Meta Ads + contenido orgánico en TikTok con landing pages optimizadas para mobile están liderando en conversión. · (fuente: https://ecommerceday.org.uy/2026/nueva-edicion-del-ecommerce-day-uruguay-2025-busca-impulsar-la-revolucion-digital-en-los-negocios/)
 
-- **El segmento 25–45 años en TikTok Uruguay es el que más crece y tiene poder de compra** — El segmento que más crece en TikTok Uruguay es el de 25 a 45 años: gente con poder de compra que ya no mira televisión y apenas entra a Facebook. Esto amplía enormemente el tipo de productos que pueden venderse en la plataforma con resultados concretos. **Acción:** segmentar campañas de TikTok Ads hacia 25–40 años en Montevideo como test inicial. · (fuente: https://neuratia.uy/nichos/publicidad-tiktok-uruguay.html)
+- **Micro-influencers uruguayos con audiencia local** — Existen al menos 69 influencers uruguayos en TikTok con hasta 500K seguidores y audiencia mayoritaria en Uruguay. En 2026, los micro-influencers con comunidades pequeñas pero altamente comprometidas generan tasas de conversión muy superiores a los macro. Activar UGC con creadores locales es más eficiente que pauta fría para una marca uruguaya. · (fuentes: https://www.modash.io/find-influencers/tiktok/uruguay y https://www.abiadigital.pt/redes-sociais/social-commerce-o-futuro-das-vendas-diretas-nas-redes-sociais-em-2026/)
 
 ---
 
 ### 🗓️ Estacional / próximo
 
-- **Cyberfest Uruguay — evento propio de descuentos a mitad de año, ya activo** — Uruguay cuenta con un evento propio que se ha ganado un lugar en la agenda de los consumidores: el Cyberfest, que suele realizarse a mediados de año y agrupa a las principales tiendas de comercio electrónico con descuentos en tecnología, electrodomésticos, indumentaria, viajes y productos para el hogar. **Acción inmediata (julio):** preparar oferta de Cyberfest o al menos una campaña de "descuentos de mitad de año" para subirse al contexto mental del consumidor. · (fuente: https://correopuntadeleste.com/cuales-son-las-fechas-de-rebajas-que-quedan-en-el-ano/)
+- **Ciberlunes Noviembre 2026 — segunda edición del año (próxima gran fecha)** — La primera edición 2026 del Ciberlunes se llevó a cabo del 1 al 3 de junio; la segunda edición será en noviembre en Mercado Libre Uruguay, con miles de productos con hasta 60% OFF. El Ciberlunes es la jornada preferida de descuentos para el 31% de los uruguayos, y el 57% de los mayores de 18 años la considera la fecha con mejores descuentos del año. Comenzar a preparar la campaña y el stock para noviembre es accionable desde ahora. · (fuentes: https://www.mercadolibre.com.uy/ciberlunes y https://infonegocios.biz/y-ademas/se-viene-el-primer-ciberlunes-de-2026-y-cedu-lanza-inscripciones-para-preventa)
 
-- **Ciberlunes (Mercado Libre Uruguay) — próxima edición en noviembre, preparación desde ya** — El Ciberlunes alcanzó a más de 2.200.000 personas con sus campañas y generó más de 730.000 visitas; el 28% de los uruguayos realizó compras durante el evento y el 35% lo considera la fecha con los mejores descuentos del año. **Acción:** empezar a construir lista de emails y retargeting desde julio para llegar con audiencia caliente en noviembre. · (fuente: https://www.megacupones.uy/blog/cuando-se-celebra-cyber-monday-en-uruguay)
+- **Invierno uruguayo (julio–agosto) + temporada fría** — El mercado local está en plena temporada de invierno. En TikTok Uruguay los videos de "básicos de invierno" y ropa de abrigo están generando tráfico activo en tiendas locales de Montevideo. Contenido y pauta estacional vinculada al frío es oportuna esta semana. · (fuente: https://www.tiktok.com/discover/tiendas-de-uruguay)
 
-- **Black Friday (28 nov) + CyberMonday (2 dic) — ventana de mayor volumen del año** — El Black Friday en Uruguay se ha convertido en un evento destacado; se celebra a fines de noviembre y durante el evento las tiendas online y físicas aplican descuentos agresivos que atraen a miles de consumidores. Los meses de julio–agosto son el momento ideal para planificar stock, creatividades y estructura de campañas. · (fuente: https://correopuntadeleste.com/cuales-son-las-fechas-de-rebajas-que-quedan-en-el-ano/)
+- **eCommerce Day Uruguay 2026 — evento sectorial clave** — El eCommerce Day Uruguay 2026 se realizará en Montevideo, con conferencias, networking y tendencias del comercio digital. Participar o seguir las novedades del evento sirve para anticipar cambios regulatorios, de plataformas y de comportamiento del consumidor uruguayo. · (fuente: https://ecommerceday.org.uy/2026/)
 
 ## Fuentes
+- [eCommerce Day Uruguay 2026 | El evento más importante de Digital Commerce de la región - El tour de eventos que conecta, inspira y transforma el ecosistema digital de la región.](https://ecommerceday.org.uy/2026/)
+- [Tendencias de mercado 2026: qué esperar del e-commerce](https://academia.nubimetrics.com/tendencias-ecommerce)
+- [El eCommerce Day Uruguay 2025 reafirmó el liderazgo del ecosistema digital en la región - eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region/)
 - [E-commerce en Uruguay: datos clave y tendencias 2025](https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
-- [eCommerce Day Uruguay 2025 - El tour de eventos del Digital Commerce más importante de América Latina y el Caribe](https://ecommerceday.org.uy/2025/)
-- [Uruguay lidera el crecimiento del eCommerce en América Latina en 2025](https://www.montevideo.com.uy/Noticias/Uruguay-lidera-el-crecimiento-del-eCommerce-en-America-Latina-en-2025-uc926770)
-- [Cómo elegir los productos ideales para vender online en Uruguay 2025](https://www.eleva.uy/blog/como-elegir-los-productos-ideales-para-vender-online-en-uruguay-2025)
-- [Uruguay está en el top 10 de países con mayor crecimiento en las ventas por eCommerce - CEDU](https://www.cedu.org.uy/uruguay-esta-en-el-top-10-de-paises-con-mayor-crecimiento-en-las-ventas-por-ecommerce/)
+- [Las 10 mejores plataformas de ecommerce en Uruguay (2026) | Neowyze](https://neowyze.tech/blog/mejores-plataformas-ecommerce-uruguay-2026)
+- [Ventas por comercio electrónico aumentaron 35% interanual en el primer trimestre de 2026 - CEDU](https://www.cedu.org.uy/ventas-por-comercio-electronico-aumentaron-35-interanual-en-el-primer-trimestre-de-2026/)
 - [Uruguay está en el top 10 de países con mayor crecimiento en las ventas por eCommerce | Cuti](https://cuti.org.uy/en/noticias/de-socios/uruguay-esta-en-el-top-10-de-paises-con-mayor-crecimiento-en-las-ventas-por-ecommerce/)
-- [Comparativo de eCommerce en América Latina 2025 - Baker Tilly LATAM](https://bakertillylatam.com/en/destacada/comparativo-de-ecommerce-en-america-latina-2025/)
-- [El eCommerce Day Uruguay 2025 reafirmó el liderazgo del ecosistema digital en la región - eCommerce Day Uruguay 2025](https://ecommerceday.org.uy/2025/el-ecommerce-day-uruguay-2025-reafirmo-el-liderazgo-del-ecosistema-digital-en-la-region/)
-- [Ciberlunes Uruguay 2025](https://news.mercadolibre.com/ciberlunes-uruguay-2025-productos-mas-vendidos)
-- [ECommerce Day Uruguay 2025: el evento marcó récords y potenció la transformación digital](https://www.montevideo.com.uy/Negocios-y-Tendencias/ECommerce-Day-Uruguay-2025-el-evento-marco-records-y-potencio-la-transformacion-digital-uc937445)
-- [Publicidad en TikTok Uruguay | Agencia de Tiktok Ads | Neuratia](https://neuratia.uy/nichos/publicidad-tiktok-uruguay.html)
+- [Informes y Publicaciones - CEDU](https://www.cedu.org.uy/informes/)
+- [Nueva edición del eCommerce Day Uruguay 2025 busca impulsar la revolución digital en los negocios - eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/nueva-edicion-del-ecommerce-day-uruguay-2025-busca-impulsar-la-revolucion-digital-en-los-negocios/)
 - [Top 20 TikTok Influencers in Uruguay: Find Uruguayan TikTokers (Dec 2025)](https://www.modash.io/find-influencers/tiktok/uruguay)
-- [Tendencias De Contenido 2025 | TikTok](https://www.tiktok.com/discover/tendencias-de-contenido-2025)
-- [Tik Tokers Uruguayas | TikTok](https://www.tiktok.com/discover/tik-tokers-uruguayas)
-- [🎉¡La magia del Live Shopping llegó a This is Feliz ...](https://www.instagram.com/reel/DR43cCxDR9o/)
 - [Top 20 TikTokers in Uruguay in 2026 [🏆 Rating] - Favikon](https://www.favikon.com/blog/top-tiktokers-uruguay)
-- [TikTok Shop - Forbes Uruguay](https://www.forbesuruguay.com/tags/tiktok-shop-t26679)
+- [Tendencias De Contenido 2025 | TikTok](https://www.tiktok.com/discover/tendencias-de-contenido-2025)
+- [🎉¡La magia del Live Shopping llegó a This is Feliz ...](https://www.instagram.com/reel/DR43cCxDR9o/)
+- [Tiendas De Uruguay | TikTok](https://www.tiktok.com/discover/tiendas-de-uruguay)
 - [Viral Uruguay](https://www.tiktok.com/discover/viral-uruguay?lang=en)
 - [Viral Uruguay Shop](https://www.tiktok.com/discover/viral-uruguay-shop)
+- [Top 20 TikTok Influencers in Uruguay: Find Uruguayan Male TikTokers (Jan 2026)](https://www.modash.io/find-influencers/tiktok/uruguay/male)
 - [Top 1000 Influencers on TikTok in Uruguay | HypeAuditor TikTok Ranking](https://hypeauditor.com/top-tiktok-uruguay/)
-- [Boom digital en Uruguay: el e-commerce despega con un alza del 35 % - La Hora](https://lahora.gt/lh-economia/agenciaefe/2026/05/04/boom-digital-en-uruguay-el-e-commerce-despega-con-un-alza-del-35/)
+- [#uruguay | TikTok](https://www.tiktok.com/tag/uruguay?lang=en)
+- [eCommerce Argentina 2026: análisis del estudio anual de CACE - ID4YOU](https://www.id4you.com/blog/ecommerce/ecommerce-argentina-2026-estudio-cace/)
 - [El comercio electrónico crece 35% en Uruguay y supera los US$ 800 millones | Montevideo Portal](https://www.montevideo.com.uy/Noticias/El-comercio-electronico-crece-35-en-Uruguay-y-supera-los-US-800-millones-uc960929)
 - [Ecommerce 2026: 5 tendencias clave que redefinen el comercio digital - OneDigital](https://onedigital.mx/2026/06/16/ecommerce-2026-5-tendencias-clave-que-redefinen-el-comercio-digital/)
-- [Ventas por comercio electrónico en Uruguay crecieron en 2025 y alcanzaron los US$ 2.500 millones](https://www.elobservador.com.uy/cafe-y-negocios/ventas-comercio-electronico-uruguay-crecieron-2025-y-alcanzaron-los-us-2500-millones-n6033985)
-- [Calendario E-commerce de Uruguay: Fechas comerciales ...](https://www.yavendio.com/en/blog/ecommerce-dates-uruguay)
-- [Las fechas clave de 2025 que tu eCommerce no puede perderse](https://www.woowup.com/blog/las-fechas-clave-de-2025-que-tu-ecommerce-no-puede-perderse)
-- [▷ CALENDARIO Comercial 2025 | Marketing & Retail](https://www.expertosnegociosonline.com/calendario-comercial-2025-para-marketing-ecommerce/)
-- [[2025] Calendario de e-commerce: todas las fechas actualizadas | Geti Solutions](https://geti.cl/blog/post/calendario-de-e-commerce-2025)
-- [Calendario 2026: las fechas comerciales más importantes del e-commerce](https://academia.nubimetrics.com/fechas-importantes-ecommerce)
-- [Fechas importantes del e-commerce ¡con calendario 2025 ...](https://www.tiendanube.com/blog/fechas-importantes-ecommerce/)
-- [Cuáles son las fechas de rebajas que quedan en el año | Diario Correo de Punta del Este](https://correopuntadeleste.com/cuales-son-las-fechas-de-rebajas-que-quedan-en-el-ano/)
-- [Calendario Comercial eCommerce Latinoamérica 2026 | Fechas Clave](https://enviame.io/calendario-comercial-ecommerce-latinoamerica/)
+- [Ventas por comercio electrónico en Uruguay crecen un 35 % en el primer trimestre de 2026 - Infobae](https://www.infobae.com/america/agencias/2026/05/04/ventas-por-comercio-electronico-en-uruguay-crecen-un-35-en-el-primer-trimestre-de-2026/)
+- [E-COMMERCE Y SERVICIOS DIGITALES: Introducción y Tendencias (Semana 1-5) - Studocu](https://www.studocu.com/latam/document/universidad-ort-uruguay/e-commerce-y-servicios-digitales/e-commerce-y-servicios-digitales-introduccion-y-tendencias-semana-1-5/141231925)
+- [Mitienda Uruguay - Crear tienda online gratis para vender por internet.](https://www.mitienda.uy/)
+- [O consumidor de 2026 mudou. Você está acompanhando ...](https://www.instagram.com/p/DYvuDGgDY5G/)
+- [Ciberlunes | Junio 2026](https://ciberlunes.uy/)
 - [¿Cuándo es el Cyber Monday 2026 y qué tiendas participan en Uruguay?](https://www.megacupones.uy/blog/cuando-se-celebra-cyber-monday-en-uruguay)
-- [Calendario de Eventos de Ventas Online en Latinoamérica | Noticias de Financiación Alternativa, Crowdfunding, Inversores, Emprendedores e Fintech](https://crowdemprende.com/calendario-de-eventos-de-ventas-online-en-latinoamerica/)
-- [Contenido UGC: mejora la credibilidad y ventas en ecommerce](https://www.addis.es/la-relevancia-del-contenido-generado-por-el-usuario-en-la-credibilidad-de-tu-ecommerce/)
-- [UGC for eCommerce 2026: Provenance Flow](https://www.cs-cart.com/blog/ugc-ecommerce/)
-- [Top 5 Ways to Use UGC for E-Commerce Growth - Tolstoy](https://www.gotolstoy.com/blog/ugc-in-ecommerce)
-- [UGC en Video para Ecommerce: Guía Completa 2026 | EcomNinja](https://ecomninja.net/ugc-en-video-para-ecommerce-como-aprovechar-contenido-de-usuarios-2026/)
-- [Nectar Blog | UGC in e-commerce: boost conversion & trust in 2026](https://www.thinknectar.com/blog/ugc-ecommerce-boost-conversion-trust-en)
-- [UGC en ecommerce de belleza: más ventas y confianza](https://www.asendia.es/asendia-insights/ugc-belleza-ecommerce-estrategias)
-- [Contenido UGC para ecommerce | Nexo Ugc](https://nexougc.com/estrategia-ugc/)
-- [UGC Video: 6 videos ideas to add to your e-commerce website](https://www.playshorts.io/blog/ugc-video-examples)
-- [UGC para eCommerce: Multiplica tus Ventas](https://plusroimedia.com/en/ugc-for-ecommerce/)
-- [Guía UGC para ecommerce: cómo convertir contenido generado por usuarios en ventas](https://www.adsmurai.com/es/recursos/guia-ugc-ecommerce-contenido-generado-usuarios)
+- [Ciberlunes 2026 ¡Las mejores ofertas!](https://www.mercadolibre.com.uy/ciberlunes)
+- [Preguntas frecuentes sobre Ciberlunes](https://www.ciberlunes.uy/preguntas-frecuentes)
+- [CIBERLUNES - CEDU](https://www.cedu.org.uy/novedades-ciberlunes/)
+- [Qué es el Ciberlunes y por qué Uruguay lo espera dos veces al año – El Eco Digital](https://elecodigital.com.uy/sociedad/que-es-el-ciberlunes-y-por-que-uruguay-lo-espera-dos-veces-al-ano/)
+- [Ciberlunes 2026: Cómo la preventa redefine la estrategia del comercio electrónico en Uruguay - AmericaMalls & Retail](https://americaretail-malls.com/retail-online/ciberlunes-2026-como-la-preventa-redefine-la-estrategia-del-comercio-electronico-en-uruguay/)
+- [Se viene el primer Ciberlunes de 2026 (y CEDU lanza inscripciones para preventa)](https://infonegocios.biz/y-ademas/se-viene-el-primer-ciberlunes-de-2026-y-cedu-lanza-inscripciones-para-preventa)
+- [Calendario E-commerce de Uruguay: Fechas comerciales ...](https://www.yavendio.com/en/blog/ecommerce-dates-uruguay)
+- [Ciberlunes 2026: inscripción hasta el 24 de abril | Conly](https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
+- [Social Commerce: O Futuro das Vendas nas Redes Sociais | Abia Digital](https://www.abiadigital.pt/redes-sociais/social-commerce-o-futuro-das-vendas-diretas-nas-redes-sociais-em-2026/)
+- [Social commerce en 2025: de TikTok Shop a la integración con WhatsApp y Telegram](https://mk-ventas.blog/marketing/social-commerce-en-2025-de-tiktok-shop-a-la-integracion-con-whatsapp-y-telegram/)
+- [Social Commerce: Selling on TikTok, Instagram & Facebook in 2026 | ECOSIRE](https://ecosire.com/blog/social-commerce-selling-tiktok-instagram-2026)
+- [Social Commerce in 2026: How to Sell Directly Through Instagram & TikTok](https://www.elscedres.com/post/social-commerce-in-2026)
+- [Social Commerce in 2026: How to Sell on Instagram, TikTok & Pinterest](https://blog.lueurexterne.com/en/blog/social-commerce-in-2026-how-to-sell-on-instagram-tiktok-pinterest/)
+- [Social Commerce e Live Shopping: Nova Fronteira de Vendas | Kaizen](https://agenciakaizen.com.br/social-commerce-live-shopping-nova-fronteira-vendas-brasil-2026/)
+- [Social commerce 2026: cómo vender en TikTok e Instagram](https://base.com/es-AR/blog/social-commerce-como-vender-en-tiktok-e-instagram/)
+- [What Is Live Social Shopping | TikTok](https://www.tiktok.com/discover/what-is-live-social-shopping)
+- [Tendencias en eCommerce 2026 | ID4YOU - ID4YOU](https://www.id4you.com/blog/ecommerce/tendencias-ecommerce-2026/)
