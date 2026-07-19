@@ -135,6 +135,20 @@ function MetaPageInner() {
       if (!clientId) alert("Elegí un cliente primero.");
       return;
     }
+    // Pre-check client-side: el bucket permite hasta 1 GiB por archivo
+    // (mig 080). Si el user intenta subir un archivo más grande, cortamos
+    // antes de gastar tiempo en el POST y damos un mensaje claro.
+    const MAX_BYTES = 1024 * 1024 * 1024; // 1 GiB
+    const oversized = Array.from(files).filter((f) => f.size > MAX_BYTES);
+    if (oversized.length > 0) {
+      const names = oversized
+        .map((f) => `${f.name} (${(f.size / 1024 / 1024).toFixed(0)} MB)`)
+        .join(", ");
+      alert(
+        `Estos archivos superan el máximo de 1 GB: ${names}. Comprimí el video antes de subirlo o partílo en versiones más cortas.`,
+      );
+      return;
+    }
     setUploading(true);
     try {
       const uploads = await Promise.all(
@@ -155,9 +169,21 @@ function MetaPageInner() {
       setCreatives((prev) => [...prev, ...uploads.filter((u) => u.url)]);
     } catch (e) {
       const msg = (e as Error).message;
-      const hint = msg.includes("Bucket not found")
-        ? "\n\nCorré la migración 069 en Supabase para crear el bucket público."
-        : "";
+      // Errores frecuentes del bucket → hint accionable.
+      let hint = "";
+      if (msg.includes("Bucket not found")) {
+        hint = "\n\nCorré la migración 069 en Supabase para crear el bucket público.";
+      } else if (
+        msg.toLowerCase().includes("payload too large") ||
+        msg.toLowerCase().includes("exceeded the maximum allowed size") ||
+        msg.includes("413")
+      ) {
+        hint =
+          "\n\nEl archivo excede el límite del bucket. Corré la migración 080 en Supabase para subirlo a 1 GB y verificá el Global Upload Size Limit del proyecto en el dashboard de Supabase.";
+      } else if (msg.toLowerCase().includes("mime type")) {
+        hint =
+          "\n\nEl formato del archivo no está en la lista de permitidos. Convertí el video a MP4/MOV/WebM.";
+      }
       alert(`No se pudieron subir los creativos: ${msg}${hint}`);
     } finally {
       setUploading(false);
