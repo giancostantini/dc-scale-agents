@@ -118,3 +118,57 @@ export function networksOf(post: ContentPost): ContentNetwork[] {
     ? post.networks
     : [post.network];
 }
+
+/**
+ * Rango lunes→domingo de la semana que contiene `ref`, en fechas
+ * locales YYYY-MM-DD.
+ *
+ * getDay() devuelve 0 para domingo, así que (getDay() + 6) % 7 lo
+ * reindexa a 0=lunes … 6=domingo, que es cómo se cuenta la semana acá.
+ */
+export function weekRange(ref: Date): { from: string; to: string } {
+  const monday = new Date(ref);
+  monday.setDate(ref.getDate() - ((ref.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: isoLocalDate(monday), to: isoLocalDate(sunday) };
+}
+
+/** Contadores del encabezado personal del equipo. */
+export interface TeamHeroCounts {
+  /** Mías, con fecha en la semana actual, todavía no publicadas. */
+  week: number;
+  /** Mías, con fecha pasada y sin publicar. */
+  overdue: number;
+  /** Mías en borrador. */
+  inProgress: number;
+  /** Mías aprobadas y esperando publicación. */
+  approved: number;
+  /** Mías ya publicadas. */
+  done: number;
+}
+
+/**
+ * Calcula los contadores del hero para un usuario.
+ *
+ * `posts` es la lista completa del cliente: el filtro por persona se
+ * aplica acá adentro a propósito, porque el hero tiene que seguir
+ * diciendo lo mismo aunque el usuario apague "Mis piezas".
+ */
+export function teamHeroCounts(
+  posts: ContentPost[],
+  userId: string,
+  now: Date,
+): TeamHeroCounts {
+  const today = isoLocalDate(now);
+  const { from, to } = weekRange(now);
+  const mine = posts.filter((p) => p.assignedTo === userId);
+  const pending = mine.filter((p) => p.status !== "published");
+  return {
+    week: pending.filter((p) => p.date >= from && p.date <= to).length,
+    overdue: pending.filter((p) => p.date < today).length,
+    inProgress: mine.filter((p) => p.status === "draft").length,
+    approved: mine.filter((p) => p.status === "scheduled").length,
+    done: mine.filter((p) => p.status === "published").length,
+  };
+}

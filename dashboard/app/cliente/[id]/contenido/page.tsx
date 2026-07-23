@@ -54,6 +54,8 @@ import {
   STATUS_LABEL,
   formatCode,
   formatHumanDate,
+  teamHeroCounts,
+  weekRange,
 } from "@/lib/content-labels";
 import type {
   Client,
@@ -66,6 +68,8 @@ import type {
 } from "@/lib/types";
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
 import ContentKanbanBoard from "@/components/content/ContentKanbanBoard";
+import ContentAdsBoard from "@/components/content/ContentAdsBoard";
+import ContentTeamHero from "@/components/content/ContentTeamHero";
 import ContentConsultantPanel from "@/components/ContentConsultantPanel";
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
@@ -599,6 +603,16 @@ export default function ContenidoPage({
     [posts, onlyMine, profile],
   );
 
+  /**
+   * Contadores del hero del equipo. Se calculan sobre `posts` completo
+   * (no scopedPosts) a propósito: el hero habla de LO MÍO y no puede
+   * cambiar de número porque el usuario haya apagado "Mis piezas".
+   */
+  const heroCounts = useMemo(
+    () => (profile ? teamHeroCounts(posts, profile.id, new Date()) : null),
+    [posts, profile],
+  );
+
   const stats = {
     total: scopedPosts.length,
     draft: scopedPosts.filter((p) => p.status === "draft").length,
@@ -979,6 +993,34 @@ export default function ContenidoPage({
           )}
         </div>
       </div>
+
+      {/* Encabezado personal — solo equipo. Lo primero que ve Lucia u
+          Octavio al entrar es qué les toca a ELLOS, no las 30 piezas
+          del cliente. */}
+      {isTeam && profile && heroCounts && (
+        <ContentTeamHero
+          name={profile.name}
+          counts={heroCounts}
+          onShowWeek={() => {
+            const { from, to } = weekRange(new Date());
+            setOnlyMinePref(true);
+            setFilter("all");
+            setPeriodMode("custom");
+            setCustomFrom(from);
+            setCustomTo(to);
+          }}
+          onShowInProgress={() => {
+            setOnlyMinePref(true);
+            setFilter("draft");
+            setPeriodMode("all");
+          }}
+          onShowDone={() => {
+            setOnlyMinePref(true);
+            setFilter("published");
+            setPeriodMode("all");
+          }}
+        />
+      )}
 
       {/* Toggle de modo de vista: Tabla (default, todas las redes, con
           filtros y acciones) o Vista feed (preview tipo perfil de IG,
@@ -1732,6 +1774,20 @@ export default function ContenidoPage({
         />
       )}
 
+      {/* ============== VISTA PUBLICIDAD ============
+          Solo piezas con format="anuncio", en cards grandes con el
+          creative, el copy y el CTA destacado. El recorte por formato
+          lo hace el componente para heredar el resto de los filtros. */}
+      {viewMode === "ads" && (
+        <ContentAdsBoard
+          posts={sortedFiltered}
+          classifications={classifications}
+          teamMembers={teamMembers}
+          codeOf={(p) => codeOf(p, codeFallback)}
+          onCardClick={(p) => setFeedPostDetail(p)}
+        />
+      )}
+
       {/* ============== VISTA FEED (preview tipo perfil IG) ============
           Cuando viewMode === "feed", renderizamos una grilla 3-col que
           imita el perfil de la red elegida (por ahora IG; FB usa el
@@ -2072,6 +2128,8 @@ export default function ContenidoPage({
       {showNewIdea && (
         <NewIdeaModal
           saving={savingNewIdea}
+          teamMembers={teamMembers}
+          defaultAssignedTo={isTeam && profile ? profile.id : null}
           onCancel={() => setShowNewIdea(false)}
           onSubmit={async (draft) => {
             setSavingNewIdea(true);
@@ -2095,7 +2153,7 @@ export default function ContenidoPage({
                 copy: draft.copy || null,
                 cta: draft.cta || null,
                 influencer: null,
-                assignedTo: null,
+                assignedTo: draft.assignedTo,
                 classification: draft.classification,
                 status: "draft",
                 source: "manual",
@@ -3116,16 +3174,24 @@ interface NewIdeaDraft {
   /** Clasificación editorial — valor, conversion o aspiracional.
    *  Null = sin clasificar todavía. Persiste en content_posts.classification. */
   classification: ContentClassification | null;
+  /** profiles.id del responsable. null = sin asignar. */
+  assignedTo: string | null;
 }
 
 function NewIdeaModal({
   saving,
   onCancel,
   onSubmit,
+  teamMembers,
+  defaultAssignedTo,
 }: {
   saving: boolean;
   onCancel: () => void;
   onSubmit: (draft: NewIdeaDraft) => Promise<void>;
+  teamMembers: Profile[];
+  /** Pre-selección del responsable: quien es del equipo se autoasigna,
+   *  el director arranca en "Sin asignar" (comportamiento de siempre). */
+  defaultAssignedTo: string | null;
 }) {
   // Default: hoy, sin hora, IG post.
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -3139,6 +3205,7 @@ function NewIdeaModal({
     cta: "",
     brief: "",
     classification: null,
+    assignedTo: defaultAssignedTo,
   });
 
   // Catálogo de clasificaciones del cliente — leemos del context para
@@ -3317,6 +3384,25 @@ function NewIdeaModal({
           {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
             <option key={f} value={f}>
               {FORMAT_LABEL[f]}
+            </option>
+          ))}
+        </select>
+
+        {/* Responsable. Antes toda idea nueva nacía sin asignar y había
+            que abrir la fila en la tabla para ponerle dueño — por eso
+            se acumulaban piezas huérfanas. */}
+        <ModalLabel>Responsable</ModalLabel>
+        <select
+          value={draft.assignedTo ?? ""}
+          onChange={(e) =>
+            setDraft({ ...draft, assignedTo: e.target.value || null })
+          }
+          style={modalInput}
+        >
+          <option value="">Sin asignar</option>
+          {teamMembers.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
             </option>
           ))}
         </select>
