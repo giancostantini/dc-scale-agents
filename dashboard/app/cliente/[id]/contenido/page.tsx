@@ -65,6 +65,7 @@ import type {
   ContentStatus,
 } from "@/lib/types";
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
+import ContentKanbanBoard from "@/components/content/ContentKanbanBoard";
 import ContentConsultantPanel from "@/components/ContentConsultantPanel";
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
@@ -1713,6 +1714,22 @@ export default function ContenidoPage({
           </div>
         )}
       </div>
+      )}
+
+      {/* ============== VISTA TABLERO (kanban por estado) ============
+          Default del equipo. Recibe sortedFiltered (respeta "Mis
+          piezas" y el resto de los filtros) y solo agrupa por estado.
+          El drag entre columnas persiste el status nuevo. */}
+      {viewMode === "kanban" && (
+        <ContentKanbanBoard
+          posts={sortedFiltered}
+          classifications={classifications}
+          teamMembers={teamMembers}
+          codeOf={(p) => codeOf(p, codeFallback)}
+          canEdit={canEdit}
+          onCardClick={(p) => setFeedPostDetail(p)}
+          onStatusChange={(p, status) => patchPost(p, { status })}
+        />
       )}
 
       {/* ============== VISTA FEED (preview tipo perfil IG) ============
