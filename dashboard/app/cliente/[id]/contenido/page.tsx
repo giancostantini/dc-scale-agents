@@ -370,6 +370,12 @@ export default function ContenidoPage({
     ContentClassification | "all" | "_unclassified"
   >("all");
   /**
+   * Orden por fecha en la tabla. Se alterna clickeando el header
+   * "Fecha". Las vencidas siguen yendo primero en ambos sentidos —
+   * son las accionables y enterrarlas anularía el pin que ya existía.
+   */
+  const [dateSort, setDateSort] = useState<"asc" | "desc">("asc");
+  /**
    * Modo de vista. null = el usuario todavía NO eligió manualmente, así
    * que se usa el default por rol (ver `viewMode` más abajo).
    *
@@ -565,14 +571,23 @@ export default function ContenidoPage({
         if (colClassification === "_unclassified") return !p.classification;
         return p.classification === colClassification;
       });
+    // Las vencidas van primero en los dos sentidos: son las que piden
+    // acción, y el orden por fecha decide el resto (y también cómo se
+    // ordenan entre ellas).
+    const dir = dateSort === "desc" ? -1 : 1;
     return [...filtered].sort((a, b) => {
       const aOverdue = a.status !== "published" && a.date < today;
       const bOverdue = b.status !== "published" && b.date < today;
       if (aOverdue && !bOverdue) return -1;
       if (bOverdue && !aOverdue) return 1;
-      return a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? "");
+      return (
+        dir *
+        (a.date.localeCompare(b.date) ||
+          (a.time ?? "").localeCompare(b.time ?? ""))
+      );
     });
   }, [
+    dateSort,
     posts,
     filter,
     periodMode,
@@ -1520,7 +1535,32 @@ export default function ContenidoPage({
                   <th style={thStyle}>Formato</th>
                   <th style={thStyle}>Clase</th>
                   <th style={{ ...thStyle, minWidth: 260 }}>Idea</th>
-                  <th style={thStyle}>Fecha</th>
+                  {/* Fecha es el único header ordenable: click alterna
+                      ascendente ↔ descendente. */}
+                  <th
+                    style={{ ...thStyle, cursor: "pointer", userSelect: "none" }}
+                    onClick={() =>
+                      setDateSort((s) => (s === "asc" ? "desc" : "asc"))
+                    }
+                    title={
+                      dateSort === "asc"
+                        ? "Ordenado de la más vieja a la más nueva — click para invertir"
+                        : "Ordenado de la más nueva a la más vieja — click para invertir"
+                    }
+                  >
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      Fecha
+                      <span style={{ fontSize: 9, color: "var(--sand-dark)" }}>
+                        {dateSort === "asc" ? "▲" : "▼"}
+                      </span>
+                    </span>
+                  </th>
                   <th style={thStyle}>Asignado a</th>
                   <th style={thStyle}>Estado</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Acciones</th>
