@@ -47,6 +47,14 @@ import {
 } from "@/lib/supabase/auth";
 import { uploadContentPreview } from "@/lib/upload";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
+import {
+  FORMAT_LABEL,
+  NETWORK_LABEL,
+  STATUS_COLOR,
+  STATUS_LABEL,
+  formatCode,
+  formatHumanDate,
+} from "@/lib/content-labels";
 import type {
   Client,
   ClientContentClassification,
@@ -81,33 +89,22 @@ function useClassifications(): ClientContentClassification[] {
 }
 import ui from "@/components/ClientUI.module.css";
 
-const NETWORK_LABEL: Record<ContentNetwork, string> = {
-  ig: "Instagram",
-  tt: "TikTok",
-  in: "LinkedIn",
-  fb: "Facebook",
-};
+/**
+ * Los 4 modos de vista del módulo.
+ *   table  — grilla de gestión con filtros por columna y edición inline.
+ *   kanban — tablero por estado con drag & drop. Default del equipo.
+ *   feed   — preview tipo perfil de la red social.
+ *   ads    — solo piezas con format="anuncio", enfocadas en creative+CTA.
+ */
+export type ContentViewMode = "table" | "kanban" | "feed" | "ads";
 
-const FORMAT_LABEL: Record<ContentFormat, string> = {
-  reel: "Reel",
-  post: "Post",
-  carrusel: "Carrusel",
-  story: "Story",
-  ugc: "UGC",
-  anuncio: "Anuncio",
-};
-
-const STATUS_LABEL: Record<ContentStatus, string> = {
-  draft: "Borrador",
-  scheduled: "Aprobada",
-  published: "Publicada",
-};
-
-const STATUS_COLOR: Record<ContentStatus, string> = {
-  draft: "#9B8259",
-  scheduled: "#2f7d4f",
-  published: "#0A1A0C",
-};
+/** Pestañas del selector de vista, en orden de aparición. */
+const VIEW_TABS: { mode: ContentViewMode; label: string }[] = [
+  { mode: "table", label: "▤ Tabla" },
+  { mode: "kanban", label: "◫ Tablero" },
+  { mode: "feed", label: "▦ Vista feed" },
+  { mode: "ads", label: "◎ Publicidad" },
+];
 
 interface ProposedPiece {
   date: string;
@@ -125,11 +122,6 @@ interface ProposedPiece {
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
-}
-
-/** Formato del código visual: C-XXXX padded a 4 dígitos. */
-function formatCode(n: number): string {
-  return `C-${String(n).padStart(4, "0")}`;
 }
 
 /**
@@ -164,40 +156,6 @@ function buildCodeFallbackMap(posts: ContentPost[]): Map<string, string> {
   const m = new Map<string, string>();
   ordered.forEach((p, i) => m.set(p.id, formatCode(i + 1)));
   return m;
-}
-
-const MONTHS_ES = [
-  "ene", "feb", "mar", "abr", "may", "jun",
-  "jul", "ago", "sep", "oct", "nov", "dic",
-];
-
-/**
- * Formatea YYYY-MM-DD a "12 mar 2026" — más legible que el ISO
- * crudo y todavía cabe en una sola línea de la tabla.
- */
-function formatHumanDate(iso: string): string {
-  if (!iso || iso.length < 10) return iso;
-  const y = iso.slice(0, 4);
-  const m = Number(iso.slice(5, 7)) - 1;
-  const d = Number(iso.slice(8, 10));
-  if (Number.isNaN(m) || Number.isNaN(d)) return iso;
-  return `${d} ${MONTHS_ES[m] ?? "?"} ${y}`;
-}
-
-/**
- * Versión cortita de la fecha para chips/pills donde no entra el año
- * y el mes va abreviado. Ej: "12 jun". Si el año NO es el actual,
- * agregamos el year corto al final ("12 jun '25").
- */
-function formatShortDate(iso: string): string {
-  if (!iso || iso.length < 10) return iso;
-  const y = Number(iso.slice(0, 4));
-  const m = Number(iso.slice(5, 7)) - 1;
-  const d = Number(iso.slice(8, 10));
-  if (Number.isNaN(m) || Number.isNaN(d)) return iso;
-  const mLabel = (MONTHS_ES[m] ?? "?").slice(0, 3).toLowerCase();
-  const now = new Date().getFullYear();
-  return y === now ? `${d} ${mLabel}` : `${d} ${mLabel} '${String(y).slice(-2)}`;
 }
 
 /**
@@ -407,11 +365,24 @@ export default function ContenidoPage({
     ContentClassification | "all" | "_unclassified"
   >("all");
   /**
-   * Modo de vista: tabla (default, layout actual) o feed (preview de
-   * la red social como una grilla 3-col estilo perfil). El selector
-   * de red dentro de "feed" vive en feedNetwork.
+   * Modo de vista. null = el usuario todavía NO eligió manualmente, así
+   * que se usa el default por rol (ver `viewMode` más abajo).
+   *
+   * Se guarda como preferencia nullable en vez de resolver el default
+   * en un useEffect porque `profile` llega async: un effect que setee
+   * el modo cuando resuelve el profile pisaría una elección manual que
+   * el usuario haya hecho en el ínterin, y haría falta un ref de
+   * guardia para evitarlo. Derivarlo elimina el problema de raíz.
    */
-  const [viewMode, setViewMode] = useState<"table" | "feed">("table");
+  const [viewModePref, setViewModePref] = useState<ContentViewMode | null>(null);
+  /**
+   * "Mis piezas": el equipo arranca viendo solo lo asignado a sí mismo
+   * porque ver las 30+ piezas de todo el cliente era justamente lo que
+   * hacía el módulo inusable para ellos. null = sin elección manual.
+   * Para el director SIEMPRE es false y el toggle no se renderiza, así
+   * su vista queda idéntica.
+   */
+  const [onlyMinePref, setOnlyMinePref] = useState<boolean | null>(null);
   const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
   /**
    * Cuando el usuario toca un tile de la grilla en modo feed, abrimos
@@ -473,6 +444,32 @@ export default function ContenidoPage({
    */
   const canEdit = canEditContent(profile, client?.type ?? null);
 
+  /**
+   * isTeam solo es true cuando el profile YA resolvió y es "team".
+   * Mientras `profile === null` vale false → la página se comporta
+   * exactamente como hoy (defaults del director). El costo es que el
+   * equipo ve un frame de Tabla antes de caer en Tablero.
+   */
+  const isTeam = profile?.role === "team";
+
+  /** Default por rol: equipo → Tablero, director (y el resto) → Tabla. */
+  const viewMode: ContentViewMode = viewModePref ?? (isTeam ? "kanban" : "table");
+
+  /** Solo el equipo tiene el filtro "Mis piezas"; para el director es
+   *  siempre false, así `sortedFiltered` y `stats` quedan idénticos. */
+  const onlyMine = isTeam ? (onlyMinePref ?? true) : false;
+
+  /**
+   * Piezas sin dueño (y no publicadas) de TODO el cliente. Alimenta el
+   * atajo "N sin asignar" que el equipo usa para encontrar lo huérfano
+   * sin tener que apagar el filtro a ciegas — las ideas que crea el
+   * Asistente Creativo nacen sin asignar.
+   */
+  const unassignedCount = useMemo(
+    () => posts.filter((p) => !p.assignedTo && p.status !== "published").length,
+    [posts],
+  );
+
   const sortedFiltered = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     // Aplicar filtro de período sobre post.date
@@ -516,6 +513,10 @@ export default function ContenidoPage({
     const codeQ = colCodeQuery.trim().toLowerCase();
     const ideaQ = colIdeaQuery.trim().toLowerCase();
     const filtered = posts
+      // "Mis piezas" primero: recorta el universo antes que nada.
+      .filter(
+        (p) => !onlyMine || (profile !== null && p.assignedTo === profile.id),
+      )
       .filter((p) => filter === "all" || p.status === filter)
       .filter((p) => inPeriod(p.date))
       // Multi-red: el post matchea si la red filtrada está en su array
@@ -529,8 +530,12 @@ export default function ContenidoPage({
             : p.network === colNetwork),
       )
       .filter((p) => colFormat === "all" || p.format === colFormat)
+      // Con "Mis piezas" activo ignoramos colAssignedTo: si no, elegir a
+      // otra persona en el filtro de columna daría 0 resultados sin
+      // explicación visible. El select va disabled por el mismo motivo.
       .filter(
         (p) =>
+          onlyMine ||
           colAssignedTo === "all" ||
           (colAssignedTo === "_unassigned"
             ? !p.assignedTo
@@ -575,17 +580,47 @@ export default function ContenidoPage({
     colIdeaQuery,
     colClassification,
     codeFallback,
+    onlyMine,
+    profile,
   ]);
 
+  /**
+   * Universo sobre el que cuentan los chips de estado. Tiene que
+   * respetar "Mis piezas": si no, el equipo vería "Todas · 29" con 4
+   * filas en pantalla. Con onlyMine apagado (o sea, siempre para el
+   * director) es idéntico a `posts` → sus contadores no cambian.
+   */
+  const scopedPosts = useMemo(
+    () =>
+      onlyMine && profile
+        ? posts.filter((p) => p.assignedTo === profile.id)
+        : posts,
+    [posts, onlyMine, profile],
+  );
+
   const stats = {
-    total: posts.length,
-    draft: posts.filter((p) => p.status === "draft").length,
-    scheduled: posts.filter((p) => p.status === "scheduled").length,
-    published: posts.filter((p) => p.status === "published").length,
+    total: scopedPosts.length,
+    draft: scopedPosts.filter((p) => p.status === "draft").length,
+    scheduled: scopedPosts.filter((p) => p.status === "scheduled").length,
+    published: scopedPosts.filter((p) => p.status === "published").length,
   };
 
   // ============ Mutations ============
-  async function patchPost(post: ContentPost, patch: Partial<ContentPost>) {
+  /**
+   * Persiste un cambio parcial de la pieza.
+   *
+   * Devuelve true si guardó, false si falló (el alert ya se mostró).
+   * El Tablero necesita ese booleano: aplica el cambio de columna de
+   * forma optimista y tiene que revertirlo si la DB rechazó, pero acá
+   * el error se traga con un alert y NO se re-lanza, así que un
+   * try/catch del lado del Kanban nunca dispararía. Los callers viejos
+   * (approve / unapprove / markPublished / RowEditor) ignoran el
+   * retorno, así que su comportamiento no cambia.
+   */
+  async function patchPost(
+    post: ContentPost,
+    patch: Partial<ContentPost>,
+  ): Promise<boolean> {
     try {
       await updateContent(post.id, {
         date: patch.date,
@@ -605,6 +640,7 @@ export default function ContenidoPage({
         status: patch.status,
       });
       refresh();
+      return true;
     } catch (e) {
       // Antes los errores de DB caían silenciosos — el usuario veía la
       // UI optimista (chip activo) pero el cambio no se persistía. Ahora
@@ -621,6 +657,7 @@ export default function ContenidoPage({
               ? "\n\nProbablemente falta correr la migración 063 + 066 (clasificaciones)."
               : "";
       alert(`No se pudo guardar el cambio:\n${msg}${hint}`);
+      return false;
     }
   }
 
@@ -959,14 +996,13 @@ export default function ContenidoPage({
           border: "1px solid rgba(10,26,12,0.08)",
         }}
       >
-        {(["table", "feed"] as const).map((mode) => {
+        {VIEW_TABS.map(({ mode, label }) => {
           const active = viewMode === mode;
-          const label = mode === "table" ? "▤ Tabla" : "▦ Vista feed";
           return (
             <button
               key={mode}
               type="button"
-              onClick={() => setViewMode(mode)}
+              onClick={() => setViewModePref(mode)}
               style={{
                 padding: "8px 16px",
                 fontSize: 12,
@@ -1023,6 +1059,65 @@ export default function ContenidoPage({
             {f === "all" ? `Todas · ${stats.total}` : `${STATUS_LABEL[f]} · ${stats[f]}`}
           </button>
         ))}
+
+        {/* "Mis piezas" — solo para el equipo. El director no tiene este
+            control: su vista sigue mostrando todo el cliente. */}
+        {isTeam && (
+          <>
+            <button
+              type="button"
+              onClick={() => setOnlyMinePref(!onlyMine)}
+              title={
+                onlyMine
+                  ? "Ver todas las piezas del cliente"
+                  : "Ver solo lo asignado a mí"
+              }
+              style={{
+                padding: "5px 12px",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: onlyMine ? "var(--deep-green)" : "transparent",
+                color: onlyMine ? "var(--off-white)" : "var(--deep-green)",
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: "var(--r-pill)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {onlyMine ? "Mis piezas" : "Todo el cliente"}
+            </button>
+
+            {/* Atajo a lo huérfano: las ideas del Asistente Creativo
+                nacen sin asignar, así que sin esto quedarían invisibles
+                para todo el equipo. */}
+            {onlyMine && unassignedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOnlyMinePref(false);
+                  setColAssignedTo("_unassigned");
+                }}
+                title="Ver las piezas que todavía no tienen responsable"
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "rgba(155,130,89,0.15)",
+                  color: "var(--sand-dark)",
+                  border: "1px solid var(--sand-dark)",
+                  borderRadius: "var(--r-pill)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {unassignedCount} sin asignar →
+              </button>
+            )}
+          </>
+        )}
+
         <div style={{ flex: 1 }} />
         <label
           style={{
@@ -1469,7 +1564,20 @@ export default function ContenidoPage({
                     <select
                       value={colAssignedTo}
                       onChange={(e) => setColAssignedTo(e.target.value)}
-                      style={filterInputStyle}
+                      // Con "Mis piezas" activo este filtro no aplica
+                      // (sortedFiltered lo ignora) — deshabilitarlo deja
+                      // claro por qué, en vez de parecer roto.
+                      disabled={onlyMine}
+                      title={
+                        onlyMine
+                          ? 'Desactivá "Mis piezas" para filtrar por otra persona'
+                          : undefined
+                      }
+                      style={{
+                        ...filterInputStyle,
+                        opacity: onlyMine ? 0.5 : 1,
+                        cursor: onlyMine ? "not-allowed" : "pointer",
+                      }}
                     >
                       <option value="all">Todos</option>
                       <option value="_unassigned">Sin asignar</option>
@@ -2017,7 +2125,9 @@ function RowEditor({
   overdue: boolean;
   isExpanded: boolean;
   onExpand: () => void;
-  onPatch: (patch: Partial<ContentPost>) => Promise<void>;
+  /** Devuelve si guardó OK. RowEditor ignora el retorno (los campos ya
+   *  muestran el valor viejo si falla), pero el Tablero lo necesita. */
+  onPatch: (patch: Partial<ContentPost>) => Promise<boolean>;
   onApprove: () => Promise<void>;
   onUnapprove: () => Promise<void>;
   onPublish: () => Promise<void>;
@@ -2630,7 +2740,7 @@ function PostImageEditor({
 }: {
   post: ContentPost;
   isDirector: boolean;
-  onSaved: (url: string | null) => Promise<void>;
+  onSaved: (url: string | null) => Promise<boolean>;
 }) {
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState("");
