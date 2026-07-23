@@ -446,6 +446,54 @@ export async function emailClientAssigned(input: {
   });
 }
 
+/** El equipo le asignó una tarea a este cliente. El link va al portal
+ *  (no al panel interno de tareas), ya que el cliente no tiene acceso
+ *  al backoffice. */
+export async function emailClientTaskAssigned(input: {
+  clientContactEmail: string;
+  clientContactName: string;
+  clientName: string;
+  taskTitle: string;
+  taskDescription?: string | null;
+  dueDate?: string | null;
+  priority?: string | null;
+}): Promise<{ id: string }> {
+  const meta: string[] = [];
+  if (input.dueDate) meta.push(`<strong>Vence:</strong> ${escapeHtml(input.dueDate)}`);
+  if (input.priority) meta.push(`<strong>Prioridad:</strong> ${escapeHtml(input.priority)}`);
+  const html = baseLayout(
+    `
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        Tenés una tarea pendiente
+      </h1>
+      <p style="margin:0 0 16px;font-size:14px;">
+        Hola ${escapeHtml(input.clientContactName.split(" ")[0])}, el equipo de Dearmas &amp; Costantini te asignó una tarea:
+      </p>
+      <div style="padding:16px;background:#f5f1e9;border-left:3px solid #c4a882;margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">
+          ${escapeHtml(input.taskTitle)}
+        </div>
+        ${
+          input.taskDescription
+            ? `<div style="font-size:13px;color:#5a5a5a;white-space:pre-wrap;">${escapeHtml(input.taskDescription)}</div>`
+            : ""
+        }
+        ${meta.length > 0 ? `<div style="font-size:12px;color:#5a5a5a;margin-top:10px;">${meta.join(" · ")}</div>` : ""}
+      </div>
+      <p style="margin:0;font-size:13px;color:#5a5a5a;">
+        Entrá al portal para ver los detalles y marcarla como hecha cuando la completes.
+      </p>
+    `,
+    `${PORTAL_URL}/portal`,
+    "Ir al portal",
+  );
+  return sendEmail({
+    to: input.clientContactEmail,
+    subject: `${input.clientName} · Nueva tarea: ${input.taskTitle}`,
+    html,
+  });
+}
+
 /** Una factura se marcó como pagada (notif al director). */
 export async function emailPaymentReceived(input: {
   directorEmail: string;

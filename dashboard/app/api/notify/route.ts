@@ -25,6 +25,7 @@ import { requireRole } from "@/lib/auth-guard";
 import {
   emailTaskAssigned,
   emailClientAssigned,
+  emailClientTaskAssigned,
   emailPaymentReceived,
 } from "@/lib/email";
 
@@ -32,6 +33,7 @@ export const dynamic = "force-dynamic";
 
 type NotifKind =
   | "task_assigned"
+  | "client_task_assigned"
   | "client_assigned"
   | "payment_received"
   | "content_approved";
@@ -112,6 +114,68 @@ export async function POST(req: NextRequest) {
         clientId: (task?.client_id as string | null) ?? null,
         dueDate: (task?.due_date as string | null) ?? null,
         priority: (task?.priority as string | null) ?? null,
+      });
+      return Response.json({ ok: true });
+    }
+
+    if (body.kind === "client_task_assigned") {
+      // Task creada en /cliente/[id]/tareas con assignee = cliente.
+      // Le mandamos email al contacto del cliente (o al perfil portal
+      // del cliente, si tiene email seteado). Respeta email_on_task_assigned.
+      const { taskId, clientId } = body;
+      if (!taskId || !clientId) {
+        return Response.json({ error: "Faltan taskId/clientId" }, { status: 400 });
+      }
+      const { data: task } = await admin
+        .from("dev_tasks")
+        .select("title, description, due_date, priority")
+        .eq("id", taskId)
+        .maybeSingle();
+      if (!task) return Response.json({ ok: true, skipped: "no-task" });
+      const t = task as {
+        title: string;
+        description: string | null;
+        due_date: string | null;
+        priority: string | null;
+      };
+      const { data: client } = await admin
+        .from("clients")
+        .select("name, contact_name, contact_email")
+        .eq("id", clientId)
+        .maybeSingle();
+      if (!client) return Response.json({ ok: true, skipped: "no-client" });
+      const c = client as {
+        name: string;
+        contact_name: string | null;
+        contact_email: string | null;
+      };
+      // Preferimos el email del perfil portal del cliente (el que usa
+      // para loguearse). Si no hay perfil o no tiene email, caemos al
+      // contact_email cargado en el wizard.
+      const { data: portalProf } = await admin
+        .from("profiles")
+        .select("email, name, email_on_task_assigned")
+        .eq("client_id", clientId)
+        .eq("role", "client")
+        .maybeSingle();
+      const portal = portalProf as
+        | { email?: string; name?: string; email_on_task_assigned?: boolean }
+        | null;
+      if (portal?.email_on_task_assigned === false) {
+        return Response.json({ ok: true, skipped: "client-opted-out" });
+      }
+      const targetEmail = portal?.email ?? c.contact_email ?? null;
+      const targetName = portal?.name ?? c.contact_name ?? c.name;
+      if (!targetEmail) return Response.json({ ok: true, skipped: "no-email" });
+
+      await emailClientTaskAssigned({
+        clientContactEmail: targetEmail,
+        clientContactName: targetName,
+        clientName: c.name,
+        taskTitle: t.title,
+        taskDescription: t.description,
+        dueDate: t.due_date,
+        priority: t.priority,
       });
       return Response.json({ ok: true });
     }

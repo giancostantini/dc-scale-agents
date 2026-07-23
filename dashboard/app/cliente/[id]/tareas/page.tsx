@@ -122,7 +122,7 @@ export default function TareasClientePage({
         profiles.find((p) => p.id === assigneeId) ??
         (clientProfile?.id === assigneeId ? clientProfile : null);
       const isClientAssigned = assignee?.role === "client";
-      await addTask({
+      const createdTask = await addTask({
         clientId: id,
         title: title.trim(),
         description: description.trim() || undefined,
@@ -170,6 +170,22 @@ export default function TareasClientePage({
             notifErr.message,
           );
         }
+
+        // Además del notif del portal, disparamos email al cliente
+        // vía /api/notify (kind: client_task_assigned). Fire-and-forget:
+        // no bloquea la creación de la tarea si el email falla. El
+        // endpoint respeta email_on_task_assigned del profile portal.
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "client_task_assigned",
+            taskId: createdTask.id,
+            clientId: id,
+          }),
+        }).catch((err) =>
+          console.warn("[tareas] email al cliente falló:", err),
+        );
       }
 
       resetForm();
