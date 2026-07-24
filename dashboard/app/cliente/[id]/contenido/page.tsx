@@ -54,6 +54,7 @@ import {
   STATUS_LABEL,
   formatCode,
   formatHumanDate,
+  isoLocalDate,
   teamHeroCounts,
   weekRange,
 } from "@/lib/content-labels";
@@ -67,8 +68,6 @@ import type {
   ContentStatus,
 } from "@/lib/types";
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
-import ContentKanbanBoard from "@/components/content/ContentKanbanBoard";
-import ContentAdsBoard from "@/components/content/ContentAdsBoard";
 import ContentTeamHero from "@/components/content/ContentTeamHero";
 import ContentConsultantPanel from "@/components/ContentConsultantPanel";
 import {
@@ -95,18 +94,17 @@ function useClassifications(): ClientContentClassification[] {
 import ui from "@/components/ClientUI.module.css";
 
 /**
- * Los 4 modos de vista del módulo.
- *   table  — grilla de gestión con filtros por columna y edición inline.
- *   kanban — tablero por estado con drag & drop. Default del equipo.
- *   feed   — preview tipo perfil de la red social.
- *   ads    — solo piezas con format="anuncio", enfocadas en creative+CTA.
+ * Los 3 modos de vista del módulo.
+ *   table — grilla de gestión con filtros por columna. Click en una
+ *           fila abre la card de edición.
+ *   feed  — preview tipo perfil de la red social.
+ *   ads   — la misma tabla, filtrada a format="anuncio".
  */
-export type ContentViewMode = "table" | "kanban" | "feed" | "ads";
+export type ContentViewMode = "table" | "feed" | "ads";
 
 /** Pestañas del selector de vista, en orden de aparición. */
 const VIEW_TABS: { mode: ContentViewMode; label: string }[] = [
   { mode: "table", label: "▤ Tabla" },
-  { mode: "kanban", label: "◫ Tablero" },
   { mode: "feed", label: "▦ Vista feed" },
   { mode: "ads", label: "◎ Publicidad" },
 ];
@@ -265,7 +263,7 @@ async function downloadContenidoCSV(
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
   const safeName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = isoLocalDate(new Date());
   XLSX.writeFile(wb, `contenido-${safeName}-${today}.xlsx`);
 }
 
@@ -352,7 +350,8 @@ export default function ContenidoPage({
   >("all");
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** Pieza abierta en la card de edición. null = ninguna. */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Filtros por columna — combinan con el chip de estado + período.
   // "all" / "" significa sin filtro.
@@ -457,14 +456,13 @@ export default function ContenidoPage({
 
   /**
    * isTeam solo es true cuando el profile YA resolvió y es "team".
-   * Mientras `profile === null` vale false → la página se comporta
-   * exactamente como hoy (defaults del director). El costo es que el
-   * equipo ve un frame de Tabla antes de caer en Tablero.
+   * Lo usan el hero personal y el filtro "Mis piezas"; la vista inicial
+   * ya no depende del rol.
    */
   const isTeam = profile?.role === "team";
 
-  /** Default por rol: equipo → Tablero, director (y el resto) → Tabla. */
-  const viewMode: ContentViewMode = viewModePref ?? (isTeam ? "kanban" : "table");
+  /** Todos arrancan en Tabla. */
+  const viewMode: ContentViewMode = viewModePref ?? "table";
 
   /** Solo el equipo tiene el filtro "Mis piezas"; para el director es
    *  siempre false, así `sortedFiltered` y `stats` quedan idénticos. */
@@ -482,7 +480,7 @@ export default function ContenidoPage({
   );
 
   const sortedFiltered = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = isoLocalDate(new Date());
     // Aplicar filtro de período sobre post.date
     const inPeriod = (dateStr: string): boolean => {
       if (periodMode === "all") return true;
@@ -603,6 +601,28 @@ export default function ContenidoPage({
     onlyMine,
     profile,
   ]);
+
+  /**
+   * Pieza abierta en la card. Se DERIVA de `posts` por id en vez de
+   * guardar el objeto: cada patch refresca la lista, y con el objeto
+   * guardado la card quedaría mostrando los valores viejos.
+   */
+  const editingPost = editingId
+    ? (posts.find((p) => p.id === editingId) ?? null)
+    : null;
+
+  /**
+   * Filas que renderiza la tabla. En Publicidad es la misma vista
+   * recortada a los anuncios — así hereda estado, período, red, "Mis
+   * piezas" y las búsquedas por columna sin duplicar nada.
+   */
+  const tableRows = useMemo(
+    () =>
+      viewMode === "ads"
+        ? sortedFiltered.filter((p) => p.format === "anuncio")
+        : sortedFiltered,
+    [viewMode, sortedFiltered],
+  );
 
   /**
    * Universo sobre el que cuentan los chips de estado. Tiene que
@@ -1279,13 +1299,13 @@ export default function ContenidoPage({
         <button
           onClick={() =>
             downloadContenidoCSV(
-              sortedFiltered,
+              tableRows,
               client?.name ?? "cliente",
               teamMembers,
               codeFallback,
             )
           }
-          disabled={sortedFiltered.length === 0}
+          disabled={tableRows.length === 0}
           style={{
             padding: "5px 12px",
             fontSize: 11,
@@ -1295,10 +1315,10 @@ export default function ContenidoPage({
             background: "transparent",
             color: "var(--deep-green)",
             border: "1px solid var(--sand-dark)",
-            cursor: sortedFiltered.length === 0 ? "default" : "pointer",
+            cursor: tableRows.length === 0 ? "default" : "pointer",
             fontFamily: "inherit",
             borderRadius: 4,
-            opacity: sortedFiltered.length === 0 ? 0.4 : 1,
+            opacity: tableRows.length === 0 ? 0.4 : 1,
           }}
           title="Descarga un archivo .xlsx que se abre directo en Excel / Numbers / Sheets"
         >
@@ -1309,7 +1329,9 @@ export default function ContenidoPage({
       {/* BARRA DE ACCIONES BULK — solo aparece cuando hay items
           seleccionados en la tabla. Permite eliminar, aprobar,
           desaprobar o marcar publicada masivamente. Director only. */}
-      {canEdit && viewMode === "table" && selectedIds.size > 0 && (
+      {canEdit &&
+        (viewMode === "table" || viewMode === "ads") &&
+        selectedIds.size > 0 && (
         <div
           style={{
             display: "flex",
@@ -1459,9 +1481,10 @@ export default function ContenidoPage({
         </div>
       )}
 
-      {/* TABLA de ideas — solo visible en modo "table". El modo "feed"
-          renderiza el preview IG/FB en su propio bloque más abajo. */}
-      {viewMode === "table" && (
+      {/* TABLA de ideas. La usan tanto "table" como "ads" — Publicidad
+          es la misma grilla recortada a los anuncios (ver tableRows).
+          El modo "feed" renderiza el preview IG/FB más abajo. */}
+      {(viewMode === "table" || viewMode === "ads") && (
       <div className={ui.panel} style={{ marginBottom: 24, padding: 0, overflow: "hidden" }}>
         {posts.length === 0 ? (
           // Sin posts cargados en absoluto — la fila de filtros no
@@ -1492,8 +1515,8 @@ export default function ContenidoPage({
                       aparece cuando hay algunas seleccionadas pero no
                       todas. Solo para director — el team no edita ni borra. */}
                   <th style={{ ...thStyle, width: 36, paddingLeft: 14 }}>
-                    {canEdit && sortedFiltered.length > 0 && (() => {
-                      const visibleIds = sortedFiltered.map((p) => p.id);
+                    {canEdit && tableRows.length > 0 && (() => {
+                      const visibleIds = tableRows.map((p) => p.id);
                       const allSelected = visibleIds.every((id) =>
                         selectedIds.has(id),
                       );
@@ -1710,7 +1733,7 @@ export default function ContenidoPage({
                 </tr>
               </thead>
               <tbody>
-                {sortedFiltered.length === 0 ? (
+                {tableRows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={10}
@@ -1722,7 +1745,9 @@ export default function ContenidoPage({
                       }}
                     >
                       <div style={{ fontStyle: "italic", marginBottom: 12 }}>
-                        Ningún contenido coincide con estos filtros.
+                        {viewMode === "ads"
+                          ? "No hay anuncios que coincidan con estos filtros."
+                          : "Ningún contenido coincide con estos filtros."}
                       </div>
                       <button
                         type="button"
@@ -1756,10 +1781,9 @@ export default function ContenidoPage({
                     </td>
                   </tr>
                 ) : (
-                  sortedFiltered.map((p) => {
-                    const today = new Date().toISOString().slice(0, 10);
+                  tableRows.map((p) => {
+                    const today = isoLocalDate(new Date());
                     const overdue = p.status !== "published" && p.date < today;
-                    const isExpanded = expandedId === p.id;
                     const netColor =
                       (NETWORK_COLORS as Record<string, { solid: string }>)[p.network]?.solid ?? "#0A1A0C";
                     return (
@@ -1769,9 +1793,7 @@ export default function ContenidoPage({
                         code={codeOf(p, codeFallback)}
                         netColor={netColor}
                         overdue={overdue}
-                        isExpanded={isExpanded}
-                        onExpand={() => setExpandedId(isExpanded ? null : p.id)}
-                        onPatch={(patch) => patchPost(p, patch)}
+                        onOpen={() => setEditingId(p.id)}
                         onApprove={() => approve(p)}
                         onUnapprove={() => unapprove(p)}
                         onPublish={() => markPublished(p)}
@@ -1796,36 +1818,6 @@ export default function ContenidoPage({
           </div>
         )}
       </div>
-      )}
-
-      {/* ============== VISTA TABLERO (kanban por estado) ============
-          Default del equipo. Recibe sortedFiltered (respeta "Mis
-          piezas" y el resto de los filtros) y solo agrupa por estado.
-          El drag entre columnas persiste el status nuevo. */}
-      {viewMode === "kanban" && (
-        <ContentKanbanBoard
-          posts={sortedFiltered}
-          classifications={classifications}
-          teamMembers={teamMembers}
-          codeOf={(p) => codeOf(p, codeFallback)}
-          canEdit={canEdit}
-          onCardClick={(p) => setFeedPostDetail(p)}
-          onStatusChange={(p, status) => patchPost(p, { status })}
-        />
-      )}
-
-      {/* ============== VISTA PUBLICIDAD ============
-          Solo piezas con format="anuncio", en cards grandes con el
-          creative, el copy y el CTA destacado. El recorte por formato
-          lo hace el componente para heredar el resto de los filtros. */}
-      {viewMode === "ads" && (
-        <ContentAdsBoard
-          posts={sortedFiltered}
-          classifications={classifications}
-          teamMembers={teamMembers}
-          codeOf={(p) => codeOf(p, codeFallback)}
-          onCardClick={(p) => setFeedPostDetail(p)}
-        />
       )}
 
       {/* ============== VISTA FEED (preview tipo perfil IG) ============
@@ -1853,6 +1845,25 @@ export default function ContenidoPage({
           clientSocialLinks={client?.social_links ?? null}
           classifications={classifications}
           onTileClick={(p) => setFeedPostDetail(p)}
+        />
+      )}
+
+      {/* Card de edición — se abre al clickear una fila de la tabla.
+          key={id} para que al cambiar de pieza se remonte y los
+          buffers de texto arranquen del valor correcto. */}
+      {editingPost && (
+        <PostEditorCard
+          key={editingPost.id}
+          post={editingPost}
+          code={codeOf(editingPost, codeFallback)}
+          canEdit={canEdit}
+          teamMembers={teamMembers}
+          onPatch={(patch) => patchPost(editingPost, patch)}
+          onApprove={() => approve(editingPost)}
+          onUnapprove={() => unapprove(editingPost)}
+          onPublish={() => markPublished(editingPost)}
+          onDelete={() => deleteOne(editingPost)}
+          onClose={() => setEditingId(null)}
         />
       )}
 
@@ -2190,7 +2201,9 @@ export default function ContenidoPage({
                 format: draft.format,
                 brief: draft.brief,
                 idea: draft.idea || null,
-                copy: draft.copy || null,
+                // El copy lo escribe el Asistente Creativo, no se
+                // carga a mano desde acá.
+                copy: null,
                 cta: draft.cta || null,
                 influencer: null,
                 assignedTo: draft.assignedTo,
@@ -2215,16 +2228,15 @@ export default function ContenidoPage({
 }
 
 // ============================================================
-// RowEditor — fila editable de la tabla con expand para detalles
+// RowEditor — fila de la tabla. Presentacional: el detalle y la
+// edición viven en PostEditorCard, que se abre con onOpen.
 // ============================================================
 function RowEditor({
   post,
   code,
   netColor,
   overdue,
-  isExpanded,
-  onExpand,
-  onPatch,
+  onOpen,
   onApprove,
   onUnapprove,
   onPublish,
@@ -2238,11 +2250,8 @@ function RowEditor({
   code: string;
   netColor: string;
   overdue: boolean;
-  isExpanded: boolean;
-  onExpand: () => void;
-  /** Devuelve si guardó OK. RowEditor ignora el retorno (los campos ya
-   *  muestran el valor viejo si falla), pero el Tablero lo necesita. */
-  onPatch: (patch: Partial<ContentPost>) => Promise<boolean>;
+  /** Abre la card de edición de esta pieza. */
+  onOpen: () => void;
   onApprove: () => Promise<void>;
   onUnapprove: () => Promise<void>;
   onPublish: () => Promise<void>;
@@ -2258,50 +2267,21 @@ function RowEditor({
   // ClassificationsContext seteado por ContenidoPage.
   const classifications = useClassifications();
   const classMeta = classificationMetaById(classifications, post.classification);
-  // Buffers locales para evitar re-render por keystroke
-  const [ideaDraft, setIdeaDraft] = useState(post.idea ?? "");
-  const [copyDraft, setCopyDraft] = useState(post.copy ?? "");
-  const [ctaDraft, setCtaDraft] = useState(post.cta ?? "");
-  const [influencerDraft, setInfluencerDraft] = useState(post.influencer ?? "");
-  const [briefDraft, setBriefDraft] = useState(post.brief ?? "");
-  const [assetUrlDraft, setAssetUrlDraft] = useState(post.assetUrl ?? "");
-
-  // Sync cuando cambia el post desde afuera
-  useEffect(() => {
-    setIdeaDraft(post.idea ?? "");
-    setCopyDraft(post.copy ?? "");
-    setCtaDraft(post.cta ?? "");
-    setInfluencerDraft(post.influencer ?? "");
-    setBriefDraft(post.brief ?? "");
-    setAssetUrlDraft(post.assetUrl ?? "");
-  }, [
-    post.id,
-    post.idea,
-    post.copy,
-    post.cta,
-    post.influencer,
-    post.brief,
-    post.assetUrl,
-  ]);
 
   const assignedMember = teamMembers.find((t) => t.id === post.assignedTo);
 
   return (
-    <>
-      <tr
-        style={{
-          borderBottom: "1px solid rgba(10,26,12,0.05)",
-          background: selected
-            ? "rgba(47,125,79,0.06)"
-            : isExpanded
-              ? "rgba(196,168,130,0.06)"
-              : undefined,
-          cursor: "pointer",
-        }}
-        onClick={onExpand}
-      >
+    <tr
+      style={{
+        borderBottom: "1px solid rgba(10,26,12,0.05)",
+        background: selected ? "rgba(47,125,79,0.06)" : undefined,
+        cursor: "pointer",
+      }}
+      onClick={onOpen}
+      title="Abrir la pieza"
+    >
         {/* Checkbox de selección. Solo el director puede usarlo. Click
-            sobre el checkbox NO debe disparar onExpand (toggle visual). */}
+            sobre el checkbox NO debe abrir la card. */}
         <td
           style={{ ...tdStyle, width: 36, paddingLeft: 14 }}
           onClick={(e) => e.stopPropagation()}
@@ -2317,7 +2297,6 @@ function RowEditor({
           )}
         </td>
         <td style={{ ...tdStyle, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>
-          {isExpanded ? "▼ " : "▶ "}
           {code}
         </td>
         <td style={tdStyle}>
@@ -2512,16 +2491,289 @@ function RowEditor({
               ×
             </button>
           )}
-        </td>
-      </tr>
+      </td>
+    </tr>
+  );
+}
 
-      {/* Detalle expandido — editable */}
-      {isExpanded && (
-        <tr style={{ background: "var(--off-white)" }}>
-          <td colSpan={10} style={{ padding: "16px 20px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              {/* Columna izquierda: idea + copy */}
-              <div>
+// ============================================================
+// PostEditorCard — card de edición de una pieza.
+//
+// Reemplaza al detalle que antes se desplegaba debajo de la fila:
+// mismos campos y mismo guardado onBlur, pero en un modal centrado.
+// El copy NO está: lo escribe el Asistente Creativo, tenerlo también
+// acá era doble carga.
+// ============================================================
+function PostEditorCard({
+  post,
+  code,
+  canEdit,
+  teamMembers,
+  onPatch,
+  onApprove,
+  onUnapprove,
+  onPublish,
+  onDelete,
+  onClose,
+}: {
+  post: ContentPost;
+  code: string;
+  canEdit: boolean;
+  teamMembers: Profile[];
+  onPatch: (patch: Partial<ContentPost>) => Promise<boolean>;
+  onApprove: () => Promise<void>;
+  onUnapprove: () => Promise<void>;
+  onPublish: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const classifications = useClassifications();
+  const classMeta = classificationMetaById(classifications, post.classification);
+  const overdue =
+    post.status !== "published" && post.date < isoLocalDate(new Date());
+
+  // Buffers locales de los campos de texto: evitan un round-trip a la
+  // DB por cada tecla. Se guardan onBlur.
+  //
+  // Van con `key={post.id}` desde el padre, así que un cambio de pieza
+  // remonta el componente y los buffers arrancan del valor correcto
+  // sin necesidad de un effect de sincronización.
+  const [ideaDraft, setIdeaDraft] = useState(post.idea ?? "");
+  const [ctaDraft, setCtaDraft] = useState(post.cta ?? "");
+  const [influencerDraft, setInfluencerDraft] = useState(post.influencer ?? "");
+  const [briefDraft, setBriefDraft] = useState(post.brief ?? "");
+  const [assetUrlDraft, setAssetUrlDraft] = useState(post.assetUrl ?? "");
+
+  // Escape cierra. Se registra en document porque el modal no tiene el
+  // foco necesariamente (el usuario puede venir de clickear la fila).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const nets =
+    post.networks && post.networks.length > 0 ? post.networks : [post.network];
+
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(10,26,12,0.6)",
+        zIndex: 1100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 40,
+        backdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        style={{
+          background: "var(--white)",
+          maxWidth: 760,
+          width: "100%",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          borderRadius: "var(--r-lg)",
+          position: "relative",
+          boxShadow: "var(--shadow-md)",
+        }}
+      >
+        {/* Encabezado sticky: identifica la pieza y concentra las
+            acciones de estado, que antes vivían en la fila. */}
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
+            background: "var(--off-white)",
+            borderBottom: "1px solid rgba(10,26,12,0.08)",
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                flexWrap: "wrap",
+                marginBottom: 6,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--deep-green)",
+                }}
+              >
+                {code}
+              </span>
+              {nets.map((n) => (
+                <span
+                  key={n}
+                  style={{
+                    padding: "2px 7px",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: NETWORK_COLORS[n]?.solid ?? "var(--deep-green)",
+                    color: "#fff",
+                    borderRadius: "var(--r-pill)",
+                  }}
+                >
+                  {NETWORK_LABEL[n] ?? n}
+                </span>
+              ))}
+              <span
+                style={{
+                  padding: "2px 7px",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "var(--sand)",
+                  color: "var(--deep-green)",
+                  borderRadius: "var(--r-pill)",
+                }}
+              >
+                {FORMAT_LABEL[post.format] ?? post.format}
+              </span>
+              {classMeta && (
+                <span
+                  style={{
+                    padding: "2px 7px",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: classMeta.color,
+                    color: "var(--off-white)",
+                    borderRadius: "var(--r-pill)",
+                  }}
+                >
+                  {classMeta.label}
+                </span>
+              )}
+            </div>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span
+                style={{
+                  padding: "2px 8px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background:
+                    post.status === "scheduled"
+                      ? "rgba(47,125,79,0.12)"
+                      : post.status === "published"
+                        ? "rgba(10,26,12,0.08)"
+                        : "rgba(155,130,89,0.15)",
+                  color: STATUS_COLOR[post.status],
+                  borderRadius: "var(--r-pill)",
+                }}
+              >
+                {STATUS_LABEL[post.status]}
+              </span>
+              {overdue && (
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    color: "var(--red-warn)",
+                  }}
+                >
+                  VENCIDA
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            {canEdit && post.status === "draft" && (
+              <button onClick={onApprove} style={btnApprove}>
+                ✓ Aprobar
+              </button>
+            )}
+            {canEdit && post.status === "scheduled" && (
+              <button onClick={onUnapprove} style={btnGhost}>
+                ↶ Desaprobar
+              </button>
+            )}
+            {canEdit && post.status === "scheduled" && (
+              <button onClick={onPublish} style={btnPublish}>
+                📤 Publicada
+              </button>
+            )}
+            {canEdit && (
+              <button
+                onClick={async () => {
+                  await onDelete();
+                  onClose();
+                }}
+                style={btnDelete}
+                title="Eliminar la pieza"
+              >
+                ×
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              title="Cerrar"
+              style={{
+                fontSize: 18,
+                width: 30,
+                height: 30,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-muted)",
+                fontFamily: "inherit",
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}
+          >
+            {/* Columna izquierda: la pieza en sí */}
+            <div>
+              <FieldLabel>Imagen de preview</FieldLabel>
+              <PostImageEditor
+                post={post}
+                isDirector={canEdit}
+                onSaved={(url) => onPatch({ imageUrl: url })}
+              />
+
+              <div style={{ marginTop: 14 }}>
                 <FieldLabel>Idea</FieldLabel>
                 <textarea
                   value={ideaDraft}
@@ -2531,314 +2783,286 @@ function RowEditor({
                       onPatch({ idea: ideaDraft || null });
                     }
                   }}
-                  rows={2}
-                  disabled={!isDirector}
+                  rows={3}
+                  disabled={!canEdit}
                   style={editorStyle}
                   placeholder="Concepto creativo de la pieza"
                 />
-
-                <FieldLabel>Copy</FieldLabel>
-                <textarea
-                  value={copyDraft}
-                  onChange={(e) => setCopyDraft(e.target.value)}
-                  onBlur={() => {
-                    if (copyDraft !== (post.copy ?? "")) {
-                      onPatch({ copy: copyDraft || null });
-                    }
-                  }}
-                  rows={5}
-                  disabled={!isDirector}
-                  style={editorStyle}
-                  placeholder="Texto listo para publicar"
-                />
-
-                {post.format === "anuncio" && (
-                  <>
-                    <FieldLabel>CTA (Call to Action)</FieldLabel>
-                    <input
-                      value={ctaDraft}
-                      onChange={(e) => setCtaDraft(e.target.value)}
-                      onBlur={() => {
-                        if (ctaDraft !== (post.cta ?? "")) {
-                          onPatch({ cta: ctaDraft || null });
-                        }
-                      }}
-                      disabled={!isDirector}
-                      style={editorStyle}
-                      placeholder='Ej: "Reservá tu lugar"'
-                    />
-                  </>
-                )}
               </div>
 
-              {/* Columna derecha: meta + brief */}
-              <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div>
-                    <FieldLabel>Fecha de publicación</FieldLabel>
-                    <input
-                      type="date"
-                      value={post.date}
-                      onChange={(e) => onPatch({ date: e.target.value })}
-                      disabled={!isDirector}
-                      style={editorStyle}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Hora</FieldLabel>
-                    <input
-                      type="time"
-                      value={post.time ?? ""}
-                      onChange={(e) => onPatch({ time: e.target.value || null })}
-                      disabled={!isDirector}
-                      style={editorStyle}
-                    />
-                  </div>
-                </div>
+              {post.format === "anuncio" && (
+                <>
+                  <FieldLabel>CTA (Call to Action)</FieldLabel>
+                  <input
+                    value={ctaDraft}
+                    onChange={(e) => setCtaDraft(e.target.value)}
+                    onBlur={() => {
+                      if (ctaDraft !== (post.cta ?? "")) {
+                        onPatch({ cta: ctaDraft || null });
+                      }
+                    }}
+                    disabled={!canEdit}
+                    style={editorStyle}
+                    placeholder='Ej: "Reservá tu lugar"'
+                  />
+                </>
+              )}
 
-                {/* Redes — multi-select de pills. Una idea = una pieza,
-                    pero puede vivir en N redes a la vez (mismo C-XXXX).
-                    Re-tocar una activa la apaga; al apagar la última,
-                    la mantenemos seleccionada para no quedar en vacío. */}
-                <FieldLabel>Redes (multi-select)</FieldLabel>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 6,
-                    marginBottom: 10,
-                  }}
-                >
-                  {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
-                    const current =
-                      post.networks && post.networks.length > 0
-                        ? post.networks
-                        : [post.network];
-                    const checked = current.includes(n);
-                    return (
-                      <button
-                        type="button"
-                        key={n}
-                        disabled={!isDirector}
-                        onClick={() => {
-                          if (!isDirector) return;
-                          let next: ContentNetwork[];
-                          if (checked) {
-                            next = current.filter((x) => x !== n);
-                            // No dejamos quedar en vacío: si era la
-                            // única seleccionada, ignoramos el click.
-                            if (next.length === 0) return;
-                          } else {
-                            next = [...current, n];
-                          }
-                          onPatch({ networks: next });
-                        }}
-                        style={{
-                          padding: "6px 12px",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          letterSpacing: "0.04em",
-                          background: checked
-                            ? (NETWORK_COLORS[n]?.solid ?? "var(--deep-green)")
-                            : "var(--white)",
-                          color: checked
-                            ? "var(--off-white)"
-                            : "var(--deep-green)",
-                          border: `1px solid ${
-                            checked
-                              ? NETWORK_COLORS[n]?.solid ?? "var(--deep-green)"
-                              : "rgba(10,26,12,0.15)"
-                          }`,
-                          borderRadius: 6,
-                          cursor: isDirector ? "pointer" : "default",
-                          fontFamily: "inherit",
-                          opacity: isDirector ? 1 : 0.6,
-                        }}
-                      >
-                        {checked && "✓ "}
-                        {NETWORK_LABEL[n]}
-                      </button>
-                    );
-                  })}
+              <FieldLabel>Brief</FieldLabel>
+              <textarea
+                value={briefDraft}
+                onChange={(e) => setBriefDraft(e.target.value)}
+                onBlur={() => {
+                  if (briefDraft !== (post.brief ?? "")) {
+                    onPatch({ brief: briefDraft });
+                  }
+                }}
+                rows={4}
+                disabled={!canEdit}
+                style={editorStyle}
+                placeholder="Indicaciones de producción"
+              />
+            </div>
+
+            {/* Columna derecha: metadata de planificación */}
+            <div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <FieldLabel>Fecha de publicación</FieldLabel>
+                  <input
+                    type="date"
+                    value={post.date}
+                    onChange={(e) => onPatch({ date: e.target.value })}
+                    disabled={!canEdit}
+                    style={editorStyle}
+                  />
                 </div>
                 <div>
-                  <FieldLabel>Formato</FieldLabel>
-                  <select
-                    value={post.format}
-                    onChange={(e) =>
-                      onPatch({ format: e.target.value as ContentFormat })
-                    }
-                    disabled={!isDirector}
+                  <FieldLabel>Hora</FieldLabel>
+                  <input
+                    type="time"
+                    value={post.time ?? ""}
+                    onChange={(e) => onPatch({ time: e.target.value || null })}
+                    disabled={!canEdit}
                     style={editorStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Una idea = una pieza, pero puede vivir en N redes con
+                  el mismo C-XXXX. Al apagar la última la ignoramos
+                  para no dejar la pieza sin red. */}
+              <FieldLabel>Redes (multi-select)</FieldLabel>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginBottom: 10,
+                }}
+              >
+                {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
+                  const current =
+                    post.networks && post.networks.length > 0
+                      ? post.networks
+                      : [post.network];
+                  const checked = current.includes(n);
+                  return (
+                    <button
+                      type="button"
+                      key={n}
+                      disabled={!canEdit}
+                      onClick={() => {
+                        if (!canEdit) return;
+                        let next: ContentNetwork[];
+                        if (checked) {
+                          next = current.filter((x) => x !== n);
+                          if (next.length === 0) return;
+                        } else {
+                          next = [...current, n];
+                        }
+                        onPatch({ networks: next });
+                      }}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        background: checked
+                          ? (NETWORK_COLORS[n]?.solid ?? "var(--deep-green)")
+                          : "var(--white)",
+                        color: checked ? "var(--off-white)" : "var(--deep-green)",
+                        border: `1px solid ${
+                          checked
+                            ? (NETWORK_COLORS[n]?.solid ?? "var(--deep-green)")
+                            : "rgba(10,26,12,0.15)"
+                        }`,
+                        borderRadius: 6,
+                        cursor: canEdit ? "pointer" : "default",
+                        fontFamily: "inherit",
+                        opacity: canEdit ? 1 : 0.6,
+                      }}
+                    >
+                      {checked && "✓ "}
+                      {NETWORK_LABEL[n]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <FieldLabel>Formato</FieldLabel>
+              <select
+                value={post.format}
+                onChange={(e) =>
+                  onPatch({ format: e.target.value as ContentFormat })
+                }
+                disabled={!canEdit}
+                style={editorStyle}
+              >
+                {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
+                  <option key={f} value={f}>
+                    {FORMAT_LABEL[f]}
+                  </option>
+                ))}
+              </select>
+
+              <FieldLabel>Asignado a</FieldLabel>
+              <select
+                value={post.assignedTo ?? ""}
+                onChange={(e) => onPatch({ assignedTo: e.target.value || null })}
+                disabled={!canEdit}
+                style={editorStyle}
+              >
+                <option value="">— Sin asignar —</option>
+                {teamMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} · {m.role === "director" ? "Director" : "Equipo"}
+                  </option>
+                ))}
+              </select>
+
+              <FieldLabel>Clasificación editorial</FieldLabel>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  marginBottom: 10,
+                }}
+              >
+                {classifications.map((c) => {
+                  const meta = classificationMetaById(classifications, c.id)!;
+                  const checked = post.classification === c.id;
+                  return (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onClick={() =>
+                        canEdit &&
+                        onPatch({ classification: checked ? null : c.id })
+                      }
+                      disabled={!canEdit}
+                      style={{
+                        padding: "5px 11px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        background: checked ? meta.color : meta.bg,
+                        color: checked ? "var(--off-white)" : meta.color,
+                        border: `1px solid ${meta.color}`,
+                        borderRadius: 999,
+                        cursor: canEdit ? "pointer" : "default",
+                        fontFamily: "inherit",
+                        opacity: canEdit ? 1 : 0.6,
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {checked && "✓ "}
+                      {meta.label}
+                    </button>
+                  );
+                })}
+                {classifications.length === 0 && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontStyle: "italic",
+                    }}
                   >
-                    {(Object.keys(FORMAT_LABEL) as ContentFormat[]).map((f) => (
-                      <option key={f} value={f}>
-                        {FORMAT_LABEL[f]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <FieldLabel>Asignado a</FieldLabel>
-                <select
-                  value={post.assignedTo ?? ""}
-                  onChange={(e) => onPatch({ assignedTo: e.target.value || null })}
-                  disabled={!isDirector}
-                  style={editorStyle}
-                >
-                  <option value="">— Sin asignar —</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} · {m.role === "director" ? "Director" : "Equipo"}
-                    </option>
-                  ))}
-                </select>
-
-                <FieldLabel>Clasificación editorial</FieldLabel>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {classifications.map((c) => {
-                    const meta = classificationMetaById(classifications, c.id)!;
-                    const checked = post.classification === c.id;
-                    return (
-                      <button
-                        type="button"
-                        key={c.id}
-                        onClick={() =>
-                          isDirector &&
-                          onPatch({
-                            classification: checked ? null : c.id,
-                          })
-                        }
-                        disabled={!isDirector}
-                        style={{
-                          padding: "5px 11px",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: checked ? meta.color : meta.bg,
-                          color: checked ? "var(--off-white)" : meta.color,
-                          border: `1px solid ${meta.color}`,
-                          borderRadius: 999,
-                          cursor: isDirector ? "pointer" : "default",
-                          fontFamily: "inherit",
-                          opacity: isDirector ? 1 : 0.6,
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {checked && "✓ "}
-                        {meta.label}
-                      </button>
-                    );
-                  })}
-                  {classifications.length === 0 && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      No hay clasificaciones cargadas. Configurálas en
-                      /configuracion del cliente.
-                    </span>
-                  )}
-                </div>
-
-                {post.format === "ugc" && (
-                  <>
-                    <FieldLabel>Influencer asignado</FieldLabel>
-                    <input
-                      value={influencerDraft}
-                      onChange={(e) => setInfluencerDraft(e.target.value)}
-                      onBlur={() => {
-                        if (influencerDraft !== (post.influencer ?? "")) {
-                          onPatch({ influencer: influencerDraft || null });
-                        }
-                      }}
-                      disabled={!isDirector}
-                      style={editorStyle}
-                      placeholder="Nombre del influencer"
-                    />
-                  </>
-                )}
-
-                <FieldLabel>Brief de producción</FieldLabel>
-                <textarea
-                  value={briefDraft}
-                  onChange={(e) => setBriefDraft(e.target.value)}
-                  onBlur={() => {
-                    if (briefDraft !== (post.brief ?? "")) {
-                      onPatch({ brief: briefDraft });
-                    }
-                  }}
-                  rows={4}
-                  disabled={!isDirector}
-                  style={editorStyle}
-                  placeholder="Shots, tono, formato visual, referencias"
-                />
-
-                {/* Imagen de preview — opcional. Subila para ver cómo
-                    queda en la grilla del feed (vista perfil). No
-                    reemplaza el creative final, solo es preview. */}
-                <FieldLabel>Imagen de preview</FieldLabel>
-                <PostImageEditor
-                  post={post}
-                  isDirector={isDirector}
-                  onSaved={(url) => onPatch({ imageUrl: url })}
-                />
-
-                {/* Link al archivo final — OneDrive / Drive. Distinto
-                    de la imagen de preview: acá se pega el link a la
-                    carpeta o archivo donde vive el creative real. La
-                    tabla muestra un 📎 en la fila cuando hay valor. */}
-                <FieldLabel>Link al archivo (OneDrive / Drive)</FieldLabel>
-                <input
-                  type="url"
-                  value={assetUrlDraft}
-                  onChange={(e) => setAssetUrlDraft(e.target.value)}
-                  onBlur={() => {
-                    const cleaned = assetUrlDraft.trim();
-                    if (cleaned !== (post.assetUrl ?? "")) {
-                      onPatch({ assetUrl: cleaned || null });
-                    }
-                  }}
-                  disabled={!isDirector}
-                  style={editorStyle}
-                  placeholder="https://onedrive.live.com/..."
-                />
-                {post.assetUrl && (
-                  <div style={{ marginTop: 6 }}>
-                    <a
-                      href={post.assetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: 11,
-                        color: "var(--deep-green)",
-                        textDecoration: "underline",
-                        textDecorationStyle: "dotted",
-                      }}
-                    >
-                      📎 Abrir archivo en pestaña nueva ↗
-                    </a>
-                  </div>
+                    No hay clasificaciones cargadas. Configurálas en
+                    /configuracion del cliente.
+                  </span>
                 )}
               </div>
-            </div>
 
-            <div
-              style={{
-                marginTop: 12,
-                fontSize: 11,
-                color: "var(--text-muted)",
-                fontStyle: "italic",
-              }}
-            >
-              Los cambios se guardan automáticamente al salir del campo.
+              {post.format === "ugc" && (
+                <>
+                  <FieldLabel>Influencer asignado</FieldLabel>
+                  <input
+                    value={influencerDraft}
+                    onChange={(e) => setInfluencerDraft(e.target.value)}
+                    onBlur={() => {
+                      if (influencerDraft !== (post.influencer ?? "")) {
+                        onPatch({ influencer: influencerDraft || null });
+                      }
+                    }}
+                    disabled={!canEdit}
+                    style={editorStyle}
+                    placeholder="Nombre del influencer"
+                  />
+                </>
+              )}
+
+              <FieldLabel>Link al archivo (OneDrive / Drive)</FieldLabel>
+              <input
+                value={assetUrlDraft}
+                onChange={(e) => setAssetUrlDraft(e.target.value)}
+                onBlur={() => {
+                  if (assetUrlDraft !== (post.assetUrl ?? "")) {
+                    onPatch({ assetUrl: assetUrlDraft || null });
+                  }
+                }}
+                disabled={!canEdit}
+                style={editorStyle}
+                placeholder="https://…"
+              />
+              {post.assetUrl && (
+                <a
+                  href={post.assetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-block",
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: "var(--sand-dark)",
+                  }}
+                >
+                  📎 Abrir archivo en pestaña nueva ↗
+                </a>
+              )}
             </div>
-          </td>
-        </tr>
-      )}
-    </>
+          </div>
+
+          <div
+            style={{
+              marginTop: 14,
+              fontSize: 11,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+            }}
+          >
+            Los cambios se guardan automáticamente al salir del campo.
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3204,11 +3428,10 @@ interface NewIdeaDraft {
   date: string;
   time: string;
   /** Una o varias redes — al guardar se crea una pieza por cada red
-   *  seleccionada (todas con el mismo idea/copy/brief, codes distintos). */
+   *  seleccionada (todas con el mismo idea/brief, codes distintos). */
   networks: ContentNetwork[];
   format: ContentFormat;
   idea: string;
-  copy: string;
   cta: string;
   brief: string;
   /** Clasificación editorial — valor, conversion o aspiracional.
@@ -3234,14 +3457,13 @@ function NewIdeaModal({
   defaultAssignedTo: string | null;
 }) {
   // Default: hoy, sin hora, IG post.
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = isoLocalDate(new Date());
   const [draft, setDraft] = useState<NewIdeaDraft>({
     date: todayISO,
     time: "",
     networks: ["ig"],
     format: "post",
     idea: "",
-    copy: "",
     cta: "",
     brief: "",
     classification: null,
@@ -3522,15 +3744,6 @@ function NewIdeaModal({
           onChange={(e) => setDraft({ ...draft, idea: e.target.value })}
           rows={2}
           placeholder="Concepto creativo de la pieza"
-          style={modalInput}
-        />
-
-        <ModalLabel>Copy</ModalLabel>
-        <textarea
-          value={draft.copy}
-          onChange={(e) => setDraft({ ...draft, copy: e.target.value })}
-          rows={4}
-          placeholder="Texto listo para publicar (opcional)"
           style={modalInput}
         />
 
