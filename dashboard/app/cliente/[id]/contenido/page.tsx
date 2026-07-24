@@ -46,6 +46,7 @@ import {
   type Profile,
 } from "@/lib/supabase/auth";
 import { uploadContentPreview } from "@/lib/upload";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { NETWORK_COLORS } from "@/lib/content-frequency";
 import {
   FORMAT_LABEL,
@@ -1917,6 +1918,9 @@ export default function ContenidoPage({
             style={{
               maxHeight: 260,
               overflowY: "auto",
+              // Al llegar al final del historial la rueda no debe
+              // seguir de largo scrolleando la página.
+              overscrollBehavior: "contain",
               padding: 4,
               marginBottom: 10,
               border: "1px solid rgba(10,26,12,0.06)",
@@ -2544,6 +2548,9 @@ function PostEditorCard({
   const [briefDraft, setBriefDraft] = useState(post.brief ?? "");
   const [assetUrlDraft, setAssetUrlDraft] = useState(post.assetUrl ?? "");
 
+  // Congela el scroll del fondo mientras la card está abierta.
+  useScrollLock(true);
+
   // Escape cierra. Se registra en document porque el modal no tiene el
   // foco necesariamente (el usuario puede venir de clickear la fila).
   useEffect(() => {
@@ -2579,6 +2586,9 @@ function PostEditorCard({
           width: "100%",
           maxHeight: "88vh",
           overflowY: "auto",
+          // Corta el encadenamiento: al llegar al final del contenido
+          // la rueda no debe seguir scrolleando la página de atrás.
+          overscrollBehavior: "contain",
           borderRadius: "var(--r-lg)",
           position: "relative",
           boxShadow: "var(--shadow-md)",
@@ -3474,6 +3484,8 @@ function NewIdeaModal({
   // que el modal use el mismo set custom que ya configuró el director.
   const classifications = useClassifications();
 
+  useScrollLock(true);
+
   const isAnuncio = draft.format === "anuncio";
   const canSave =
     draft.date && draft.idea.trim().length > 0 && draft.networks.length > 0;
@@ -3513,6 +3525,9 @@ function NewIdeaModal({
           maxWidth: 640,
           maxHeight: "90vh",
           overflowY: "auto",
+          // Corta el encadenamiento: al llegar al final del contenido
+          // la rueda no debe seguir scrolleando la página de atrás.
+          overscrollBehavior: "contain",
           boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
         }}
       >
@@ -3871,6 +3886,8 @@ function FeedPostDetailModal({
   const classifications = useClassifications();
   const meta = classificationMetaById(classifications, post.classification);
 
+  useScrollLock(true);
+
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -3893,6 +3910,9 @@ function FeedPostDetailModal({
           width: "100%",
           maxHeight: "88vh",
           overflowY: "auto",
+          // Corta el encadenamiento: al llegar al final del contenido
+          // la rueda no debe seguir scrolleando la página de atrás.
+          overscrollBehavior: "contain",
           padding: 32,
           borderRadius: "var(--r-lg)",
           position: "relative",

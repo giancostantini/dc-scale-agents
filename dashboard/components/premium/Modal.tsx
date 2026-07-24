@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 /**
  * Modal premium estilo Mercury / Linear.
@@ -42,17 +43,19 @@ export function Modal({
   size = "md",
   dismissOnBackdrop = true,
 }: ModalProps) {
+  // El lock del scroll sale del hook compartido: contempla modales
+  // apilados (antes cerrar el de arriba desbloqueaba el fondo aunque
+  // quedara otro abierto) y compensa el ancho de la scrollbar para que
+  // el contenido no salte al abrir.
+  useScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
   if (!open) return null;
