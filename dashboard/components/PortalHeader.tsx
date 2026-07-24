@@ -21,6 +21,7 @@ import styles from "./PortalHeader.module.css";
  * navegación.
  */
 const NAV_ITEMS: { href: string; label: string }[] = [
+  { href: "/portal/ofertas", label: "Ofertas" },
   { href: "/portal/documentos", label: "Documentos" },
   { href: "/portal/calendario", label: "Calendario" },
   { href: "/portal/tendencias", label: "Tendencias" },
