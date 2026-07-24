@@ -9,7 +9,7 @@ import {
   signOut,
   type Profile,
 } from "@/lib/supabase/auth";
-import { getClient, getObjectives, getEventsByClient } from "@/lib/storage";
+import { getClient, getEventsByClient } from "@/lib/storage";
 import { listPhaseReports } from "@/lib/phases";
 import { getSupabase } from "@/lib/supabase/client";
 import { getDownloadUrl } from "@/lib/upload";
@@ -27,8 +27,6 @@ import SectorTrendsCard from "@/components/SectorTrendsCard";
 import type {
   CalEvent,
   Client,
-  ClientObjectives,
-  ContentPost,
   OnboardingFile,
   PhaseReport,
 } from "@/lib/types";
@@ -54,10 +52,8 @@ export default function PortalPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [client, setClient] = useState<Client | null>(null);
-  const [objectives, setObjectives] = useState<ClientObjectives | null>(null);
   const [reports, setReports] = useState<PhaseReport[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
-  const [content, setContent] = useState<ContentPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
@@ -159,37 +155,18 @@ export default function PortalPage() {
         setShowTour(true);
       }
 
-      const supabase = getSupabase();
-      const [c, o, ev, rs, ct] = await Promise.all([
+      const [c, ev, rs] = await Promise.all([
         getClient(p.client_id),
-        getObjectives(p.client_id),
-        // Antes: getEvents() + filter client-side. El filter incluía
-        // un fallback "clientLabel === c?.name" para eventos viejos
-        // sin client_id, pero con eso colaban eventos globales si
-        // alguien escribió el nombre del cliente como label. Ahora
-        // filtramos en DB con getEventsByClient → solo los del
-        // cliente, garantizado.
+        // Filtramos en DB con getEventsByClient → solo los eventos del cliente.
         getEventsByClient(p.client_id),
         listPhaseReports(p.client_id),
-        supabase
-          .from("content_posts")
-          .select("*")
-          .eq("client_id", p.client_id)
-          .eq("status", "published")
-          .order("date", { ascending: false })
-          .limit(8)
-          .then(({ data }) => (data ?? []) as ContentPost[]),
       ]);
 
       setClient(c ?? null);
-      setObjectives(o ?? null);
       setEvents(ev);
-      // Reportes: TODOS los estados — el PhaseRoadmap necesita ver
-      // approved/draft/review/pending para pintar la barra de fases.
-      // El detalle (incluido botón "Ver PDF") vive ahora dentro del modal
-      // del PhaseRoadmap, no en una sección suelta debajo.
+      // Reportes: TODOS los estados — el PhaseRoadmap (en /portal/documentos)
+      // necesita ver approved/draft/review/pending para pintar la barra.
       setReports(rs);
-      setContent(ct);
       setLoading(false);
     });
   }, [router]);
@@ -294,38 +271,7 @@ export default function PortalPage() {
                 vivo y la evolución viven allá; el portal solo redirige. */}
             <LookerStudioCard url={client.looker_studio_url ?? null} />
 
-            {/* Objetivos compactos */}
-            {objectives && objectives.items.length > 0 && (
-              <div className={styles.sidebarBlock}>
-                <div className={styles.sidebarLabel}>
-                  Objetivos · {objectives.period}
-                </div>
-                <div className={styles.objectives}>
-                  {objectives.items.slice(0, 4).map((o) => (
-                    <div key={o.id} className={styles.objCompact}>
-                      <div className={styles.objCompactHead}>
-                        <span className={styles.objCompactName}>{o.name}</span>
-                        <span className={styles.objCompactPct}>{o.pct}%</span>
-                      </div>
-                      <div className={styles.objCompactBar}>
-                        <div
-                          className={styles.objCompactFill}
-                          style={{
-                            width: `${Math.max(0, Math.min(o.pct, 100))}%`,
-                            background:
-                              o.pct >= 85
-                                ? "var(--green-ok)"
-                                : o.pct >= 60
-                                  ? "var(--sand)"
-                                  : "var(--yellow-warn)",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* (Objetivos: sacados del portal por pedido — irrelevantes para el cliente.) */}
 
             {/* Próximas reuniones — toda la card linkea al calendario */}
             <Link
@@ -402,20 +348,8 @@ export default function PortalPage() {
               <div className={styles.requestCtaArrow}>+ Nueva solicitud →</div>
             </Link>
 
-            {/* CTA Bóveda — el cliente guarda sus credenciales cifradas */}
-            <Link href="/portal/credenciales" className={styles.requestCta}>
-              <div className={styles.requestCtaEyebrow}>
-                Bóveda de credenciales
-              </div>
-              <div className={styles.requestCtaTitle}>
-                Guardá tus contraseñas de forma segura
-              </div>
-              <div className={styles.requestCtaBody}>
-                Accesos a tu web, redes, hosting y más. Quedan cifrados con tu
-                frase clave — el equipo los usa sin que viajen por WhatsApp.
-              </div>
-              <div className={styles.requestCtaArrow}>Abrir bóveda →</div>
-            </Link>
+            {/* La Bóveda de credenciales se movió a la tab bar del portal
+                (PortalHeader), al lado de Tendencias. */}
           </aside>
         </section>
 
@@ -427,30 +361,8 @@ export default function PortalPage() {
             el PhaseRoadmap — antes era abierto por el roadmap (que
             estaba acá) y por nada más en el home. */}
 
-        {content.length > 0 && (
-          <section className={styles.detailSection}>
-            <div className={styles.sectionLabel}>Contenido publicado</div>
-            <div className={styles.contentGrid}>
-              {content.map((c) => (
-                <div key={c.id} className={styles.contentCard}>
-                  <div className={styles.contentHead}>
-                    <div className={styles.contentNet}>
-                      {c.network.toUpperCase()}
-                    </div>
-                    <div className={styles.contentDate}>
-                      {new Date(c.date).toLocaleDateString("es-AR", {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </div>
-                  </div>
-                  <div className={styles.contentFormat}>{c.format}</div>
-                  <div className={styles.contentBrief}>{c.brief}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* La sección "Contenido publicado" se sacó del portal por pedido
+            (irrelevante para el cliente). */}
 
         <footer className={styles.footer}>
           <div className={styles.footerLeft}>
