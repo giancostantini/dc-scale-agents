@@ -481,7 +481,6 @@ export default function ContenidoPage({
   );
 
   const sortedFiltered = useMemo(() => {
-    const today = isoLocalDate(new Date());
     // Aplicar filtro de período sobre post.date
     const inPeriod = (dateStr: string): boolean => {
       if (periodMode === "all") return true;
@@ -570,21 +569,15 @@ export default function ContenidoPage({
         if (colClassification === "_unclassified") return !p.classification;
         return p.classification === colClassification;
       });
-    // Las vencidas van primero en los dos sentidos: son las que piden
-    // acción, y el orden por fecha decide el resto (y también cómo se
-    // ordenan entre ellas).
+    // Orden calendario puro. Las vencidas NO se fijan arriba: quedan en
+    // la fecha que les toca y se distinguen por el badge VENCIDA.
     const dir = dateSort === "desc" ? -1 : 1;
-    return [...filtered].sort((a, b) => {
-      const aOverdue = a.status !== "published" && a.date < today;
-      const bOverdue = b.status !== "published" && b.date < today;
-      if (aOverdue && !bOverdue) return -1;
-      if (bOverdue && !aOverdue) return 1;
-      return (
+    return [...filtered].sort(
+      (a, b) =>
         dir *
         (a.date.localeCompare(b.date) ||
-          (a.time ?? "").localeCompare(b.time ?? ""))
-      );
-    });
+          (a.time ?? "").localeCompare(b.time ?? "")),
+    );
   }, [
     dateSort,
     posts,
