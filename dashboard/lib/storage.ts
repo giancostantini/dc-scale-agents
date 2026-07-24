@@ -2239,6 +2239,8 @@ interface ContentRow {
   image_url?: string | null;
   // Migración 071 — link externo (OneDrive / Drive) al archivo final.
   asset_url?: string | null;
+  // Migración 081 — pieza exclusiva de Publicidad.
+  ads_only?: boolean | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
@@ -2268,6 +2270,7 @@ function contentFromRow(r: ContentRow): ContentPost {
     classification: r.classification ?? null,
     imageUrl: r.image_url ?? null,
     assetUrl: r.asset_url ?? null,
+    adsOnly: r.ads_only ?? false,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -2299,8 +2302,14 @@ export async function addContent(
       // Si networks no viene populado, usamos [network] como default —
       // mantiene compat con el campo singular en filas nuevas y refleja
       // lo que hace el backfill de la migración 065 para legacy.
-      networks:
-        data.networks && data.networks.length > 0
+      //
+      // Excepción: las piezas de solo publicidad no van a ninguna red,
+      // así que el array queda vacío a propósito. `network` igual se
+      // escribe con un relleno porque es NOT NULL, pero nadie lo lee:
+      // ads_only las excluye de toda vista que filtre por red.
+      networks: data.adsOnly
+        ? []
+        : data.networks && data.networks.length > 0
           ? data.networks
           : [data.network],
       format: data.format,
@@ -2313,6 +2322,7 @@ export async function addContent(
       classification: data.classification ?? null,
       image_url: data.imageUrl ?? null,
       asset_url: data.assetUrl ?? null,
+      ads_only: data.adsOnly ?? false,
       status: data.status,
       source: data.source,
     })
@@ -2350,6 +2360,8 @@ export interface UpdateContentInput {
   imageUrl?: string | null;
   /** Link externo (OneDrive / Drive) al archivo final. null para limpiar. */
   assetUrl?: string | null;
+  /** Pieza exclusiva de Publicidad (migración 081). */
+  adsOnly?: boolean;
   status?: ContentStatus;
 }
 
@@ -2382,6 +2394,7 @@ export async function updateContent(
   if (patch.classification !== undefined) dbPatch.classification = patch.classification;
   if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
   if (patch.assetUrl !== undefined) dbPatch.asset_url = patch.assetUrl;
+  if (patch.adsOnly !== undefined) dbPatch.ads_only = patch.adsOnly;
   if (patch.status !== undefined) dbPatch.status = patch.status;
   const { data, error } = await supabase
     .from("content_posts")

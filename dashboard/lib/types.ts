@@ -937,6 +937,11 @@ export interface ContentPost {
    *  OneDrive. La tabla muestra un mini-icono 📎 cuando hay valor.
    *  Ver migración 071. */
   assetUrl?: string | null;
+  /** Pieza exclusiva de Publicidad: se pauta pero no se publica en el
+   *  perfil de ninguna red, así que se excluye de la Tabla y de la
+   *  Vista feed. Solo tiene sentido con format="anuncio".
+   *  Ver migración 081. */
+  adsOnly?: boolean;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;

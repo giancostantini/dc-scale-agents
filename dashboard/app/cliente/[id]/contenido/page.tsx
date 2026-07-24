@@ -522,7 +522,13 @@ export default function ContenidoPage({
     const codeQ = colCodeQuery.trim().toLowerCase();
     const ideaQ = colIdeaQuery.trim().toLowerCase();
     const filtered = posts
-      // "Mis piezas" primero: recorta el universo antes que nada.
+      // Recorte por vista, antes que cualquier filtro del usuario:
+      // Publicidad muestra los anuncios; Tabla muestra todo lo demás
+      // salvo las piezas marcadas como exclusivas de Publicidad.
+      .filter((p) =>
+        viewMode === "ads" ? p.format === "anuncio" : !p.adsOnly,
+      )
+      // "Mis piezas": recorta el universo antes de los filtros finos.
       .filter(
         (p) => !onlyMine || (profile !== null && p.assignedTo === profile.id),
       )
@@ -580,6 +586,7 @@ export default function ContenidoPage({
     );
   }, [
     dateSort,
+    viewMode,
     posts,
     filter,
     periodMode,
@@ -605,31 +612,25 @@ export default function ContenidoPage({
     ? (posts.find((p) => p.id === editingId) ?? null)
     : null;
 
-  /**
-   * Filas que renderiza la tabla. En Publicidad es la misma vista
-   * recortada a los anuncios — así hereda estado, período, red, "Mis
-   * piezas" y las búsquedas por columna sin duplicar nada.
-   */
-  const tableRows = useMemo(
-    () =>
-      viewMode === "ads"
-        ? sortedFiltered.filter((p) => p.format === "anuncio")
-        : sortedFiltered,
-    [viewMode, sortedFiltered],
-  );
+  /** Filas de la tabla. El recorte por vista ya lo hace sortedFiltered. */
+  const tableRows = sortedFiltered;
+
+  /** El feed recibe todos los posts sin los filtros de la tabla, pero
+   *  sin las piezas que nunca se publican en un perfil. */
+  const feedPosts = useMemo(() => posts.filter((p) => !p.adsOnly), [posts]);
 
   /**
-   * Universo sobre el que cuentan los chips de estado. Tiene que
-   * respetar "Mis piezas": si no, el equipo vería "Todas · 29" con 4
-   * filas en pantalla. Con onlyMine apagado (o sea, siempre para el
-   * director) es idéntico a `posts` → sus contadores no cambian.
+   * Universo sobre el que cuentan los chips de estado. Respeta el
+   * recorte de la vista y "Mis piezas": si no, el equipo vería
+   * "Todas · 29" con 4 filas en pantalla, y en Publicidad los
+   * contadores incluirían piezas que no son anuncios.
    */
   const scopedPosts = useMemo(
     () =>
-      onlyMine && profile
-        ? posts.filter((p) => p.assignedTo === profile.id)
-        : posts,
-    [posts, onlyMine, profile],
+      posts
+        .filter((p) => (viewMode === "ads" ? p.format === "anuncio" : !p.adsOnly))
+        .filter((p) => !onlyMine || (profile && p.assignedTo === profile.id)),
+    [posts, viewMode, onlyMine, profile],
   );
 
   /**
@@ -1831,7 +1832,10 @@ export default function ContenidoPage({
           // "este mes" cuando asignaba al mes próximo). El feed
           // internamente sigue filtrando por la red activa, que es
           // lo que tiene sentido.
-          posts={posts}
+          //
+          // Sí se excluyen las piezas exclusivas de Publicidad: el feed
+          // simula la grilla del perfil y esas nunca se publican ahí.
+          posts={feedPosts}
           network={feedNetwork}
           onNetworkChange={setFeedNetwork}
           clientName={client?.name ?? ""}
@@ -2178,6 +2182,7 @@ export default function ContenidoPage({
           saving={savingNewIdea}
           teamMembers={teamMembers}
           defaultAssignedTo={isTeam && profile ? profile.id : null}
+          fromAdsView={viewMode === "ads"}
           onCancel={() => setShowNewIdea(false)}
           onSubmit={async (draft) => {
             setSavingNewIdea(true);
@@ -2188,13 +2193,20 @@ export default function ContenidoPage({
               // se publica. La columna singular `network` se mantiene
               // sincronizada con el primer item del array para
               // back-compat con consumidores legacy.
-              const primary = draft.networks[0];
+              //
+              // Si la pieza es solo publicidad no hay redes elegidas,
+              // pero `network` es NOT NULL en DB: guardamos "ig" como
+              // relleno. Nunca se lee, porque adsOnly la excluye de
+              // todas las vistas que filtran por red.
+              const adsOnly = draft.format === "anuncio" && draft.adsOnly;
+              const primary = adsOnly ? "ig" : draft.networks[0];
               await addContent({
                 clientId: id,
                 date: draft.date,
                 time: draft.time || null,
                 network: primary,
-                networks: draft.networks,
+                networks: adsOnly ? [] : draft.networks,
+                adsOnly,
                 format: draft.format,
                 brief: draft.brief,
                 idea: draft.idea || null,
@@ -2297,12 +2309,33 @@ function RowEditor({
           {code}
         </td>
         <td style={tdStyle}>
-          {/* Multi-red: mostramos un chip por cada red en la que se
-              publica la pieza. Si una sola red, queda como antes. */}
+          {/* Multi-red: un chip por cada red donde se publica la pieza.
+              Las de solo publicidad no van a ninguna, así que en vez de
+              la red de relleno muestran su propio chip. */}
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {(post.networks && post.networks.length > 0
-              ? post.networks
-              : [post.network]
+            {post.adsOnly && (
+              <span
+                title="No se publica en el perfil de ninguna red"
+                style={{
+                  display: "inline-block",
+                  padding: "3px 8px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "var(--sand-dark)",
+                  color: "var(--off-white)",
+                  borderRadius: "var(--r-pill)",
+                }}
+              >
+                Solo publicidad
+              </span>
+            )}
+            {(post.adsOnly
+              ? []
+              : post.networks && post.networks.length > 0
+                ? post.networks
+                : [post.network]
             ).map((n) => (
               <span
                 key={n}
@@ -2554,8 +2587,14 @@ function PostEditorCard({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const nets =
-    post.networks && post.networks.length > 0 ? post.networks : [post.network];
+  // Las piezas de solo publicidad no van a ninguna red: el fallback al
+  // `network` singular mostraría una red de relleno que no significa
+  // nada, así que la lista queda vacía y se muestra un chip aparte.
+  const nets = post.adsOnly
+    ? []
+    : post.networks && post.networks.length > 0
+      ? post.networks
+      : [post.network];
 
   return (
     <div
@@ -2623,6 +2662,23 @@ function PostEditorCard({
               >
                 {code}
               </span>
+              {post.adsOnly && (
+                <span
+                  title="No se publica en el perfil de ninguna red"
+                  style={{
+                    padding: "2px 7px",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: "var(--sand-dark)",
+                    color: "var(--off-white)",
+                    borderRadius: "var(--r-pill)",
+                  }}
+                >
+                  Solo publicidad
+                </span>
+              )}
               {nets.map((n) => (
                 <span
                   key={n}
@@ -2858,9 +2914,66 @@ function PostEditorCard({
                 </div>
               </div>
 
+              {/* Solo publicidad. Se puede activar y desactivar después
+                  de creada; al activarla la pieza sale de la Tabla y
+                  del feed y pasa a vivir solo en Publicidad. */}
+              {post.format === "anuncio" && (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 9,
+                    padding: "9px 11px",
+                    marginBottom: 10,
+                    border: `1px solid ${post.adsOnly ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+                    background: post.adsOnly
+                      ? "rgba(196,168,130,0.1)"
+                      : "var(--white)",
+                    borderRadius: 6,
+                    cursor: canEdit ? "pointer" : "default",
+                    opacity: canEdit ? 1 : 0.6,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={post.adsOnly === true}
+                    disabled={!canEdit}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      // Al marcarla se vacían las redes; al desmarcarla
+                      // vuelve con una red por defecto, porque la pieza
+                      // necesita al menos una para aparecer en el feed.
+                      onPatch({
+                        adsOnly: next,
+                        networks: next ? [] : ["ig"],
+                      });
+                    }}
+                    style={{ width: "auto", marginTop: 2 }}
+                  />
+                  <span>
+                    <span style={{ fontSize: 11, fontWeight: 700 }}>
+                      Solo publicidad
+                    </span>
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: 10,
+                        color: "var(--text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      No se publica en ningún perfil. Sale de Tabla y de
+                      Vista feed.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               {/* Una idea = una pieza, pero puede vivir en N redes con
                   el mismo C-XXXX. Al apagar la última la ignoramos
                   para no dejar la pieza sin red. */}
+              {!post.adsOnly && (
+                <>
               <FieldLabel>Redes (multi-select)</FieldLabel>
               <div
                 style={{
@@ -2918,6 +3031,8 @@ function PostEditorCard({
                   );
                 })}
               </div>
+                </>
+              )}
 
               <FieldLabel>Formato</FieldLabel>
               <select
@@ -3442,6 +3557,8 @@ interface NewIdeaDraft {
   classification: ContentClassification | null;
   /** profiles.id del responsable. null = sin asignar. */
   assignedTo: string | null;
+  /** Pieza que se pauta pero no se publica en ningún perfil. */
+  adsOnly: boolean;
 }
 
 function NewIdeaModal({
@@ -3450,6 +3567,7 @@ function NewIdeaModal({
   onSubmit,
   teamMembers,
   defaultAssignedTo,
+  fromAdsView,
 }: {
   saving: boolean;
   onCancel: () => void;
@@ -3458,6 +3576,9 @@ function NewIdeaModal({
   /** Pre-selección del responsable: quien es del equipo se autoasigna,
    *  el director arranca en "Sin asignar" (comportamiento de siempre). */
   defaultAssignedTo: string | null;
+  /** Abierto desde la pestaña Publicidad: arranca en formato Anuncio y
+   *  marcado como exclusivo de Publicidad, que es el caso habitual ahí. */
+  fromAdsView: boolean;
 }) {
   // Default: hoy, sin hora, IG post.
   const todayISO = isoLocalDate(new Date());
@@ -3465,12 +3586,13 @@ function NewIdeaModal({
     date: todayISO,
     time: "",
     networks: ["ig"],
-    format: "post",
+    format: fromAdsView ? "anuncio" : "post",
     idea: "",
     cta: "",
     brief: "",
     classification: null,
     assignedTo: defaultAssignedTo,
+    adsOnly: fromAdsView,
   });
 
   // Catálogo de clasificaciones del cliente — leemos del context para
@@ -3480,8 +3602,15 @@ function NewIdeaModal({
   useScrollLock(true);
 
   const isAnuncio = draft.format === "anuncio";
+  // adsOnly solo tiene sentido en anuncios: si se cambia el formato a
+  // otra cosa, la marca deja de aplicar.
+  const adsOnly = isAnuncio && draft.adsOnly;
   const canSave =
-    draft.date && draft.idea.trim().length > 0 && draft.networks.length > 0;
+    draft.date &&
+    draft.idea.trim().length > 0 &&
+    // Sin redes no se puede guardar… salvo que justamente sea una pieza
+    // que no va a ninguna red.
+    (adsOnly || draft.networks.length > 0);
 
   function toggleNetwork(n: ContentNetwork) {
     setDraft((prev) => {
@@ -3581,68 +3710,6 @@ function NewIdeaModal({
           </div>
         </div>
 
-        {/* Fila: redes (multi-select) + formato.
-            Si seleccionás más de una red, al guardar se crea una pieza
-            independiente por cada red (mismo idea/copy/brief, código
-            propio cada una). Ideal para postear el mismo contenido en
-            IG + FB el mismo día. */}
-        <ModalLabel>Redes * (podés elegir más de una)</ModalLabel>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
-          {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
-            const checked = draft.networks.includes(n);
-            return (
-              <button
-                type="button"
-                key={n}
-                onClick={() => toggleNetwork(n)}
-                style={{
-                  padding: "8px 14px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  background: checked ? "var(--deep-green)" : "var(--white)",
-                  color: checked ? "var(--off-white)" : "var(--deep-green)",
-                  border: `1px solid ${
-                    checked ? "var(--deep-green)" : "rgba(10,26,12,0.15)"
-                  }`,
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "all 0.15s",
-                }}
-              >
-                {checked && "✓ "}
-                {NETWORK_LABEL[n]}
-              </button>
-            );
-          })}
-        </div>
-        {draft.networks.length > 1 && (
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--sand-dark)",
-              fontStyle: "italic",
-              marginBottom: 12,
-              padding: "8px 10px",
-              background: "rgba(196,168,130,0.08)",
-              borderLeft: "2px solid var(--sand-dark)",
-              borderRadius: 4,
-            }}
-          >
-            Se va a crear <strong>1 sola pieza</strong> que aparece en las{" "}
-            {draft.networks.length} redes seleccionadas. Mismo código C-XXXX
-            en todas — si la editás, se actualiza en todos los feeds.
-          </div>
-        )}
-
         <ModalLabel>Formato *</ModalLabel>
         <select
           value={draft.format}
@@ -3657,6 +3724,112 @@ function NewIdeaModal({
             </option>
           ))}
         </select>
+
+        {/* Solo publicidad. Va acá arriba porque define si hace falta
+            elegir redes: una pieza que se pauta y no se publica en
+            ningún perfil no las necesita. */}
+        {isAnuncio && (
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              padding: "10px 12px",
+              marginBottom: 12,
+              border: `1px solid ${adsOnly ? "var(--sand-dark)" : "rgba(10,26,12,0.12)"}`,
+              background: adsOnly ? "rgba(196,168,130,0.1)" : "var(--white)",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={adsOnly}
+              onChange={(e) => setDraft({ ...draft, adsOnly: e.target.checked })}
+              style={{ width: "auto", marginTop: 2 }}
+            />
+            <span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>
+                Solo publicidad
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginTop: 2,
+                }}
+              >
+                Se pauta pero no se publica en el perfil de ninguna red.
+                Aparece solo en esta pestaña, no en Tabla ni en Vista feed.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {/* Redes. Se ocultan cuando la pieza es solo publicidad: no va
+            a ningún perfil, así que no hay red que elegir. */}
+        {!adsOnly && (
+          <>
+            <ModalLabel>Redes * (podés elegir más de una)</ModalLabel>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              {(Object.keys(NETWORK_LABEL) as ContentNetwork[]).map((n) => {
+                const checked = draft.networks.includes(n);
+                return (
+                  <button
+                    type="button"
+                    key={n}
+                    onClick={() => toggleNetwork(n)}
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      letterSpacing: "0.04em",
+                      background: checked ? "var(--deep-green)" : "var(--white)",
+                      color: checked ? "var(--off-white)" : "var(--deep-green)",
+                      border: `1px solid ${
+                        checked ? "var(--deep-green)" : "rgba(10,26,12,0.15)"
+                      }`,
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {checked && "✓ "}
+                    {NETWORK_LABEL[n]}
+                  </button>
+                );
+              })}
+            </div>
+            {draft.networks.length > 1 && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--sand-dark)",
+                  fontStyle: "italic",
+                  marginBottom: 12,
+                  padding: "8px 10px",
+                  background: "rgba(196,168,130,0.08)",
+                  borderLeft: "2px solid var(--sand-dark)",
+                  borderRadius: 4,
+                }}
+              >
+                Se va a crear <strong>1 sola pieza</strong> que aparece en las{" "}
+                {draft.networks.length} redes seleccionadas. Mismo código
+                C-XXXX en todas — si la editás, se actualiza en todos los
+                feeds.
+              </div>
+            )}
+          </>
+        )}
 
         {/* Responsable. Antes toda idea nueva nacía sin asignar y había
             que abrir la fila en la tabla para ponerle dueño — por eso
