@@ -68,6 +68,8 @@ export default function PortalSolicitudesPage() {
 
   const ofertas = requests.filter((r) => r.type === "oferta");
   const acciones = requests.filter((r) => r.type === "accion");
+  // Clientes de viajes → form estructurado de "paquete" para las ofertas.
+  const isTravel = /viaje|turismo|travel|tour/i.test(client?.sector ?? "");
 
   function openNew(type: ClientRequestType) {
     setModal({ open: true, type });
@@ -88,9 +90,9 @@ export default function PortalSolicitudesPage() {
             <div className={portalStyles.heroEyebrow}>Tus solicitudes</div>
             <h1 className={portalStyles.heroTitle}>Solicitudes</h1>
             <div className={portalStyles.heroSub}>
-              Cargá ofertas comerciales (promociones / descuentos) o acciones
-              libres (ideas, pedidos, mejoras). Nuestro equipo las revisa,
-              te responde y las ejecuta.
+              {isTravel
+                ? "Cargá tus paquetes (destino, precio, disponibilidad, detalles) o acciones libres (ideas, pedidos). Nuestro equipo los revisa, te responde y los ejecuta."
+                : "Cargá ofertas comerciales (promociones / descuentos) o acciones libres (ideas, pedidos, mejoras). Nuestro equipo las revisa, te responde y las ejecuta."}
             </div>
           </div>
           <div className={styles.headActions}>
@@ -98,7 +100,7 @@ export default function PortalSolicitudesPage() {
               className={styles.btnSolid}
               onClick={() => openNew("oferta")}
             >
-              + Nueva oferta
+              {isTravel ? "+ Cargar paquete" : "+ Nueva oferta"}
             </button>
             <button
               className={styles.btnSolid}
@@ -111,8 +113,12 @@ export default function PortalSolicitudesPage() {
         </div>
 
         <Section
-          title={`Ofertas comerciales · ${ofertas.length}`}
-          empty="Todavía no cargaste ofertas. Una oferta es una promoción específica con fecha, descuento y producto."
+          title={`${isTravel ? "Paquetes" : "Ofertas comerciales"} · ${ofertas.length}`}
+          empty={
+            isTravel
+              ? "Todavía no cargaste paquetes. Usá + Cargar paquete para agregar el primero (destino, precio, disponibilidad y detalles)."
+              : "Todavía no cargaste ofertas. Una oferta es una promoción específica con fecha, descuento y producto."
+          }
           requests={ofertas}
         />
 
@@ -127,6 +133,7 @@ export default function PortalSolicitudesPage() {
         open={modal.open}
         type={modal.type}
         clientId={profile.client_id ?? ""}
+        packageForm={isTravel}
         onClose={() => setModal((m) => ({ ...m, open: false }))}
         onCreated={() => {
           if (profile) refresh(profile);
@@ -212,21 +219,57 @@ function RequestCard({ req }: { req: ClientRequest }) {
 
 function OfertaMeta({ meta }: { meta: Record<string, unknown> }) {
   const items: { label: string; value: string }[] = [];
-  if (meta.startDate) items.push({ label: "Inicio", value: String(meta.startDate) });
-  if (meta.endDate) items.push({ label: "Fin", value: String(meta.endDate) });
+  // Paquete (form nuevo)
+  if (meta.destino) items.push({ label: "Destino", value: String(meta.destino) });
+  if (meta.precio != null)
+    items.push({
+      label: "Precio",
+      value: `${meta.precio}${meta.precioNota ? ` · ${meta.precioNota}` : ""}`,
+    });
+  if (meta.tier)
+    items.push({ label: "Tipo", value: meta.tier === "high" ? "High" : "Low" });
+  if (meta.startDate)
+    items.push({ label: "Disponible desde", value: String(meta.startDate) });
+  if (meta.endDate)
+    items.push({ label: "Disponible hasta", value: String(meta.endDate) });
+  // Legacy (ofertas viejas)
   if (meta.discountPct != null)
     items.push({ label: "Descuento", value: `${meta.discountPct}%` });
   if (meta.product) items.push({ label: "Producto", value: String(meta.product) });
-  if (items.length === 0) return null;
+
+  const details = Array.isArray(meta.details)
+    ? (meta.details as unknown[]).map(String).filter(Boolean)
+    : [];
+
+  if (items.length === 0 && details.length === 0) return null;
   return (
-    <div className={styles.metaGrid}>
-      {items.map((it) => (
-        <div key={it.label} className={styles.metaItem}>
-          <span className={styles.metaLabel}>{it.label}</span>
-          <span className={styles.metaValue}>{it.value}</span>
+    <>
+      {items.length > 0 && (
+        <div className={styles.metaGrid}>
+          {items.map((it) => (
+            <div key={it.label} className={styles.metaItem}>
+              <span className={styles.metaLabel}>{it.label}</span>
+              <span className={styles.metaValue}>{it.value}</span>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      )}
+      {details.length > 0 && (
+        <ul
+          style={{
+            margin: "10px 0 0",
+            paddingLeft: 18,
+            fontSize: 13,
+            color: "var(--deep-green)",
+            lineHeight: 1.6,
+          }}
+        >
+          {details.map((d, i) => (
+            <li key={i}>{d}</li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
