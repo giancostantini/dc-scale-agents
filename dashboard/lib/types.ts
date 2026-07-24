@@ -1109,8 +1109,16 @@ export type ClientRequestStatus =
 
 // Metadata específica por tipo. Schema flexible vía jsonb.
 export interface OfertaMetadata {
+  // Disponibilidad de la oferta / paquete (rango de fechas).
   startDate?: string;
   endDate?: string;
+  // Paquete de viajes (form nuevo de "Cargar paquete").
+  destino?: string;
+  precio?: number;
+  precioNota?: string; // ej "USD · x persona base doble"
+  tier?: "high" | "low";
+  details?: string[]; // bullets de detalle (qué incluye, etc.)
+  // Legacy — ofertas viejas del form genérico.
   discountPct?: number;
   product?: string;
 }

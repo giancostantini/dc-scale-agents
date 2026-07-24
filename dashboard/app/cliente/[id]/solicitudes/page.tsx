@@ -400,43 +400,127 @@ function RequestRow({
         </div>
       )}
 
-      {/* Metadata */}
-      {Object.keys(req.metadata).length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-            gap: 10,
-            padding: 12,
-            background: "var(--off-white)",
-            marginBottom: 14,
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          {Object.entries(req.metadata).map(([k, v]) => {
-            if (v == null || v === "") return null;
-            return (
-              <div key={k}>
-                <div
+      {/* Metadata — oferta con formato de paquete, o box genérico (acciones / ofertas viejas) */}
+      {(() => {
+        const m = req.metadata as Record<string, unknown>;
+        const isPackage =
+          req.type === "oferta" &&
+          (m.destino != null ||
+            m.precio != null ||
+            m.tier != null ||
+            Array.isArray(m.details));
+
+        if (isPackage) {
+          const items: { label: string; value: string }[] = [];
+          if (m.destino) items.push({ label: "Destino", value: String(m.destino) });
+          if (m.precio != null)
+            items.push({
+              label: "Precio",
+              value: `${m.precio}${m.precioNota ? ` · ${m.precioNota}` : ""}`,
+            });
+          if (m.tier)
+            items.push({ label: "Tipo", value: m.tier === "high" ? "High" : "Low" });
+          if (m.startDate)
+            items.push({ label: "Disponible desde", value: String(m.startDate) });
+          if (m.endDate)
+            items.push({ label: "Disponible hasta", value: String(m.endDate) });
+          const details = Array.isArray(m.details)
+            ? (m.details as unknown[]).map(String).filter(Boolean)
+            : [];
+          return (
+            <div
+              style={{
+                padding: 12,
+                background: "var(--off-white)",
+                marginBottom: 14,
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {items.map((it) => (
+                  <div key={it.label}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 600,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {it.label}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--deep-green)" }}>
+                      {it.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {details.length > 0 && (
+                <ul
                   style={{
-                    fontSize: 9,
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    color: "var(--sand-dark)",
-                    fontWeight: 600,
-                    marginBottom: 2,
+                    margin: "10px 0 0",
+                    paddingLeft: 18,
+                    fontSize: 12,
+                    color: "var(--deep-green)",
+                    lineHeight: 1.6,
                   }}
                 >
-                  {k}
+                  {details.map((d, i) => (
+                    <li key={i}>{d}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        }
+
+        // Fallback genérico (acciones, ofertas viejas, recomendaciones)
+        if (Object.keys(m).length === 0) return null;
+        return (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 10,
+              padding: 12,
+              background: "var(--off-white)",
+              marginBottom: 14,
+              borderRadius: "var(--r-md)",
+            }}
+          >
+            {Object.entries(m).map(([k, v]) => {
+              if (v == null || v === "") return null;
+              return (
+                <div key={k}>
+                  <div
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--sand-dark)",
+                      fontWeight: 600,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {k}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--deep-green)" }}>
+                    {Array.isArray(v) ? v.join(", ") : String(v)}
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--deep-green)" }}>
-                  {String(v)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ===== Controles ===== */}
       {/* Status:
