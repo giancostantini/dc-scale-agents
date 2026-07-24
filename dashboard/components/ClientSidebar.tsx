@@ -102,6 +102,7 @@ export default function ClientSidebar({
     { key: "contenido",   href: `${base}/contenido`,     icon: IContenido,     label: "Contenido" },
     { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
     { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes" },
+    { key: "ofertas",     href: `${base}/ofertas`,        icon: ISolicitudes,   label: "Ofertas" },
     { key: "producciones",href: `${base}/campanas`,      icon: IProducciones,  label: "Producciones" },
     { key: "paid_media",  href: `${base}/paid-media`,    icon: IAnalitica,     label: "Paid Media" },
     { key: "analitica",   href: `${base}/analitica`,     icon: IAnalitica,     label: "Analítica" },
