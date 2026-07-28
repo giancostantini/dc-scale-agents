@@ -269,7 +269,17 @@ export default function PortalPage() {
           <aside className={styles.sidebar}>
             {/* Dashboard de métricas externo — Looker Studio. Los KPIs en
                 vivo y la evolución viven allá; el portal solo redirige. */}
-            <LookerStudioCard url={client.looker_studio_url ?? null} />
+            {/* El link del Looker puede estar en la columna clients.looker_studio_url
+                (migración 027) o en external_links.looker_studio_url — que es donde
+                lo guarda la pantalla interna de Analítica. Aceptamos ambos para que
+                cargarlo desde el dashboard se refleje en el portal. */}
+            <LookerStudioCard
+              url={
+                client.looker_studio_url ??
+                client.external_links?.looker_studio_url ??
+                null
+              }
+            />
 
             {/* (Objetivos: sacados del portal por pedido — irrelevantes para el cliente.) */}
 
