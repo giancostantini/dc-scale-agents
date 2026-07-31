@@ -9,6 +9,8 @@
 - Fee mensual (USD): 19000
 - Metodo: eCommerce full
 - Alta en dashboard: 2026-06-02
+- Web: https://glassywaves.com.uy/
+- Plataforma tienda: Fenicio
 
 ## Productos principales
 _A completar en el kickoff._

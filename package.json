@@ -11,6 +11,7 @@
     "seo": "node scripts/seo/index.js",
     "social-media-metrics": "node scripts/social-media-metrics/index.js",
     "stock": "node scripts/stock/index.js",
+    "stock-web": "node scripts/stock-web/index.js",
     "logistics": "node scripts/logistics/index.js",
     "reporting-performance": "node scripts/reporting-performance/index.js"
   }
