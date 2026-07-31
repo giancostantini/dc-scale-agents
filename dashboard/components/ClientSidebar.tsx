@@ -107,6 +107,7 @@ export default function ClientSidebar({
     { key: "paid_media",  href: `${base}/paid-media`,    icon: IAnalitica,     label: "Paid Media" },
     { key: "analitica",   href: `${base}/analitica`,     icon: IAnalitica,     label: "Analítica" },
     { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
+    { key: "talles",      href: `${base}/talles`,        icon: IProducciones,  label: "Talles faltantes" },
     { key: "biblioteca",  href: `${base}/biblioteca`,    icon: IBiblioteca,    label: "Biblioteca" },
     { key: "notas",       href: `${base}/notas`,         icon: INotas,         label: "Notas internas" },
     { key: "accesos",     href: `${base}/accesos`,       icon: IConfiguracion, label: "Accesos" },
