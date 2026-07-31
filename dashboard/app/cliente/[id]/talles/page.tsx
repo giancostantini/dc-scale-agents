@@ -4,13 +4,22 @@
  * Apartado "Talles faltantes" del cliente.
  *
  * Muestra el último snapshot que produce el agente `stock-web` (cron diario a
- * las 8:00 UY): la lista de productos de la tienda que tienen ALGÚN talle
- * faltante (agotado). Solo consume /api/clients/[id]/stock-web/latest; el
- * relevamiento en sí lo hace el agente por fuera.
+ * las 8:00 UY): la lista de productos de la tienda con ALGÚN talle faltante.
+ * El botón "Correr ahora" dispara el agente on-demand vía /api/agents/run
+ * (repository_dispatch → GitHub Actions). Como el relevamiento tarda 1–2 min,
+ * la pantalla hace polling y se actualiza sola cuando llega el snapshot nuevo.
  */
 
-import { use, useEffect, useState, type CSSProperties } from "react";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import ui from "@/components/ClientUI.module.css";
+import { runAgent } from "@/lib/agents";
 
 interface StockWebProduct {
   code: string;
@@ -45,37 +54,125 @@ export default function TallesPage({
   const { id } = use(params);
   const [snapshot, setSnapshot] = useState<StockWebSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [runMsg, setRunMsg] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  const loadSnapshot =
+    useCallback(async (): Promise<StockWebSnapshot | null> => {
+      try {
+        const r = await fetch(`/api/clients/${id}/stock-web/latest`);
+        if (!r.ok) return null;
+        const data = (await r.json()) as { snapshot: StockWebSnapshot | null };
+        return data.snapshot;
+      } catch {
+        return null;
+      }
+    }, [id]);
 
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
     setLoading(true);
-    fetch(`/api/clients/${id}/stock-web/latest`)
-      .then((r) => (r.ok ? r.json() : { snapshot: null }))
-      .then((data: { snapshot: StockWebSnapshot | null }) => {
-        if (!cancelled) setSnapshot(data.snapshot);
-      })
-      .catch(() => {
-        if (!cancelled) setSnapshot(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    loadSnapshot().then((s) => {
+      if (mounted.current) {
+        setSnapshot(s);
+        setLoading(false);
+      }
+    });
     return () => {
-      cancelled = true;
+      mounted.current = false;
     };
-  }, [id]);
+  }, [loadSnapshot]);
+
+  async function handleRun() {
+    if (running) return;
+    setRunning(true);
+    setRunMsg("Disparando el relevamiento…");
+    const baseline = snapshot?.created_at ?? "";
+
+    const res = await runAgent(id, "stock-web", {});
+    if ("error" in res) {
+      setRunMsg(`No se pudo disparar: ${res.error}`);
+      setRunning(false);
+      return;
+    }
+
+    setRunMsg(
+      "Corriendo… suele tardar 1–2 minutos. Esta pantalla se actualiza sola.",
+    );
+    const started = Date.now();
+    const MAX_MS = 4 * 60 * 1000;
+
+    const poll = async () => {
+      if (!mounted.current) return;
+      const s = await loadSnapshot();
+      const isNewer =
+        !!s &&
+        s.created_at !== baseline &&
+        (!baseline || new Date(s.created_at) > new Date(baseline));
+      if (isNewer) {
+        if (!mounted.current) return;
+        setSnapshot(s);
+        setRunning(false);
+        setRunMsg("Actualizado ✓");
+        return;
+      }
+      if (Date.now() - started > MAX_MS) {
+        if (!mounted.current) return;
+        setRunning(false);
+        setRunMsg(
+          "El relevamiento sigue corriendo. Refrescá la página en un ratito.",
+        );
+        return;
+      }
+      setTimeout(poll, 12000);
+    };
+    setTimeout(poll, 12000);
+  }
 
   const productos = snapshot?.structured?.productos ?? [];
   const resumen = snapshot?.structured?.resumen;
 
   return (
     <>
-      <div className={ui.head}>
+      <div
+        className={ui.head}
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
           <div className={ui.eyebrow}>Ecommerce · Stock de la web</div>
           <h1>Talles faltantes</h1>
         </div>
+        <button
+          type="button"
+          onClick={handleRun}
+          disabled={running}
+          className={ui.btnGhost}
+          style={{ whiteSpace: "nowrap", opacity: running ? 0.6 : 1 }}
+          title="Relevar la tienda ahora sin esperar a la corrida diaria"
+        >
+          {running ? "Corriendo…" : "↻ Correr ahora"}
+        </button>
       </div>
+
+      {runMsg && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted)",
+            marginTop: -6,
+            marginBottom: 12,
+          }}
+        >
+          {runMsg}
+        </div>
+      )}
 
       {loading ? (
         <div
@@ -100,7 +197,7 @@ export default function TallesPage({
           >
             {snapshot
               ? "El último relevamiento no encontró productos con talles faltantes."
-              : "Sin datos todavía. El agente releva la tienda automáticamente cada día a las 8:00 UY y el resultado aparece acá."}
+              : "Sin datos todavía. El agente releva la tienda cada día a las 8:00 UY — o tocá «Correr ahora» para relevarla ya."}
           </div>
         </div>
       ) : (
