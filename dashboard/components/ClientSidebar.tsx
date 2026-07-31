@@ -132,12 +132,19 @@ export default function ClientSidebar({
   // El director siempre puede ver Configuración para activarla más
   // adelante si cambia el flag.
   const isGpLaunch = client.type === "gp" && !!client.onboarding?.isBrandLaunch;
-  const baseNav =
+  // El apartado "Talles faltantes" (agente stock-web) es específico de
+  // tiendas ecommerce Fenicio. Por ahora solo aplica a estos clientes; para
+  // el resto se oculta del menú. Agregar el slug al sumar otra tienda Fenicio.
+  const STOCK_WEB_CLIENTS = ["glassy-waves"];
+  const baseNav = (
     client.type === "gp"
       ? isGpLaunch
         ? navGP
         : navGP.filter((it) => it.key !== "fases")
-      : navDev;
+      : navDev
+  ).filter(
+    (it) => it.key !== "talles" || STOCK_WEB_CLIENTS.includes(client.id),
+  );
   // Si el viewer es team y tiene visible_menus configurado, filtramos
   // a los keys listados.  Director (visibleMenus=null) ve todo.
   // Team sin restricción (visibleMenus=null) también ve todo.
