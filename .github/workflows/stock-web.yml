@@ -1,0 +1,82 @@
+name: Daily Stock-Web Report
+
+# Corre todos los días a las 11:00 UTC = 8:00 AM Uruguay (UTC-3). Para cada
+# cliente con status='active', el agente stock-web entra a su tienda Fenicio,
+# detecta los productos con talles faltantes y guarda el snapshot en Supabase
+# (agent_outputs, output_type "stock-snapshot"). El dashboard lo muestra en
+# /cliente/<slug>/talles. El agente saltea solo los clientes que no son tiendas
+# Fenicio (según claude-client.md), así que correr para todos los activos es seguro.
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Slug del cliente (opcional; vacío = todos los activos)'
+        required: false
+
+jobs:
+  list-clients:
+    runs-on: ubuntu-latest
+    outputs:
+      clients: ${{ steps.list.outputs.clients }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - name: List active clients from Supabase
+        id: list
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          # Disparo manual con un cliente específico → solo ese
+          if [ -n "${{ github.event.inputs.client }}" ]; then
+            echo "clients=[\"${{ github.event.inputs.client }}\"]" >> "$GITHUB_OUTPUT"
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            echo "Corrida manual para: ${{ github.event.inputs.client }}"
+            exit 0
+          fi
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS \
+            "${SUPABASE_URL}/rest/v1/clients?status=eq.active&select=id" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          slugs=$(echo "$response" | jq -c '[.[] | .id]')
+          count=$(echo "$response" | jq 'length')
+          echo "clients=$slugs" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Clientes activos: $count → $slugs"
+
+  stock-web:
+    needs: list-clients
+    if: ${{ needs.list-clients.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        client: ${{ fromJson(needs.list-clients.outputs.clients) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Sin npm install: el layer de agentes no tiene dependencias (fetch/fs nativos).
+      - name: Run stock-web for ${{ matrix.client }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          cat > /tmp/brief.json <<EOF
+          {
+            "client": "${{ matrix.client }}",
+            "source": "scheduled"
+          }
+          EOF
+          node scripts/stock-web/index.js --brief /tmp/brief.json
