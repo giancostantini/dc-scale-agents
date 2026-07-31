@@ -32,6 +32,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import {
   logAgentRun,
   logAgentError,
+  updateAgentRun,
   registerAgentOutput,
   pushNotification,
 } from "../lib/supabase.js";
@@ -299,7 +300,18 @@ export async function run(briefInput) {
   }
 
   const summary = processed > 0 ? lastSummary : `Sin clientes Fenicio aplicables (${targets.length} revisados).`;
-  await logAgentRun(onlyClient ?? "_system", AGENT, "success", summary, { clients: targets.length, processed }, { duration_ms: Date.now() - startTime });
+  const perf = { duration_ms: Date.now() - startTime };
+  if (runId) {
+    // Disparado desde el dashboard (/api/agents/run abrió el agent_run):
+    // lo cerramos acá para que no quede "running".
+    await updateAgentRun(runId, {
+      status: processed > 0 ? "success" : "error",
+      summary,
+      performance: perf,
+    });
+  } else {
+    await logAgentRun(onlyClient ?? "_system", AGENT, "success", summary, { clients: targets.length, processed }, perf);
+  }
   console.log(`[${AGENT}] listo. ${summary}`);
   return { clients: targets.length, processed };
 }
@@ -317,6 +329,9 @@ if (isMain) {
       }
     })();
     await logAgentError(brief.client ?? "_system", AGENT, err, {}).catch(() => {});
+    if (brief?.runId) {
+      await updateAgentRun(brief.runId, { status: "error", summary: err.message }).catch(() => {});
+    }
     await new Promise((r) => setTimeout(r, 800)); // drain HTTP/Supabase en vuelo
     process.exit(1);
   });

@@ -15,6 +15,9 @@ on:
       client:
         description: 'Slug del cliente (opcional; vacío = todos los activos)'
         required: false
+  # Disparo on-demand desde el dashboard (botón "Correr ahora" → /api/agents/run).
+  repository_dispatch:
+    types: [stock-web]
 
 jobs:
   list-clients:
@@ -30,6 +33,13 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           set -euo pipefail
+          # Disparo desde el dashboard (repository_dispatch) → solo ese cliente
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo 'clients=["${{ github.event.client_payload.brief.client }}"]' >> "$GITHUB_OUTPUT"
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            echo "Dispatch para: ${{ github.event.client_payload.brief.client }}"
+            exit 0
+          fi
           # Disparo manual con un cliente específico → solo ese
           if [ -n "${{ github.event.inputs.client }}" ]; then
             echo "clients=[\"${{ github.event.inputs.client }}\"]" >> "$GITHUB_OUTPUT"
@@ -73,10 +83,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          cat > /tmp/brief.json <<EOF
-          {
-            "client": "${{ matrix.client }}",
-            "source": "scheduled"
-          }
-          EOF
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+          else
+            echo '{"client":"${{ matrix.client }}","source":"scheduled"}' > /tmp/brief.json
+          fi
           node scripts/stock-web/index.js --brief /tmp/brief.json
