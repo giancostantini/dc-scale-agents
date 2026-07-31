@@ -133,6 +133,55 @@ export default function TallesPage({
   const productos = snapshot?.structured?.productos ?? [];
   const resumen = snapshot?.structured?.resumen;
 
+  async function handleExport() {
+    if (productos.length === 0) return;
+    const XLSX = await import("xlsx");
+
+    // Hoja 1: la tabla
+    const rows = productos.map((p) => ({
+      "Código": p.code,
+      Producto: p.name,
+      "Categoría": p.category,
+      "Talles faltantes": p.faltantes,
+      "Disponibles (con stock)": p.disponibles,
+      Link: p.url,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 10 },
+      { wch: 42 },
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 40 },
+      { wch: 46 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Talles faltantes");
+
+    // Hoja 2: resumen
+    const fecha =
+      snapshot?.structured?.fecha ?? new Date().toISOString().split("T")[0];
+    const top = Object.entries(resumen?.topTalles ?? {}).sort(
+      (a, b) => Number(b[1]) - Number(a[1]),
+    );
+    const resumenAoa: (string | number)[][] = [
+      ["Reporte", "Talles faltantes por producto (web)"],
+      ["Cliente", id],
+      ["Fecha del relevamiento", fecha],
+      ["Fuente", snapshot?.structured?.origin ?? ""],
+      ["Productos relevados", resumen?.totalScrapeados ?? ""],
+      ["Con talles faltantes", resumen?.conFaltantes ?? productos.length],
+      [],
+      ["Talles más faltantes", "cantidad"],
+      ...top.map(([t, n]) => [t, n] as (string | number)[]),
+    ];
+    const wsR = XLSX.utils.aoa_to_sheet(resumenAoa);
+    wsR["!cols"] = [{ wch: 24 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, wsR, "Resumen");
+
+    XLSX.writeFile(wb, `talles-faltantes-${id}-${fecha}.xlsx`);
+  }
+
   return (
     <>
       <div
@@ -149,16 +198,31 @@ export default function TallesPage({
           <div className={ui.eyebrow}>Ecommerce · Stock de la web</div>
           <h1>Talles faltantes</h1>
         </div>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={running}
-          className={ui.btnGhost}
-          style={{ whiteSpace: "nowrap", opacity: running ? 0.6 : 1 }}
-          title="Relevar la tienda ahora sin esperar a la corrida diaria"
-        >
-          {running ? "Corriendo…" : "↻ Correr ahora"}
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={productos.length === 0}
+            className={ui.btnGhost}
+            style={{
+              whiteSpace: "nowrap",
+              opacity: productos.length === 0 ? 0.5 : 1,
+            }}
+            title="Descargar la tabla actual como Excel (.xlsx)"
+          >
+            ⬇ Exportar a Excel
+          </button>
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={running}
+            className={ui.btnGhost}
+            style={{ whiteSpace: "nowrap", opacity: running ? 0.6 : 1 }}
+            title="Relevar la tienda ahora sin esperar a la corrida diaria"
+          >
+            {running ? "Corriendo…" : "↻ Correr ahora"}
+          </button>
+        </div>
       </div>
 
       {runMsg && (
