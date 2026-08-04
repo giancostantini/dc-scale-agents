@@ -74,8 +74,10 @@ import type {
   Client,
   ClientFeeSchedule,
   Expense,
+  FinanceCurrency,
   InvoicePayment,
 } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
 import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
 import { Field, Input, Select } from "@/components/premium/Field";
@@ -96,18 +98,6 @@ const SOCIO_COLORS = [
 ];
 
 type PeriodMode = "this_year" | "last_year" | "last_12m" | "ytd" | "custom";
-
-function formatUsd(n: number, opts?: { compact?: boolean }) {
-  const sign = n < 0 ? "-" : "";
-  const v = Math.abs(n);
-  if (opts?.compact && v >= 1_000_000) {
-    return `${sign}USD ${(v / 1_000_000).toFixed(1)}M`;
-  }
-  if (opts?.compact && v >= 1_000) {
-    return `${sign}USD ${(v / 1_000).toFixed(0)}K`;
-  }
-  return `${sign}USD ${Math.round(v).toLocaleString("es-AR")}`;
-}
 
 function monthsBetween(from: string, to: string): string[] {
   const out: string[] = [];
@@ -143,6 +133,13 @@ export function PremiumDividendos({
 }) {
   const [config, setConfig] = useState<DividendConfig | null>(null);
   const [loading, setLoading] = useState(true);
+
+  /**
+   * Moneda activa. Los dividendos son streams separados: un reparto en
+   * dólares y otro en pesos, independientes. El selector cambia toda la
+   * vista (neto, historial, snapshots) a la moneda elegida.
+   */
+  const [currency, setCurrency] = useState<FinanceCurrency>("USD");
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>("this_year");
   const [customFrom, setCustomFrom] = useState(() => {
@@ -183,11 +180,14 @@ export function PremiumDividendos({
     importe: number;
     cuentaId: string;
   } | null>(null);
+  // Solo los snapshots de la moneda activa, indexados por mes.
   const distributionsByMonth = useMemo(() => {
     const m = new Map<string, DividendDistribution>();
-    for (const d of distributions) m.set(d.month_key, d);
+    for (const d of distributions) {
+      if ((d.currency ?? "USD") === currency) m.set(d.month_key, d);
+    }
     return m;
-  }, [distributions]);
+  }, [distributions, currency]);
 
   function refresh() {
     setLoading(true);
@@ -231,14 +231,14 @@ export function PremiumDividendos({
       return;
     }
     try {
-      await deleteDividendDistribution(r.monthKey, "USD");
+      await deleteDividendDistribution(r.monthKey, currency);
       toast.success("Snapshot borrado — se va a regenerar al recargar");
       // Inmediatamente recalculamos y persistimos el snapshot nuevo
       // con los datos actuales del mes.
       if (config) {
         const fresh = monthNet(r.monthKey);
         try {
-          await upsertDividendDistribution(r.monthKey, "USD", fresh, config, false);
+          await upsertDividendDistribution(r.monthKey, currency, fresh, config, false);
         } catch {
           // Silencioso — el refresh va a intentar persistir igual.
         }
@@ -264,9 +264,9 @@ export function PremiumDividendos({
     if (r.estado === "pagada") {
       try {
         if (!distributionsByMonth.has(r.monthKey)) {
-          await upsertDividendDistribution(r.monthKey, "USD", r.net, config, true);
+          await upsertDividendDistribution(r.monthKey, currency, r.net, config, true);
         }
-        await setDividendDistributionStatus(r.monthKey, "USD", "pending", null);
+        await setDividendDistributionStatus(r.monthKey, currency, "pending", null);
         toast.success(
           "Marcada como pendiente — movimiento bancario asociado borrado",
         );
@@ -285,8 +285,9 @@ export function PremiumDividendos({
     const importe =
       Number(r.partnerA ?? 0) + Number(r.partnerB ?? 0);
     const defaultCuenta =
-      cuentas.find((c) => c.currency === "USD" && c.is_active)?.id ??
-      cuentas[0]?.id ?? "";
+      cuentas.find((c) => c.currency === currency && c.is_active)?.id ??
+      cuentas[0]?.id ??
+      "";
     setPayFromModal({
       monthKey: r.monthKey,
       fecha: r.fecha,
@@ -308,10 +309,10 @@ export function PremiumDividendos({
       if (!distributionsByMonth.has(monthKey)) {
         const row = history.find((r) => r.monthKey === monthKey);
         if (row) {
-          await upsertDividendDistribution(monthKey, "USD", row.net, config, true);
+          await upsertDividendDistribution(monthKey, currency, row.net, config, true);
         }
       }
-      await setDividendDistributionStatus(monthKey, "USD", "paid", cuentaId);
+      await setDividendDistributionStatus(monthKey, currency, "paid", cuentaId);
       toast.success(
         "Marcada como pagada — movimiento creado en la cuenta seleccionada",
       );
@@ -382,7 +383,10 @@ export function PremiumDividendos({
   //      Los pending/cancelled NO cuentan como utilidad.
   //   3. Egresos: todos los expenses con fecha dentro del mes.
   function monthNet(mk: string): number {
+    // Solo la plata de la moneda activa: fees de clientes con
+    // fee_currency === currency, revenues y egresos de esa moneda.
     const feesPaid = clients.reduce((s, c) => {
+      if ((c.fee_currency ?? "USD") !== currency) return s;
       const p = payments.find((pp) => pp.clientId === c.id && pp.month === mk);
       if (!p || p.status !== "paid") return s;
       const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
@@ -390,10 +394,9 @@ export function PremiumDividendos({
       return s + amt;
     }, 0);
     const manualImpact = manualRevs.reduce((s, r) => {
-      // Solo manuales cobrados ('paid'). Si el campo status no existe
-      // (datos viejos) lo tratamos como paid por compatibilidad.
       const isPaid = (r.status ?? "paid") === "paid";
       if (!isPaid) return s;
+      if ((r.currency === "UYU" ? "UYU" : "USD") !== currency) return s;
       return s + revenueMonthlyImpact(r, mk);
     }, 0);
     // Egresos: bug previo — solo contaba e.date.startsWith(mk), lo
@@ -404,6 +407,7 @@ export function PremiumDividendos({
     //     recurrenceEndDate (o vigente si NULL), siempre que el mes
     //     consultado caiga en ese rango.
     const ex = expenses.reduce((s, e) => {
+      if ((e.currency ?? "USD") !== currency) return s;
       const dateMk = (e.date ?? "").slice(0, 7);
       if (!dateMk) return s;
       const amt = Number(e.amount) || 0;
@@ -451,12 +455,23 @@ export function PremiumDividendos({
       //   - al menos 1 payment 'paid' del mes
       //   - O al menos 1 expense del mes
       //   - O al menos 1 manual revenue 'paid' con impacto en el mes
+      // Actividad de la MONEDA activa: un mes con solo movimiento en
+      // dólares no debe generar una fila vacía en el stream de pesos.
+      const clientIdsInCurrency = new Set(
+        clients
+          .filter((c) => (c.fee_currency ?? "USD") === currency)
+          .map((c) => c.id),
+      );
       const hasPaidPayment = payments.some(
-        (p) => p.month === mk && p.status === "paid",
+        (p) =>
+          p.month === mk &&
+          p.status === "paid" &&
+          clientIdsInCurrency.has(p.clientId),
       );
       // Mismo bug que monthNet: los monthly_fixed corren cada mes
       // entre date y recurrenceEndDate, no solo el mes de start.
       const hasExpense = expenses.some((e) => {
+        if ((e.currency ?? "USD") !== currency) return false;
         const dateMk = (e.date ?? "").slice(0, 7);
         if (!dateMk) return false;
         if (e.recurrence === "monthly_fixed") {
@@ -468,6 +483,7 @@ export function PremiumDividendos({
       const hasPaidManual = manualRevs.some(
         (r) =>
           (r.status ?? "paid") === "paid" &&
+          (r.currency === "UYU" ? "UYU" : "USD") === currency &&
           revenueMonthlyImpact(r, mk) > 0,
       );
       if (!hasPaidPayment && !hasExpense && !hasPaidManual) continue;
@@ -508,10 +524,11 @@ export function PremiumDividendos({
         });
         const unassignedRev = manualRevs.reduce((s, r) => {
           if ((r.status ?? "paid") !== "paid") return s;
+          if ((r.currency === "UYU" ? "UYU" : "USD") !== currency) return s;
           return s + revenueMonthlyImpact(r, mk);
         }, 0);
         const totals = distributeMonthByClient({
-          currency: "USD",
+          currency,
           clients: clients.map((c) => ({
             id: c.id,
             name: c.name,
@@ -576,7 +593,7 @@ export function PremiumDividendos({
       });
     }
     return out.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-  }, [config, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules, distributionsByMonth]);
+  }, [config, currency, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules, distributionsByMonth]);
 
   /**
    * Lazy auto-distribution: para cada mes CERRADO con actividad que
@@ -599,7 +616,7 @@ export function PremiumDividendos({
     void (async () => {
       const results = await Promise.allSettled(
         missing.map(({ mk, net }) =>
-          upsertDividendDistribution(mk, "USD", net, config, true),
+          upsertDividendDistribution(mk, currency, net, config, true),
         ),
       );
       const failed = results.filter((r) => r.status === "rejected");
@@ -663,7 +680,7 @@ export function PremiumDividendos({
       });
     }
     return out;
-  }, [config, prevPeriod.from, prevPeriod.to, payments, expenses, manualRevs, clients]);
+  }, [config, currency, prevPeriod.from, prevPeriod.to, payments, expenses, manualRevs, clients]);
 
   const utilidadesPrev = prevHistory.reduce((s, r) => s + r.net, 0);
   const dividendosPrev = prevHistory.reduce(
@@ -678,6 +695,21 @@ export function PremiumDividendos({
   function pct(a: number, b: number): number | null {
     if (b === 0) return a === 0 ? 0 : null;
     return ((a - b) / Math.abs(b)) * 100;
+  }
+
+  // Formatea en la MONEDA ACTIVA de la vista. Reemplaza a formatUsd en
+  // todo el render — antes todo mostraba "USD" fijo.
+  const sym = currency === "UYU" ? "$U" : "USD";
+  function fmt(n: number, opts?: { compact?: boolean }): string {
+    const sign = n < 0 ? "−" : "";
+    const v = Math.abs(n);
+    if (opts?.compact && v >= 1_000_000) {
+      return `${sign}${sym} ${(v / 1_000_000).toFixed(1)}M`;
+    }
+    if (opts?.compact && v >= 1_000) {
+      return `${sign}${sym} ${(v / 1_000).toFixed(0)}K`;
+    }
+    return `${sign}${sym} ${Math.round(v).toLocaleString("es-AR")}`;
   }
 
   // ===== Donut por socio =====
@@ -732,7 +764,7 @@ export function PremiumDividendos({
       out.push({ v: net > 0 ? dist.partnerA + dist.partnerB : 0 });
     }
     return out;
-  }, [config, payments, expenses, manualRevs, clients, feeSchedules]);
+  }, [config, currency, payments, expenses, manualRevs, clients, feeSchedules]);
 
   // ===== Acciones =====
   async function saveConfig() {
@@ -816,8 +848,8 @@ export function PremiumDividendos({
       row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
     );
     const csv = "﻿" + [
-      `"Acta de distribución — ${r.monthKey}"`,
-      `"Resultado neto: USD ${r.net.toFixed(2)}"`,
+      `"Acta de distribución ${currency} — ${r.monthKey}"`,
+      `"Resultado neto: ${sym} ${r.net.toFixed(2)}"`,
       "",
       header.join(","),
       ...rows,
@@ -871,6 +903,27 @@ export function PremiumDividendos({
           <p className="text-sm text-ink-300 mt-1">
             Gestioná y controlá las distribuciones de utilidades a socios y accionistas.
           </p>
+          {/* Selector de moneda — un reparto en dólares y otro en pesos,
+              independientes. Toda la vista se recalcula según la elegida. */}
+          <div className="mt-3 inline-flex rounded-premium border border-rule overflow-hidden">
+            {FINANCE_CURRENCIES.map((c) => {
+              const active = currency === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  className={
+                    active
+                      ? "px-4 py-1.5 text-xs font-semibold bg-blue-900 text-white"
+                      : "px-4 py-1.5 text-xs font-semibold text-ink-400 hover:bg-paper-100"
+                  }
+                >
+                  {c === "UYU" ? "$U Pesos" : "USD Dólares"}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <PeriodSelector
@@ -892,7 +945,7 @@ export function PremiumDividendos({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <SparkKpiCard
           label="Utilidades del Ejercicio"
-          value={formatUsd(utilidadesPeriodo, { compact: true })}
+          value={fmt(utilidadesPeriodo, { compact: true })}
           delta={pct(utilidadesPeriodo, utilidadesPrev)}
           subLabel="vs. ejercicio anterior"
           icon={<TrendingUp className="w-4 h-4" />}
@@ -901,7 +954,7 @@ export function PremiumDividendos({
         />
         <SparkKpiCard
           label="Dividendos Distribuidos"
-          value={formatUsd(dividendosDistribuidos, { compact: true })}
+          value={fmt(dividendosDistribuidos, { compact: true })}
           delta={pct(dividendosDistribuidos, dividendosPrev)}
           subLabel="vs. ejercicio anterior"
           icon={<DollarSign className="w-4 h-4" />}
@@ -910,7 +963,7 @@ export function PremiumDividendos({
         />
         <SparkKpiCard
           label="Saldo Disponible"
-          value={formatUsd(saldoDisponible, { compact: true })}
+          value={fmt(saldoDisponible, { compact: true })}
           delta={pct(saldoDisponible, saldoPrev)}
           subLabel="vs. ejercicio anterior"
           icon={<Wallet className="w-4 h-4" />}
@@ -924,6 +977,7 @@ export function PremiumDividendos({
         history={history}
         utilidades={utilidadesPeriodo}
         periodLabel={period.label}
+        currencySym={sym}
       />
 
       {/* ===== Row 2: Donut + Bar chart ===== */}
@@ -962,7 +1016,7 @@ export function PremiumDividendos({
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <div className="text-md font-semibold text-ink tabular-nums">
-                      {formatUsd(totalDistPorSocio, { compact: true })}
+                      {fmt(totalDistPorSocio, { compact: true })}
                     </div>
                     <div className="text-2xs text-ink-300">Total distribuido</div>
                   </div>
@@ -979,7 +1033,7 @@ export function PremiumDividendos({
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-ink tabular-nums">
-                          {formatUsd(d.value, { compact: true })}
+                          {fmt(d.value, { compact: true })}
                         </span>
                         <span className="text-ink-400 tabular-nums w-12 text-right">
                           {d.pct.toFixed(1)}%
@@ -1031,7 +1085,7 @@ export function PremiumDividendos({
                   }
                 />
                 <Tooltip
-                  formatter={(v: number) => formatUsd(v)}
+                  formatter={(v: number) => fmt(v)}
                   contentStyle={{
                     background: "#0A1A0C",
                     border: "1px solid rgba(255,255,255,0.1)",
@@ -1090,10 +1144,10 @@ export function PremiumDividendos({
                     <td className="px-4 py-3 text-ink tabular-nums">{r.fecha}</td>
                     <td className="px-4 py-3 text-ink-400 tabular-nums">{r.ejercicio}</td>
                     <td className="px-4 py-3 text-right text-ink tabular-nums">
-                      {formatUsd(r.importeDistribuido)}
+                      {fmt(r.importeDistribuido)}
                     </td>
                     <td className="px-4 py-3 text-center text-ink-400 tabular-nums">{r.sociosCount}</td>
-                    <td className="px-4 py-3 text-right text-ink tabular-nums">{formatUsd(r.saldoDisponible)}</td>
+                    <td className="px-4 py-3 text-right text-ink tabular-nums">{fmt(r.saldoDisponible)}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -1187,7 +1241,7 @@ export function PremiumDividendos({
                 <strong>Mes:</strong> {payFromModal.fecha}
               </div>
               <div>
-                <strong>Importe a debitar:</strong> USD{" "}
+                <strong>Importe a debitar:</strong> {sym}{" "}
                 {payFromModal.importe.toLocaleString("es-AR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -1207,12 +1261,22 @@ export function PremiumDividendos({
                 }
               >
                 <option value="">— Elegí una cuenta —</option>
-                {cuentas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.bank_name} · {c.account_name || "Cuenta"} ·{" "}
-                    ****{c.last4} · {c.currency}
-                  </option>
-                ))}
+                {/* Cuentas de la moneda del reparto primero: debitar un
+                    dividendo en pesos desde una cuenta en dólares
+                    descuadraría el saldo. */}
+                {[...cuentas]
+                  .sort((a, b) => {
+                    const am = a.currency === currency ? 0 : 1;
+                    const bm = b.currency === currency ? 0 : 1;
+                    return am - bm;
+                  })
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.currency === currency ? "" : "⚠ "}
+                      {c.bank_name} · {c.account_name || "Cuenta"} ·{" "}
+                      ****{c.last4} · {c.currency}
+                    </option>
+                  ))}
               </Select>
             </Field>
           </div>
@@ -1324,8 +1388,8 @@ export function PremiumDividendos({
         {detailRow && config && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <KpiMini label="Resultado neto" value={formatUsd(detailRow.net)} />
-              <KpiMini label="Total distribuido" value={formatUsd(detailRow.importeDistribuido)} accent="navy" />
+              <KpiMini label="Resultado neto" value={fmt(detailRow.net)} />
+              <KpiMini label="Total distribuido" value={fmt(detailRow.importeDistribuido)} accent="navy" />
             </div>
             <div className="border border-rule rounded-premium-sm overflow-hidden">
               <table className="w-full text-xs">
@@ -1340,29 +1404,29 @@ export function PremiumDividendos({
                   <tr className="border-t border-rule-soft">
                     <td className="px-3 py-2 text-ink">{config.partner_a_name}</td>
                     <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{config.partner_a_pct}%</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.partnerA)}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{fmt(detailRow.partnerA)}</td>
                   </tr>
                   <tr className="border-t border-rule-soft">
                     <td className="px-3 py-2 text-ink">{config.partner_b_name}</td>
                     <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{config.partner_b_pct}%</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.partnerB)}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{fmt(detailRow.partnerB)}</td>
                   </tr>
                   <tr className="border-t border-rule-soft">
                     <td className="px-3 py-2 text-ink">Inversiones empresa</td>
                     <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{config.inversiones_pct}%</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.inversiones)}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{fmt(detailRow.inversiones)}</td>
                   </tr>
                   {Number(config.back_pct) > 0 && (
                     <tr className="border-t border-rule-soft">
                       <td className="px-3 py-2 text-ink">Back empresa</td>
                       <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{config.back_pct}%</td>
-                      <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.back)}</td>
+                      <td className="px-3 py-2 text-right text-ink tabular-nums">{fmt(detailRow.back)}</td>
                     </tr>
                   )}
                   <tr className="border-t border-rule bg-paper-100/40 font-semibold">
                     <td className="px-3 py-2 text-ink">Saldo disponible</td>
                     <td className="px-3 py-2 text-right text-ink-400 tabular-nums">{Number(config.inversiones_pct) + Number(config.back_pct)}%</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatUsd(detailRow.saldoDisponible)}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{fmt(detailRow.saldoDisponible)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1387,13 +1451,16 @@ function UtilidadesAudit({
   history,
   utilidades,
   periodLabel,
+  currencySym,
 }: {
   history: Array<{ monthKey: string; net: number }>;
   utilidades: number;
   periodLabel: string;
+  currencySym: string;
 }) {
   const [open, setOpen] = useState(false);
-  const aporteFmt = (n: number) => `${n >= 0 ? "+" : ""}USD ${Math.round(n).toLocaleString("es-AR")}`;
+  const aporteFmt = (n: number) =>
+    `${n >= 0 ? "+" : ""}${currencySym} ${Math.round(n).toLocaleString("es-AR")}`;
   return (
     <div className="bg-blue-50/70 border border-blue-100 rounded-premium px-4 py-3">
       <button
