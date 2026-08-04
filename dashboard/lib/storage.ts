@@ -1363,27 +1363,36 @@ async function syncExpenseToMovement(expense: Expense): Promise<void> {
     return;
   }
 
+  // La cuenta exige exit_amount > 0. Si el egreso quedó en 0, no hay
+  // débito: borramos el movimiento si existía y salimos.
+  if (!(expense.amount > 0)) {
+    if (existing?.id) {
+      await supabase.from("cuenta_movimientos").delete().eq("id", existing.id);
+    }
+    return;
+  }
+
   const movementBody = {
     cuenta_id: expense.cuentaId,
     fecha: expense.date,
     description: expense.concept,
-    category: "egreso" as const,
+    // "gasto" — categoría válida. Antes usaba "egreso", que no existe
+    // en MovimientoCategoria: el movimiento salía con la etiqueta en
+    // blanco y se escondía al filtrar por categoría.
+    category: "gasto" as const,
     entry_amount: 0,
     exit_amount: expense.amount,
     comprobante_id: null,
     notes: marker,
   };
 
-  if (existing?.id) {
-    // Update — puede haber cambiado fecha/monto/cuenta.
-    await supabase
-      .from("cuenta_movimientos")
-      .update(movementBody)
-      .eq("id", existing.id);
-  } else {
-    // Insert — primer sync.
-    await supabase.from("cuenta_movimientos").insert(movementBody);
-  }
+  const { error: movErr } = existing?.id
+    ? await supabase
+        .from("cuenta_movimientos")
+        .update(movementBody)
+        .eq("id", existing.id)
+    : await supabase.from("cuenta_movimientos").insert(movementBody);
+  if (movErr) throw movErr;
 }
 
 async function deleteLinkedExpenseMovements(expenseId: string): Promise<void> {

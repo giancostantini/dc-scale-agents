@@ -452,13 +452,10 @@ export async function setDividendDistributionStatus(
     .eq("month_key", monthKey)
     .eq("currency", currency);
   if (error) throw error;
-  // Sincronizar movimiento bancario.
-  await syncDividendDistributionMovement(monthKey, currency).catch((err) =>
-    console.warn(
-      "[setDividendDistributionStatus] sync movement failed:",
-      err,
-    ),
-  );
+  // Sincronizar movimiento bancario. Si falla, propagamos el error —
+  // el caller muestra el motivo real en vez de un falso "movimiento
+  // creado".
+  await syncDividendDistributionMovement(monthKey, currency);
 }
 
 const DIVIDEND_MOVEMENT_MARKER = (monthKey: string, currency: FinanceCurrency) =>
@@ -515,6 +512,17 @@ async function syncDividendDistributionMovement(
   const amount =
     Number(snap!.partner_a_amount ?? 0) + Number(snap!.partner_b_amount ?? 0);
 
+  // La cuenta_movimientos exige exit_amount > 0 (CHECK en DB). Si el
+  // reparto a socios es 0 o negativo (mes sin utilidad o con todo a
+  // inversiones/back), no hay nada que debitar: borramos el movimiento
+  // si existía y salimos sin error.
+  if (amount <= 0) {
+    if (existing?.id) {
+      await supabase.from("cuenta_movimientos").delete().eq("id", existing.id);
+    }
+    return;
+  }
+
   // Fecha: usar la fecha de cierre del mes (último día). Para
   // simplificar, día 28 — siempre existe.
   const [yy, mm] = monthKey.split("-").map(Number);
@@ -530,21 +538,27 @@ async function syncDividendDistributionMovement(
     cuenta_id: snap!.cuenta_id as string,
     fecha,
     description: `Distribución dividendos ${currency} · ${monthLabel}`,
-    category: "egreso" as const,
+    // "pago" — categoría válida de cuenta_movimientos. Antes usaba
+    // "egreso", que no existe en MovimientoCategoria: el movimiento se
+    // creaba pero salía con la etiqueta en blanco y se escondía al
+    // filtrar por categoría.
+    category: "pago" as const,
     entry_amount: 0,
     exit_amount: amount,
     comprobante_id: null,
     notes: marker,
   };
 
-  if (existing?.id) {
-    await supabase
-      .from("cuenta_movimientos")
-      .update(movementBody)
-      .eq("id", existing.id);
-  } else {
-    await supabase.from("cuenta_movimientos").insert(movementBody);
-  }
+  // Los errores NO se tragan: si el movimiento no se puede crear, el
+  // caller tiene que enterarse (antes decía "movimiento creado" aunque
+  // hubiera fallado).
+  const { error: movErr } = existing?.id
+    ? await supabase
+        .from("cuenta_movimientos")
+        .update(movementBody)
+        .eq("id", existing.id)
+    : await supabase.from("cuenta_movimientos").insert(movementBody);
+  if (movErr) throw movErr;
 }
 
 /**
