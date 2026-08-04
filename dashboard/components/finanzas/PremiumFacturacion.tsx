@@ -68,8 +68,11 @@ import {
 import type {
   Client,
   ClientFeeSchedule,
+  FinanceCurrency,
   InvoicePayment,
 } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
+import { formatCurrency } from "@/lib/cuentas-bancarias";
 import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
 import { Field, Input, Select } from "@/components/premium/Field";
@@ -119,6 +122,25 @@ function formatUsd(n: number, opts?: { compact?: boolean }) {
     return `USD ${(n / 1_000).toFixed(0)}K`;
   }
   return `USD ${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+/** Símbolo corto por moneda para los montos compactos. */
+function currencySymbol(c: FinanceCurrency): string {
+  return c === "UYU" ? "$U" : "USD";
+}
+
+/** "USD 12K · $U 500K" — omite las monedas en cero. Si todo es cero,
+ *  muestra "USD 0". */
+function compactByCurrency(m: Record<FinanceCurrency, number>): string {
+  const fmt = (n: number): string => {
+    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+    return Math.round(n).toLocaleString("es-AR");
+  };
+  const parts = FINANCE_CURRENCIES.filter((c) => Math.round(m[c]) !== 0).map(
+    (c) => `${currencySymbol(c)} ${fmt(m[c])}`,
+  );
+  return parts.length > 0 ? parts.join(" · ") : "USD 0";
 }
 
 function lastDayOfMonth(yyyymm: string): string {
@@ -323,6 +345,27 @@ export function PremiumFacturacion() {
 
   // ===== Stats =====
   const facturacionTotal = comprobantes.reduce((s, c) => s + c.importe, 0);
+
+  // Totales por moneda — cada factura suma en la moneda del cliente,
+  // nunca se mezclan pesos con dólares.
+  const curOf = (c: Comprobante): FinanceCurrency =>
+    c.client.fee_currency === "UYU" ? "UYU" : "USD";
+  const facturacionPorMoneda = comprobantes.reduce(
+    (acc, c) => {
+      acc[curOf(c)] += c.importe;
+      return acc;
+    },
+    { USD: 0, UYU: 0 } as Record<FinanceCurrency, number>,
+  );
+  const pendientePorMoneda = comprobantes
+    .filter((c) => c.estado === "pendiente" || c.estado === "vencida")
+    .reduce(
+      (acc, c) => {
+        acc[curOf(c)] += c.importe;
+        return acc;
+      },
+      { USD: 0, UYU: 0 } as Record<FinanceCurrency, number>,
+    );
 
   const now = new Date();
   const curMonth = now.toISOString().slice(0, 7);
@@ -587,9 +630,9 @@ export function PremiumFacturacion() {
   }
 
   function exportCsv() {
-    const header = ["Fecha", "Comprobante", "Cliente", "Concepto", "Importe USD", "Estado", "Vencimiento"];
+    const header = ["Fecha", "Comprobante", "Cliente", "Concepto", "Importe", "Moneda", "Estado", "Vencimiento"];
     const rows = filteredList.map((c) =>
-      [c.fecha, c.number, c.client.name, c.concepto, c.importe.toFixed(2), c.estado, c.vencimiento]
+      [c.fecha, c.number, c.client.name, c.concepto, c.importe.toFixed(2), curOf(c), c.estado, c.vencimiento]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(","),
     );
@@ -631,7 +674,8 @@ export function PremiumFacturacion() {
       "Teléfono",
       "País",
       "Concepto",
-      "Importe USD",
+      "Importe",
+      "Moneda",
       "Estado actual",
     ];
     const rows = delMes.map((c) =>
@@ -646,31 +690,38 @@ export function PremiumFacturacion() {
         c.client.country ?? "",
         c.concepto,
         c.importe.toFixed(2),
+        curOf(c),
         c.estado,
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(","),
     );
-    const totalDelMes = delMes.reduce((s, c) => s + c.importe, 0);
-    const totalRow = [
-      `"TOTAL ${mesLabel}"`,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      `"${delMes.length} comprobante(s)"`,
-      `"${totalDelMes.toFixed(2)}"`,
-      "",
-    ].join(",");
+    // Un TOTAL por moneda — pesos y dólares no se suman juntos.
+    const totalRows = FINANCE_CURRENCIES.map((cur) => {
+      const sub = delMes.filter((c) => curOf(c) === cur);
+      if (sub.length === 0) return null;
+      const total = sub.reduce((s, c) => s + c.importe, 0);
+      return [
+        `"TOTAL ${mesLabel} (${cur})"`,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        `"${sub.length} comprobante(s)"`,
+        `"${total.toFixed(2)}"`,
+        `"${cur}"`,
+        "",
+      ].join(",");
+    }).filter((r): r is string => r !== null);
     const csv = "﻿" + [
       `"Desglose de facturación — ${mesLabel}"`,
       "",
       header.join(","),
       ...rows,
-      totalRow,
+      ...totalRows,
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -723,7 +774,7 @@ export function PremiumFacturacion() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <SparkKpiCard
           label="Facturación Total"
-          value={formatUsd(facturacionTotal, { compact: true })}
+          value={compactByCurrency(facturacionPorMoneda)}
           delta={pct(facturacionTotal, facturacionAnioAnterior)}
           subLabel="vs. año anterior"
           icon={<DollarSign className="w-4 h-4" />}
@@ -763,7 +814,7 @@ export function PremiumFacturacion() {
         />
         <SparkKpiCard
           label="Pendientes de Cobro"
-          value={formatUsd(pendientesDeCobro, { compact: true })}
+          value={compactByCurrency(pendientePorMoneda)}
           delta={pct(pendientesDeCobro, pendientesDeCobroPrev)}
           subLabel="vs. año anterior"
           icon={<Clock className="w-4 h-4" />}
@@ -1001,7 +1052,7 @@ export function PremiumFacturacion() {
                     <td className="px-4 py-3 text-ink font-medium">{c.client.name}</td>
                     <td className="px-4 py-3 text-ink-400">{c.concepto}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
-                      {formatUsd(c.importe)}
+                      {formatCurrency(c.importe, curOf(c))}
                     </td>
                     <td className="px-4 py-3">
                       <EstadoSelect
@@ -1147,7 +1198,11 @@ export function PremiumFacturacion() {
               <DetailRow label="Teléfono" value={detailComp.client.contact_phone ?? "—"} />
               <DetailRow label="Fecha emisión" value={detailComp.fecha} />
               <DetailRow label="Vencimiento" value={detailComp.vencimiento} />
-              <DetailRow label="Importe" value={formatUsd(detailComp.importe)} highlight />
+              <DetailRow
+                label="Importe"
+                value={formatCurrency(detailComp.importe, curOf(detailComp))}
+                highlight
+              />
               <DetailRow label="Estado" value={detailComp.estado} />
             </div>
             <div className="pt-3 border-t border-rule">
@@ -1184,8 +1239,8 @@ export function PremiumFacturacion() {
       >
         <div className="space-y-4">
           <Field
-            label="Importe (USD)"
-            hint="Sobreescribe el fee base/tramo solo para este mes."
+            label={`Importe (${editComp ? currencySymbol(curOf(editComp)) : "USD"})`}
+            hint="Sobreescribe el fee base/tramo solo para este mes. En la moneda de facturación del cliente."
             required
           >
             <Input
@@ -1325,7 +1380,14 @@ export function PremiumFacturacion() {
                 onChange={(e) => setNewMonth(e.target.value)}
               />
             </Field>
-            <Field label="Importe (USD)" required>
+            <Field
+              label={`Importe (${
+                clients.find((c) => c.id === newClientId)?.fee_currency === "UYU"
+                  ? "$U"
+                  : "USD"
+              })`}
+              required
+            >
               <Input
                 type="number"
                 value={newAmount}
