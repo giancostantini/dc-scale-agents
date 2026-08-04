@@ -33,6 +33,7 @@ import type {
   ContentFormat,
   ContentStatus,
   ClientContentClassification,
+  FinanceCurrency,
 } from "./types";
 
 // ==================== HELPERS ====================
@@ -69,6 +70,7 @@ interface ClientRow {
   status: Client["status"];
   phase: string;
   fee: number | string;
+  fee_currency?: string | null;
   method: string;
   modules: Record<string, boolean> | null;
   kpis: Client["kpis"] | null;
@@ -114,6 +116,7 @@ function clientFromRow(r: ClientRow): Client {
     status: r.status,
     phase: r.phase,
     fee: typeof r.fee === "string" ? parseFloat(r.fee) : r.fee,
+    fee_currency: r.fee_currency === "UYU" ? "UYU" : "USD",
     method: r.method,
     modules: (r.modules ?? undefined) as Client["modules"],
     kpis: (r.kpis ?? undefined) as Client["kpis"],
@@ -177,6 +180,8 @@ export interface AddClientInput {
   country: string;
   type: ClientType;
   fee: number;
+  /** Moneda del fee (migración 082). Default USD. */
+  feeCurrency?: FinanceCurrency;
   method: string;
   contactName?: string;
   contactEmail?: string;
@@ -252,6 +257,7 @@ export async function addClient(data: AddClientInput): Promise<Client> {
     status: initialStatus,
     phase: initialPhase,
     fee: data.fee,
+    fee_currency: data.feeCurrency ?? "USD",
     method: data.method,
     modules: modulesValue,
     kpis:
@@ -380,6 +386,9 @@ export interface UpdateClientCoreInput {
   country?: string | null;
   method?: string;
   fee?: number;
+  /** Moneda del fee (migración 082). Snake_case porque el patch se
+   *  spreadea directo a la tabla. */
+  fee_currency?: FinanceCurrency;
   fee_variable?: string | null;
   contact_name?: string | null;
   contact_email?: string | null;
@@ -1171,6 +1180,7 @@ interface ExpenseRow {
   category: ExpenseCategory;
   assigned_to: string;
   amount: number | string;
+  currency: string | null;
   recurrence: "one_time" | "monthly_fixed" | null;
   recurrence_end_date: string | null;
   mkt_budget_client_id: string | null;
@@ -1191,6 +1201,7 @@ function expenseFromRow(r: ExpenseRow): Expense {
     category: r.category,
     assignedTo: r.assigned_to,
     amount: typeof r.amount === "string" ? parseFloat(r.amount) : r.amount,
+    currency: r.currency === "UYU" ? "UYU" : "USD",
     recurrence: r.recurrence ?? "one_time",
     recurrenceEndDate: r.recurrence_end_date ?? null,
     mktBudgetClientId: r.mkt_budget_client_id ?? null,
@@ -1238,6 +1249,7 @@ export async function addExpense(data: Omit<Expense, "id">): Promise<Expense> {
       category: data.category,
       assigned_to: data.assignedTo,
       amount: data.amount,
+      currency: data.currency ?? "USD",
       recurrence: data.recurrence ?? "one_time",
       recurrence_end_date: data.recurrenceEndDate ?? null,
       mkt_budget_client_id: data.mktBudgetClientId ?? null,
@@ -1272,6 +1284,7 @@ export async function updateExpense(
   if (patch.category !== undefined) dbPatch.category = patch.category;
   if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
   if (patch.amount !== undefined) dbPatch.amount = patch.amount;
+  if (patch.currency !== undefined) dbPatch.currency = patch.currency;
   if (patch.recurrence !== undefined) dbPatch.recurrence = patch.recurrence;
   if (patch.recurrenceEndDate !== undefined)
     dbPatch.recurrence_end_date = patch.recurrenceEndDate;
@@ -1690,6 +1703,9 @@ export async function generateTeamPayroll(monthYYYYMM: string): Promise<{
       category: "equipo",
       assignedTo: "Interno",
       amount: p.payment_amount as number,
+      // La nómina se registra en la moneda de pago del miembro (UYU o
+      // USD). Antes se asumía USD sin importar la moneda real.
+      currency: p.payment_currency === "UYU" ? "UYU" : "USD",
       recurrence: "monthly_fixed",
       recurrenceEndDate: null,
       mktBudgetClientId: null,

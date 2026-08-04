@@ -5,6 +5,7 @@
 // Todas las operaciones requieren rol director (gateado por RLS).
 
 import { getSupabase } from "./supabase/client";
+import type { FinanceCurrency } from "./types";
 
 // ============ INGRESOS MANUALES ============
 
@@ -252,10 +253,18 @@ export function distributeDividends(
  *  Devuelve el mismo shape que `distributeDividends` + el `net` total
  *  para que el caller sepa qué persistir en el snapshot. */
 export function distributeMonthByClient(input: {
+  /** Moneda de este stream. El cálculo solo cuenta la plata de esta
+   *  moneda: fees de clientes con fee_currency === currency, egresos
+   *  con currency === currency, y la unassignedRevenue de esa moneda.
+   *  El caller invoca una vez por cada moneda. */
+  currency: FinanceCurrency;
   clients: Array<{
     id: string;
     name: string;
     fee: number;
+    /** Moneda del fee. Si no coincide con `currency`, este cliente no
+     *  aporta revenue a este stream (default USD si no viene). */
+    fee_currency?: FinanceCurrency;
     dividend_distribution?: {
       use_default: boolean;
       partner_a_pct: number;
@@ -271,9 +280,15 @@ export function distributeMonthByClient(input: {
     amountOverride?: number | null;
   }>;
   /** Egresos del mes con date que cae dentro (incluye monthly_fixed
-   *  vigentes). El caller ya filtró por período. */
-  monthExpenses: Array<{ assignedTo: string; amount: number }>;
-  /** Impacto de manual revenues del mes (ya sumado, solo paid). */
+   *  vigentes). El caller ya filtró por período — pero NO por moneda,
+   *  eso lo hace esta función. */
+  monthExpenses: Array<{
+    assignedTo: string;
+    amount: number;
+    currency?: FinanceCurrency;
+  }>;
+  /** Impacto de manual revenues del mes (ya sumado, solo paid) EN
+   *  ESTA MONEDA. El caller ya filtró por currency. */
   unassignedRevenue: number;
   /** Config global de dividendos — se usa como fallback para clientes
    *  con dividend_distribution=null y para revenues/expenses no
@@ -293,12 +308,20 @@ export function distributeMonthByClient(input: {
   let net = 0;
 
   const clientNames = new Set(input.clients.map((c) => c.name));
+  // Egresos de ESTA moneda solamente. Un egreso sin currency es USD
+  // legacy (el default de la migración 082).
+  const currencyExpenses = input.monthExpenses.filter(
+    (e) => (e.currency ?? "USD") === input.currency,
+  );
 
   // Cada cliente tributa a su propio split (o al global si use_default)
   for (const c of input.clients) {
+    // El fee solo cuenta en el stream de su moneda.
+    const feeInCurrency = (c.fee_currency ?? "USD") === input.currency;
     const p = input.clientPayments.find((pp) => pp.clientId === c.id);
-    const revenue = p?.status === "paid" ? (p.amountOverride ?? c.fee) : 0;
-    const costs = input.monthExpenses
+    const revenue =
+      feeInCurrency && p?.status === "paid" ? (p.amountOverride ?? c.fee) : 0;
+    const costs = currencyExpenses
       .filter((e) => e.assignedTo === c.name)
       .reduce((s, e) => s + e.amount, 0);
     const clientNet = revenue - costs;
@@ -324,8 +347,8 @@ export function distributeMonthByClient(input: {
   }
 
   // Egresos sin asignar a ningún cliente (corporativos) + revenues
-  // manuales → split global.
-  const unassignedExpenses = input.monthExpenses
+  // manuales → split global. Todo en esta moneda.
+  const unassignedExpenses = currencyExpenses
     .filter((e) => !clientNames.has(e.assignedTo))
     .reduce((s, e) => s + e.amount, 0);
   const unassignedNet = input.unassignedRevenue - unassignedExpenses;
@@ -349,6 +372,9 @@ export function distributeMonthByClient(input: {
 
 export interface DividendDistribution {
   month_key: string;
+  /** Moneda del reparto (migración 082). Un mes puede tener uno USD y
+   *  uno UYU. Default USD para filas legacy. */
+  currency: FinanceCurrency;
   net_profit: number;
   partner_a_pct: number;
   partner_b_pct: number;
@@ -385,6 +411,7 @@ export async function listDividendDistributions(): Promise<
   // Cast: los numerics vienen como string desde Supabase JS.
   return (data ?? []).map((r: Record<string, unknown>) => ({
     month_key: r.month_key as string,
+    currency: (r.currency === "UYU" ? "UYU" : "USD") as FinanceCurrency,
     net_profit: Number(r.net_profit),
     partner_a_pct: Number(r.partner_a_pct),
     partner_b_pct: Number(r.partner_b_pct),
@@ -412,6 +439,7 @@ export async function listDividendDistributions(): Promise<
  */
 export async function setDividendDistributionStatus(
   monthKey: string,
+  currency: FinanceCurrency,
   status: "paid" | "pending",
   cuentaId: string | null = null,
 ): Promise<void> {
@@ -421,10 +449,11 @@ export async function setDividendDistributionStatus(
   const { error } = await supabase
     .from("dividend_distributions")
     .update({ status, cuenta_id: effectiveCuentaId })
-    .eq("month_key", monthKey);
+    .eq("month_key", monthKey)
+    .eq("currency", currency);
   if (error) throw error;
   // Sincronizar movimiento bancario.
-  await syncDividendDistributionMovement(monthKey).catch((err) =>
+  await syncDividendDistributionMovement(monthKey, currency).catch((err) =>
     console.warn(
       "[setDividendDistributionStatus] sync movement failed:",
       err,
@@ -432,8 +461,8 @@ export async function setDividendDistributionStatus(
   );
 }
 
-const DIVIDEND_MOVEMENT_MARKER = (monthKey: string) =>
-  `[auto-dividend:${monthKey}]`;
+const DIVIDEND_MOVEMENT_MARKER = (monthKey: string, currency: FinanceCurrency) =>
+  `[auto-dividend:${monthKey}:${currency}]`;
 
 /**
  * Crea / actualiza / borra el movimiento bancario asociado al
@@ -447,17 +476,19 @@ const DIVIDEND_MOVEMENT_MARKER = (monthKey: string) =>
  */
 async function syncDividendDistributionMovement(
   monthKey: string,
+  currency: FinanceCurrency,
 ): Promise<void> {
   const supabase = getSupabase();
-  const marker = DIVIDEND_MOVEMENT_MARKER(monthKey);
+  const marker = DIVIDEND_MOVEMENT_MARKER(monthKey, currency);
 
-  // Leer el snapshot actual
+  // Leer el snapshot actual (de esta moneda)
   const { data: snap } = await supabase
     .from("dividend_distributions")
     .select(
       "month_key, status, cuenta_id, partner_a_amount, partner_b_amount",
     )
     .eq("month_key", monthKey)
+    .eq("currency", currency)
     .maybeSingle();
 
   // Buscar movimiento existente con la marca
@@ -498,7 +529,7 @@ async function syncDividendDistributionMovement(
   const movementBody = {
     cuenta_id: snap!.cuenta_id as string,
     fecha,
-    description: `Distribución dividendos · ${monthLabel}`,
+    description: `Distribución dividendos ${currency} · ${monthLabel}`,
     category: "egreso" as const,
     entry_amount: 0,
     exit_amount: amount,
@@ -523,6 +554,7 @@ async function syncDividendDistributionMovement(
  */
 export async function upsertDividendDistribution(
   monthKey: string,
+  currency: FinanceCurrency,
   netProfit: number,
   config: DividendConfig,
   autoGenerated = true,
@@ -536,6 +568,7 @@ export async function upsertDividendDistribution(
   const { error } = await supabase.from("dividend_distributions").upsert(
     {
       month_key: monthKey,
+      currency,
       net_profit: netProfit,
       partner_a_pct: config.partner_a_pct,
       partner_b_pct: config.partner_b_pct,
@@ -550,7 +583,7 @@ export async function upsertDividendDistribution(
       generated_by: user?.id ?? null,
       generated_at: new Date().toISOString(),
     },
-    { onConflict: "month_key" },
+    { onConflict: "month_key,currency" },
   );
   if (error) throw error;
 }
@@ -565,10 +598,11 @@ export async function upsertDividendDistribution(
  */
 export async function deleteDividendDistribution(
   monthKey: string,
+  currency: FinanceCurrency,
 ): Promise<void> {
   const supabase = getSupabase();
   // Borrar movimiento asociado primero (si lo había)
-  const marker = DIVIDEND_MOVEMENT_MARKER(monthKey);
+  const marker = DIVIDEND_MOVEMENT_MARKER(monthKey, currency);
   await supabase
     .from("cuenta_movimientos")
     .delete()
@@ -577,7 +611,8 @@ export async function deleteDividendDistribution(
   const { error } = await supabase
     .from("dividend_distributions")
     .delete()
-    .eq("month_key", monthKey);
+    .eq("month_key", monthKey)
+    .eq("currency", currency);
   if (error) throw error;
 }
 

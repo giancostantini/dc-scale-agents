@@ -231,14 +231,14 @@ export function PremiumDividendos({
       return;
     }
     try {
-      await deleteDividendDistribution(r.monthKey);
+      await deleteDividendDistribution(r.monthKey, "USD");
       toast.success("Snapshot borrado — se va a regenerar al recargar");
       // Inmediatamente recalculamos y persistimos el snapshot nuevo
       // con los datos actuales del mes.
       if (config) {
         const fresh = monthNet(r.monthKey);
         try {
-          await upsertDividendDistribution(r.monthKey, fresh, config, false);
+          await upsertDividendDistribution(r.monthKey, "USD", fresh, config, false);
         } catch {
           // Silencioso — el refresh va a intentar persistir igual.
         }
@@ -264,9 +264,9 @@ export function PremiumDividendos({
     if (r.estado === "pagada") {
       try {
         if (!distributionsByMonth.has(r.monthKey)) {
-          await upsertDividendDistribution(r.monthKey, r.net, config, true);
+          await upsertDividendDistribution(r.monthKey, "USD", r.net, config, true);
         }
-        await setDividendDistributionStatus(r.monthKey, "pending", null);
+        await setDividendDistributionStatus(r.monthKey, "USD", "pending", null);
         toast.success(
           "Marcada como pendiente — movimiento bancario asociado borrado",
         );
@@ -308,10 +308,10 @@ export function PremiumDividendos({
       if (!distributionsByMonth.has(monthKey)) {
         const row = history.find((r) => r.monthKey === monthKey);
         if (row) {
-          await upsertDividendDistribution(monthKey, row.net, config, true);
+          await upsertDividendDistribution(monthKey, "USD", row.net, config, true);
         }
       }
-      await setDividendDistributionStatus(monthKey, "paid", cuentaId);
+      await setDividendDistributionStatus(monthKey, "USD", "paid", cuentaId);
       toast.success(
         "Marcada como pagada — movimiento creado en la cuenta seleccionada",
       );
@@ -511,10 +511,12 @@ export function PremiumDividendos({
           return s + revenueMonthlyImpact(r, mk);
         }, 0);
         const totals = distributeMonthByClient({
+          currency: "USD",
           clients: clients.map((c) => ({
             id: c.id,
             name: c.name,
             fee: effectiveFeeForMonth(feeSchedules, c.id, mk) ?? c.fee,
+            fee_currency: c.fee_currency,
             dividend_distribution: c.dividend_distribution ?? null,
           })),
           clientPayments: monthPayments.map((p) => ({
@@ -525,6 +527,7 @@ export function PremiumDividendos({
           monthExpenses: monthExpensesArr.map((e) => ({
             assignedTo: e.assignedTo,
             amount: e.amount,
+            currency: e.currency,
           })),
           unassignedRevenue: unassignedRev,
           config,
@@ -596,7 +599,7 @@ export function PremiumDividendos({
     void (async () => {
       const results = await Promise.allSettled(
         missing.map(({ mk, net }) =>
-          upsertDividendDistribution(mk, net, config, true),
+          upsertDividendDistribution(mk, "USD", net, config, true),
         ),
       );
       const failed = results.filter((r) => r.status === "rejected");

@@ -1696,6 +1696,7 @@ function MktClientDetail({
         category: "mkt_interno",
         assignedTo: client.name,
         amount: Number(newAmount),
+        currency: "USD",
         recurrence: "one_time",
         recurrenceEndDate: null,
         mktBudgetClientId: client.id,
@@ -2843,10 +2844,12 @@ export function DividendosView({
         (e.date ?? "").startsWith(mk),
       );
       const totals = distributeMonthByClient({
+        currency: "USD",
         clients: clients.map((c) => ({
           id: c.id,
           name: c.name,
           fee: c.fee,
+          fee_currency: c.fee_currency,
           dividend_distribution: c.dividend_distribution ?? null,
         })),
         clientPayments: monthPayments.map((p) => ({
@@ -2857,6 +2860,7 @@ export function DividendosView({
         monthExpenses: monthExpenses.map((e) => ({
           assignedTo: e.assignedTo,
           amount: e.amount,
+          currency: e.currency,
         })),
         unassignedRevenue: mImpact,
         config,

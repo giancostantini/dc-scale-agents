@@ -6,7 +6,9 @@ import type {
   ExpenseCategory,
   ExpenseRecurrence,
   Client,
+  FinanceCurrency,
 } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
 import styles from "./NewClientModal.module.css";
 
 interface NewExpenseModalProps {
@@ -22,6 +24,7 @@ export default function NewExpenseModal({
 }: NewExpenseModalProps) {
   const [concept, setConcept] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<FinanceCurrency>("USD");
   const [category, setCategory] = useState<ExpenseCategory>("equipo");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [assignedTo, setAssignedTo] = useState("Interno");
@@ -52,6 +55,7 @@ export default function NewExpenseModal({
     await addExpense({
       concept: concept.trim(),
       amount: Number(amount),
+      currency,
       category,
       date,
       assignedTo,
@@ -64,6 +68,7 @@ export default function NewExpenseModal({
     });
     setConcept("");
     setAmount("");
+    setCurrency("USD");
     setRecurrence("one_time");
     setRecurrenceEndDate("");
     setMktBudgetClientId("");
@@ -104,15 +109,31 @@ export default function NewExpenseModal({
           />
         </div>
 
-        <div className={styles.fieldGrid2}>
+        <div
+          className={styles.fieldGrid2}
+          style={{ gridTemplateColumns: "1fr auto 1fr" }}
+        >
           <div className={styles.field}>
-            <label>Monto (USD)</label>
+            <label>Monto</label>
             <input
               type="number"
               placeholder="2200"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+          </div>
+          <div className={styles.field}>
+            <label>Moneda</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as FinanceCurrency)}
+            >
+              {FINANCE_CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c === "UYU" ? "$U · Pesos" : "USD · Dólares"}
+                </option>
+              ))}
+            </select>
           </div>
           <div className={styles.field}>
             <label>{recurrence === "monthly_fixed" ? "Fecha de inicio" : "Fecha"}</label>

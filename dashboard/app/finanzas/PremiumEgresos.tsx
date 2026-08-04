@@ -42,8 +42,10 @@ import type {
   ExpensePaymentMethod,
   ExpenseRecurrence,
   ExpenseStatus,
+  FinanceCurrency,
 } from "@/lib/types";
-import { EXPENSE_CATEGORY_LABEL } from "@/lib/types";
+import { EXPENSE_CATEGORY_LABEL, FINANCE_CURRENCIES } from "@/lib/types";
+import { formatCurrency } from "@/lib/cuentas-bancarias";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = Object.fromEntries(
   PAYMENT_METHODS.map((p) => [p.value, p.label]),
@@ -77,24 +79,23 @@ export function PremiumEgresos() {
 
   const monthYYYYMM = new Date().toISOString().slice(0, 7);
   const stats = useMemo(() => {
-    let pagadoMes = 0;
-    let pendienteMes = 0;
-    let totalAnio = 0;
-    let ivaPagado = 0;
+    // Cada total se acumula POR MONEDA — nunca se suman pesos con
+    // dólares. Los KPIs muestran las dos columnas por separado.
+    const zero = (): Record<FinanceCurrency, number> => ({ USD: 0, UYU: 0 });
+    const pagadoMes = zero();
+    const pendienteMes = zero();
+    const totalAnio = zero();
+    const ivaPagado = zero();
     const anio = monthYYYYMM.slice(0, 4);
     const today = new Date();
     const todayDay = today.getDate();
     const todayMonthKey = monthYYYYMM;
     for (const e of expenses) {
+      const cur: FinanceCurrency = e.currency ?? "USD";
       const amt = Number(e.amount);
       const ivaAmt = (amt * Number(e.ivaPct ?? 22)) / 100;
 
       if (e.recurrence === "monthly_fixed") {
-        // Para fijos mensuales evaluamos si CORRE este mes (start <=
-        // ahora <= end). Si corre y tiene payment_day, el status se
-        // deriva: pending hasta que llegue el día, paid desde ahí.
-        // Sin payment_day, queda como pending (el director marca a
-        // mano cuando paga).
         const startMonth = (e.date ?? "").slice(0, 7);
         const endMonth = e.recurrenceEndDate?.slice(0, 7) ?? null;
         const runsThisMonth =
@@ -105,16 +106,10 @@ export function PremiumEgresos() {
             e.paymentDay ?? null,
             todayDay,
           );
-          if (derived === "paid") pagadoMes += amt;
-          else pendienteMes += amt;
+          if (derived === "paid") pagadoMes[cur] += amt;
+          else pendienteMes[cur] += amt;
         }
-
-        // Año: sumamos cada mes pasado dentro del año en que ya se
-        // ejecutó (asumimos que un fijo mensual pasado se pagó —
-        // el track manual queda como TODO).
         if (startMonth.startsWith(anio)) {
-          // Cantidad de meses dentro del año actual que ya pasaron
-          // o están en curso (con payment_day cumplido).
           const monthsRunInYear = monthsRunWithinYear(
             e.date,
             e.recurrenceEndDate ?? null,
@@ -122,25 +117,33 @@ export function PremiumEgresos() {
             anio,
             today,
           );
-          totalAnio += amt * monthsRunInYear;
-          ivaPagado += ivaAmt * monthsRunInYear;
+          totalAnio[cur] += amt * monthsRunInYear;
+          ivaPagado[cur] += ivaAmt * monthsRunInYear;
         }
       } else {
-        // Único pago: comportamiento original.
         const inMonth = e.date?.startsWith(monthYYYYMM);
         const inYear = e.date?.startsWith(anio);
         if (inMonth) {
-          if (e.status === "paid") pagadoMes += amt;
-          if (e.status === "pending") pendienteMes += amt;
+          if (e.status === "paid") pagadoMes[cur] += amt;
+          if (e.status === "pending") pendienteMes[cur] += amt;
         }
         if (inYear && e.status === "paid") {
-          totalAnio += amt;
-          ivaPagado += ivaAmt;
+          totalAnio[cur] += amt;
+          ivaPagado[cur] += ivaAmt;
         }
       }
     }
     return { pagadoMes, pendienteMes, totalAnio, ivaPagado };
   }, [expenses, monthYYYYMM]);
+
+  // Formatea un total por-moneda a "USD X · $U Y", omitiendo las
+  // monedas en cero. Si todo es cero, muestra "USD 0".
+  const byCurrency = (m: Record<FinanceCurrency, number>): string => {
+    const parts = FINANCE_CURRENCIES.filter((c) => Math.round(m[c]) !== 0).map(
+      (c) => formatCurrency(Math.round(m[c]), c),
+    );
+    return parts.length > 0 ? parts.join(" · ") : formatCurrency(0, "USD");
+  };
 
   /**
    * Derive el status efectivo de un egreso fijo mensual para el mes
@@ -398,7 +401,7 @@ export function PremiumEgresos() {
       cell: (r) => (
         <div className="text-right">
           <div className="text-sm font-semibold text-danger tabular-nums">
-            −USD {Number(r.expense.amount).toLocaleString()}
+            −{formatCurrency(Number(r.expense.amount), r.expense.currency ?? "USD")}
           </div>
           <div className="text-2xs text-ink-300">
             IVA {Number(r.expense.ivaPct ?? 22)}%
@@ -445,24 +448,28 @@ export function PremiumEgresos() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KpiCard
           label="Pagado este mes"
-          value={`USD ${Math.round(stats.pagadoMes).toLocaleString()}`}
+          value={byCurrency(stats.pagadoMes)}
           loading={loading}
         />
         <KpiCard
           label="Pendiente este mes"
-          value={`USD ${Math.round(stats.pendienteMes).toLocaleString()}`}
-          sub={stats.pendienteMes > 0 ? "A pagar" : "Sin pendientes"}
+          value={byCurrency(stats.pendienteMes)}
+          sub={
+            stats.pendienteMes.USD + stats.pendienteMes.UYU > 0
+              ? "A pagar"
+              : "Sin pendientes"
+          }
           loading={loading}
         />
         <KpiCard
           label="Total año"
-          value={`USD ${Math.round(stats.totalAnio).toLocaleString()}`}
+          value={byCurrency(stats.totalAnio)}
           sub={`${monthYYYYMM.slice(0, 4)} acumulado`}
           loading={loading}
         />
         <KpiCard
           label="IVA pagado año"
-          value={`USD ${Math.round(stats.ivaPagado).toLocaleString()}`}
+          value={byCurrency(stats.ivaPagado)}
           sub="Deducible"
           loading={loading}
         />
@@ -554,6 +561,9 @@ function ExpenseFormModal({
   const [concept, setConcept] = useState(initial?.concept ?? "");
   const [amount, setAmount] = useState(
     initial ? String(initial.amount) : "",
+  );
+  const [currency, setCurrency] = useState<FinanceCurrency>(
+    initial?.currency ?? "USD",
   );
   const [date, setDate] = useState(
     initial?.date ?? new Date().toISOString().slice(0, 10),
@@ -652,6 +662,7 @@ function ExpenseFormModal({
         category,
         assignedTo,
         amount: amountNumber,
+        currency,
         recurrence,
         providerName: providerName.trim() || null,
         paymentMethod: (paymentMethod as ExpensePaymentMethod) || null,
@@ -781,10 +792,13 @@ function ExpenseFormModal({
             />
           </Field>
           <Field label="Moneda">
-            <Select value="USD" disabled>
-              {CURRENCIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.value}
+            <Select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as FinanceCurrency)}
+            >
+              {FINANCE_CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c === "UYU" ? "$U · Pesos" : "USD · Dólares"}
                 </option>
               ))}
             </Select>
@@ -808,19 +822,19 @@ function ExpenseFormModal({
             <div>
               <div className="eyebrow">Neto</div>
               <div className="text-md font-semibold text-ink tabular-nums mt-0.5">
-                USD {amountNumber.toLocaleString()}
+                {formatCurrency(amountNumber, currency)}
               </div>
             </div>
             <div>
               <div className="eyebrow">IVA ({ivaNumber}%)</div>
               <div className="text-md font-semibold text-ink tabular-nums mt-0.5">
-                USD {ivaAmount.toLocaleString()}
+                {formatCurrency(ivaAmount, currency)}
               </div>
             </div>
             <div>
               <div className="eyebrow">Total</div>
               <div className="text-md font-bold text-danger tabular-nums mt-0.5">
-                USD {totalConIva.toLocaleString()}
+                {formatCurrency(totalConIva, currency)}
               </div>
             </div>
           </div>

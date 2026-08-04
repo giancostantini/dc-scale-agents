@@ -237,7 +237,13 @@ export async function POST(req: NextRequest) {
           (r.status ?? "paid") === "paid" && (r.date ?? "").startsWith(mk),
       )
       .reduce((s, r) => s + Number(r.amount), 0);
+    // Fase 1 multimoneda: el cron sigue generando solo el snapshot
+    // USD. Como los egresos y fees existentes son todos USD (default
+    // de la migración 082), el neto es idéntico al de antes. El
+    // snapshot UYU se genera desde la UI de Dividendos cuando hay
+    // actividad en pesos (Fase 4).
     const totals = distributeMonthByClient({
+      currency: "USD",
       clients: allClients.map((c) => ({
         id: c.id,
         name: c.name,
@@ -262,6 +268,7 @@ export async function POST(req: NextRequest) {
       .upsert(
         {
           month_key: mk,
+          currency: "USD",
           net_profit: totals.net,
           partner_a_pct: configForDist.partner_a_pct,
           partner_b_pct: configForDist.partner_b_pct,
@@ -274,7 +281,7 @@ export async function POST(req: NextRequest) {
           auto_generated: true,
           notes: "auto-distribute endpoint (per-client splits)",
         },
-        { onConflict: "month_key" },
+        { onConflict: "month_key,currency" },
       );
     if (upErr) {
       console.error("auto-distribute upsert error:", upErr);

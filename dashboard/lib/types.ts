@@ -335,6 +335,9 @@ export interface Client {
   status: ClientStatus;
   phase: string;
   fee: number;
+  /** Moneda del fee — moneda en la que se factura al cliente
+   *  (migración 082). Default USD. */
+  fee_currency: FinanceCurrency;
   method: string;
   modules?: ClientModules;
   kpis?: ClientKPIs;
@@ -606,6 +609,19 @@ export type ExpensePaymentMethod =
 
 export type ExpenseStatus = "paid" | "pending" | "cancelled";
 
+/**
+ * Moneda de una transacción financiera (egreso, fee de cliente,
+ * ingreso, dividendo). Streams separados: un monto en una nunca se
+ * suma a otra.
+ *
+ * Es un subconjunto del `Currency` de las cuentas bancarias
+ * (`lib/cuentas-bancarias.ts`, que acepta ARS/EUR/BRL además) — acá
+ * solo ofrecemos las dos con las que opera el negocio.
+ */
+export type FinanceCurrency = "USD" | "UYU";
+
+export const FINANCE_CURRENCIES: FinanceCurrency[] = ["USD", "UYU"];
+
 export interface Expense {
   id: string;
   date: string;               // YYYY-MM-DD
@@ -613,6 +629,8 @@ export interface Expense {
   category: ExpenseCategory;
   assignedTo: string;         // "Interno" o clientId o nombre miembro
   amount: number;             // positivo; se trata como egreso
+  /** Moneda del egreso (migración 082). Default USD. */
+  currency: FinanceCurrency;
   /** Si el egreso es único (default) o se repite cada mes. */
   recurrence: ExpenseRecurrence;
   /** Solo aplica si recurrence='monthly_fixed'. Hasta qué mes corre.
