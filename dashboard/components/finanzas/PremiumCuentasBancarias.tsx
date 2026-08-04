@@ -8,7 +8,7 @@
  *   Header: título + período + "+ Agregar Cuenta"
  *   Row 1: 4 KPI cards con sparkline
  *     · Saldo Total Disponible (USD-eq)
- *     · Total en Pesos (suma ARS + UYU)
+ *     · Total en Pesos (UYU) — solo pesos uruguayos
  *     · Total en Dólares (suma USD)
  *     · Cuentas Activas (count)
  *   Row 2 (1/2 + 1/2):
@@ -133,7 +133,7 @@ function formatUsdPrecise(n: number): string {
 }
 
 function formatPesosPrecise(n: number): string {
-  return `$ ${n.toLocaleString("es-AR", {
+  return `$U ${n.toLocaleString("es-AR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -302,8 +302,12 @@ export function PremiumCuentasBancarias() {
     (s, c) => s + toUsd(c.current_balance, c.currency),
     0,
   );
+  // Pesos uruguayos solamente. Antes sumaba ARS + UYU como si fueran
+  // la misma moneda (ARS ≈ 1/1100 USD, UYU ≈ 1/39 USD) — un saldo sin
+  // sentido. Las cuentas ARS, si existen, se ven individuales y en el
+  // total USD-equivalente.
   const totalPesos = cuentasActivas
-    .filter((c) => c.currency === "ARS" || c.currency === "UYU")
+    .filter((c) => c.currency === "UYU")
     .reduce((s, c) => s + c.current_balance, 0);
   const totalDolares = cuentasActivas
     .filter((c) => c.currency === "USD")
@@ -346,8 +350,8 @@ export function PremiumCuentasBancarias() {
 
   const deltaTotalUsd = netDeltaUsdForMonth(curMonth) - netDeltaUsdForMonth(prevMonth);
   const deltaPesos =
-    netDeltaForMonth(curMonth, (c) => c.currency === "ARS" || c.currency === "UYU") -
-    netDeltaForMonth(prevMonth, (c) => c.currency === "ARS" || c.currency === "UYU");
+    netDeltaForMonth(curMonth, (c) => c.currency === "UYU") -
+    netDeltaForMonth(prevMonth, (c) => c.currency === "UYU");
   const deltaDolares =
     netDeltaForMonth(curMonth, (c) => c.currency === "USD") -
     netDeltaForMonth(prevMonth, (c) => c.currency === "USD");
@@ -639,7 +643,7 @@ export function PremiumCuentasBancarias() {
           loading={loading}
         />
         <KpiCard
-          label="Total en Pesos"
+          label="Total en Pesos (UYU)"
           value={formatPesosPrecise(totalPesos)}
           delta={pctDelta(totalPesos, totalPesosPrev)}
           subLabel="vs. mes anterior"

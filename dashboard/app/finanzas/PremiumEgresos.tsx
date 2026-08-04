@@ -886,11 +886,21 @@ function ExpenseFormModal({
                 onChange={(e) => setCuentaId(e.target.value)}
               >
                 <option value="">— No vincular —</option>
-                {cuentas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.bank_name} · {c.account_name || "Cuenta"} · ****{c.last4} · {c.currency}
-                  </option>
-                ))}
+                {/* Cuentas de la moneda del egreso primero: debitar un
+                    egreso en pesos desde una cuenta en dólares
+                    descuadraría el saldo de esa cuenta. */}
+                {[...cuentas]
+                  .sort((a, b) => {
+                    const am = a.currency === currency ? 0 : 1;
+                    const bm = b.currency === currency ? 0 : 1;
+                    return am - bm;
+                  })
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.currency === currency ? "" : "⚠ "}
+                      {c.bank_name} · {c.account_name || "Cuenta"} · ****{c.last4} · {c.currency}
+                    </option>
+                  ))}
               </Select>
             </Field>
           )}
