@@ -21,7 +21,8 @@
 import { useEffect, useState } from "react";
 import { listCuentas, type CuentaBancaria } from "@/lib/cuentas-bancarias";
 import { updateClientCore } from "@/lib/storage";
-import type { Client } from "@/lib/types";
+import type { Client, FinanceCurrency } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
 
 const COUNTRIES = [
   "Uruguay",
@@ -69,6 +70,9 @@ export default function EditClientCoreModal({
 
   // Fees
   const [fee, setFee] = useState(String(client.fee ?? ""));
+  const [feeCurrency, setFeeCurrency] = useState<FinanceCurrency>(
+    client.fee_currency ?? "USD",
+  );
   const [devProductionCost, setDevProductionCost] = useState(
     String(client.onboarding?.devProductionCost ?? ""),
   );
@@ -179,6 +183,7 @@ export default function EditClientCoreModal({
         country,
         method,
         fee: recurringFee,
+        fee_currency: feeCurrency,
         contact_name: contactName.trim() || null,
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
@@ -389,13 +394,28 @@ export default function EditClientCoreModal({
         {isGp ? (
           <>
             <Row>
-              <Field label="Fee mensual (USD)">
+              <Field label="Fee mensual">
                 <input
                   type="number"
                   value={fee}
                   onChange={(e) => setFee(e.target.value)}
                   style={inputStyle}
                 />
+              </Field>
+              <Field label="Moneda de facturación">
+                <select
+                  value={feeCurrency}
+                  onChange={(e) =>
+                    setFeeCurrency(e.target.value as FinanceCurrency)
+                  }
+                  style={inputStyle}
+                >
+                  {FINANCE_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c === "UYU" ? "$U · Pesos uruguayos" : "USD · Dólares"}
+                    </option>
+                  ))}
+                </select>
               </Field>
             </Row>
             <Row>

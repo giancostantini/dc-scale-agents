@@ -37,7 +37,9 @@ import {
   PAYMENT_METHODS,
   REVENUE_STATUSES,
 } from "@/lib/finanzas-options";
-import type { Client } from "@/lib/types";
+import type { Client, FinanceCurrency } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
+import { formatCurrency } from "@/lib/cuentas-bancarias";
 
 interface Props {
   clients: Client[];
@@ -74,29 +76,41 @@ export function PremiumIngresos({ clients }: Props) {
   // ===== KPIs (mes corriente) =====
   const monthYYYYMM = new Date().toISOString().slice(0, 7);
   const stats = useMemo(() => {
-    let cobradoMes = 0;
-    let pendienteMes = 0;
-    let totalAnio = 0;
-    let ivaCobrado = 0;
+    // Por moneda — pesos y dólares nunca se suman. Los ingresos
+    // manuales ya guardan su currency (mig 025); acá se respeta.
+    const zero = (): Record<FinanceCurrency, number> => ({ USD: 0, UYU: 0 });
+    const cobradoMes = zero();
+    const pendienteMes = zero();
+    const totalAnio = zero();
+    const ivaCobrado = zero();
     const anio = monthYYYYMM.slice(0, 4);
     for (const r of revenues) {
       const ref = r.date ?? r.start_date ?? null;
       if (!ref) continue;
+      const cur: FinanceCurrency = r.currency === "UYU" ? "UYU" : "USD";
       const inMonth = ref.startsWith(monthYYYYMM);
       const inYear = ref.startsWith(anio);
       const amt = Number(r.amount);
       const ivaAmt = (amt * Number(r.iva_pct)) / 100;
       if (inMonth) {
-        if (r.status === "paid") cobradoMes += amt;
-        if (r.status === "pending") pendienteMes += amt;
+        if (r.status === "paid") cobradoMes[cur] += amt;
+        if (r.status === "pending") pendienteMes[cur] += amt;
       }
       if (inYear && r.status === "paid") {
-        totalAnio += amt;
-        ivaCobrado += ivaAmt;
+        totalAnio[cur] += amt;
+        ivaCobrado[cur] += ivaAmt;
       }
     }
     return { cobradoMes, pendienteMes, totalAnio, ivaCobrado };
   }, [revenues, monthYYYYMM]);
+
+  // "USD X · $U Y", omitiendo las monedas en cero.
+  const byCurrency = (m: Record<FinanceCurrency, number>): string => {
+    const parts = FINANCE_CURRENCIES.filter((c) => Math.round(m[c]) !== 0).map(
+      (c) => formatCurrency(Math.round(m[c]), c),
+    );
+    return parts.length > 0 ? parts.join(" · ") : formatCurrency(0, "USD");
+  };
 
   function openNew() {
     setEditing(null);
@@ -226,26 +240,28 @@ export function PremiumIngresos({ clients }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KpiCard
           label="Cobrado este mes"
-          value={`USD ${Math.round(stats.cobradoMes).toLocaleString()}`}
+          value={byCurrency(stats.cobradoMes)}
           loading={loading}
         />
         <KpiCard
           label="Pendiente este mes"
-          value={`USD ${Math.round(stats.pendienteMes).toLocaleString()}`}
+          value={byCurrency(stats.pendienteMes)}
           sub={
-            stats.pendienteMes > 0 ? "Por cobrar" : "Sin pendientes"
+            stats.pendienteMes.USD + stats.pendienteMes.UYU > 0
+              ? "Por cobrar"
+              : "Sin pendientes"
           }
           loading={loading}
         />
         <KpiCard
           label="Total año"
-          value={`USD ${Math.round(stats.totalAnio).toLocaleString()}`}
+          value={byCurrency(stats.totalAnio)}
           sub={`${monthYYYYMM.slice(0, 4)} acumulado`}
           loading={loading}
         />
         <KpiCard
           label="IVA cobrado año"
-          value={`USD ${Math.round(stats.ivaCobrado).toLocaleString()}`}
+          value={byCurrency(stats.ivaCobrado)}
           sub="A liquidar"
           loading={loading}
         />

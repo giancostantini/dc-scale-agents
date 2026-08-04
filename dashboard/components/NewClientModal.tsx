@@ -15,8 +15,10 @@ import type {
   BudgetTier,
   ClientOnboarding,
   ClientType,
+  FinanceCurrency,
   OnboardingFile,
 } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
 import styles from "./NewClientModal.module.css";
 
 // Convierte los strings de los inputs a un BudgetTier estructurado.
@@ -132,6 +134,8 @@ export default function NewClientModal({
 
   // Step 3 — contrato + fees
   const [fee, setFee] = useState("");
+  /** Moneda en la que se factura al cliente (migración 082). */
+  const [feeCurrency, setFeeCurrency] = useState<FinanceCurrency>("USD");
   const [defaultCuentaId, setDefaultCuentaId] = useState<string>("");
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [method, setMethod] = useState("Método completo");
@@ -418,6 +422,7 @@ export default function NewClientModal({
         country,
         type,
         fee: recurringFee,
+        feeCurrency,
         method,
         contactName,
         contactEmail,
@@ -856,14 +861,31 @@ export default function NewClientModal({
                 <div className={styles.sectionLabel}>Fee mensual fijo</div>
                 <div className={styles.fieldGrid2}>
                   <div className={styles.field}>
-                    <label>Fee mensual (USD)</label>
-                    <input
-                      type="number"
-                      value={fee}
-                      onChange={(e) => setFee(e.target.value)}
-                      placeholder="3500"
-                      disabled={hasSchedule}
-                    />
+                    <label>Fee mensual</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="number"
+                        value={fee}
+                        onChange={(e) => setFee(e.target.value)}
+                        placeholder="3500"
+                        disabled={hasSchedule}
+                        style={{ flex: 1 }}
+                      />
+                      <select
+                        value={feeCurrency}
+                        onChange={(e) =>
+                          setFeeCurrency(e.target.value as FinanceCurrency)
+                        }
+                        style={{ width: 130 }}
+                        title="Moneda de facturación"
+                      >
+                        {FINANCE_CURRENCIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c === "UYU" ? "$U · Pesos" : "USD · Dólares"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     {hasSchedule && (
                       <div
                         style={{
