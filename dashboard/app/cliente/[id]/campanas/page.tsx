@@ -16,6 +16,8 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
   const [modal, setModal] = useState(false);
   const [eventModal, setEventModal] = useState(false);
 
+  const [pdfBusyId, setPdfBusyId] = useState<string | null>(null);
+
   const refresh = useCallback(() => {
     getProdCampaigns(id).then(setCampaigns);
   }, [id]);
@@ -24,6 +26,49 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
     getClient(id).then((c) => setClient(c ?? null));
     refresh();
   }, [id, refresh]);
+
+  /** Genera y descarga el PDF con los detalles de una producción.
+   *  react-pdf se importa lazy para no cargarlo hasta que se usa. */
+  async function downloadProductionPdf(c: ProductionCampaign) {
+    if (pdfBusyId || !client) return;
+    setPdfBusyId(c.id);
+    try {
+      const { pdf } = await import("@react-pdf/renderer");
+      const { default: ProductionPdf } = await import(
+        "@/components/ProductionPdf"
+      );
+      const blob = await pdf(
+        <ProductionPdf
+          clientName={client.name}
+          title={c.title}
+          type={c.type}
+          description={c.description}
+          status={c.status}
+          budget={c.budget}
+          spent={c.spent}
+          items={c.items}
+          startDate={c.startDate}
+          endDate={c.endDate}
+          createdAt={c.createdAt}
+        />,
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeTitle = c.title.replace(/[^a-zA-Z0-9-_ ]/g, "").trim() || "produccion";
+      a.download = `Produccion ${client.name} - ${safeTitle}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const e = err as Error;
+      console.error("downloadProductionPdf error:", err);
+      alert(`No se pudo generar el PDF:\n${e.message}`);
+    } finally {
+      setPdfBusyId(null);
+    }
+  }
 
   if (!client) return null;
 
@@ -138,6 +183,15 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
                   </div>
 
                   <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button
+                      className={ui.btnGhost}
+                      style={{ borderColor: "var(--sand)", fontWeight: 600 }}
+                      disabled={pdfBusyId === c.id}
+                      onClick={() => downloadProductionPdf(c)}
+                      title="Descargar los detalles de esta producción en PDF"
+                    >
+                      {pdfBusyId === c.id ? "Generando…" : "⬇ Descargar PDF"}
+                    </button>
                     {c.hasResult && (
                       <button
                         className={ui.btnGhost}
