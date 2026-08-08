@@ -35,7 +35,7 @@
 
 | Acción | Por qué |
 |---|---|
-| Pagos, facturación, dividendos, movimientos bancarios | irreversible + fiduciario (hoy módulo finanzas sin IA — mantener) |
+| Pagos, transferencias, conversiones de moneda, dividendos, movimientos bancarios | irreversible + fiduciario. **Matiz v2 (área Finanzas Autónoma, doc 16)**: draftear facturas/recordatorios/cierres y alertar descalces es 🟡; EJECUTAR dinero (pagar, transferir, convertir, emitir en firme sin gate) sigue 🔴 en todos los horizontes |
 | Pricing y contratos | compromiso comercial |
 | Contacto con leads fríos / cierre de ventas | reputación + juicio |
 | Eliminación de datos (clientes, credenciales, historiales) | irreversible (hoy delete = director + audit_log) |
