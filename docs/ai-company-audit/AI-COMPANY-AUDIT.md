@@ -8,7 +8,17 @@
 01 executive summary · 02 mapa del sistema · 03 auditoría Obsidian · 04 mapa de empresa ·
 05 inventario de agentes · 06 inventario de workflows · 07 skills/tools/knowledge ·
 08 capacidades y límites de IA · 09 gap analysis · 10 arquitectura target ·
-11 datos y memoria · 12 human-in-the-loop · 13 build/buy/connect · 14 roadmap.
+11 datos y memoria · 12 human-in-the-loop · 13 build/buy/connect · 14 roadmap (v2) ·
+**15 estructura empresarial ampliada · 16 área Finanzas Autónoma · 17 horizontes H1→H2→H3**.
+
+> **ADDENDUM (2026-08-07, tras revisión de Gian):** la arquitectura híbrida queda aprobada como
+> BASE (H1), no como destino. La visión ampliada — estructura profesional de 12 áreas con
+> balance keep/delete/create (doc 15), el área **Finanzas Autónoma** como primera construcción
+> nueva con la tesorería multimoneda USD/UYU al frente (doc 16), y el camino REGISTRADO hacia
+> coordinadores de área y orquestador conversacional con triggers medibles (doc 17) — es parte
+> del target oficial. Se refina la postura original "Finanzas sin IA": la EJECUCIÓN de dinero
+> sigue siendo RED permanente; lo que se construye es un área de agentes que prepara, detecta,
+> alerta y draftea. Roadmap actualizado a v2 (doc 14) con el track FIN arrancando tras Stage 0.
 
 ---
 
