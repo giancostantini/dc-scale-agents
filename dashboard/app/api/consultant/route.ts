@@ -22,10 +22,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext, buildVaultBlock } from "@/lib/vault-loader";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import { recordApiUsage } from "@/lib/api-usage";
+import {
+  recallClientMemories,
+  saveClientMemory,
+  buildMemoryBlock,
+  getProcessStatus,
+  buildProcessBlock,
+  dispatchAgentRun,
+  type MemoryRow,
+} from "@/lib/consultant-engine";
 import { dispatchableAgentKeys } from "@/lib/agent-registry";
 
 const MODEL = CLAUDE_MODEL_OPUS;
@@ -118,33 +126,37 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  const [{ data: client }, { data: recentRuns }, memories, vault] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, name, sector, type, phase, method, fee")
-      .eq("id", clientId)
-      .single<ClientRow>(),
-    supabase
-      .from("agent_runs")
-      .select("agent, status, summary, created_at")
-      .eq("client", clientId)
-      .order("created_at", { ascending: false })
-      .limit(10)
-      .returns<AgentRunRow[]>(),
-    recallMemories(supabase, clientId, 20),
-    // Vault — cargado del repo via GitHub Contents API. Si falla la red,
-    // seguimos sin vault para no romper el chat (degraded mode).
-    loadClientVaultContext(clientId).catch((err) => {
-      console.warn("[consultant] loadClientVaultContext falló:", err.message);
-      return {
-        claudeClient: null,
-        strategy: null,
-        learningLog: null,
-        callsLog: null,
-        brand: {},
-      };
-    }),
-  ]);
+  const [{ data: client }, { data: recentRuns }, memories, vault, processRows] =
+    await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, name, sector, type, phase, method, fee")
+        .eq("id", clientId)
+        .single<ClientRow>(),
+      supabase
+        .from("agent_runs")
+        .select("agent, status, summary, created_at")
+        .eq("client", clientId)
+        .order("created_at", { ascending: false })
+        .limit(10)
+        .returns<AgentRunRow[]>(),
+      recallClientMemories(clientId, 20),
+      // Vault — cargado del repo via GitHub Contents API. Si falla la red,
+      // seguimos sin vault para no romper el chat (degraded mode).
+      loadClientVaultContext(clientId).catch((err) => {
+        console.warn("[consultant] loadClientVaultContext falló:", err.message);
+        return {
+          claudeClient: null,
+          strategy: null,
+          learningLog: null,
+          callsLog: null,
+          brand: {},
+        };
+      }),
+      // Estado de procesos (Stage 3/4) — el consultor sabe en qué paso está
+      // el cliente y qué gate lo bloquea. Best-effort.
+      getProcessStatus(clientId).catch(() => []),
+    ]);
 
   if (!client) {
     return Response.json({ error: `Client '${clientId}' not found` }, { status: 404 });
@@ -153,6 +165,7 @@ export async function POST(req: NextRequest) {
   const contextBlock = buildContextBlock(client, recentRuns ?? []);
   const memoryBlock = buildMemoryBlock(memories);
   const vaultBlock = buildVaultBlock(vault);
+  const processBlock = buildProcessBlock(processRows);
 
   const anthropic = new Anthropic();
 
@@ -180,6 +193,10 @@ export async function POST(req: NextRequest) {
         {
           type: "text",
           text: memoryBlock,
+        },
+        {
+          type: "text",
+          text: processBlock,
         },
       ],
       tools: [
@@ -254,7 +271,7 @@ export async function POST(req: NextRequest) {
           importance?: number;
         };
         if (input.content && input.kind) {
-          await rememberMemory(supabase, clientId, input.kind, input.content, input.importance);
+          await saveClientMemory(clientId, input.kind, input.content, input.importance);
           memorySaved = { kind: input.kind, content: input.content };
         }
       }
@@ -290,53 +307,26 @@ export async function POST(req: NextRequest) {
         input.brief,
       );
 
-      const { data: run, error: insertError } = await supabase
-        .from("agent_runs")
-        .insert({
-          client: clientId,
-          agent: input.agent,
-          status: "running",
-          summary: input.reason ?? "dispatched from consultant",
-          metadata: { brief: enrichedBrief, source: "consultant", reason: input.reason },
-          performance: {},
-        })
-        .select()
-        .single();
+      // Camino único de dispatch (Stage 4): guardrails del registry (rol +
+      // techo de gasto mensual) → agent_runs → repository_dispatch. Rol
+      // "team" como default conservador: este endpoint lo usan director y
+      // equipo, y team es el más restrictivo de los dos.
+      const result = await dispatchAgentRun({
+        clientId,
+        agent: input.agent,
+        brief: enrichedBrief,
+        reason: input.reason,
+        source: "consultant",
+        role: "team",
+      });
 
-      if (insertError || !run) {
+      if (!result.ok) {
         return Response.json(
-          { error: `Failed to open agent_runs row: ${insertError?.message ?? "unknown"}` },
-          { status: 500 },
+          { error: result.error, runId: result.runId },
+          { status: result.status },
         );
       }
-
-      try {
-        await dispatchAgentWorkflow({
-          eventType: input.agent,
-          payload: {
-            runId: run.id,
-            brief: { ...enrichedBrief, client: clientId, source: "consultant", runId: run.id },
-          },
-        });
-        dispatched = { agent: input.agent, runId: run.id };
-      } catch (err) {
-        await supabase
-          .from("agent_runs")
-          .update({
-            status: "error",
-            summary: err instanceof Error ? err.message : "dispatch failed",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", run.id);
-
-        return Response.json(
-          {
-            error: err instanceof Error ? err.message : "dispatch failed",
-            runId: run.id,
-          },
-          { status: 502 },
-        );
-      }
+      dispatched = { agent: input.agent, runId: result.runId };
     }
 
     const reply =
@@ -384,96 +374,9 @@ export async function POST(req: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Consultant memory — progressive context written during conversation
+// Consultant memory — movida al motor común (lib/consultant-engine.ts,
+// Stage 4): recallClientMemories / saveClientMemory / buildMemoryBlock.
 // ---------------------------------------------------------------------------
-
-interface MemoryRow {
-  id: number;
-  kind: "preference" | "constraint" | "past_decision" | "learning";
-  content: string;
-  importance: number | null;
-  created_at: string;
-}
-
-async function recallMemories(
-  supabase: SupabaseAdminClient,
-  clientId: string,
-  limit: number,
-): Promise<MemoryRow[]> {
-  // v2 (mig 022/085): fuente ÚNICA de memoria de directivas. Scope 'client'
-  // — lo mismo que leen client-memory.js (agentes GHA) y distill-learnings,
-  // así lo que el consultor guarda lo ve toda la flota y viceversa.
-  const { data, error } = await supabase
-    .from("consultant_memory_v2")
-    .select("id, kind, content, importance, created_at")
-    .eq("scope_type", "client")
-    .eq("client_id", clientId)
-    .or("expires_at.is.null,expires_at.gt.now()")
-    .order("importance", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(limit)
-    .returns<MemoryRow[]>();
-
-  if (error || !data) return [];
-  return data;
-}
-
-async function rememberMemory(
-  supabase: SupabaseAdminClient,
-  clientId: string,
-  kind: MemoryRow["kind"],
-  content: string,
-  importance?: number,
-): Promise<void> {
-  const clampedImportance =
-    typeof importance === "number"
-      ? Math.max(1, Math.min(5, Math.round(importance)))
-      : 3;
-
-  await supabase.from("consultant_memory_v2").insert({
-    scope_type: "client",
-    client_id: clientId,
-    kind,
-    content: content.slice(0, 1000),
-    importance: clampedImportance,
-  });
-}
-
-function buildMemoryBlock(memories: MemoryRow[]): string {
-  if (memories.length === 0) {
-    return "MEMORIA DEL CLIENTE: (vacía — esta es la primera conversación relevante)";
-  }
-
-  const byKind: Record<string, MemoryRow[]> = {
-    preference: [],
-    constraint: [],
-    past_decision: [],
-    learning: [],
-  };
-  for (const m of memories) {
-    (byKind[m.kind] ?? (byKind[m.kind] = [])).push(m);
-  }
-
-  const labels: Record<string, string> = {
-    preference: "Preferencias",
-    constraint: "Restricciones (no cruzar)",
-    past_decision: "Decisiones pasadas",
-    learning: "Aprendizajes",
-  };
-
-  const sections: string[] = ["MEMORIA DEL CLIENTE:"];
-  for (const kind of ["constraint", "preference", "past_decision", "learning"] as const) {
-    const items = byKind[kind];
-    if (!items || items.length === 0) continue;
-    sections.push(`\n${labels[kind]}:`);
-    for (const m of items) {
-      const imp = m.importance ? ` [p${m.importance}]` : "";
-      sections.push(`- ${m.content}${imp}`);
-    }
-  }
-
-  return sections.join("\n");
-}
 
 interface InsightRow {
   dimension: string;
