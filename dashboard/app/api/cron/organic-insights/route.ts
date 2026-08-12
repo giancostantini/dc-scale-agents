@@ -24,6 +24,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { requireInternalSecret } from "@/lib/auth-guard";
 import { todayUY } from "@/lib/tesoreria";
+import { emitEvent, processEvents } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -232,6 +233,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Evento formal (Stage 5): hay métricas nuevas matcheadas → el
+      // handler dispara social-media-metrics para que evalúe con datos
+      // reales. Se procesa inline al final (y el sweeper barre si falla).
+      if (matched > 0) {
+        await emitEvent("metricas.actualizadas", client.id, { matched });
+      }
+
       results.push({ client: client.id, media: rows.length, matched });
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown";
@@ -258,6 +266,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Procesar los eventos recién emitidos en el mismo run (real-time para
+  // metricas.actualizadas sin depender del sweeper diario). Best-effort.
+  let eventsResult = null;
+  try {
+    eventsResult = await processEvents(10);
+  } catch (err) {
+    console.warn("[organic-insights] processEvents falló (el sweeper barre):", err);
+  }
+
   const failed = results.filter((r) => r.error).length;
-  return Response.json({ ok: true, configured: true, clients: results, failed });
+  return Response.json({ ok: true, configured: true, clients: results, failed, events: eventsResult });
 }

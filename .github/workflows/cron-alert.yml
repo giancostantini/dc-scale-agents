@@ -39,6 +39,9 @@ on:
       - "Monthly Reports"
       # Stage 3 — si el estado de los procesos deja de sincronizarse.
       - "Process Sync"
+      # Stage 5 — si el sweeper de eventos muere, los eventos GREEN quedan
+      # pendientes en el outbox sin que nadie los empuje.
+      - "Events Dispatch"
     types: [completed]
 
 jobs:
