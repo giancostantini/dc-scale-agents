@@ -46,6 +46,7 @@ import {
 import ReportesView from "@/components/finanzas/ReportesView";
 import CostosApiView from "@/components/finanzas/CostosApiView";
 import TesoreriaView from "@/components/finanzas/TesoreriaView";
+import ConciliacionView from "@/components/finanzas/ConciliacionView";
 import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
 import { PremiumDocumentos } from "@/components/finanzas/PremiumDocumentos";
@@ -75,6 +76,7 @@ type FinPage =
   | "documentos"
   | "cuentas"
   | "tesoreria"
+  | "conciliacion"
   | "costos_api";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
@@ -181,6 +183,7 @@ export default function FinanzasPage() {
         { key: "equipo", icon: "◌", label: "Funcionales" },
         { key: "cuentas", icon: "◫", label: "Cuentas bancarias" },
         { key: "tesoreria", icon: "≈", label: "Tesorería" },
+        { key: "conciliacion", icon: "⇄", label: "Conciliación" },
         { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "documentos", icon: "▤", label: "Documentos" },
@@ -249,6 +252,7 @@ export default function FinanzasPage() {
                 feeSchedules={feeSchedules}
               />
             )}
+            {page === "conciliacion" && <ConciliacionView />}
             {page === "costos_api" && <CostosApiView />}
             {page === "mkt_clientes" && (
               <MktClientesView
