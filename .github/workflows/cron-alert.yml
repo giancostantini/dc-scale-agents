@@ -1,0 +1,52 @@
+name: Cron Alert
+
+# Stage 0 (auditoría, gap #9): aviso al equipo cuando un cron productivo
+# falla. Antes, un cron muerto solo se veía entrando a la pestaña Actions —
+# podía pasar días sin que nadie lo note. Este workflow escucha la finalización
+# de los workflows con schedule activo y, si terminaron en failure, inserta una
+# notificación de nivel error en el bell del dashboard (to_role=director) vía
+# la REST API de Supabase (notifications.client es nullable → alerta global).
+#
+# Costo: solo corre cuando otro workflow termina; el job dura segundos.
+
+on:
+  workflow_run:
+    workflows:
+      - "Sector Trends"
+      - "Distill Learnings"
+      - "Insights Aggregator"
+      - "Competitor Scanner"
+      - "Daily Stock-Web Report"
+      - "Outlook Subscription Renew"
+      - "Portal · Weekly digest email"
+    types: [completed]
+
+jobs:
+  alert:
+    # Solo si el workflow observado FALLÓ.
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Insertar notificación de error en el dashboard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_URL: ${{ github.event.workflow_run.html_url }}
+          WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "::warning::SUPABASE_URL/KEY no seteados — no puedo notificar"
+            exit 0
+          fi
+          payload=$(jq -n \
+            --arg title "Cron falló: ${WF_NAME}" \
+            --arg body "El workflow '${WF_NAME}' terminó en failure (branch ${WF_BRANCH}). Revisá el run: ${WF_URL}" \
+            '{client: null, agent: "cron-alert", level: "error", title: $title, body: $body, link: null, to_user_id: null, to_role: "director", email_sent: false}')
+          curl -fsS -X POST "${SUPABASE_URL}/rest/v1/notifications" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$payload"
+          echo "Notificación enviada al bell (director)."

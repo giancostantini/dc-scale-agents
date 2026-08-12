@@ -26,21 +26,16 @@ import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext, buildVaultBlock } from "@/lib/vault-loader";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import { recordApiUsage } from "@/lib/api-usage";
+import { dispatchableAgentKeys } from "@/lib/agent-registry";
 
 const MODEL = CLAUDE_MODEL_OPUS;
 
-const DISPATCHABLE_AGENTS = [
-  "creative-assistant",
-  "content-strategy",
-  "reporting-performance",
-  "morning-briefing",
-  "seo",
-  "social-media-metrics",
-  "stock",
-  "logistics",
-] as const;
+// Derivado del registry único (Stage 0): un solo lugar decide qué agentes
+// puede despachar el consultor. Para sumar/sacar uno: lib/agent-registry.ts
+// (flag `dispatchable`), no esta lista.
+const DISPATCHABLE_AGENTS: string[] = dispatchableAgentKeys();
 
-type DispatchableAgent = (typeof DISPATCHABLE_AGENTS)[number];
+type DispatchableAgent = string;
 
 const SYSTEM_PROMPT = `Sos el Consultor de D&C Scale Partners para un cliente específico. Tu rol:
 

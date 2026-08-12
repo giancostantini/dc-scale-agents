@@ -23,6 +23,11 @@ import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext } from "@/lib/vault-loader";
 import { logAction } from "@/lib/audit";
 import { requireClientAccess } from "@/lib/auth-guard";
+import {
+  getAgentEntry,
+  canRepositoryDispatch,
+  runnableAgentKeys,
+} from "@/lib/agent-registry";
 
 interface RunRequest {
   clientId: string;
@@ -94,6 +99,29 @@ export async function POST(req: NextRequest) {
   if (!clientId || !agent) {
     return Response.json(
       { error: "Missing required fields: clientId, agent" },
+      { status: 400 },
+    );
+  }
+
+  // Validación contra el registry único (Stage 0). Antes, un agente
+  // desconocido o sin workflow abría un agent_run que quedaba "running" para
+  // siempre (dispatch zombie — pasó con content-creator post-eliminación).
+  const registryEntry = getAgentEntry(agent);
+  if (!registryEntry) {
+    return Response.json(
+      {
+        error: `Agente desconocido: '${agent}'. No está en el registry (lib/agent-registry.ts).`,
+        knownAgents: runnableAgentKeys(),
+      },
+      { status: 400 },
+    );
+  }
+  const hasFastPath = Boolean(resolveFastAgent(agent, brief));
+  if (!hasFastPath && !canRepositoryDispatch(agent)) {
+    return Response.json(
+      {
+        error: `El agente '${agent}' no tiene canal de ejecución desde el dashboard (ni fast-path ni repository_dispatch). Corre solo por cron/manual en GHA.`,
+      },
       { status: 400 },
     );
   }
