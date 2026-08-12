@@ -19,6 +19,9 @@ on:
       - "Daily Stock-Web Report"
       - "Outlook Subscription Renew"
       - "Portal · Weekly digest email"
+      # FIN-0 (PR feat/fin0-tesoreria) — si el TC diario deja de cargarse,
+      # la vista Tesorería y la alerta de descalce quedan ciegas.
+      - "FX Rates (Tesorería)"
     types: [completed]
 
 jobs:
