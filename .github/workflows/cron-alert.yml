@@ -32,6 +32,13 @@ on:
       - "Meta Insights"
       # Stage 2b — ídem para la ingestión orgánica por pieza.
       - "Organic Insights"
+      # Stage 3 — si el auto-draft de la fase siguiente falla, el director
+      # cree que se está generando y no pasa nada.
+      - "Phase Autogen"
+      # Stage 3 — si los reportes mensuales F5.5 no se draftean el día 3.
+      - "Monthly Reports"
+      # Stage 3 — si el estado de los procesos deja de sincronizarse.
+      - "Process Sync"
     types: [completed]
 
 jobs:

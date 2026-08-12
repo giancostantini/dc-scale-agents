@@ -1,0 +1,42 @@
+name: Process Sync
+
+# Stage 3. Corre 1×/día (11:15 UTC = 8:15 UY) y re-deriva el estado de los
+# procesos multi-paso (onboarding, ciclo de contenido, reporte mensual) en
+# process_instances. "¿En qué paso está el cliente X?" = un SELECT.
+#
+# Además de este cron, /api/phases/approve sincroniza al instante el
+# cliente cuya fase se aprobó.
+#
+# Secrets (ya existen): DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  schedule:
+    - cron: '15 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar process_instances
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/process-sync" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          echo "Instancias sincronizadas: $(echo "$response" | jq -r '.synced')"

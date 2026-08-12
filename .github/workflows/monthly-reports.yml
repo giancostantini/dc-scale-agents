@@ -1,0 +1,82 @@
+name: Monthly Reports
+
+# Stage 3 · Reporte mensual F5.5 como workflow: el día 3 de cada mes
+# (después del cierre financiero del día 2) draftea el reporte mensual de
+# performance de CADA cliente GP activo con reporting-performance
+# (mode=monthly). Con Stage 2 activo, el draft sale con métricas reales
+# (paid_media_daily + orgánicas) en vez de estimaciones.
+#
+# Gate (YELLOW): el draft queda en agent_outputs + vault y el director lo
+# revisa ANTES de compartir nada con el cliente. El envío es humano.
+#
+# Secuencial (un solo job, loop bash) para cuidar minutos de GHA — es
+# mensual, no importa que tarde.
+
+on:
+  schedule:
+    - cron: '0 12 3 * *'   # día 3, 12:00 UTC = 9:00 UY
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug (vacío = todos los GP activos)'
+        required: false
+
+jobs:
+  reports:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Listar clientes y generar reportes
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ONLY_CLIENT: ${{ inputs.client }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ONLY_CLIENT:-}" ]; then
+            clients="[\"${ONLY_CLIENT}\"]"
+          else
+            clients=$(curl -fsS \
+              "${SUPABASE_URL}/rest/v1/clients?status=eq.active&type=eq.gp&select=id" \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}" | jq -c '[.[].id]')
+          fi
+          count=$(echo "$clients" | jq 'length')
+          echo "Clientes a reportar: $count → $clients"
+          if [ "$count" = "0" ]; then
+            echo "::notice::No hay clientes GP activos — nada que reportar."
+            exit 0
+          fi
+          failures=0
+          for client in $(echo "$clients" | jq -r '.[]'); do
+            echo "=== Reporte mensual: $client ==="
+            mkdir -p "vault/clients/${client}/agent-reports"
+            cat > /tmp/brief.json << BRIEF_EOF
+          {"client":"${client}","mode":"monthly","source":"cron"}
+          BRIEF_EOF
+            if ! node scripts/reporting-performance/index.js --brief /tmp/brief.json; then
+              echo "::warning::Reporte de ${client} falló — sigo con el resto."
+              failures=$((failures + 1))
+            fi
+          done
+          if [ "$failures" = "$count" ]; then
+            echo "ERROR: fallaron TODOS los reportes ($failures/$count)" >&2
+            exit 1
+          fi
+          echo "OK: $((count - failures))/$count reportes drafteados (gate: revisión del director)."
+
+      - name: Commit vault updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vault/
+          git diff --cached --quiet || git commit -m "Monthly Reports: drafts F5.5 del mes"
+          git push

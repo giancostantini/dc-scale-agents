@@ -96,34 +96,49 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ====== 2. Validar caller (debe ser director) ======
-  const callerToken = req.headers
-    .get("authorization")
-    ?.replace("Bearer ", "");
-  if (!callerToken) {
-    return Response.json({ error: "Sin sesión" }, { status: 401 });
-  }
+  // ====== 2. Validar caller (director, o sistema con secret interno) ======
+  // Camino sistema (Stage 3): al aprobar una fase, approve dispara un
+  // workflow de GHA que llama acá con x-internal-secret para draftear la
+  // SIGUIENTE fase sola. El gate humano no cambia: lo generado queda en
+  // draft y el director lo aprueba igual que siempre.
+  let callerId: string | null = null;
+  const internalSecret = req.headers.get("x-internal-secret")?.trim();
+  const isInternal = Boolean(
+    internalSecret &&
+      process.env.CRON_SECRET &&
+      internalSecret === process.env.CRON_SECRET.trim(),
+  );
 
-  const callerClient = createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${callerToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const {
-    data: { user: caller },
-  } = await callerClient.auth.getUser();
-  if (!caller) {
-    return Response.json({ error: "No autenticado" }, { status: 401 });
-  }
-  const { data: callerProfile } = await callerClient
-    .from("profiles")
-    .select("role")
-    .eq("id", caller.id)
-    .maybeSingle();
-  if (!callerProfile || callerProfile.role !== "director") {
-    return Response.json(
-      { error: "Solo directores pueden generar reportes." },
-      { status: 403 },
-    );
+  if (!isInternal) {
+    const callerToken = req.headers
+      .get("authorization")
+      ?.replace("Bearer ", "");
+    if (!callerToken) {
+      return Response.json({ error: "Sin sesión" }, { status: 401 });
+    }
+
+    const callerClient = createClient(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${callerToken}` } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const {
+      data: { user: caller },
+    } = await callerClient.auth.getUser();
+    if (!caller) {
+      return Response.json({ error: "No autenticado" }, { status: 401 });
+    }
+    const { data: callerProfile } = await callerClient
+      .from("profiles")
+      .select("role")
+      .eq("id", caller.id)
+      .maybeSingle();
+    if (!callerProfile || callerProfile.role !== "director") {
+      return Response.json(
+        { error: "Solo directores pueden generar reportes." },
+        { status: 403 },
+      );
+    }
+    callerId = caller.id;
   }
 
   // ====== 3. Validar body ======
@@ -526,7 +541,7 @@ Reglas absolutas:
           content_md: currentReport.content_md,
           feedback: currentReport.feedback ?? null,
           generated_at: currentReport.generated_at ?? new Date().toISOString(),
-          archived_by: caller.id,
+          archived_by: callerId,
         },
         { onConflict: "client_id,phase,version" },
       );
