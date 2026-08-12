@@ -1,0 +1,66 @@
+name: Autonomy Review
+
+# Stage 6. Semanal (lunes 11:45 UTC = 8:45 UY), dos pasos:
+#   1. /api/cron/autonomy-review — mide la aprobación sostenida por tipo de
+#      output y marca elegibilidad / alerta rollback. La promoción a
+#      auto-con-muestreo SIEMPRE la hace un director (UPDATE en
+#      autonomy_settings) — el sistema mide y avisa, nunca se promueve solo.
+#   2. /api/cron/budget-recommendations — recomendación semanal de
+#      presupuesto de ads por cliente con datos de Insights (YELLOW:
+#      recomendar, jamás ejecutar).
+#
+# Secrets (ya existen): DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  schedule:
+    - cron: '45 11 * * 1'
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Review de elegibilidad de autonomía
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/autonomy-review" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: autonomy-review no devolvió ok=true" >&2
+            exit 1
+          fi
+          echo "$response" | jq -r '.review[] | "\(.output_type): mode=\(.mode) elegible=\(.eligible) acción=\(.action)"'
+
+      - name: Recomendaciones de presupuesto (YELLOW)
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/budget-recommendations" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: budget-recommendations no devolvió ok=true" >&2
+            exit 1
+          fi
+          configured=$(echo "$response" | jq -r '.configured')
+          if [ "$configured" = "false" ]; then
+            echo "::notice::Sin datos de Insights todavía — recomendaciones dormidas."
+          fi

@@ -12,12 +12,15 @@ import { getAgentEntry } from "@/lib/agent-registry";
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { dispatchAgentRun } from "@/lib/consultant-engine";
 import { runProcessSync } from "@/lib/process-sync";
+import { getAutonomySetting } from "@/lib/autonomy";
+import { sendEmail } from "@/lib/email";
 
 export type EventType =
   | "cliente.creado"
   | "cliente.activado"
   | "pieza.publicada"
-  | "metricas.actualizadas";
+  | "metricas.actualizadas"
+  | "reporte.drafteado";
 
 interface EventRow {
   id: number;
@@ -158,11 +161,102 @@ async function handleMetricasActualizadas(ev: EventRow): Promise<HandlerResult> 
     : { status: "error", detail: result.error };
 }
 
+/**
+ * Stage 6 — el consumidor real de autonomy_settings. El reporte mensual se
+ * drafteó (evento del trigger en agent_outputs):
+ *   gated (default)  → no hace nada nuevo: el flujo sigue siendo revisión
+ *                      del director y envío manual.
+ *   auto_sampled     → lo manda por mail al cliente SOLO si los socios
+ *                      promovieron el tipo, con spot-check: sample_rate %
+ *                      de los reportes quedan retenidos para revisión.
+ */
+async function handleReporteDrafteado(ev: EventRow): Promise<HandlerResult> {
+  if (!ev.client_id) return { status: "skipped", detail: "sin client_id" };
+  const setting = await getAutonomySetting("monthly_report");
+
+  if (setting.mode === "gated") {
+    return {
+      status: "skipped",
+      detail: "monthly_report está gated (default) — revisión del director y envío manual, como siempre",
+    };
+  }
+
+  const admin = getSupabaseAdmin();
+  const outputId = Number(ev.payload.output_id ?? 0);
+
+  // Spot-check determinista por output_id: sample_rate % quedan en revisión.
+  if (outputId % 100 < setting.sample_rate) {
+    await admin.from("notifications").upsert(
+      {
+        client: ev.client_id,
+        agent: "autonomy",
+        level: "warning",
+        title: `Spot-check: reporte mensual de ${ev.client_id} retenido para revisión`,
+        body: `El tipo monthly_report está promovido a auto-envío, pero este reporte cayó en el muestreo (${setting.sample_rate}%). Revisalo y mandalo manualmente — así validamos que la autonomía siga mereciéndose.`,
+        link: `/cliente/${ev.client_id}`,
+        to_role: "director",
+        email_sent: false,
+        dedup_key: `spot-check-${outputId}`,
+      },
+      { onConflict: "dedup_key", ignoreDuplicates: true },
+    );
+    return { status: "processed", detail: `retenido por spot-check (${setting.sample_rate}%)` };
+  }
+
+  const [{ data: output }, { data: client }] = await Promise.all([
+    admin.from("agent_outputs").select("title, body_md").eq("id", outputId).maybeSingle(),
+    admin
+      .from("clients")
+      .select("name, contact_email, contact_name")
+      .eq("id", ev.client_id)
+      .maybeSingle(),
+  ]);
+  if (!output?.body_md) return { status: "error", detail: `output ${outputId} sin body_md` };
+  if (!client?.contact_email) {
+    return { status: "error", detail: "cliente sin contact_email — no se puede auto-enviar" };
+  }
+
+  const escaped = (output.body_md as string)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  try {
+    await sendEmail({
+      to: client.contact_email as string,
+      subject: `Reporte mensual de performance — ${client.name} — D&C Scale`,
+      html: `<div style="font-family:sans-serif;max-width:640px;margin:0 auto"><p>Hola ${client.contact_name ?? ""}!</p><p>Te compartimos el reporte mensual de performance:</p><pre style="white-space:pre-wrap;font-family:inherit;background:#f6f4ef;padding:16px;border-radius:8px">${escaped}</pre><p>Cualquier duda, respondé este mail.<br/>— D&amp;C Scale Partners</p></div>`,
+    });
+  } catch (err) {
+    return {
+      status: "error",
+      detail: `envío falló: ${err instanceof Error ? err.message : "?"}`,
+    };
+  }
+
+  await admin.from("notifications").upsert(
+    {
+      client: ev.client_id,
+      agent: "autonomy",
+      level: "success",
+      title: `Reporte mensual auto-enviado a ${client.name}`,
+      body: `monthly_report está promovido a auto-envío (spot-check ${setting.sample_rate}%). Se mandó a ${client.contact_email}. Rollback cuando quieran: UPDATE autonomy_settings SET mode='gated' WHERE output_type='monthly_report';`,
+      link: `/cliente/${ev.client_id}`,
+      to_role: "director",
+      email_sent: false,
+      dedup_key: `auto-sent-${outputId}`,
+    },
+    { onConflict: "dedup_key", ignoreDuplicates: true },
+  );
+
+  return { status: "processed", detail: `auto-enviado a ${client.contact_email}` };
+}
+
 const HANDLERS: Record<string, (ev: EventRow) => Promise<HandlerResult>> = {
   "cliente.creado": handleClienteCreado,
   "cliente.activado": handleClienteActivado,
   "pieza.publicada": handlePiezaPublicada,
   "metricas.actualizadas": handleMetricasActualizadas,
+  "reporte.drafteado": handleReporteDrafteado,
 };
 
 export interface ProcessEventsResult {

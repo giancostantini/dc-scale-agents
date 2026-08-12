@@ -42,6 +42,9 @@ on:
       # Stage 5 — si el sweeper de eventos muere, los eventos GREEN quedan
       # pendientes en el outbox sin que nadie los empuje.
       - "Events Dispatch"
+      # Stage 6 — si el review semanal muere, la elegibilidad/regresión de
+      # autonomía y las recomendaciones de presupuesto dejan de salir.
+      - "Autonomy Review"
     types: [completed]
 
 jobs:
