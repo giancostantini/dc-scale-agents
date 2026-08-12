@@ -298,6 +298,15 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
 
   // ============ PLATAFORMA ============
   {
+    key: "budget-recommendations",
+    name: "Budget Recommendations",
+    desc: "Recomendación semanal de presupuesto de ads desde paid_media_daily (Stage 6). SIEMPRE YELLOW: recomienda, jamás ejecuta — el push es humano.",
+    kind: "job",
+    area: "growth",
+    owner: "gian",
+    status: "active",
+  },
+  {
     key: "distill-learnings",
     name: "Distill Learnings",
     desc: "Destila aprendizajes semanales de los chats+ratings a consultant_memory_v2 (Haiku, incremental).",
