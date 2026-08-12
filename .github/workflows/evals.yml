@@ -1,0 +1,46 @@
+name: Evals
+
+# Stage 2c. Lunes 12:15 UTC (9:15 UY): el juez (Haiku) evalúa los outputs
+# recientes de los 3 sets dorados (fases / creative / trends) contra las
+# rubrics de vault/agency/evals/, con goldens = outputs ya aprobados por
+# los socios. Scores a eval_runs + resumen a la campana.
+#
+# "Evals verdes" (trigger H2): promedio ≥75 en 30 días sin fails repetidos.
+#
+# Manual: workflow_dispatch con set puntual.
+
+on:
+  schedule:
+    - cron: '15 12 * * 1'
+  workflow_dispatch:
+    inputs:
+      set:
+        description: 'Set a evaluar'
+        required: false
+        default: 'all'
+        type: choice
+        options: [all, fases, creative, trends]
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Correr evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/brief.json << BRIEF_EOF
+          {"set":"${{ inputs.set || 'all' }}","source":"scheduled"}
+          BRIEF_EOF
+          node scripts/evals/index.js --brief /tmp/brief.json
