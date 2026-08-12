@@ -1,0 +1,48 @@
+name: Events Dispatch
+
+# Stage 5. Sweeper del outbox de eventos: corre todos los días a las
+# 10:15 UTC (7:15 UY) y procesa los eventos pendientes que nadie barrió
+# (cliente.creado/activado, pieza.publicada, metricas.actualizadas).
+#
+# Para procesamiento REAL-TIME además del sweeper, configurar una vez en
+# Supabase Studio → Database → Webhooks:
+#   tabla events · INSERT · POST https://<dashboard>/api/events/dispatch
+#   header: x-internal-secret: <CRON_SECRET>
+#
+# Secrets (ya existen): DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  schedule:
+    - cron: '15 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Procesar eventos pendientes
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/events/dispatch" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{"limit": 50}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          errors=$(echo "$response" | jq -r '.errors // 0')
+          echo "Eventos: $(echo "$response" | jq -r '.claimed') tomados · $(echo "$response" | jq -r '.processed') procesados · $(echo "$response" | jq -r '.skipped') salteados · $errors con error"
+          if [ "$errors" != "0" ]; then
+            echo "::warning::$errors evento(s) con error — ver la tabla events (columna detail)."
+          fi
