@@ -76,6 +76,33 @@ async function selectMany(table, match = {}, columns = "*", options = {}) {
   return await res.json();
 }
 
+/** Upsert que IGNORA duplicados (idempotencia via dedup_key, mig 090):
+ *  si ya existe una fila con la misma clave de conflicto, no inserta ni
+ *  actualiza — devuelve [] y listo. */
+async function upsertIgnore(table, rows, onConflict) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,
+    {
+      method: "POST",
+      headers: {
+        ...headers(),
+        Prefer: "return=representation,resolution=ignore-duplicates",
+      },
+      body: JSON.stringify(rows),
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase upsert-ignore error on ${table}: ${err}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data) ? data[0] ?? null : data;
+}
+
 async function upsert(table, rows, onConflict) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
 
@@ -348,7 +375,7 @@ export async function updateAgentRun(runId, patch) {
  */
 export async function registerAgentOutput(runId, client, agent, output) {
   try {
-    return await insert("agent_outputs", {
+    const row = {
       run_id: runId ?? null,
       client,
       agent,
@@ -356,7 +383,18 @@ export async function registerAgentOutput(runId, client, agent, output) {
       title: output.title ?? null,
       body_md: output.body_md ?? null,
       structured: output.structured ?? {},
-    });
+    };
+    // Idempotencia (mig 090): si el caller pasa dedupKey, un re-run del
+    // mismo agente con la misma clave NO duplica el output — el índice
+    // único parcial + resolution=ignore-duplicates lo absorben.
+    if (output.dedupKey) {
+      return await upsertIgnore(
+        "agent_outputs",
+        [{ ...row, dedup_key: output.dedupKey }],
+        "dedup_key",
+      );
+    }
+    return await insert("agent_outputs", row);
   } catch (err) {
     console.warn(`[supabase] registerAgentOutput failed (non-fatal): ${err.message}`);
     return null;
@@ -388,6 +426,7 @@ export async function registerAgentOutput(runId, client, agent, output) {
  * @param {string} [opts.link] - Deep link the dashboard should navigate to
  * @param {string|null} [opts.to_user_id] - User-specific. Overrides to_role.
  * @param {"director"|"team"|"client"} [opts.to_role] - Role-broadcast.
+ * @param {string} [opts.dedupKey] - Idempotencia (mig 090): misma clave = no duplica.
  * @returns {Promise<Object|null>}
  */
 export async function pushNotification(client, level, title, body, opts = {}) {
@@ -397,7 +436,7 @@ export async function pushNotification(client, level, title, body, opts = {}) {
     // visibles a todo el equipo (era el bug que reportó el usuario).
     const to_user_id = opts.to_user_id ?? null;
     const to_role = opts.to_role ?? (to_user_id ? null : "director");
-    return await insert("notifications", {
+    const row = {
       client,
       agent: opts.agent ?? null,
       level,
@@ -407,7 +446,15 @@ export async function pushNotification(client, level, title, body, opts = {}) {
       to_user_id,
       to_role,
       email_sent: false,
-    });
+    };
+    if (opts.dedupKey) {
+      return await upsertIgnore(
+        "notifications",
+        [{ ...row, dedup_key: opts.dedupKey }],
+        "dedup_key",
+      );
+    }
+    return await insert("notifications", row);
   } catch (err) {
     console.warn(`[supabase] pushNotification failed (non-fatal): ${err.message}`);
     return null;

@@ -8,6 +8,7 @@ import {
   updateAgentRun,
   registerAgentOutput,
   pushNotification,
+  select,
 } from "../lib/supabase.js";
 import { recordApiUsage } from "../lib/supabase.js";
 import { loadBrandFiles, buildBrandBlock } from "../lib/brand-loader.js";
@@ -207,6 +208,10 @@ ${ctx.strategy || "Sin estrategia definida."}
 --- POSTS CON METRICAS PENDIENTES ---
 ${postsBlock}
 
+--- METRICAS ORGANICAS AUTO-INGESTADAS (Meta API — FUENTE DURA) ---
+${ctx.organicAuto || "Sin ingestión automática todavía (falta meta_ig_user_id del cliente o el token). Evaluar con lo disponible y aclarar la fuente."}
+REGLA: si una pieza aparece arriba con números reales, usá ESOS números — no los estimes ni los contradigas.
+
 --- CONTENT LIBRARY (para cross-reference) ---
 ${ctx.contentLibrary || "Sin content library."}
 
@@ -367,6 +372,9 @@ ${ctx.contentLibrary || "Sin content library."}
 
 --- METRICAS HISTORICAS ---
 ${ctx.metricsLog || "Sin historial de metricas. Este es el primer reporte semanal."}
+
+--- METRICAS ORGANICAS AUTO-INGESTADAS (Meta API — FUENTE DURA, prevalece sobre estimaciones) ---
+${ctx.organicAuto || "Sin ingestión automática todavía. Evaluar con lo disponible y aclarar la fuente."}
 
 --- HOOK DATABASE ---
 ${ctx.hookDatabase || "Sin hook database."}
@@ -564,6 +572,48 @@ export async function collectMetrics(briefInput) {
 
   // Step 1: Load vault context
   const ctx = loadClientContext(brief.client);
+
+  // Step 1b: métricas orgánicas AUTO-INGESTADAS (Stage 2b). Piezas del
+  // planner con metrics (matcheadas por organic-insights) + media suelta de
+  // organic_posts. Es la FUENTE DURA: si una pieza está acá, sus números no
+  // se estiman. Si no hay nada (ingestión dormida), se sigue como siempre.
+  try {
+    const [postsWithMetrics, organicMedia] = await Promise.all([
+      select(
+        "content_posts",
+        { client_id: brief.client },
+        "date, network, format, idea, brief, status, metrics",
+        { order: "date.desc", limit: 60 },
+      ),
+      select(
+        "organic_posts",
+        { client_id: brief.client },
+        "published_at, media_type, caption, like_count, comments_count, metrics, matched_post_id",
+        { order: "published_at.desc", limit: 30 },
+      ),
+    ]);
+    const withMetrics = (postsWithMetrics ?? []).filter((p) => p.metrics);
+    const unmatchedMedia = (organicMedia ?? []).filter((m) => !m.matched_post_id);
+    const lines = [];
+    for (const p of withMetrics) {
+      const m = p.metrics;
+      lines.push(
+        `[PIEZA planner] ${p.date} ${p.network}/${p.format} "${(p.idea || p.brief || "").slice(0, 80)}" → reach=${m.reach ?? "-"} views=${m.views ?? "-"} likes=${m.likes ?? "-"} comments=${m.comments ?? "-"} saves=${m.saves ?? "-"} shares=${m.shares ?? "-"}`,
+      );
+    }
+    for (const m of unmatchedMedia) {
+      const mm = m.metrics || {};
+      lines.push(
+        `[MEDIA IG sin pieza en planner] ${(m.published_at || "").slice(0, 10)} ${m.media_type ?? ""} "${(m.caption || "").slice(0, 80)}" → reach=${mm.reach ?? "-"} views=${mm.views ?? "-"} likes=${m.like_count ?? "-"} comments=${m.comments_count ?? "-"} saves=${mm.saved ?? "-"}`,
+      );
+    }
+    if (lines.length > 0) {
+      ctx.organicAuto = lines.join("\n");
+      console.log(`Organic auto-ingested: ${lines.length} filas (fuente dura)`);
+    }
+  } catch (err) {
+    console.warn(`organic auto-metrics no disponibles (${err.message}) — sigo con vault.`);
+  }
 
   // Step 2: Build prompt based on mode
   let prompt;

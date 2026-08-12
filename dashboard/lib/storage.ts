@@ -108,6 +108,9 @@ interface ClientRow {
   billing_day?: number | null;
   // Migración 089 (Stage 2a)
   meta_ad_account_id?: string | null;
+  // Migración 090 (Stage 2b)
+  meta_ig_user_id?: string | null;
+  meta_page_id?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -149,6 +152,8 @@ function clientFromRow(r: ClientRow): Client {
     rut: r.rut ?? null,
     billing_day: r.billing_day ?? null,
     meta_ad_account_id: r.meta_ad_account_id ?? null,
+    meta_ig_user_id: r.meta_ig_user_id ?? null,
+    meta_page_id: r.meta_page_id ?? null,
   };
 }
 
@@ -407,6 +412,9 @@ export interface UpdateClientCoreInput {
   billing_day?: number | null;
   /** Cuenta publicitaria de Meta (act_XXXX) — mig 089. */
   meta_ad_account_id?: string | null;
+  /** IG Business Account ID / FB Page ID — mig 090. */
+  meta_ig_user_id?: string | null;
+  meta_page_id?: string | null;
   default_cuenta_id?: string | null;
   dividend_distribution?: Client["dividend_distribution"] | null;
   onboarding?: ClientOnboarding | null;
