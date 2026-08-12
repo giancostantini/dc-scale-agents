@@ -1,0 +1,71 @@
+name: Meta Insights
+
+# Stage 2a. Corre todos los días a las 09:30 UTC (6:30 UY) y le pega a
+# /api/cron/meta-insights, que trae las métricas de pauta de AYER para cada
+# cliente con meta_ad_account_id y actualiza paid_media_daily + el snapshot
+# kpis.paid_media.meta (mes a la fecha).
+#
+# Mientras META_SYSTEM_USER_TOKEN no esté seteado en Vercel, el endpoint
+# responde configured:false y este job termina verde con un notice — la
+# ingestión queda "dormida", no rota.
+#
+# Backfill manual: workflow_dispatch con since/until (máx 31 días).
+#
+# Secrets (ya existen): DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  schedule:
+    - cron: '30 9 * * *'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Desde (YYYY-MM-DD). Vacío = ayer.'
+        required: false
+        type: string
+      until:
+        description: 'Hasta (YYYY-MM-DD). Vacío = ayer.'
+        required: false
+        type: string
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ingerir métricas de Meta
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          if [ -n "${SINCE:-}" ] && [ -n "${UNTIL:-}" ]; then
+            body="{\"since\":\"${SINCE}\",\"until\":\"${UNTIL}\"}"
+          else
+            body='{}'
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/meta-insights" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$body")
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          configured=$(echo "$response" | jq -r '.configured')
+          if [ "$configured" = "false" ]; then
+            detail=$(echo "$response" | jq -r '.detail')
+            echo "::notice::Ingestión dormida: $detail"
+            exit 0
+          fi
+          failed=$(echo "$response" | jq -r '.failed // 0')
+          if [ "$failed" != "0" ]; then
+            echo "::warning::$failed cliente(s) fallaron en la ingestión — ver Response arriba."
+          fi

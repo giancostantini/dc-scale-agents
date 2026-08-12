@@ -64,6 +64,9 @@ export default function EditClientCoreModal({
   const [billingDay, setBillingDay] = useState(
     client.billing_day != null ? String(client.billing_day) : "",
   );
+  const [metaAdAccountId, setMetaAdAccountId] = useState(
+    client.meta_ad_account_id ?? "",
+  );
   const [method, setMethod] = useState(client.method ?? "Método completo");
 
   // Contacto
@@ -196,6 +199,7 @@ export default function EditClientCoreModal({
         billing_day: billingDay.trim()
           ? Math.min(31, Math.max(1, parseInt(billingDay, 10) || 1))
           : null,
+        meta_ad_account_id: metaAdAccountId.trim() || null,
         default_cuenta_id: defaultCuentaId || null,
         dividend_distribution: dividendDistribution,
         onboarding: onboardingMerged,
@@ -351,6 +355,14 @@ export default function EditClientCoreModal({
               value={billingDay}
               onChange={(e) => setBillingDay(e.target.value)}
               placeholder="Vacío = último día del mes"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Meta Ad Account ID">
+            <input
+              value={metaAdAccountId}
+              onChange={(e) => setMetaAdAccountId(e.target.value)}
+              placeholder="Ej: act_1234567890 (ingesta métricas)"
               style={inputStyle}
             />
           </Field>

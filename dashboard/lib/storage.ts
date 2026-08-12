@@ -106,6 +106,8 @@ interface ClientRow {
   rut?: string | null;
   // Migración 086 (FIN-1)
   billing_day?: number | null;
+  // Migración 089 (Stage 2a)
+  meta_ad_account_id?: string | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -146,6 +148,7 @@ function clientFromRow(r: ClientRow): Client {
     razon_social: r.razon_social ?? null,
     rut: r.rut ?? null,
     billing_day: r.billing_day ?? null,
+    meta_ad_account_id: r.meta_ad_account_id ?? null,
   };
 }
 
@@ -402,6 +405,8 @@ export interface UpdateClientCoreInput {
   rut?: string | null;
   /** Día de vencimiento del fee (1-31, NULL = fin de mes) — mig 086. */
   billing_day?: number | null;
+  /** Cuenta publicitaria de Meta (act_XXXX) — mig 089. */
+  meta_ad_account_id?: string | null;
   default_cuenta_id?: string | null;
   dividend_distribution?: Client["dividend_distribution"] | null;
   onboarding?: ClientOnboarding | null;

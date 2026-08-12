@@ -387,6 +387,9 @@ export interface Client {
   /** Día del mes (1-31) en que vence el pago del fee. NULL = último día
    *  del mes. Lo usa el cron de cobranzas (FIN-1, mig 086). */
   billing_day?: number | null;
+  /** Cuenta publicitaria de Meta (act_XXXX o número) — mig 089. NULL =
+   *  sin ingestión automática de pauta para este cliente. */
+  meta_ad_account_id?: string | null;
   /** RUT / NIT del cliente — migración 054. Se muestra en el perfil
    *  del cliente y se auto-rellena al crear una factura. */
   rut?: string | null;

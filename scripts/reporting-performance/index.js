@@ -21,6 +21,7 @@ import {
   updateAgentRun,
   registerAgentOutput,
   pushNotification,
+  select,
 } from "../lib/supabase.js";
 import { recordApiUsage } from "../lib/supabase.js";
 
@@ -196,6 +197,9 @@ ${ctx.salesLog || "Sin log de ventas."}
 
 --- HISTORIAL DE ADS ---
 ${ctx.adsLog || "Sin historial de ads."}
+
+--- MÉTRICAS DE PAUTA AUTO-INGESTADAS (Meta Insights API — fuente dura, prevalece sobre estimaciones) ---
+${ctx.paidAuto || "Sin ingestión automática todavía (falta meta_ad_account_id del cliente o el token de agencia). Usar los logs manuales de arriba y aclarar la fuente."}
 
 --- METRICAS DE CONTENIDO ---
 ${ctx.metricsLog || "Sin metricas de contenido."}
@@ -524,6 +528,47 @@ export async function runAnalyticsAgent(briefInput) {
   // vaultContext viene del fast-path en Vercel (precargado via GitHub API).
   // En GHA no viene — se lee del filesystem.
   const ctx = loadClientContext(brief.client, briefInput?.vaultContext ?? null);
+
+  // Métricas de pauta AUTO-INGESTADAS (Stage 2a — paid_media_daily, las
+  // escribe el cron meta-insights). Son la fuente DURA de spend/clicks/
+  // conversiones: si están, el reporte deja de depender de la carga manual.
+  // Si la query falla o no hay filas, se sigue sin el bloque (degraded).
+  try {
+    const rows = await select(
+      "paid_media_daily",
+      { client_id: brief.client },
+      "date, platform, spend, impressions, clicks, conversions, conversion_value, roas",
+      { order: "date.desc", limit: 35 },
+    );
+    if (Array.isArray(rows) && rows.length > 0) {
+      const num = (v) => {
+        const n = typeof v === "string" ? parseFloat(v) : (v ?? 0);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const totals = rows.reduce(
+        (s, r) => ({
+          spend: s.spend + num(r.spend),
+          clicks: s.clicks + num(r.clicks),
+          impressions: s.impressions + num(r.impressions),
+          conversions: s.conversions + num(r.conversions),
+          value: s.value + num(r.conversion_value),
+        }),
+        { spend: 0, clicks: 0, impressions: 0, conversions: 0, value: 0 },
+      );
+      const daily = rows
+        .map(
+          (r) =>
+            `${r.date} [${r.platform}] spend=${num(r.spend).toFixed(2)} impr=${num(r.impressions)} clicks=${num(r.clicks)} conv=${num(r.conversions)} roas=${r.roas != null ? num(r.roas).toFixed(2) : "-"}`,
+        )
+        .join("\n");
+      ctx.paidAuto = `TOTALES (últimos ${rows.length} días con datos): spend=${totals.spend.toFixed(2)} · impresiones=${totals.impressions} · clicks=${totals.clicks} · conversiones=${totals.conversions} · valor=${totals.value.toFixed(2)} · ROAS=${totals.spend > 0 && totals.value > 0 ? (totals.value / totals.spend).toFixed(2) : "-"}
+POR DÍA:
+${daily}`;
+      console.log(`Paid media auto-ingested: ${rows.length} filas`);
+    }
+  } catch (err) {
+    console.warn(`paid_media_daily no disponible (${err.message}) — sigo sin métricas auto.`);
+  }
 
   // Build prompt based on mode
   let prompt;
