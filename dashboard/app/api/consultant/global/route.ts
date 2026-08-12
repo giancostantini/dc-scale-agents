@@ -40,6 +40,8 @@ import {
 import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import { recordApiUsage } from "@/lib/api-usage";
+import { enforceAgentGuardrails } from "@/lib/agent-guardrails";
+import { getProcessStatus } from "@/lib/consultant-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -214,6 +216,10 @@ export async function POST(req: NextRequest) {
             const result = await handleSaveMemory(admin, caller, tu.input);
             toolResults.push({ name: "save_memory", ...result });
             send({ type: "tool_result", name: "save_memory", ...result });
+          } else if (tu.name === "get_process_status") {
+            const result = await handleGetProcessStatus(caller, tu.input);
+            toolResults.push({ name: "get_process_status", ...result });
+            send({ type: "tool_result", name: "get_process_status", ...result });
           } else if (tu.name === "run_agent") {
             const result = await handleRunAgent(admin, caller, tu.input);
             toolResults.push({ name: "run_agent", ...result });
@@ -443,6 +449,21 @@ function buildTools(): Anthropic.Tool[] {
       },
     },
     {
+      name: "get_process_status",
+      description:
+        "Estado de los procesos multi-paso (onboarding, ciclo de contenido del mes, reporte mensual) de un cliente o de todos. Usala cuando pregunten '¿en qué estamos con X?', '¿qué sigue?', o antes de proponer arrancar un ciclo — así proponés el paso que destrabe el gate real, no uno inventado.",
+      input_schema: {
+        type: "object",
+        properties: {
+          client: {
+            type: "string",
+            description:
+              "Slug del cliente. Omitilo para ver el estado de TODOS los clientes accesibles.",
+          },
+        },
+      },
+    },
+    {
       name: "save_memory",
       description:
         "Guardar una pieza de contexto durable (preference, constraint, past_decision, learning). Llamala en silencio cuando detectes algo nuevo del user (scope='user') o del cliente activo (scope='client'). No pidas permiso.",
@@ -549,6 +570,48 @@ async function handleSaveMemory(
   return { ok: true, detail: { scope: "client", client, kind, content } };
 }
 
+/**
+ * Estado de procesos (Stage 3/4). Team solo ve sus clientes asignados;
+ * director ve todo.
+ */
+async function handleGetProcessStatus(
+  caller: CallerContext,
+  input: Record<string, unknown>,
+): Promise<ToolResult> {
+  const client = input.client as string | undefined;
+  if (
+    client &&
+    caller.role === "team" &&
+    !caller.clientAssignments.includes(client)
+  ) {
+    return { ok: false, detail: { error: `No tenés acceso al cliente '${client}'.` } };
+  }
+  const rows = await getProcessStatus(client);
+  const visible =
+    caller.role === "team"
+      ? rows.filter((r) => caller.clientAssignments.includes(r.client_id))
+      : rows;
+  if (visible.length === 0) {
+    return {
+      ok: true,
+      detail: { procesos: [], nota: "Sin instancias sincronizadas todavía (el sync corre a diario)." },
+    };
+  }
+  return {
+    ok: true,
+    detail: {
+      procesos: visible.map((r) => ({
+        cliente: r.client_name ?? r.client_id,
+        proceso: r.process,
+        periodo: r.period,
+        paso: r.step,
+        estado: r.status,
+        gate_bloqueante: r.gate,
+      })),
+    },
+  };
+}
+
 async function handleRunAgent(
   admin: SupabaseClient,
   caller: CallerContext,
@@ -575,6 +638,16 @@ async function handleRunAgent(
         error: `No tenés acceso al cliente '${client}'. Pedíselo al director.`,
       },
     };
+  }
+
+  // Guardrails del registry (Stage 4): rol permitido + techo de gasto
+  // mensual del agente. El consultor le explica el motivo al usuario.
+  const guard = await enforceAgentGuardrails(
+    agent,
+    caller.role === "director" ? "director" : "team",
+  );
+  if (!guard.ok) {
+    return { ok: false, detail: { error: guard.error } };
   }
 
   // Insertar agent_runs row (status=running)

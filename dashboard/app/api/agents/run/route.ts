@@ -23,6 +23,7 @@ import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
 import { loadClientVaultContext } from "@/lib/vault-loader";
 import { logAction } from "@/lib/audit";
 import { requireClientAccess } from "@/lib/auth-guard";
+import { enforceAgentGuardrails } from "@/lib/agent-guardrails";
 import {
   getAgentEntry,
   canRepositoryDispatch,
@@ -131,6 +132,14 @@ export async function POST(req: NextRequest) {
   // disparaba workflows de GitHub.
   const access = await requireClientAccess(req, clientId);
   if (!access.ok) return access.response;
+  if (access.role !== "client") {
+    // Guardrails del registry (Stage 4): rol permitido + techo de gasto
+    // mensual del agente. Corta ANTES de abrir el agent_run.
+    const guard = await enforceAgentGuardrails(agent, access.role);
+    if (!guard.ok) {
+      return Response.json({ error: guard.error }, { status: guard.status });
+    }
+  }
   if (access.role === "client") {
     return Response.json({ error: "No autorizado" }, { status: 403 });
   }

@@ -73,7 +73,20 @@ export interface AgentRegistryEntry {
   moduleGate?: "content" | "seo" | "analytics" | "ecommerce";
   /** Brief inicial que propone la card del catálogo. */
   defaultBrief?: Record<string, unknown>;
+  /** Stage 4 — quiénes pueden disparar este agente (dispatch manual o vía
+   *  consultores). Default: director y team. */
+  dispatchRoles?: Array<"director" | "team">;
+  /** Stage 4 — techo de gasto mensual en USD para este agente (suma de
+   *  api_usage con source 'agent:<key>'). Al alcanzarlo, el dispatch se
+   *  bloquea con error claro hasta el mes siguiente (o hasta subir el
+   *  límite acá). Default: DEFAULT_AGENT_MONTHLY_LIMIT_USD. 0 = sin límite. */
+  monthlyCostLimitUsd?: number;
 }
+
+/** Techo de gasto mensual por agente cuando la entry no define uno.
+ *  Conservador a propósito: un agente que se descontrola se frena solo y
+ *  el error dice exactamente dónde subir el límite. */
+export const DEFAULT_AGENT_MONTHLY_LIMIT_USD = 25;
 
 export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   // ============ GROWTH ============
