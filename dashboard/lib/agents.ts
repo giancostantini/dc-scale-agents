@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase/client";
+import { agentCatalog } from "./agent-registry";
 import type { AgentRun, AgentOutput, ClientModules } from "./types";
 
 export interface AgentDef {
@@ -10,61 +11,14 @@ export interface AgentDef {
   moduleGate?: "content" | "seo" | "analytics" | "ecommerce";
 }
 
-export const AGENT_CATALOG: AgentDef[] = [
-  {
-    key: "creative-assistant",
-    name: "Asistente Creativo",
-    desc: "Apoyo creativo de la CM: ideas trending, briefs de contenido, copy y dirección visual listos para que el equipo produzca.",
-    defaultBrief: { pieceType: "reel" },
-    moduleGate: "content",
-  },
-  {
-    key: "content-strategy",
-    name: "Content Strategy",
-    desc: "Calendario editorial semanal con briefs por pieza.",
-    defaultBrief: {},
-    moduleGate: "content",
-  },
-  {
-    key: "reporting-performance",
-    name: "Analytics / Reporting",
-    desc: "Reports diarios/semanales/mensuales + insights en lenguaje natural.",
-    defaultBrief: { mode: "daily" },
-    moduleGate: "analytics",
-  },
-  // Morning Briefing ya no aparece en el catálogo de agentes — se
-  // muestra directamente en el Dashboard del cliente como un panel
-  // del día. El cron sigue corriendo (genera el briefing cada mañana
-  // a las 8:00 UY) y se sirve vía /api/clients/[id]/briefing/latest.
-  {
-    key: "seo",
-    name: "SEO",
-    desc: "Keyword research, blog posts, meta tags optimizados.",
-    defaultBrief: { pieceType: "blog-post" },
-    moduleGate: "seo",
-  },
-  {
-    key: "social-media-metrics",
-    name: "Social Metrics",
-    desc: "Evalúa performance de piezas publicadas y alimenta el learning loop.",
-    defaultBrief: { mode: "daily" },
-    moduleGate: "content",
-  },
-  {
-    key: "stock",
-    name: "Stock",
-    desc: "Status / forecast / alert de inventario.",
-    defaultBrief: { mode: "status" },
-    moduleGate: "ecommerce",
-  },
-  {
-    key: "logistics",
-    name: "Logistics",
-    desc: "Schedule / dispatch / optimize de envíos.",
-    defaultBrief: { mode: "schedule" },
-    moduleGate: "ecommerce",
-  },
-];
+/**
+ * El catálogo se DERIVA del registry único (lib/agent-registry.ts, flag
+ * uiCatalog) — Stage 0. Antes era una lista literal acá que driftaba del
+ * resto del sistema (llegó a ofrecer un agente ya eliminado).
+ * Morning Briefing no aparece como card a propósito: se muestra como panel
+ * del día del cliente vía /api/clients/[id]/briefing/latest.
+ */
+export const AGENT_CATALOG: AgentDef[] = agentCatalog();
 
 export function filterAgentsForClient(
   agents: AgentDef[],

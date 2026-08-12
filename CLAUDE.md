@@ -1,237 +1,127 @@
 # dc-scale-agents
 
-AI agent system for D&C Scale Partners — growth marketing + automation agency.
+Sistema de agentes IA de **D&C Scale Partners** (agencia de growth marketing + automatización).
+Este archivo se reescribió en el Stage 0 del roadmap (2026-08-11) para reflejar el sistema REAL —
+la versión anterior describía piezas eliminadas. Fuente de verdad extendida:
+[`docs/ai-company-audit/`](docs/ai-company-audit/AI-COMPANY-AUDIT.md).
 
 ## Quick context
 
-- **Agency:** D&C Scale Partners (Gianluca + Federico, co-founders)
-- **Active clients:** se cargan vía dashboard (tabla `clients` de Supabase). Cliente actual de prueba con vault completo: **`wiztrip`** (agencia de viajes Uruguay). Nunca hardcodear clientes en scripts.
-- **Markets:** Uruguay + Latam (Colombia, Perú, Paraguay)
-- **Verticals:** (1) Marketing growth (content, SEO, ads), (2) Automatización (agentes IA operando en autopilot)
+- **Agencia:** D&C Scale Partners (Gianluca + Federico, directores; Lucía CM/account; Octavio editor).
+- **Clientes:** se cargan vía dashboard (tabla `clients`). **Nunca hardcodear clientes en scripts** —
+  todo agente recibe el cliente por brief y falla ruidoso si falta.
+- **Mercados:** Uruguay + Latam. **Verticales:** growth marketing + automatización con IA.
 
-## Read these BEFORE making any changes
+## Leer ANTES de tocar código
 
-1. [`vault/CLAUDE.md`](vault/CLAUDE.md) — master agency context (stack, principios, prioridades)
-2. [`vault/agents/`](vault/agents/) — specs detallados de cada agente (uno por carpeta)
-3. [`CONTRIBUTING.md`](CONTRIBUTING.md) — branching, PRs, commits
-4. Contexto de cliente: `vault/clients/<slug>/claude-client.md` (lo genera el agente `client-bootstrap` desde templates en `vault/automation/templates/`)
+1. [`docs/ai-company-audit/`](docs/ai-company-audit/) — auditoría completa: mapa real del sistema,
+   arquitectura target (híbrida), roadmap Stages 0-6 + track Finanzas, horizontes H1→H3.
+2. [`dashboard/lib/agent-registry.ts`](dashboard/lib/agent-registry.ts) — **fuente única de la
+   flota**. El catálogo UI, la lista de dispatch del consultor y la validación de `/api/agents/run`
+   DERIVAN de acá. Alta/baja de agente = editar el registry (+ workflow si corre por GHA).
+3. [`vault/CLAUDE.md`](vault/CLAUDE.md) — contexto maestro de agencia y reglas del vault.
+4. [`CONTRIBUTING.md`](CONTRIBUTING.md) — branching, PRs, commits.
+5. [`dashboard/CLAUDE.md`](dashboard/CLAUDE.md) — Next.js 16: NO es el Next que conocés.
 
-## Repo structure
+## Estructura del monorepo
 
-| Folder | Purpose |
+| Carpeta | Qué es |
 |---|---|
-| `scripts/` | Lógica de agentes (Node.js, ES modules). Cada carpeta = un agente. Entrypoint `index.js` recibe `--brief /path/to/brief.json` |
-| `scripts/lib/` | Utilities compartidas: `supabase.js` (logAgentRun, registerAgentOutput, pushNotification), `brand-loader.js` |
-| `vault/` | Obsidian vault — source of truth para todo el contexto no-código (specs, logs, datos por cliente) |
-| `dashboard/` | Dashboard web (Next.js 16 + React 19 + Supabase + Anthropic SDK, deployado a Vercel) — ver `dashboard/CLAUDE.md` |
-| `.github/workflows/` | Scheduling y triggers de agentes (reemplaza n8n) |
+| `dashboard/` | Producto central (Next.js 16 + React 19 + Supabase + Vercel): hub interno, portal del cliente, finanzas, 4 consultores IA, 87 API routes |
+| `scripts/` | Flota de agentes/jobs (Node 22, ES modules). Entrypoint `index.js --brief /path/brief.json`. `scripts/lib/` = utilities compartidas (supabase, anthropic con retry+cache, brand-loader, client-memory, sector-trends-context) |
+| `vault/` | Markdown en git: contexto por cliente (`clients/<slug>/` — LO CRÍTICO), templates de scaffold, knowledge de agentes, capa de agencia (en construcción — Stage 1) |
+| `.github/workflows/` | Ejecución: 7 crons activos + dispatch on-demand. `cron-alert.yml` avisa al bell si un cron falla |
+| `landing/`, `kickoff/` | Páginas estáticas deployadas (sitio agencia / kickoff) |
 
-## Estado de los 9 agentes (post-auditoría 2026-05)
+**Ya NO existen** (eliminados; no confiar en docs viejas que los mencionen): `remotion-studio/`,
+`scripts/content-creator/` (la producción de video volvió a humanos; `creative-assistant` genera
+los briefs), n8n, Google Sheets como config, Blotato, Telegram como canal (vestigial).
 
-| # | Agente | Modelo Claude | Status vs Wiztrip | Notas |
-|---|---|---|---|---|
-| 1 | `morning-briefing` | claude-sonnet-4-6 | ✅ Ready | Telegram opcional |
-| 2 | `content-strategy` | claude-sonnet-4-6 | ✅ Ready | Genera calendario + dispara briefs del Asistente Creativo por slot |
-| 3 | `creative-assistant` | claude-sonnet-4-6 | ✅ Ready | Asistente Creativo: genera briefs (idea + ángulo + copy + dirección visual) para que CM/editor produzcan. NO produce video |
-| 4 | `seo` | claude-sonnet-4-6 | ✅ Ready | Append a `seo-library.md` |
-| 5 | `reporting-performance` | claude-sonnet-4-6 | ✅ Ready | Stubs de `ads-log`/`sales-log`/`product-catalog` ya creados |
-| 6 | `social-media-metrics` | claude-sonnet-4-6 | ✅ Ready | Hook database se crea on-the-fly al primer winner |
-| 7 | `stock` | claude-sonnet-4-6 | ⚠️ N/A para WizTrip (agencia, no ecommerce) | Funciona si se carga `stock-log.md` |
-| 8 | `logistics` | claude-sonnet-4-6 | ⚠️ N/A para WizTrip | Trigger a stock vía repository_dispatch |
-| 9 | `client-bootstrap` | (no usa Claude) | ✅ Ready | Scaffold del vault desde templates |
-| + | `brandbook-processor` | claude-sonnet-4-6 | ✅ Ready (con retry + validación) | Procesa brandbook → 8 archivos en `brand/` |
+## La flota (resumen — el detalle vive en el registry)
 
-Nota: la pipeline de producción de video (Remotion / ElevenLabs / Blotato) fue removida — los agentes generan briefs/contenido en texto y el equipo humano (CM + editor) produce.
+- **Crons activos (7):** sector-trends (vie), distill-learnings (dom), insights-aggregator (lun),
+  competitor-scanner (L/M/V), stock-web (diario), outlook-renew (diario), portal-weekly-digest (lun).
+- **On-demand** (dispatch del dashboard / tool `run_agent` de consultores): creative-assistant,
+  content-strategy, seo, reporting-performance, morning-briefing, social-media-metrics, stock,
+  logistics, client-research, brandbook-processor, client-bootstrap.
+- **Fast-path in-process en Vercel:** morning-briefing, reporting-performance (modos query/insights).
+- **Consultores (4):** portal del cliente (sin tools), per-client equipo (run_agent), global equipo
+  (run_agent + save_memory, streaming), consultor de contenido (👍/👎 → aprendizaje).
+- **Loop de aprendizaje:** chats + ratings → `distill-learnings` (Haiku, semanal) →
+  `consultant_memory_v2` → la leen todos los agentes vía `scripts/lib/client-memory.js`.
 
-**Reglas de "ready":**
-- Validó env vars al arranque
-- Maneja errores de API (Anthropic, ElevenLabs, etc.) con retry o fallback claro
-- Crea directorios padres antes de escribir (mkdirSync recursive)
-- Loggea a Supabase (`agent_runs`, `agent_outputs`, `notifications`)
-- No tiene defaults de cliente hardcodeados
+## Cómo se ejecuta trabajo
 
-**Clientes DEV (`type='dev'`):** no usan agentes de marketing/growth (`creative-assistant`, `content-strategy`, `reporting-performance`, `seo`, `social-media-metrics`, `stock`, `logistics`). Se operan por sprints/tareas. Enforcement en dos capas: el cron filtra `status='active'` (los DEV son `status='dev'`, quedan fuera) y `/api/agents/run` rechaza (422) esos agentes si el cliente es `type='dev'`.
+1. **Cron GHA** → script lee vault por filesystem, escribe Supabase por REST, commitea vault.
+2. **Dispatch** → `/api/agents/run` (valida contra el registry): fast-path in-process o
+   `repository_dispatch` a GHA.
+3. **Endpoints IA directos** → consultores, phases/generate, creative-assistant (13+ call sites,
+   todos con `recordApiUsage` → panel Finanzas → Costos API).
 
-## Cliente actual: WizTrip
+## Human gates (no romperlos jamás)
 
-`vault/clients/wiztrip/` (cliente de prueba — agencia de viajes Uruguay).
+Fases: draft IA → director aprueba → mail al cliente. Contenido: batch IA → draft → aprobar →
+scheduled → published (publicación manual). Campañas Meta: spec IA → humano pushea
+(`/api/meta/push-campaign`). Solicitudes: director asigna/responde. **Dinero: siempre humano**
+(finanzas sin IA ejecutora; el área Finanzas Autónoma — doc 16 — prepara/alerta/draftea, no ejecuta).
 
-**Archivos presentes:**
-- Core: `claude-client.md`, `strategy.md`, `content-library.md`, `content-calendar.md`
-- Brand (8 archivos): `brand/{visual-identity, voice-character, voice-decision, voice-operational, positioning, assets, content-formats, photography, restrictions}.md`
-- Logs: `metrics-log.md`, `learning-log.md`, `performance-log.md`, `calls-log.md`, `ads-library.md`, `seo-library.md`
-- **Stubs nuevos** (creados para que `reporting-performance` no degrade): `ads-log.md`, `sales-log.md`, `product-catalog.md`
-- Refs: `references/references.md`
-- Output dirs: `statics/`, `videos/`
+## Patrones de robustez (obligatorios en agentes nuevos)
 
-**No aplican a WizTrip** (stub innecesario): `stock-log.md`, `logistics-log.md` — los agentes stock/logistics manejan ausencia con fallback a "Sin datos".
+1. `writeVaultFile` con `mkdirSync recursive` (sin esto, ENOENT silencioso en clientes nuevos).
+2. `callClaude` de `scripts/lib/anthropic.js`: retry 3× con backoff para 429/5xx + prompt caching
+   (`system` = prefijo estable) + `recordApiUsage` (source `agent:<slug>`).
+3. Validación post-Claude ANTES de escribir (secciones completas, JSX balanceado, tool_use forzado
+   para outputs estructurados).
+4. Retry a nivel agente cuando la validación falla (pasarle el error a Claude, no matar el run).
+5. Drain de 800ms antes de `process.exit(1)` (que los logs lleguen a Supabase).
+6. Detección de placeholders `{{VAR}}` sin resolver.
+7. Loop por cliente con `|| warning` (un cliente que falla no corta el resto).
 
-## Patrones de robustez (post mejoras de 2026-05)
+## Tech stack (real, verificado 2026-08)
 
-Aplicados en TODOS los agentes después de la auditoría. Si agregás un agente nuevo, seguir estos patrones:
+- **Runtime agentes:** Node 22 ESM · **Scheduling:** GitHub Actions (crons semanales + dispatch;
+  minutos = plan Pro, cuidar matrix/diarios) · **Dashboard:** Next.js 16 + React 19 + Vercel.
+- **LLM:** Anthropic — 3 tiers en `dashboard/lib/anthropic-model.ts` y `scripts/lib/anthropic.js`:
+  `CLAUDE_MODEL_OPUS` (reportes pesados), `CLAUDE_MODEL_SONNET` (chats/agentes; **default
+  claude-sonnet-4-6**), `CLAUDE_MODEL_HAIKU` (fondo barato). Siempre vía esas constantes, nunca IDs
+  sueltos. Todo call site registra `api_usage`.
+- **Datos:** Supabase (Postgres+Auth+Storage+RLS). ~50 tablas. Migraciones en
+  `dashboard/supabase/migrations/` (se aplican A MANO en el SQL editor — ojo: hay DDL histórico
+  también en `vault/automation/supabase-schema*.sql`; consolidación pendiente, gap #6).
+- **Integraciones activas:** Resend (mails), Microsoft Graph (Outlook calendar), Meta Marketing API
+  (push de campañas; lectura de Insights = gap #3 pendiente), GitHub API (vault desde Vercel),
+  Fenicio (scraping stock-web), Looker Studio (links).
 
-### 1. `writeVaultFile` con `mkdirSync` recursive
-```js
-function writeVaultFile(relativePath, content) {
-  const filePath = resolve(VAULT, relativePath);
-  mkdirSync(dirname(filePath), { recursive: true }); // crítico
-  writeFileSync(filePath, content, "utf-8");
-}
-```
-Sin esto, escribir a un cliente nuevo (sin scaffold previo) tira ENOENT silencioso y se pierde el output. Los agentes corregidos: `content-creator`, `content-strategy`, `social-media-metrics`, `seo`, `logistics`.
+## Env vars
 
-### 2. `callClaude` con retry + backoff exponencial
-Para llamadas largas (brandbook ~16k tokens, code gen ~8k tokens) la API a veces tira 429/503 transient. El retry de 3 intentos con backoff (1s, 2s, 4s) recupera la mayoría:
-```js
-async function callClaude(prompt, maxTokens = 8192, attempt = 1) {
-  const MAX_ATTEMPTS = 3;
-  // ... validate ANTHROPIC_API_KEY
-  try {
-    res = await fetch(...);
-  } catch (err) {
-    if (attempt < MAX_ATTEMPTS) {
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-      return callClaude(prompt, maxTokens, attempt + 1);
-    }
-    throw new Error(`Claude API network error tras ${MAX_ATTEMPTS} intentos: ${err.message}`);
-  }
-  // Retry para 429 y 5xx, no para 4xx
-  if (!res.ok) {
-    const isRetriable = res.status === 429 || res.status >= 500;
-    if (isRetriable && attempt < MAX_ATTEMPTS) { /* backoff + retry */ }
-  }
-  // ...
-}
-```
-Implementado en: `brandbook-processor`. Pendiente extender a otros agentes.
+Agentes (GitHub Secrets): `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service-role),
+`DASHBOARD_URL`+`DIGEST_CRON_SECRET` (mails), `GITHUB_TOKEN`/`GITHUB_REPO` (logistics→stock).
+Dashboard (Vercel): `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL*` (overrides), `GH_DISPATCH_TOKEN`+`GITHUB_OWNER/REPO`,
+`CRON_SECRET`, `META_ACCESS_TOKEN` (push campañas), `RESEND_API_KEY`, Microsoft Graph vars.
+Diagnóstico: `GET /api/diag/env`. **Nunca commitear .env.**
 
-### 3. Validación post-Claude antes de escribir
-Si Claude devuelve JSON parcial (truncado por `max_tokens`) o estructura inválida, fallar ruidoso ANTES de escribir archivos parciales al vault:
-```js
-// brandbook-processor — validar 8 secciones completas
-const missing = SECTIONS.filter(s => !files[s.key]?.trim());
-if (missing.length > 0) {
-  throw new Error(`Claude omitió secciones: ${missing.map(s => s.key).join(", ")}`);
-}
-
-// content-creator — validar balance de tags JSX
-validateJsxBalance(remotionCode); // cuenta <div>/<Sequence>/<AbsoluteFill> abiertos vs cerrados
-```
-
-### 4. Retry loop a nivel agente (Content Creator)
-Cuando una validación falla, NO matar el agente — pedir a Claude que arregle el output específico:
-```js
-for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-  const prompt = isRetry
-    ? buildRetryPrompt(lastCode, lastError.message, compositionId) // pasa el error
-    : buildOriginalPrompt(...);
-  const code = await callClaude(prompt);
-  try { validate(code); render(code); return; } 
-  catch (err) { lastCode = code; lastError = err; if (attempt < MAX_ATTEMPTS) continue; throw err; }
-}
-```
-
-### 5. Drain HTTP antes de `process.exit(1)`
-Sin esto, `logAgentError()` y `updateAgentRun()` pueden quedar en flight cuando el proceso muere y se pierde el log:
-```js
-} catch (err) {
-  await logAgentError(brief.client, AGENT, err).catch(() => {});
-  await updateAgentRun(runId, { status: "error", summary: err.message }).catch(() => {});
-  await new Promise(r => setTimeout(r, 800)); // drain
-  process.exit(1);
-}
-```
-
-### 6. Detección de placeholders sin reemplazar (client-bootstrap)
-Si un template `{{TYPO_VAR}}` no tiene mapping en el brief, `applyVars` lo deja como string literal. Antes era invisible. Ahora reportamos:
-```js
-function findUnresolvedPlaceholders(content) {
-  const matches = content.match(/\{\{[A-Z_][A-Z0-9_]*\}\}/g);
-  return matches ? Array.from(new Set(matches)) : [];
-}
-// post-render: if unresolvedReport.length > 0, log warning + incluir en agent_output
-```
-
-## Tech stack
-
-- **Runtime:** Node.js 22 (ES modules)
-- **Scheduling:** GitHub Actions (no servers)
-- **LLM:** Claude Sonnet 4.6 (model ID: `claude-sonnet-4-6`) — verificar SIEMPRE que está actualizado, no usar IDs viejos
-- **Data layer:** Supabase (tablas: `agent_runs`, `agent_outputs`, `notifications`, `content_pieces`, `audit_log`, `client_requests`, `phase_reports`, etc.)
-- **Dashboard:** Next.js 16 + React 19 + Vercel + Supabase Auth (NO es HTML estático — ver `dashboard/CLAUDE.md` para breaking changes)
-- **Producción de contenido:** humana (CM + editor). Los agentes generan briefs/copy/dirección, no el media final.
-
-## Audit log + RLS
-
-A partir de la migración 008 + 009, todas las acciones sensibles se registran automáticamente en `audit_log`:
-
-- `team.invite/update/assign/unassign` — vía `/api/team/invite` o triggers SQL en `profiles` y `client_assignments`
-- `client.create/delete/update` — vía `/api/clients/bootstrap` o trigger en `clients`
-- `phase.generate/approve/request_changes` — vía endpoints en `/api/phases/`
-- `request.update` — trigger en `client_requests` (también dispara `notifications` al cliente)
-- `agent.dispatch` — `/api/agents/run`
-- `kpis.update` — `/api/clients/[id]/kpis`
-
-Solo el director puede leer `audit_log` (RLS). Vista en `/configuracion/audit`.
-
-## Commands
+## Comandos
 
 ```bash
-# Correr agente local (requiere env vars + brief.json)
+# Agente local (env vars + brief.json)
 node scripts/morning-briefing/index.js --brief /tmp/brief.json
-node scripts/creative-assistant/index.js --brief /tmp/brief.json
-node scripts/reporting-performance/index.js --brief /tmp/brief.json
-
-# Install deps
-npm install
 
 # Dashboard
-cd dashboard && unset ANTHROPIC_API_KEY ANTHROPIC_BASE_URL && npm run dev
+cd dashboard && npm run dev
+cd dashboard && npm run build   # SIEMPRE antes de commitear cambios del dashboard
 ```
 
-## Before you code — principios
+## Principios
 
-1. **El vault es source of truth.** Agentes leen de `vault/` y escriben de vuelta. Nunca hardcodear data del cliente en scripts.
-2. **Generic-first.** Cualquier feature nueva debe funcionar para CUALQUIER cliente. Cero defaults, cero fallbacks por slug. Si el brief no trae `client`, el agente falla ruidoso.
-3. **Fail loudly, log everything.** Errores van a Supabase via `logAgentError()` + Telegram opcional. NO swallow errors silenciosos.
-4. **Cada agente loggea a Supabase.** Usar `scripts/lib/supabase.js` → `logAgentRun` / `logAgentError` / `registerAgentOutput` / `pushNotification`.
-5. **Model ID es siempre `claude-sonnet-4-6`.** Si ves IDs viejos (`claude-3-opus`, `claude-sonnet-3-5`), actualizar.
-6. **Patrones de robustez arriba — aplicarlos siempre.** Especialmente `mkdirSync` recursive, retry en API calls, validación post-Claude.
-
-## Environment variables
-
-Never commit `.env` files. Secrets viven en GitHub Actions secrets para los agentes y en Vercel env vars para el dashboard. Para tests locales, `.env.local` (gitignored).
-
-**Para agentes (GitHub Actions secrets):**
-```
-ANTHROPIC_API_KEY      # crítico
-SUPABASE_URL           # crítico (logs)
-SUPABASE_KEY           # crítico — es la service_role key (los agentes bypassean RLS)
-ELEVENLABS_API_KEY     # solo content-creator si generateVoice
-GOOGLE_AI_API_KEY      # solo content-creator si produceStatic
-BLOTATO_API_KEY        # solo content-creator si autoPublish (opcional)
-TELEGRAM_BOT_TOKEN     # opcional, notif de errores
-TELEGRAM_CHAT_ID       # idem
-GITHUB_TOKEN           # solo logistics (trigger stock vía dispatch)
-GITHUB_REPO            # owner/repo, solo logistics
-```
-
-**Para dashboard (Vercel env vars):**
-```
-NEXT_PUBLIC_SUPABASE_URL              # pública
-NEXT_PUBLIC_SUPABASE_ANON_KEY         # pública
-SUPABASE_SERVICE_ROLE_KEY             # server-only — bypassa RLS
-ANTHROPIC_API_KEY                     # consultor + phase reports
-GH_DISPATCH_TOKEN                     # PAT con Actions:Read+Write para dispatch
-GITHUB_OWNER                          # ej. giancostantini
-GITHUB_REPO                           # ej. dc-scale-agents
-CALENDLY_WEBHOOK_SECRET               # opcional, solo si Calendly Pro
-```
-
-Verificar estado de env vars del dashboard: `GET /api/diag/env` (devuelve presence + smoke tests).
-
-## Conocido bloqueado / diferido
-
-- **SMTP rate limit:** Supabase default permite 3 emails/h por proyecto. Bloquea testing de invitaciones repetidas. Solución: configurar SMTP propio (Resend / Postmark) — el handoff lo dejaba como "no urgente para MVP" pero al escalar es útil.
-- **Google Calendar real:** solo flag `synced` en `cal_events`. Calendly webhook cubre el caso principal. Implementar OAuth GCal solo si hay requerimiento explícito.
-- **Anthropic credits:** si el balance se va a cero, todos los agentes que llaman a Claude fallan con 400 "credit balance too low". Configurar auto-recarga en console.anthropic.com.
+1. **Generic-first**: todo funciona para cualquier cliente; sin defaults por slug; brief sin
+   cliente = fallo ruidoso.
+2. **El registry es la verdad de la flota**; el vault es la verdad del conocimiento cualitativo;
+   Supabase es la verdad del estado y el registro.
+3. **Fail loudly**: errores a `agent_runs` + notificación; crons fallidos avisan solos
+   (`cron-alert.yml`).
+4. **Least autonomous component**: función > script > workflow > agente. No crear agentes que un
+   job resuelve.
+5. **Todo lo visible al cliente pasa por gate humano** hasta ganarse lo contrario con métricas
+   (ver `docs/ai-company-audit/12` y `17`).
+6. **Costos medidos**: cada llamada a Claude registra tokens; el panel de Costos es la referencia.
