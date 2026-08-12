@@ -30,6 +30,8 @@ on:
       # Stage 2a — si la ingestión de métricas de pauta muere, los reportes
       # vuelven a quedar ciegos sin que nadie lo note.
       - "Meta Insights"
+      # Stage 2b — ídem para la ingestión orgánica por pieza.
+      - "Organic Insights"
     types: [completed]
 
 jobs:

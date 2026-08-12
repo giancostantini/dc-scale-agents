@@ -390,6 +390,11 @@ export interface Client {
   /** Cuenta publicitaria de Meta (act_XXXX o número) — mig 089. NULL =
    *  sin ingestión automática de pauta para este cliente. */
   meta_ad_account_id?: string | null;
+  /** Instagram Business Account ID — mig 090. NULL = sin ingestión
+   *  orgánica por pieza. */
+  meta_ig_user_id?: string | null;
+  /** Facebook Page ID — mig 090 (reservado para insights de FB). */
+  meta_page_id?: string | null;
   /** RUT / NIT del cliente — migración 054. Se muestra en el perfil
    *  del cliente y se auto-rellena al crear una factura. */
   rut?: string | null;

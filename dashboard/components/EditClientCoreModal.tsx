@@ -67,6 +67,8 @@ export default function EditClientCoreModal({
   const [metaAdAccountId, setMetaAdAccountId] = useState(
     client.meta_ad_account_id ?? "",
   );
+  const [metaIgUserId, setMetaIgUserId] = useState(client.meta_ig_user_id ?? "");
+  const [metaPageId, setMetaPageId] = useState(client.meta_page_id ?? "");
   const [method, setMethod] = useState(client.method ?? "Método completo");
 
   // Contacto
@@ -200,6 +202,8 @@ export default function EditClientCoreModal({
           ? Math.min(31, Math.max(1, parseInt(billingDay, 10) || 1))
           : null,
         meta_ad_account_id: metaAdAccountId.trim() || null,
+        meta_ig_user_id: metaIgUserId.trim() || null,
+        meta_page_id: metaPageId.trim() || null,
         default_cuenta_id: defaultCuentaId || null,
         dividend_distribution: dividendDistribution,
         onboarding: onboardingMerged,
@@ -363,6 +367,24 @@ export default function EditClientCoreModal({
               value={metaAdAccountId}
               onChange={(e) => setMetaAdAccountId(e.target.value)}
               placeholder="Ej: act_1234567890 (ingesta métricas)"
+              style={inputStyle}
+            />
+          </Field>
+        </Row>
+        <Row>
+          <Field label="IG Business Account ID">
+            <input
+              value={metaIgUserId}
+              onChange={(e) => setMetaIgUserId(e.target.value)}
+              placeholder="Ingesta orgánica por pieza"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Facebook Page ID">
+            <input
+              value={metaPageId}
+              onChange={(e) => setMetaPageId(e.target.value)}
+              placeholder="Opcional (insights de FB)"
               style={inputStyle}
             />
           </Field>

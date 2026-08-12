@@ -1,0 +1,52 @@
+name: Organic Insights
+
+# Stage 2b. Corre todos los días a las 09:45 UTC (6:45 UY) y le pega a
+# /api/cron/organic-insights: media reciente de IG por cliente + insights
+# por pieza → organic_posts → matcher a content_posts.metrics. Es la fuente
+# dura que despierta a social-media-metrics (winners reales, no estimados).
+#
+# Mientras META_SYSTEM_USER_TOKEN no esté (o ningún cliente tenga
+# meta_ig_user_id), el endpoint responde configured:false y esto queda
+# verde con un notice — dormida, no rota.
+#
+# Secrets (ya existen): DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  schedule:
+    - cron: '45 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ingerir insights orgánicos
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/organic-insights" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          configured=$(echo "$response" | jq -r '.configured')
+          if [ "$configured" = "false" ]; then
+            echo "::notice::Ingestión orgánica dormida: $(echo "$response" | jq -r '.detail')"
+            exit 0
+          fi
+          failed=$(echo "$response" | jq -r '.failed // 0')
+          if [ "$failed" != "0" ]; then
+            echo "::warning::$failed cliente(s) fallaron — ver Response arriba."
+          fi
