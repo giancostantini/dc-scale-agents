@@ -1,0 +1,53 @@
+name: Facturación y cobranzas
+
+# FIN-1. Corre todos los días a las 11:00 UTC (8:00 UY) y le pega a
+# /api/cron/billing del dashboard, que:
+#   A. Draftea en `payments` las facturas del mes que falten (idempotente —
+#      después del día 1 es no-op) y avisa al director cuando crea algo.
+#   B. Marca vencidas (billing_day del cliente, o fin de mes) y draftea
+#      recordatorios de cobro como notificación al director (cadencia 4 días;
+#      2º aviso = escalado a socios).
+#
+# El sistema NUNCA emite facturas ni escribe al cliente — draftea y avisa.
+#
+# Secrets (ya existen — los usan outlook-renew y fx-rates):
+#   - DASHBOARD_BASE_URL
+#   - CRON_SECRET
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  billing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Draftear facturas + detectar vencidas
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/billing" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          drafted=$(echo "$response" | jq -r '.facturacion.drafted')
+          reminders=$(echo "$response" | jq -r '.cobranzas.remindersSent')
+          late=$(echo "$response" | jq -r '.cobranzas.lateMarked')
+          echo "Facturas drafteadas: $drafted · Vencidas nuevas: $late · Recordatorios: $reminders"
+          if [ "$reminders" != "0" ]; then
+            echo "::warning::Hay $reminders recordatorio(s) de cobro drafteado(s) — el director fue notificado."
+          fi
