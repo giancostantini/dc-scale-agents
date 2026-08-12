@@ -1,0 +1,51 @@
+name: FX Rates (Tesorería)
+
+# FIN-0 · Tesorería multimoneda. Corre todos los días a las 10:15 UTC
+# (7:15 UY) y le pega a /api/cron/fx-rates del dashboard, que:
+#   - Guarda la cotización USD/UYU del día en exchange_rates
+#     (uy.dolarapi.com, fallback open.er-api.com).
+#   - Proyecta el flujo del mes por moneda y, si una moneda no se
+#     autofinancia, notifica al director el descalce con el monto a
+#     convertir estimado (máx. 1 aviso por día).
+#
+# Secrets requeridos (ya existen — los usa outlook-subscription-renew):
+#   - DASHBOARD_BASE_URL: ej. https://sistemadearmascostantini.com
+#   - CRON_SECRET: mismo valor que la env var CRON_SECRET en Vercel
+
+on:
+  schedule:
+    - cron: '15 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  fx-rates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Actualizar TC + chequear descalce
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/fx-rates" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          mid=$(echo "$response" | jq -r '.rate.usd_uyu_mid')
+          source=$(echo "$response" | jq -r '.rate.source')
+          descalces=$(echo "$response" | jq '.descalces | length')
+          echo "TC del día: $mid UYU/USD (fuente: $source)"
+          if [ "$descalces" != "0" ]; then
+            echo "::warning::Hay $descalces descalce(s) de moneda este mes — el director fue notificado en el dashboard."
+          fi

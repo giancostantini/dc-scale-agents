@@ -45,6 +45,7 @@ import {
 } from "./FinanzasViews";
 import ReportesView from "@/components/finanzas/ReportesView";
 import CostosApiView from "@/components/finanzas/CostosApiView";
+import TesoreriaView from "@/components/finanzas/TesoreriaView";
 import { PremiumClientes } from "@/components/finanzas/PremiumClientes";
 import { PremiumFacturacion } from "@/components/finanzas/PremiumFacturacion";
 import { PremiumDocumentos } from "@/components/finanzas/PremiumDocumentos";
@@ -73,6 +74,7 @@ type FinPage =
   | "facturacion"
   | "documentos"
   | "cuentas"
+  | "tesoreria"
   | "costos_api";
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
@@ -178,6 +180,7 @@ export default function FinanzasPage() {
         { key: "egresos", icon: "↓", label: "Egresos" },
         { key: "equipo", icon: "◌", label: "Funcionales" },
         { key: "cuentas", icon: "◫", label: "Cuentas bancarias" },
+        { key: "tesoreria", icon: "≈", label: "Tesorería" },
         { key: "estados", icon: "▦", label: "Reportes" },
         { key: "clientes", icon: "◉", label: "Clientes activos" },
         { key: "documentos", icon: "▤", label: "Documentos" },
@@ -238,6 +241,14 @@ export default function FinanzasPage() {
             {page === "facturacion" && <PremiumFacturacion />}
             {page === "documentos" && <PremiumDocumentos />}
             {page === "cuentas" && <PremiumCuentasBancarias />}
+            {page === "tesoreria" && (
+              <TesoreriaView
+                clients={clients}
+                expenses={expenses}
+                manualRevs={manualRevs}
+                feeSchedules={feeSchedules}
+              />
+            )}
             {page === "costos_api" && <CostosApiView />}
             {page === "mkt_clientes" && (
               <MktClientesView
