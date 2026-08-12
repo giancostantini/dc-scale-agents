@@ -1,0 +1,61 @@
+name: Phase Autogen
+
+# Stage 3. Cuando el director aprueba una fase, /api/phases/approve dispara
+# este workflow (repository_dispatch), que llama a /api/phases/generate con
+# el secret interno para draftear la fase SIGUIENTE. Corre en GHA porque la
+# generación tarda 2-5 min — no puede vivir dentro del request de aprobar.
+#
+# El gate humano no cambia: el resultado queda en 'draft' y el director lo
+# revisa/aprueba como siempre. Esto solo ahorra el click de "Generar".
+#
+# Payload esperado: { clientId, phase }.
+# Secrets: DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  repository_dispatch:
+    types: [phase-autogen]
+  workflow_dispatch:
+    inputs:
+      client:
+        description: 'Client slug'
+        required: true
+      phase:
+        description: 'Fase a generar'
+        required: true
+        type: choice
+        options: [diagnostico, estrategia, setup, lanzamiento]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generar draft de la fase
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CLIENT: ${{ inputs.client || github.event.client_payload.clientId }}
+          PHASE: ${{ inputs.phase || github.event.client_payload.phase }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          if [ -z "${CLIENT:-}" ] || [ -z "${PHASE:-}" ]; then
+            echo "ERROR: falta clientId o phase en el payload" >&2
+            exit 1
+          fi
+          echo "Generando draft de '$PHASE' para '$CLIENT' (esto tarda 2-5 min)…"
+          response=$(curl -sS --max-time 360 -X POST \
+            "${DASHBOARD_BASE_URL}/api/phases/generate" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "{\"clientId\":\"${CLIENT}\",\"phase\":\"${PHASE}\"}")
+          success=$(echo "$response" | jq -r '.success // false')
+          if [ "$success" != "true" ]; then
+            echo "ERROR: la generación falló:" >&2
+            echo "$response" | jq -r '.error // .' >&2
+            exit 1
+          fi
+          version=$(echo "$response" | jq -r '.version')
+          echo "OK: draft de '$PHASE' v$version listo para revisión del director."

@@ -12,6 +12,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { logAction } from "@/lib/audit";
+import { dispatchAgentWorkflow } from "@/lib/github-dispatch";
+import { runProcessSync } from "@/lib/process-sync";
 
 const PHASES = ["diagnostico", "estrategia", "setup", "lanzamiento"] as const;
 type PhaseKey = (typeof PHASES)[number];
@@ -133,10 +135,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Disparar la siguiente fase como 'pending' (lista para generar).
-  // El director va a clickear "Generar" para arrancarla, o podríamos
-  // auto-generar acá. Por ahora la dejamos pending y que decida humano.
+  // Auto-avance (Stage 3): al aprobar, el draft de la SIGUIENTE fase se
+  // prepara solo — se dispara el workflow phase-autogen (GHA), que llama a
+  // /api/phases/generate con el secret interno y espera los 2-5 min de
+  // generación fuera del request de aprobar. El gate no cambia: el draft
+  // resultante lo revisa y aprueba el director como siempre.
   const next = nextPhaseOf(phaseKey);
+  let autogenDispatched = false;
   if (next) {
     await admin.from("phase_reports").upsert(
       {
@@ -147,6 +152,46 @@ export async function POST(req: NextRequest) {
       },
       { onConflict: "client_id,phase" },
     );
+
+    try {
+      await dispatchAgentWorkflow({
+        eventType: "phase-autogen",
+        payload: { clientId, phase: next },
+      });
+      autogenDispatched = true;
+      await admin.from("notifications").insert({
+        client: clientId,
+        agent: "phases",
+        level: "info",
+        title: `Draft de ${next} en preparación`,
+        body: `Aprobaste ${phaseKey} y el sistema ya está generando el borrador de la fase siguiente (~3-5 min). Te va a quedar en draft para revisar — nada llega al cliente sin tu aprobación.`,
+        link: `/cliente/${clientId}`,
+        to_user_id: caller.id,
+        email_sent: false,
+        dedup_key: `phase-autogen-${clientId}-${next}`,
+      });
+    } catch (err) {
+      // Sin GH_DISPATCH_TOKEN o GitHub caído → no rompemos la aprobación;
+      // avisamos que la siguiente quedó pending para generar a mano.
+      console.warn("[phases/approve] phase-autogen dispatch falló:", err);
+      await admin.from("notifications").insert({
+        client: clientId,
+        agent: "phases",
+        level: "warning",
+        title: `Generá a mano el draft de ${next}`,
+        body: `La aprobación de ${phaseKey} salió bien, pero no se pudo disparar la generación automática de la fase siguiente. Entrá al cliente y tocá "Generar".`,
+        link: `/cliente/${clientId}`,
+        to_user_id: caller.id,
+        email_sent: false,
+      });
+    }
+  }
+
+  // Sync inmediato del estado del proceso (Stage 3). Best-effort.
+  try {
+    await runProcessSync(clientId);
+  } catch (err) {
+    console.warn("[phases/approve] process-sync falló (no bloquea):", err);
   }
 
   // Notificar al cliente que tiene un nuevo reporte aprobado.
