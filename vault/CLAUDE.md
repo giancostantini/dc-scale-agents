@@ -67,8 +67,11 @@ config, Blotato, Telegram como canal de errores (hoy: bell del dashboard + `cron
 5. **Optimización y escala** (continua) — campañas, creativos (anti-fatiga), funnel, escala
    progresiva → **reporte mensual de performance**
 
-> El texto completo del Manual se versiona en `vault/agency/methodology/` (Stage 1 del roadmap —
-> hoy los archivos de `agency/` son stubs; el PDF fuente ya fue entregado).
+> El método completo está versionado en `vault/agency/methodology/` (Stage 1 ✔): una página
+> por fase + SOPs (content-production, onboarding, reporting) + `checklists.md` (F1.4/3.5/4.4/
+> 5.3). `/api/phases/generate` inyecta la página de la fase al prompt — **editar esos archivos
+> cambia lo que citan los reportes**. Qué fuente manda en cada par vault↔DB:
+> `vault/agency/data-ownership.md`.
 
 ## Visibilidad al cliente — qué del vault/clients/<id>/ ve el Consultor-Cliente
 

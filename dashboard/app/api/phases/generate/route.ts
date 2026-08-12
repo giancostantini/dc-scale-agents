@@ -26,6 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import { recordApiUsage } from "@/lib/api-usage";
+import { fetchVaultFile } from "@/lib/vault-loader";
 import {
   PHASE_PROMPTS,
   PHASE_PROMPTS_BRAND_LAUNCH,
@@ -51,6 +52,19 @@ const PHASE_DEPS: Record<PhaseKey, PhaseKey | null> = {
   estrategia: "diagnostico",
   setup: "estrategia",
   lanzamiento: "setup",
+};
+
+/**
+ * Metodología oficial por fase (Stage 1 — Manual Growth versionado en el
+ * vault). Se inyecta como bloque system cacheable para que los reportes citen
+ * el método real de la agencia (ROAS break-even, checklists, entregables) en
+ * vez de inventarse una estructura genérica.
+ */
+const PHASE_METHODOLOGY_FILE: Record<PhaseKey, string> = {
+  diagnostico: "vault/agency/methodology/fase-1-diagnostico.md",
+  estrategia: "vault/agency/methodology/fase-2-estrategia.md",
+  setup: "vault/agency/methodology/fase-3-setup.md",
+  lanzamiento: "vault/agency/methodology/fase-4-lanzamiento.md",
 };
 
 export async function POST(req: NextRequest) {
@@ -196,6 +210,20 @@ export async function POST(req: NextRequest) {
   const existingContent = feedback ? (currentReport?.content_md ?? null) : null;
   const existingVersion = feedback ? (currentReport?.version ?? null) : null;
   const isEditMode = Boolean(feedback && existingContent);
+
+  // Metodología de la fase (vault/agency/methodology/) — solo en modo
+  // generación. En modo edición el agente es un editor conservador y no
+  // necesita el método (y meterlo tensiona la regla "preservá verbatim").
+  // Si el vault no responde, seguimos sin metodología (degraded, no bloquea).
+  const methodologyMd = isEditMode
+    ? null
+    : await fetchVaultFile(PHASE_METHODOLOGY_FILE[phaseKey]).catch((err) => {
+        console.warn(
+          `[phases.generate] metodología no disponible para ${phaseKey}:`,
+          err instanceof Error ? err.message : err,
+        );
+        return null;
+      });
 
   // ====== 7. Marcar status='generating' ======
   await admin
@@ -395,6 +423,17 @@ Reglas absolutas:
           text: systemPromptText,
           cache_control: { type: "ephemeral" },
         },
+        // Método oficial de la agencia para esta fase. Bloque separado y
+        // cacheable: cambia solo cuando se edita el vault, no por request.
+        ...(methodologyMd
+          ? [
+              {
+                type: "text" as const,
+                text: `MÉTODO OFICIAL D&C SCALE — FASE "${phaseKey.toUpperCase()}" (Manual Growth versionado):\n\n${methodologyMd}\n\nEste es el método real de la agencia. El reporte debe seguir sus definiciones, fórmulas (ej: ROAS break-even = 1 ÷ margen de contribución), checklists y entregables, citándolos donde corresponda. Si un dato del método no aplica al cliente, decilo explícitamente en vez de omitirlo.`,
+                cache_control: { type: "ephemeral" as const },
+              },
+            ]
+          : []),
       ],
       thinking: { type: "adaptive" },
       messages: [{ role: "user", content: userContent }],
