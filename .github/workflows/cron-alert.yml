@@ -25,6 +25,8 @@ on:
       # FIN-1 — si el runner de facturación/cobranzas muere, las facturas
       # del mes no se draftean y los vencidos dejan de detectarse.
       - "Facturación y cobranzas"
+      # FIN-3 — si el cierre no se draftea el día 2, los socios se enteran.
+      - "Cierre mensual"
     types: [completed]
 
 jobs:

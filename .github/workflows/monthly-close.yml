@@ -1,0 +1,61 @@
+name: Cierre mensual
+
+# FIN-3. Corre el día 2 de cada mes a las 11:30 UTC (8:30 UY) y draftea el
+# cierre del MES ANTERIOR: números deterministas + narrativa IA. Los socios
+# lo revisan en Finanzas → Cierre y proyección y lo marcan FINAL — el cron
+# nunca pisa un cierre finalizado.
+#
+# Manual via workflow_dispatch (input opcional month=YYYY-MM para regenerar
+# un mes puntual que siga en draft).
+#
+# Secrets (ya existen): DASHBOARD_BASE_URL + CRON_SECRET.
+
+on:
+  schedule:
+    - cron: '30 11 2 * *'
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Mes a cerrar (YYYY-MM). Vacío = mes anterior.'
+        required: false
+        type: string
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generar draft del cierre
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          MONTH: ${{ inputs.month }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "ERROR: DASHBOARD_BASE_URL o CRON_SECRET no están seteados" >&2
+            exit 1
+          fi
+          if [ -n "${MONTH:-}" ]; then
+            body="{\"month\":\"${MONTH}\"}"
+          else
+            body='{}'
+          fi
+          response=$(curl -fsS -X POST \
+            "${DASHBOARD_BASE_URL}/api/cron/monthly-close" \
+            -H "x-internal-secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$body")
+          echo "Response: $response"
+          ok=$(echo "$response" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            echo "ERROR: el endpoint no devolvió ok=true" >&2
+            exit 1
+          fi
+          skipped=$(echo "$response" | jq -r '.skipped // empty')
+          if [ -n "$skipped" ]; then
+            echo "Cierre ya FINAL — no se tocó."
+          else
+            month=$(echo "$response" | jq -r '.month')
+            narrative=$(echo "$response" | jq -r '.narrativeOk')
+            echo "Cierre de $month drafteado (narrativa IA: $narrative). Los socios fueron notificados."
+          fi

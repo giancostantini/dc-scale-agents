@@ -194,8 +194,9 @@ function expenseRecurrenceEnd(e: ExpenseLike): string | null {
 /** ¿Este egreso impacta en el mes yyyymm?
  *  - one_time: su date cae dentro del mes.
  *  - monthly_fixed: una instancia por mes desde su mes de alta hasta
- *    recurrence_end_date (misma expansión que PremiumEgresos). */
-function expenseImpact(e: ExpenseLike, yyyymm: string): number {
+ *    recurrence_end_date (misma expansión que PremiumEgresos).
+ *  Exportada porque el cierre mensual (lib/cierre.ts) usa la misma regla. */
+export function expenseImpact(e: ExpenseLike, yyyymm: string): number {
   if (e.status === "cancelled") return 0;
   if (e.recurrence === "monthly_fixed") {
     const startMonth = (e.date ?? "").slice(0, 7);
@@ -274,6 +275,70 @@ export function proyeccionDelMes(input: {
   }
 
   return { month, flujo, descalces };
+}
+
+/** Suma n meses a un YYYY-MM. */
+export function addMonths(yyyymm: string, n: number): string {
+  const [y, m] = yyyymm.split("-").map(Number);
+  const total = y * 12 + (m - 1) + n;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}`;
+}
+
+export interface PosicionProyectada {
+  month: string;
+  /** Posición estimada al cierre de ese mes, por moneda (USD/UYU). */
+  USD: number;
+  UYU: number;
+}
+
+export interface ProyeccionMultiMes {
+  meses: ProyeccionMes[];
+  /** Posición acumulada: posición actual + neto proyectado mes a mes. */
+  posiciones: PosicionProyectada[];
+}
+
+/**
+ * Proyección de cashflow a N meses (FIN-3): aplica proyeccionDelMes a cada
+ * mes consecutivo y acumula la posición partiendo de la posición actual de
+ * las cuentas. Determinista y explicable: fees programados + ingresos
+ * manuales fijos vigentes − egresos recurrentes/registrados. Los one-time
+ * futuros no se inventan — si no están cargados, no existen.
+ */
+export function proyeccionMeses(input: {
+  startMonth: string;
+  count: number;
+  clients: ClientFeeLike[];
+  feeSchedules: FeeScheduleLike[];
+  revenues: RevenueLike[];
+  expenses: ExpenseLike[];
+  rate?: number | null;
+  /** Posición actual por moneda (de posicionPorMoneda). */
+  posicionActual: Record<string, number>;
+}): ProyeccionMultiMes {
+  const meses: ProyeccionMes[] = [];
+  const posiciones: PosicionProyectada[] = [];
+  let usd = input.posicionActual.USD ?? 0;
+  let uyu = input.posicionActual.UYU ?? 0;
+
+  for (let i = 0; i < input.count; i++) {
+    const month = addMonths(input.startMonth, i);
+    const p = proyeccionDelMes({
+      month,
+      clients: input.clients,
+      feeSchedules: input.feeSchedules,
+      revenues: input.revenues,
+      expenses: input.expenses,
+      rate: input.rate,
+    });
+    meses.push(p);
+    usd += p.flujo.USD.neto;
+    uyu += p.flujo.UYU.neto;
+    posiciones.push({ month, USD: Math.round(usd * 100) / 100, UYU: Math.round(uyu * 100) / 100 });
+  }
+
+  return { meses, posiciones };
 }
 
 /** Texto humano del descalce para la alerta y la UI. */
