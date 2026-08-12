@@ -400,10 +400,14 @@ async function recallMemories(
   clientId: string,
   limit: number,
 ): Promise<MemoryRow[]> {
+  // v2 (mig 022/085): fuente ÚNICA de memoria de directivas. Scope 'client'
+  // — lo mismo que leen client-memory.js (agentes GHA) y distill-learnings,
+  // así lo que el consultor guarda lo ve toda la flota y viceversa.
   const { data, error } = await supabase
-    .from("consultant_memory")
+    .from("consultant_memory_v2")
     .select("id, kind, content, importance, created_at")
-    .eq("client", clientId)
+    .eq("scope_type", "client")
+    .eq("client_id", clientId)
     .or("expires_at.is.null,expires_at.gt.now()")
     .order("importance", { ascending: false })
     .order("created_at", { ascending: false })
@@ -426,8 +430,9 @@ async function rememberMemory(
       ? Math.max(1, Math.min(5, Math.round(importance)))
       : 3;
 
-  await supabase.from("consultant_memory").insert({
-    client: clientId,
+  await supabase.from("consultant_memory_v2").insert({
+    scope_type: "client",
+    client_id: clientId,
     kind,
     content: content.slice(0, 1000),
     importance: clampedImportance,
