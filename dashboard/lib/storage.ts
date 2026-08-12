@@ -104,6 +104,8 @@ interface ClientRow {
   // Migración 054
   razon_social?: string | null;
   rut?: string | null;
+  // Migración 086 (FIN-1)
+  billing_day?: number | null;
 }
 
 function clientFromRow(r: ClientRow): Client {
@@ -143,6 +145,7 @@ function clientFromRow(r: ClientRow): Client {
     website_url: r.website_url ?? null,
     razon_social: r.razon_social ?? null,
     rut: r.rut ?? null,
+    billing_day: r.billing_day ?? null,
   };
 }
 
@@ -397,6 +400,8 @@ export interface UpdateClientCoreInput {
   /** Datos fiscales — migración 054. */
   razon_social?: string | null;
   rut?: string | null;
+  /** Día de vencimiento del fee (1-31, NULL = fin de mes) — mig 086. */
+  billing_day?: number | null;
   default_cuenta_id?: string | null;
   dividend_distribution?: Client["dividend_distribution"] | null;
   onboarding?: ClientOnboarding | null;

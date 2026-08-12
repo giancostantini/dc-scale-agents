@@ -22,6 +22,9 @@ on:
       # FIN-0 (PR feat/fin0-tesoreria) — si el TC diario deja de cargarse,
       # la vista Tesorería y la alerta de descalce quedan ciegas.
       - "FX Rates (Tesorería)"
+      # FIN-1 — si el runner de facturación/cobranzas muere, las facturas
+      # del mes no se draftean y los vencidos dejan de detectarse.
+      - "Facturación y cobranzas"
     types: [completed]
 
 jobs:

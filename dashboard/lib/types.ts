@@ -384,6 +384,9 @@ export interface Client {
   /** Razón social legal del cliente — puede diferir del nombre
    *  comercial (`name`). Se usa en facturación. Migración 054. */
   razon_social?: string | null;
+  /** Día del mes (1-31) en que vence el pago del fee. NULL = último día
+   *  del mes. Lo usa el cron de cobranzas (FIN-1, mig 086). */
+  billing_day?: number | null;
   /** RUT / NIT del cliente — migración 054. Se muestra en el perfil
    *  del cliente y se auto-rellena al crear una factura. */
   rut?: string | null;

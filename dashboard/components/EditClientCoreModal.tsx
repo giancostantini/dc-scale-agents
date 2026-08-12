@@ -61,6 +61,9 @@ export default function EditClientCoreModal({
   const [websiteUrl, setWebsiteUrl] = useState(client.website_url ?? "");
   const [razonSocial, setRazonSocial] = useState(client.razon_social ?? "");
   const [rut, setRut] = useState(client.rut ?? "");
+  const [billingDay, setBillingDay] = useState(
+    client.billing_day != null ? String(client.billing_day) : "",
+  );
   const [method, setMethod] = useState(client.method ?? "Método completo");
 
   // Contacto
@@ -190,6 +193,9 @@ export default function EditClientCoreModal({
         website_url: isGp ? websiteUrl.trim() || null : null,
         razon_social: razonSocial.trim() || null,
         rut: rut.trim() || null,
+        billing_day: billingDay.trim()
+          ? Math.min(31, Math.max(1, parseInt(billingDay, 10) || 1))
+          : null,
         default_cuenta_id: defaultCuentaId || null,
         dividend_distribution: dividendDistribution,
         onboarding: onboardingMerged,
@@ -332,6 +338,19 @@ export default function EditClientCoreModal({
               value={rut}
               onChange={(e) => setRut(e.target.value)}
               placeholder="Ej: 215123450014"
+              style={inputStyle}
+            />
+          </Field>
+        </Row>
+        <Row>
+          <Field label="Día de vencimiento del fee">
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={billingDay}
+              onChange={(e) => setBillingDay(e.target.value)}
+              placeholder="Vacío = último día del mes"
               style={inputStyle}
             />
           </Field>
