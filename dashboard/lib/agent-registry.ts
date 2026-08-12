@@ -298,6 +298,16 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
 
   // ============ PLATAFORMA ============
   {
+    key: "evals",
+    name: "Evals",
+    desc: "Juez semanal (Haiku) de los 3 sets dorados contra rubrics versionadas (vault/agency/evals). Scores a eval_runs — 'evals verdes' es trigger de H2.",
+    kind: "job",
+    area: "plataforma",
+    owner: "gian",
+    status: "active",
+    workflow: "evals.yml",
+  },
+  {
     key: "budget-recommendations",
     name: "Budget Recommendations",
     desc: "Recomendación semanal de presupuesto de ads desde paid_media_daily (Stage 6). SIEMPRE YELLOW: recomienda, jamás ejecuta — el push es humano.",

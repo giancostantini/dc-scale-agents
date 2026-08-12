@@ -45,6 +45,9 @@ on:
       # Stage 6 — si el review semanal muere, la elegibilidad/regresión de
       # autonomía y las recomendaciones de presupuesto dejan de salir.
       - "Autonomy Review"
+      # Stage 2c — si el juez semanal muere, los sets dorados dejan de
+      # medirse (y "evals verdes" es trigger de H2).
+      - "Evals"
     types: [completed]
 
 jobs:

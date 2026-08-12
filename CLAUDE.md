@@ -44,7 +44,8 @@ los briefs), n8n, Google Sheets como config, Blotato, Telegram como canal (vesti
   fx-rates (diario, FIN-0), billing/facturación+cobranzas (diario, FIN-1), monthly-close (día 2,
   FIN-3), meta-insights + organic-insights (diarios, Stage 2 — dormidos sin token), process-sync
   (diario, Stage 3), monthly-reports (día 3, Stage 3), events-dispatch (diario, Stage 5 — sweeper
-  del outbox), autonomy-review + budget-recommendations (lun, Stage 6). Event-driven:
+  del outbox), autonomy-review + budget-recommendations (lun, Stage 6), evals (lun, Stage 2c —
+  juez de sets dorados vs `vault/agency/evals/`). Event-driven:
   phase-autogen (al aprobar una fase, drafea la siguiente) + outbox `events` (triggers SQL →
   /api/events/dispatch). Autonomía: `autonomy_settings` — todo gated por default; promover =
   UPDATE de un director. `cron-alert.yml` vigila a todos.
