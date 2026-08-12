@@ -70,13 +70,20 @@ export async function POST(
     return Response.json({ error: "Solo directores." }, { status: 403 });
   }
 
-  let body: { pieces?: PieceInput[] };
+  let body: { pieces?: PieceInput[]; runId?: number };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: "Body inválido" }, { status: 400 });
   }
   const pieces = body.pieces ?? [];
+  // Trazabilidad (Stage 2a, mig 089): si el batch salió de una corrida de
+  // agente (agent_runs), el caller puede pasar runId y cada pieza queda
+  // linkeada vía origin_run_id. El chat in-page no tiene corrida → null.
+  const originRunId =
+    typeof body.runId === "number" && Number.isFinite(body.runId)
+      ? body.runId
+      : null;
   if (!Array.isArray(pieces) || pieces.length === 0) {
     return Response.json({ error: "Sin piezas para guardar" }, { status: 400 });
   }
@@ -127,6 +134,7 @@ export async function POST(
       cta: p.cta?.trim() || null,
       status: p.status ?? "draft",
       source: "ai",
+      origin_run_id: originRunId,
     }));
 
   if (rows.length === 0) {

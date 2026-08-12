@@ -27,6 +27,9 @@ on:
       - "Facturación y cobranzas"
       # FIN-3 — si el cierre no se draftea el día 2, los socios se enteran.
       - "Cierre mensual"
+      # Stage 2a — si la ingestión de métricas de pauta muere, los reportes
+      # vuelven a quedar ciegos sin que nadie lo note.
+      - "Meta Insights"
     types: [completed]
 
 jobs:
