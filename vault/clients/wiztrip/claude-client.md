@@ -166,3 +166,8 @@ Wizzo es la voz de la experiencia: el experto que ya recorrió el mundo, aprendi
 - Riesgo principal identificado por el fundador: conversión 0 en las primeras semanas
 - Objeción #1 del mercado: falta de presencialidad y confianza en plataforma nueva
 - Barrera de entrada principal: marca no reconocida
+
+## 🗺 Mapa del cliente
+[Estrategia](strategy.md) · [Brand (8 archivos)](brand/) · [Content library](content-library.md) · [Calendario](content-calendar.md) · [Competidores](competitors.md) · [Tendencias](sector-trends.md) · [Ads library](ads-library.md) · [SEO library](seo-library.md) · [Métricas](metrics-log.md) · [Performance](performance-log.md) · [Ventas](sales-log.md) · [Catálogo](product-catalog.md) · [Referencias](references/)
+**Interno (el cliente no lo ve):** [Learning log](learning-log.md) · [Calls log](calls-log.md)
+Volver: [Clientes](../README.md) · [HOME](../../HOME.md)

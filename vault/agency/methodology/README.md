@@ -14,15 +14,17 @@ Esto es el MÉTODO OFICIAL de la agencia versionado en git. Una página por fase
 
 | Archivo | Contenido |
 |---|---|
-| `fase-1-diagnostico.md` | 5-7 días hábiles → Growth Diagnosis Report |
-| `fase-2-estrategia.md` | 3-5 días hábiles → Growth Strategy Plan |
-| `fase-3-setup.md` | 1-3 semanas → infraestructura completa lista |
-| `fase-4-lanzamiento.md` | 2-4 semanas → validación con datos reales |
-| `fase-5-optimizacion.md` | continua → sistema predecible y escalable |
-| `checklists.md` | Los 4 checklists de funnel (F1.4, F3.5, F4.4, F5.3) |
-| `sop-content-production.md` | Sistema mensual de contenido (método + cómo corre hoy en DC) |
-| `sop-onboarding.md` | Alta de cliente → fases con gates → optimización continua |
-| `sop-reporting.md` | Reporte mensual + seguimiento continuo |
+| [Fase 1 — Diagnóstico](fase-1-diagnostico.md) | 5-7 días hábiles → Growth Diagnosis Report |
+| [Fase 2 — Estrategia](fase-2-estrategia.md) | 3-5 días hábiles → Growth Strategy Plan |
+| [Fase 3 — Setup](fase-3-setup.md) | 1-3 semanas → infraestructura completa lista |
+| [Fase 4 — Lanzamiento](fase-4-lanzamiento.md) | 2-4 semanas → validación con datos reales |
+| [Fase 5 — Optimización](fase-5-optimizacion.md) | continua → sistema predecible y escalable |
+| [Checklists](checklists.md) | Los 4 checklists de funnel (F1.4, F3.5, F4.4, F5.3) |
+| [SOP Producción de contenido](sop-content-production.md) | Sistema mensual (método + cómo corre hoy en DC) |
+| [SOP Onboarding](sop-onboarding.md) | Alta de cliente → fases con gates → optimización continua |
+| [SOP Reporting](sop-reporting.md) | Reporte mensual + seguimiento continuo |
+
+Volver a [HOME](../../HOME.md) · Estándar de calidad: [Evals](../evals/README.md) · [Data ownership](../data-ownership.md)
 
 ## Reglas de edición
 

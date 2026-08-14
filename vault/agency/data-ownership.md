@@ -39,3 +39,6 @@ lado se corrige.
    regenera desde el reporte — no se parchea el reporte desde el vault.
 5. **Cambios de metodología = PR.** `agency/methodology/` afecta prompts de producción;
    se revisa como código.
+
+---
+[HOME](../HOME.md) · [Metodología](methodology/README.md) · [Evals](evals/README.md) · [Clientes](../clients/README.md)

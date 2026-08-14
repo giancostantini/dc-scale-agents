@@ -2,6 +2,9 @@
 Última actualización: 2026-08-11 (Stage 0 — reescrito desde la auditoría; la versión anterior
 describía stack eliminado). Mapa completo: `docs/ai-company-audit/` en el repo.
 
+> 🗺 Navegación del vault: [HOME](HOME.md) · [Metodología](agency/methodology/README.md) ·
+> [Evals](agency/evals/README.md) · [Clientes](clients/README.md) · [Data ownership](agency/data-ownership.md)
+
 ## Quiénes somos
 Agencia con dos verticales:
 1. **Crecimiento digital y marketing** — paid media, contenido, SEO, conversión
