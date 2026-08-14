@@ -59,9 +59,11 @@ import type {
   ClientFeeSchedule,
   Expense,
   ExpenseCategory,
+  FinanceCurrency,
   InvoicePayment,
   Lead,
 } from "@/lib/types";
+import { getFxRate, uyuToUsd, type FxRate } from "@/lib/fx";
 import { Select } from "@/components/premium/Field";
 import { cn } from "@/lib/cn";
 
@@ -110,6 +112,9 @@ export function PremiumDashboard() {
   const [_leads, setLeads] = useState<Lead[]>([]);
   const [feeSchedules, setFeeSchedules] = useState<ClientFeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Cotización del día USD→UYU. El dashboard muestra todo en dólares:
+   *  los montos en pesos se convierten con este tipo de cambio. */
+  const [fx, setFx] = useState<FxRate | null>(null);
 
   // === Filtros ===
   const [periodMode, setPeriodMode] = useState<PeriodMode>("this_year");
@@ -143,7 +148,14 @@ export function PremiumDashboard() {
       setFeeSchedules(fs);
       setLoading(false);
     });
+    getFxRate().then(setFx);
   }, []);
+
+  /** Tipo de cambio efectivo (fallback 40 si todavía no cargó). */
+  const fxRate = fx?.rate ?? 40;
+  /** Monto en USD de un valor que puede estar en pesos. */
+  const toUsd = (amount: number, currency: FinanceCurrency): number =>
+    currency === "UYU" ? uyuToUsd(amount, fxRate) : amount;
 
   // Resolver período actual + período comparativo (año anterior)
   const period: PeriodRange = useMemo(() => {
@@ -201,21 +213,30 @@ export function PremiumDashboard() {
 
   // ===== Cálculos por mes =====
   function netOfMonth(mk: string) {
+    // Todo convertido a USD con la cotización del día: los fees en
+    // pesos, los ingresos manuales en pesos y los egresos en pesos se
+    // dividen por el tipo de cambio. El dashboard muestra todo en USD.
     const feesPaid = clients.reduce((s, c) => {
       const p = payments.find(
         (pp) => pp.clientId === c.id && pp.month === mk,
       );
       if (p?.status !== "paid") return s;
       const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
-      return s + (p.amountOverride ?? scheduled ?? c.fee);
+      const amt = p.amountOverride ?? scheduled ?? c.fee;
+      return s + toUsd(amt, c.fee_currency ?? "USD");
     }, 0);
     const mImpact = manualRevs.reduce(
-      (s, r) => s + revenueMonthlyImpact(r, mk),
+      (s, r) =>
+        s +
+        toUsd(
+          revenueMonthlyImpact(r, mk),
+          r.currency === "UYU" ? "UYU" : "USD",
+        ),
       0,
     );
     const mExp = expenses
       .filter((e) => e.date?.startsWith(mk) && e.status !== "cancelled")
-      .reduce((s, e) => s + e.amount, 0);
+      .reduce((s, e) => s + toUsd(e.amount, e.currency ?? "USD"), 0);
     return {
       ingresos: feesPaid + mImpact,
       egresos: mExp,
@@ -311,7 +332,12 @@ export function PremiumDashboard() {
     for (const e of expenses) {
       if (!e.date) continue;
       if (e.date < fromDate || e.date > toDate) continue;
-      byCat[e.category] = (byCat[e.category] ?? 0) + e.amount;
+      // Convertido a USD como el resto del panel (pesos / fxRate).
+      const usd =
+        (e.currency ?? "USD") === "UYU" && fxRate > 0
+          ? e.amount / fxRate
+          : e.amount;
+      byCat[e.category] = (byCat[e.category] ?? 0) + usd;
     }
     const totalExp = Object.values(byCat).reduce((s, v) => s + v, 0);
     return (Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[])
@@ -324,7 +350,7 @@ export function PremiumDashboard() {
       }))
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [expenses, period.from, period.to]);
+  }, [expenses, period.from, period.to, fxRate]);
 
   // ===== Chart 3: flujo de caja (resultado neto por mes) =====
   const cashflowData = evolutionData.map((d) => ({
@@ -453,6 +479,23 @@ export function PremiumDashboard() {
           <h1 className="text-2xl font-semibold text-ink tracking-tight">
             Dashboard Financiero
           </h1>
+          {/* Tipo de cambio del día — el panel muestra todo en USD, los
+              montos en pesos se convierten con esta cotización. */}
+          <div className="mt-1.5 inline-flex items-center gap-2 text-xs">
+            <span className="text-ink-300">Tipo de cambio del día:</span>
+            <span className="font-semibold text-ink tabular-nums">
+              USD 1 = $U {fx ? fx.rate.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "…"}
+            </span>
+            <span className="text-ink-300">· todo el panel en USD</span>
+            {fx?.source === "fallback" && (
+              <span
+                className="text-amber-600"
+                title="No se pudo leer la cotización online; se usa un valor de reserva."
+              >
+                (valor de reserva)
+              </span>
+            )}
+          </div>
         </div>
         <PeriodSelector
           mode={periodMode}

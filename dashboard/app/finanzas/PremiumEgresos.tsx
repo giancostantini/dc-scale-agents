@@ -29,7 +29,6 @@ import {
 } from "@/lib/storage";
 import { listCuentas, type CuentaBancaria } from "@/lib/cuentas-bancarias";
 import {
-  CURRENCIES,
   EXPENSE_CATEGORIES,
   EXPENSE_STATUSES,
   IVA_OPTIONS,
@@ -64,6 +63,9 @@ export function PremiumEgresos() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
+  /** Moneda activa de la vista. El toggle scopea KPIs y tabla a esa
+   *  moneda — pesos y dólares nunca se suman. */
+  const [currency, setCurrency] = useState<FinanceCurrency>("USD");
 
   async function refresh() {
     setLoading(true);
@@ -136,14 +138,9 @@ export function PremiumEgresos() {
     return { pagadoMes, pendienteMes, totalAnio, ivaPagado };
   }, [expenses, monthYYYYMM]);
 
-  // Formatea un total por-moneda a "USD X · $U Y", omitiendo las
-  // monedas en cero. Si todo es cero, muestra "USD 0".
-  const byCurrency = (m: Record<FinanceCurrency, number>): string => {
-    const parts = FINANCE_CURRENCIES.filter((c) => Math.round(m[c]) !== 0).map(
-      (c) => formatCurrency(Math.round(m[c]), c),
-    );
-    return parts.length > 0 ? parts.join(" · ") : formatCurrency(0, "USD");
-  };
+  // Muestra un total en la MONEDA ACTIVA del toggle.
+  const inCurrency = (m: Record<FinanceCurrency, number>): string =>
+    formatCurrency(Math.round(m[currency]), currency);
 
   /**
    * Derive el status efectivo de un egreso fijo mensual para el mes
@@ -256,7 +253,11 @@ export function PremiumEgresos() {
     const today = new Date();
     const todayMonthKey = today.toISOString().slice(0, 7);
     const todayDay = today.getDate();
-    for (const e of expenses) {
+    // Solo los egresos de la moneda activa.
+    const scopedExpenses = expenses.filter(
+      (e) => (e.currency ?? "USD") === currency,
+    );
+    for (const e of scopedExpenses) {
       if (e.recurrence !== "monthly_fixed") {
         out.push({
           expense: e,
@@ -326,7 +327,7 @@ export function PremiumEgresos() {
     }
     // Ordenar por fecha desc
     return out.sort((a, b) => b.displayDate.localeCompare(a.displayDate));
-  }, [expenses]);
+  }, [expenses, currency]);
 
   const columns: Column<ExpenseRow>[] = [
     {
@@ -439,37 +440,55 @@ export function PremiumEgresos() {
             Egresos
           </h1>
         </div>
-        <Button onClick={openNew} variant="primary">
-          <Plus className="w-3.5 h-3.5" />
-          Nuevo egreso
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Toggle de moneda — KPIs y tabla en la moneda elegida. */}
+          <div className="inline-flex rounded-premium border border-rule overflow-hidden">
+            {FINANCE_CURRENCIES.map((c) => {
+              const active = currency === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  className={
+                    active
+                      ? "px-3.5 py-1.5 text-xs font-semibold bg-blue-900 text-white"
+                      : "px-3.5 py-1.5 text-xs font-semibold text-ink-400 hover:bg-paper-100"
+                  }
+                >
+                  {c === "UYU" ? "$U Pesos" : "USD Dólares"}
+                </button>
+              );
+            })}
+          </div>
+          <Button onClick={openNew} variant="primary">
+            <Plus className="w-3.5 h-3.5" />
+            Nuevo egreso
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KpiCard
           label="Pagado este mes"
-          value={byCurrency(stats.pagadoMes)}
+          value={inCurrency(stats.pagadoMes)}
           loading={loading}
         />
         <KpiCard
           label="Pendiente este mes"
-          value={byCurrency(stats.pendienteMes)}
-          sub={
-            stats.pendienteMes.USD + stats.pendienteMes.UYU > 0
-              ? "A pagar"
-              : "Sin pendientes"
-          }
+          value={inCurrency(stats.pendienteMes)}
+          sub={stats.pendienteMes[currency] > 0 ? "A pagar" : "Sin pendientes"}
           loading={loading}
         />
         <KpiCard
           label="Total año"
-          value={byCurrency(stats.totalAnio)}
+          value={inCurrency(stats.totalAnio)}
           sub={`${monthYYYYMM.slice(0, 4)} acumulado`}
           loading={loading}
         />
         <KpiCard
           label="IVA pagado año"
-          value={byCurrency(stats.ivaPagado)}
+          value={inCurrency(stats.ivaPagado)}
           sub="Deducible"
           loading={loading}
         />
