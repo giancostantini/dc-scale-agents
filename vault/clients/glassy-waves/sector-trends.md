@@ -1,61 +1,63 @@
 # Tendencias del nicho — Glassy Waves
 
-> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-08-07.
+> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-08-14.
 > Tendencias recientes y accionables del nicho. Cada ítem cita su fuente.
 
 ### 🎬 Contenido que está funcionando
 
-- **Surfwear como lifestyle urbano / "effortless" en TikTok e Instagram** — El estilo surfero vuelve a dominar la moda verano 2026 con más fuerza que nunca, mezclando comodidad, ropa premium e inspiración California; el look surfero se convirtió en forma de vestir perfecta para playa, ciudad, vacaciones y día a día. Para Glassy Waves esto es **accionable hoy**: mostrar las prendas en contextos urbanos de Montevideo + playa, no solo en el agua. · (fuente: https://www.thesurftown.com/blogs/news/como-vestir-con-estilo-surfero-en-verano-2026-y-crear-un-outfit-surf-perfecto)
+- **"Surfer girl outfit inspo" + lifestyle en la playa — Reels e TikTok de 15-30s** · El formato de OOTD surf (`#surfergirl`, `#surftok`, `#surfwear`) explota en TikTok con millones de visualizaciones. Para Glassy Waves: mostrar looks completos sobre la arena o en el agua con prendas de la tienda, priorizando la estética *coconut girl*. Contenido tipo "3 surfer girl outfit ideas" con hashtags `#surfergirl #surftok #fypシ゚viral` está siendo altamente viraleado. — *Plataforma: TikTok / Instagram Reels* · (fuente: https://www.tiktok.com/discover/surfer-outfits)
 
-- **"Surfer girl" aesthetic en Reels/TikTok: relaxed fit, tonos arena y logos vintage** — La tendencia general de la moda 2026 apuesta por outfits cómodos, menos artificialidad y prendas relaxed fit; el lifestyle California sigue dominando Instagram, Pinterest y TikTok. Son muy fuertes los tonos arena, logos vintage, fits relajados y colores lavados. Hook accionable: "el outfit de playa que también usás de martes" · (fuente: https://www.thesurftown.com/blogs/news/la-vuelta-del-estilo-surfer-girl-en-2026-la-tendencia-beachwear-que-esta-arrasando)
+- **Estética Y2K surf + vintage surfwear — colabs y "drops"** · La tendencia `#y2kaesthetic #surfwear` está activa en TikTok con frases como *"it's not a phase, it's a lifestyle"* y outfits surfwear Y2K. Glassy Waves puede montar un drop o reel temático aprovechando prendas con ese corte o paleta. — *Plataforma: TikTok / Instagram* · (fuente: https://www.tiktok.com/discover/y2k-surfer-style)
 
-- **Collab con causa / "moda en acción por el planeta"** — La cápsula Glassy Waves x Origen nace de la unión entre la marca y Origen para transformar la moda en acción concreta por el planeta. Este tipo de lanzamiento de cápsula colaborativa con propósito ambiental es exactamente el formato de contenido que más genera engagement ahora: comunicarlo en un Reel con historia de origen, detrás de escena de la collab y CTA claro. · (fuente: https://glassywaves.com.uy/)
+- **Colab de marca con causa ambiental — contenido "detrás de escena"** · La cápsula Glassy Waves x Origen nace de la unión entre la marca y Origen para transformar la moda en acción concreta por el planeta. Convertir esa colab en contenido de proceso (diseño, impacto real, testimonios) genera alto engagement en audiencias que valoran el consumo consciente. El consumidor 2026 busca productos duraderos, ecológicos y que transmitan bienestar; artículos que combinan sostenibilidad e innovación tienden a ganar mayor visibilidad. — *Plataforma: Instagram / TikTok* · (fuente: https://glassywaves.com.uy / https://academia.nubimetrics.com/tendencias-ecommerce)
 
-- **Contenido de estilo de vida: Surf Camp + experiencias en Punta del Diablo / Santa Teresa** — Glassy Waves tiene activo su Surf Camp en las playas de Punta del Diablo y Santa Teresa, una propuesta para "vivir nuevas experiencias y renovar energía". Los videos de tipo "vlog de surf camp" (POV, tiempo real, vibraciones de comunidad) son el formato que más retiene en TikTok. Usar este asset ya generado como contenido orgánico y luego boostearlo con Meta Ads. · (fuente: https://glassywaves.com.uy/)
+- **Tendencia "2026 is the new 2016" — nostalgia + retro surf** · Esta tendencia viral surgió principalmente en TikTok y YouTube, asociada al estilo retro y colores oversaturados, recuperando la estética de fotos de Instagram y filtros de esa época. Para Glassy Waves: fotos y reels de surf con filtros y paleta 2016, apuntando a la nostalgia de la audiencia joven. — *Plataforma: TikTok / Instagram* · (fuente: https://en.wikipedia.org/wiki/2026_is_the_new_2016)
 
 ---
 
 ### 📈 Tráfico a la web
 
-- **Mobile-first: el 91% de las compras en Uruguay se inician desde celular** — El celular continúa siendo el dispositivo preferido para comprar: el 91% de los consumidores intenta concretar la compra desde un dispositivo móvil y el 88% logra finalizar la operación. Accionable directo: auditar velocidad de carga y UX mobile de glassywaves.com.uy (especialmente el checkout en Fenicio), ya que cualquier fricción en mobile destruye conversión. · (fuente: https://ecommerceday.org.uy/2026/)
+- **Mobile-first: el 91% intenta comprar desde el celular** · El celular es el dispositivo preferido para comprar: el 91% de los consumidores intenta concretar compras desde un dispositivo móvil y el 88% logra finalizar la operación. **Acción directa:** auditar la experiencia mobile de glassywaves.com.uy en Fenicio esta semana — velocidad de carga, checkout, imágenes. Todo el tráfico de ads debe apuntar a páginas optimizadas para celular. · (fuente: https://ecommerceday.org.uy/2026/)
 
-- **SEO + contenido de blog sobre tipos de tablas de surf y estilos** — Glassy Waves ya tiene notas en su sitio (ej. "¿Qué tipos de tablas de surf hay?"). El crecimiento del ecommerce uruguayo ha sido impulsado por la alta penetración de internet y el uso extendido de smartphones. Publicar 1-2 piezas de contenido educativo por semana sobre surf + moda genera tráfico orgánico sostenido. Combinar con Google Ads en keywords de intent ("tabla de surf Uruguay", "ropa surf Montevideo"). · (fuente: https://americaretail-malls.com/paises/uruguay/uruguay-acelera-hacia-un-e-commerce-mas-inteligente-y-rentable-rumbo-a-2026/)
+- **SEO de contenido informativo sobre surf** · La web ya tiene notas como "¿Qué tipos de tablas de surf hay?" — este tipo de contenido educativo posiciona en búsquedas de interés y atrae tráfico orgánico no pagado. Expandir con guías de tallas, cuidado de trajes, y "cómo empezar a surfear en Uruguay" captura demanda top-of-funnel. Sin datos de volumen exacto para Uruguay, pero es coherente con las oportunidades identificadas de ofrecer procesos más claros y simples para incrementar la frecuencia de compra. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026)
 
 ---
 
 ### 🛒 Ventas / conversión
 
-- **Vestimenta y calzado: categoría #1 en Ciberlunes Uruguay** — En las ediciones de Ciberlunes, vestimenta, calzado y accesorios lideran la demanda con el 21% del total de compras. Accionable: preparar una oferta específica para Ciberlunes de noviembre (ver sección Estacional) con descuentos en apparel surf y activarla con email marketing + Meta Ads al segmento que ya visitó la web. · (fuente: https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-lanza-inscripciones-para-la-preventa-del-primer-ciberlunes-de-2026/)
+- **Vestimenta y calzado lidera las compras online en Uruguay** · Vestimenta, calzado y accesorios lideran las categorías del Ciberlunes con el 21% de las compras, seguidos por electrodomésticos (7%) y perfumería (6%). Glassy Waves está en la categoría de mayor demanda digital del país — el ángulo de campaña debe explotar esto: "lo que más se compra online en Uruguay, en tu estilo". · (fuente: https://www.cedu.org.uy)
 
-- **Omnicanalidad como palanca de conversión: tienda física → cierre online** — Una tendencia creciente en los ecommerce de moda es la omnicanalidad: integrar todos los canales y puntos de contacto para ofrecer una experiencia de compra coherente y sin fisuras. Glassy Waves ya tiene locales en Punta Carretas, Tres Cruces y Costa Urbana. Activar campañas de retargeting a quienes visitaron la tienda física (vía geofencing en Meta Ads) hacia la tienda online es una táctica inmediata. · (fuente: https://www.shippypro.com/blog/es/ecommerce-moda)
+- **El comprador se entera de las ofertas días antes — urgencia pre-evento funciona** · El 76% de los encuestados del Ciberlunes afirmó estar al tanto del evento; de ellos, el 49% se enteró durante la semana previa y el 30% en la misma semana. Para conversión: activar campañas de teaser y cuenta regresiva en la semana anterior a cualquier evento o promo propia. · (fuente: https://www.cedu.org.uy/abren-preventa-para-que-empresas-participen-en-nueva-edicion-de-ciberlunes/)
 
-- **Sostenibilidad como argumento de venta que sube ticket** — Los compradores de moda están dispuestos a pagar más dinero por adquirir productos de moda sostenible y eco-friendly. La cápsula x Origen ya le da a Glassy Waves un ángulo de "moda con propósito" que debe comunicarse explícitamente en la página de producto y en los ads: precio premium justificado por impacto real. · (fuente: https://www.shippypro.com/blog/es/ecommerce-moda)
+- **Débito y dinero electrónico superan al crédito — fricción de pago reducida** · Que el débito y el dinero electrónico superen al crédito en número de operaciones confirma un cambio estructural: comprar online dejó de ser excepcional y pasó a formar parte de la vida cotidiana. Comunicar en ads y en la web que la tienda acepta todos los medios de pago digitales reduce objeción de compra. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026)
 
 ---
 
 ### 📰 Noticias del sector
 
-- **El ecommerce uruguayo facturó casi USD 3.000 millones en el último año y creció 35% en dólares** — El canal digital facturó casi 3.000 millones de dólares en el último año móvil, con un crecimiento del 35% en dólares que ubica a Uruguay en el top 10 mundial; el eCommerce representa el 3% del PBI y cerca de 100 millones de transacciones anuales. El mercado está en el momento más grande de su historia: la demanda existe, la pelea está en captura de share. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
+- **El ecommerce uruguayo facturó casi USD 3.000M en el último año — crecimiento del 35%** · El canal digital facturó casi 3.000 millones de dólares en el último año móvil, con un crecimiento del 35% en dólares que ubica a Uruguay en el top 10 mundial. El eCommerce representa el 3% del PBI, genera cerca de 100 millones de transacciones anuales y alcanza al 93% de los internautas. El mercado donde opera Glassy Waves está en plena expansión. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026)
 
-- **Crossborder compite directamente: 3 de cada 4 compradores digitales compraron en el exterior** — Casi 3 de cada 4 compradores digitales realizaron adquisiciones fuera del país, así como se registra crecimiento del comercio crossborder. Esto significa que el consumidor uruguayo compara los precios de Glassy Waves con marcas internacionales. El ángulo "marca uruguaya, cultura local" es diferencial defensivo clave en comunicación. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
+- **Crossborder como presión competitiva: 3 de cada 4 compradores digitales compraron en el exterior** · Casi 3 de cada 4 compradores digitales realizaron adquisiciones fuera del país. Esto significa que Glassy Waves compite indirectamente con tiendas internacionales de surf (Billabong, Roxy, ASOS). El diferencial local — marca uruguaya, identidad, comunidad, entrega rápida — debe aparecer en cada pieza de comunicación. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026)
 
-- **Montevideo acaba de ser sede de "Moda y Diseño Latinoamérica 2026"** — Montevideo fue sede de un encuentro internacional de moda con presencia de seis países, con el objetivo de promover la moda sustentable, el diseño artesanal, la inclusión y el intercambio cultural. Uruguay está siendo posicionado como hub de moda sostenible latinoamericana — refuerza que el ángulo "marca local + propósito ambiental" tiene momentum de PR ahora mismo. · (fuente: https://www.agencianova.com/nota.asp?n=2026_8_6&id=170711&id_tiponota=60)
+- **IA aplicada a ecommerce como nuevo estándar del sector** · Bajo el lema "Retail, Digital Channels & AI Revolution", el eCommerce Day Uruguay 2026 abordó IA aplicada a los negocios, comercio unificado, omnicanalidad, marketplaces, retail media y logística inteligente. A nivel operativo: evaluar IA para personalización de producto, respuestas automáticas y segmentación de campañas. · (fuente: https://ecommerceday.org.uy/2026/)
 
 ---
 
 ### 📣 Publicidad / campañas
 
-- **Ciberlunes junio 2026 batió récord: USD 50,6M en 3 días, +30% de los uruguayos participaron** — El Cyberlunes de junio batió récords con 50,6 millones de dólares en solo tres días, más de un millón de transacciones y la participación de más del 30% de los uruguayos. Sin datos de si Glassy Waves participó en esa edición. Si no estuvo, es error a no repetir en noviembre. Benchmarking inmediato: revisar qué marcas de apparel/surf participaron y cómo comunicaron sus ofertas. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
+- **Ciberlunes junio 2026 batió récords — la publicidad pre-evento funciona** · La edición de junio del Ciberlunes 2026 alcanzó 1,1 millones de transacciones y una facturación de USD 50,6 millones. El sitio oficial ciberlunes.uy alcanzó un récord de más de 600.000 visitas durante esa edición. Si Glassy Waves no participó, debe estar en la edición de noviembre. El tráfico captable desde ese portal es masivo. · (fuente: https://www.cedu.org.uy/abren-preventa-para-que-empresas-participen-en-nueva-edicion-de-ciberlunes/)
 
-- **Marcas surf usando "vintage inspired surf swag" + códigos de descuento en TikTok** — En el feed de TikTok #surf circulan videos de surf lifestyle con el hook "vintage inspired surf swag" y códigos de descuento para incentivar la compra. Formato accionable para Glassy Waves: UGC de clientes reales surfeando + código descuento exclusivo de TikTok para medir conversión directa desde el canal. · (fuente: https://www.tiktok.com/tag/suref)
+- **Surf Camp como activo de contenido y adquisición** · Glassy Waves organiza un Surf Camp en Punta del Diablo y Santa Teresa — un evento para disfrutar, conocer gente y vivir nuevas experiencias. Este tipo de activación presencial genera contenido UGC (user-generated content) enorme para alimentar Meta Ads y TikTok con prueba social real. Grabar el campo, hacer reels del before/after, y retargeting a los asistentes post-evento. · (fuente: https://glassywaves.com.uy)
 
 ---
 
 ### 🗓️ Estacional / próximo
 
-- **Ciberlunes de noviembre: 3 al 5 de noviembre 2026 — inscripción CEDU abierta** — Del 3 al 5 de noviembre llega el Ciberlunes Uruguay 2026, con tres días de descuentos en todas las categorías, incluyendo moda. El Ciberlunes se consolida como la jornada preferida de descuentos para el 31% de los uruguayos y es considerada por el 57% de personas mayores de 18 años como la fecha con mejores descuentos. **Acción esta semana**: inscribir a Glassy Waves en la edición de noviembre vía cedu.org.uy y planificar la campaña de email + Meta Ads con al menos 4 semanas de anticipación. · (fuente: https://todonexo.com.uy/pages/ciberlunes-uruguay-2026 · https://www.cedu.org.uy/novedades-ciberlunes/)
+- **🔴 URGENTE: Preventa Ciberlunes noviembre 2026 abierta AHORA** · La Cámara de la Economía Digital del Uruguay convoca a las empresas a sumarse a la segunda edición del CIBERLUNES® 2026, que tendrá lugar en noviembre. La preventa con precios bonificados está disponible desde el lunes 18 de agosto hasta el jueves 4 de septiembre. **Acción esta semana:** inscribirse antes del 4/9 en ciberlunes@cedu.org.uy o WhatsApp 099 971 484. · (fuente: https://www.cedu.org.uy/abren-preventa-para-que-empresas-participen-en-nueva-edicion-de-ciberlunes/)
 
-- **Temporada alta de invierno → primavera / verano en Uruguay (agosto–diciembre)** — El ecommerce de ropa surf en Uruguay tiene su pico de demanda desde agosto (anticipación de primavera) hasta febrero. Las principales oportunidades para seguir desarrollando el comercio electrónico pasan por incrementar la frecuencia de compra de los consumidores y ofrecer procesos más claros y simples. Activar campañas de "pre-temporada" en Meta e Instagram ahora, cuando la competencia baja y el CPM es más barato, para capturar demanda temprana antes de la saturación de diciembre. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026-reunio-a-los-lideres-del-digital-commerce-para-impulsar-la-proxima-etapa-de-la-transformacion-digital-en-el-pais/)
+- **Temporada alta se acerca (octubre–marzo) — expansión ya confirmada** · Glassy Waves abrió un nuevo local en La Barra, con visión de expansión al exterior. La temporada costera uruguaya arranca en pocas semanas: el calendario de contenido y campañas paid debe estar listo en septiembre para activar en octubre con lanzamientos de colección verano, kits de surf, y retargeting a compradores del año anterior. · (fuente: https://glassywaves.com.uy)
+
+- **Mundial 2026 — oportunidad de cobranding cultural** · El Mundial se juega entre junio y julio 2026 (ya activo) y su resaca cultural sigue hasta fin de año. Luis Suárez es imagen de Grido Uruguay para el Mundial 2026, con acciones que tienen al ídolo como protagonista — ejemplo de cómo marcas locales usan el Mundial para ganar visibilidad. Glassy Waves puede montar contenido de "surf + Uruguay en el mundo" que capture ese orgullo nacional mientras se prepara la temporada. · (fuente: https://infonegocios.biz)
 
 ## Fuentes
 - [El eCommerce Day Uruguay 2026 celebró 20 años de evolución del comercio electrónico en la región - Diario La R](https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
@@ -74,29 +76,28 @@
 - [Tienda Inglesa](https://en.wikipedia.org/wiki/Tienda_Inglesa)
 - [Glassy Waves – Funtour](https://www.funtour.com.uy/etiqueta-producto/glassy-waves/)
 - [Montevideo Shopping](https://en.wikipedia.org/wiki/Montevideo_Shopping)
-- [#suref | TikTok](https://www.tiktok.com/tag/suref)
-- [Los 20 mejores tiktokers de moda en 2026](https://www.favikon.com/es/blog/top-fashion-tiktokers)
-- [Estilos De Ropa De Moda | TikTok](https://www.tiktok.com/discover/estilos-de-ropa-de-moda)
-- [Cómo vestir con estilo surfero en verano 2026 | Outfit surf hombre y mujer – The Surf Town](https://www.thesurftown.com/blogs/news/como-vestir-con-estilo-surfero-en-verano-2026-y-crear-un-outfit-surf-perfecto)
-- [Surfer girl style 2026 | La tendencia beachwear y surfwear del verano – The Surf Town](https://www.thesurftown.com/blogs/news/la-vuelta-del-estilo-surfer-girl-en-2026-la-tendencia-beachwear-que-esta-arrasando)
-- [Las mejores marcas de ropa surf en 2026 | Surfwear ...](https://www.thesurftown.com/en/blogs/news/las-mejores-marcas-de-ropa-surf-en-2026-para-vestir-con-estilo-surfero)
-- [Ropa De Moda 2026 Adolescentes Elegantes](https://www.tiktok.com/discover/ropa-de-moda-2026-adolescentes-elegantes)
+- [Vestido Viral De Tik Tok | TikTok](https://www.tiktok.com/discover/vestido-viral-de-tik-tok)
 - [Hashtags Mas Virales Para Ropa | TikTok](https://www.tiktok.com/discover/hashtags-mas-virales-para-ropa)
+- [Viral Fitness Content for 2026 | TikTok](https://www.tiktok.com/discover/viral-fitness-content-for-2026)
+- [Musica Tendencia 2026 Viral Ropa](https://www.tiktok.com/discover/musica-tendencia-2026-viral-ropa)
+- [Y2k Surfer Style | TikTok](https://www.tiktok.com/discover/y2k-surfer-style)
+- [Surfer Fashion | TikTok](https://www.tiktok.com/discover/surfer-fashion)
+- [2026 is the new 2016](https://en.wikipedia.org/wiki/2026_is_the_new_2016)
+- [Surfer Outfits | TikTok](https://www.tiktok.com/discover/surfer-outfits)
+- [Las 10 mejores plataformas de ecommerce en Uruguay (2026) | Neowyze](https://neowyze.tech/blog/mejores-plataformas-ecommerce-uruguay-2026)
+- [Logística cross-border - Ecommerce :: Uruguay XXI](https://www.uruguayxxi.gub.uy/es/quiero-exportar/ecommerce/en-marketplaces-globales/logistica-cross-border/)
+- [Crossborder Ecommerce Market Analysis 2026](https://www.cognitivemarketresearch.com/crossborder-ecommerce-market-report)
+- [International Logistics Operator in Uruguay | Logisfashion](https://www.logisfashion.com/en/country-uruguay/)
+- [Programa E-Commerce Crossborder a EE.UU. para Moda, Diseño y Artesanías](https://www.prochile.gob.cl/convocatorias/detalle/programa-e-commerce-crossborder-a-ee.uu.-para-moda-dise%C3%B1o-y-artesan%C3%ADas)
+- [G%C3%A9ant Uruguay](https://en.wikipedia.org/wiki/G%C3%A9ant_Uruguay)
+- [Uruguay - eCommerce](https://www.trade.gov/country-commercial-guides/uruguay-ecommerce)
+- [E-commerce en Uruguay: datos clave y tendencias 2025](https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
+- [Claves para entender el auge del comercio electrónico cross-border en América Latina - Infobae](https://www.infobae.com/movant/2025/06/24/claves-para-entender-el-auge-del-e-commerce-cross-border-en-america-latina/)
+- [Abren preventa para que empresas participen en nueva edición de CIBERLUNES® - CEDU](https://www.cedu.org.uy/abren-preventa-para-que-empresas-participen-en-nueva-edicion-de-ciberlunes/)
+- [Qué es el Ciberlunes y por qué Uruguay lo espera dos veces al año – El Eco Digital](https://elecodigital.com.uy/sociedad/que-es-el-ciberlunes-y-por-que-uruguay-lo-espera-dos-veces-al-ano/)
 - [Cámara de la Economía Digital del Uruguay lanza inscripciones para la preventa del primer CIBERLUNES® de 2026 - CEDU](https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-lanza-inscripciones-para-la-preventa-del-primer-ciberlunes-de-2026/)
 - [¿Cuándo es el Cyber Monday 2026 y qué tiendas participan en Uruguay?](https://www.megacupones.uy/blog/cuando-se-celebra-cyber-monday-en-uruguay)
-- [Ciberlunes | Junio 2026](https://ciberlunes.uy/)
-- [Ciberlunes 2026 en Sodimac Uruguay |1, 2 y 3 de Junio](https://www.sodimac.com.uy/sodimac-uy/content/Ciberlunes/)
-- [La próxima edición del ciberlunes se realizará durante la primera semana de junio](https://www.radiomontecarlo.com.uy/2026/05/10/nacionales/la-proxima-edicion-del-ciberlunes-se-realizara-durante-la-primera-semana-de-junio/)
 - [Se viene el primer Ciberlunes de 2026 (y CEDU lanza inscripciones para preventa)](https://infonegocios.biz/y-ademas/se-viene-el-primer-ciberlunes-de-2026-y-cedu-lanza-inscripciones-para-preventa)
-- [⚡ Ciberlunes Uruguay 2026 | Ofertas Online en TodoNexo](https://todonexo.com.uy/pages/%E2%9A%A1-ciberlunes-uruguay-2026-ofertas-online-en-todonexo)
-- [CIBERLUNES - CEDU](https://www.cedu.org.uy/novedades-ciberlunes/)
-- [Preguntas frecuentes sobre Ciberlunes](https://www.ciberlunes.uy/preguntas-frecuentes)
-- [Ciberlunes 2026 | Ofertas en Calzado — Stadium](https://www.stadium.com.uy/ciberlunes)
-- [Ecommerce de moda: tendencias para la venta de moda online en 2026](https://www.shippypro.com/blog/es/ecommerce-moda)
-- [Tendencias de mercado 2026: qué esperar del e-commerce](https://academia.nubimetrics.com/tendencias-ecommerce?hs_amp=true)
-- [30 Ideas de negocios rentables en Uruguay (2026) - Neolo Blog](https://www.neolo.com/blog/30-ideas-de-negocios-rentables-en-uruguay.php)
-- [TRAS LOS PASOS DE LA MODA SOSTENIBLE EN URUGUAY - Mice España - Portal de Servicios y MICE News Digital para el sector de Turismo de Reuniones, Eventos Corporativos, Deportivos, Culturales y Artisticos. - Mice - Meetings, Incentives, Conventions & Events en España.](https://www.mice.es/post/459-tras-los-pasos-de-la-moda-sostenible-en-uruguay)
-- [Uruguay reunió a seis países en "Moda y Diseño Latinoamérica 2026" y consolidó su apuesta por la moda sustentable](https://www.agencianova.com/nota.asp?n=2026_8_6&id=170711&id_tiponota=60)
-- [Expertas internacionales resaltan la sostenibilidad y el talento creativo de la moda uruguaya - Noticias](https://www.uruguayxxi.gub.uy/es/noticias/articulo/expertas-internacionales-resaltan-la-sostenibilidad-y-el-talento-creativo-de-la-moda-uruguaya/)
-- [International E Commerce Conferences in Uruguay 2025-2026](https://allconferencealert.net/uruguay/e-commerce.php)
-- [Uruguay - eCommerce](https://www.trade.gov/country-commercial-guides/uruguay-ecommerce)
+- [Ciberlunes | Junio 2026](https://ciberlunes.uy/)
+- [Cámara de la Economía Digital del Uruguay abre preventa para el próximo CIBERLUNES® - CEDU](https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-abre-preventa-para-el-proximo-ciberlunes/)
+- [CEDU abre convocatoria para una nueva edición de Ciberlunes en Uruguay - FashionNetwork Costa Rica](https://cr.fashionnetwork.com/news/Cedu-abre-convocatoria-para-una-nueva-edicion-de-ciberlunes-en-uruguay,1824539.html)

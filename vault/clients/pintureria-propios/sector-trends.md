@@ -1,101 +1,91 @@
 # Tendencias del nicho — Pintureria Propios
 
-> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-08-07.
+> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-08-14.
 > Tendencias recientes y accionables del nicho. Cada ítem cita su fuente.
 
 ### 🎬 Contenido que está funcionando
 
-- **"Antes y después" en Reels/TikTok con baja producción** — los skits de baja producción están superando al contenido pulido en Instagram ahora mismo: un lip sync de un solo plano acumuló 336 millones de vistas. Para una pinturería, un video casero mostrando la transformación de una pared en 15 segundos (antes gris y desgastada → después en color nuevo) tiene altísimo potencial viral sin necesitar equipo profesional. · (fuente: https://newengen.com/insights/instagram-trends/)
+- **Reels/TikToks "antes y después" de paredes y ambientes con los colores de tendencia 2026** — El algoritmo de Instagram sigue priorizando fuertemente los Reels. Los Reels se han consolidado como herramienta clave para aumentar el alcance, y una gran parte del tiempo de los usuarios en Instagram se dedica a este formato de video corto. Para una pinturería, mostrar una pared transformada con verde salvia, terracota o beige cálido en formato antes/después es el contenido de mayor potencial de shares esta semana. · (fuente: [visualpublinet.com](https://visualpublinet.com/tendencias-redes-sociales-2026-instagram-tiktok/))
 
-- **Carruseles con historia en Instagram generan más saves que cualquier otro formato** — el algoritmo de Instagram está premiando los carruseles con historia porque generan más guardados que cualquier otro formato. Accionable: crear carruseles tipo "3 errores que cometés al pintar el exterior de tu casa" o "guía de colores para ambientes chicos". Los saves = alcance orgánico gratuito. · (fuente: https://www.tiktok.com/discover/hashtags-para-viralizar-em-2026-no-instagram)
+- **Contenido crudo y sin producción perfecta gana al producido** — Lo que el algoritmo de Instagram está premiando ahora: el contenido crudo gana al perfecto; los carruseles con historia generan más saves que cualquier otro formato. Aplicado a Propios: filmar con el celular cómo se mezcla un color, cómo se elige un tono para un living, o el proceso real de pintar una habitación. Sin sets armados. · (fuente: [tiktok.com/@meycuanc](https://www.tiktok.com/@meycuanc/video/7621366486703050004))
 
-- **Videos paso a paso en YouTube/Reels son el formato más confiable para DIY** — los videos instructivos en YouTube son el formato más consumido y confiable para quienes hacen proyectos en casa; se recomienda invertir en videos cortos y claros paso a paso, optimizados para mobile y búsqueda. Para Pinturería Propios: tutorial "cómo pintar sin manchas usando cinta de enmascarar" o "cómo calcular cuánta pintura necesitás". · (fuente: https://www.thefarnsworthgroup.com/blog/10-diy-statistics-shaping-home-improvement)
+- **Contenido auténtico tipo "detrás de cámara" y UGC** — Los videos altamente producidos o abiertamente publicitarios pierden eficacia. Los usuarios prefieren historias reales y cercanas, como "detrás de cámaras", UGC (contenido generado por usuarios) y narrativas espontáneas. Para Propios: mostrar la asesoría de color en local, el momento en que un cliente elige su tono, o testimoniales filmados en el punto de venta. · (fuente: [clipiku.com](https://clipiku.com/blog/tendencias-de-tiktok-en-2026-lo-que-debes-saber))
 
-- **Tendencia "Netflix Documentary" format en Instagram** — el formato "Netflix Documentary" migró desde TikTok y ya está traccionando independientemente en Instagram. Adaptación para el nicho: arrancar el video sentado con la cámara en frente tipo documental → "Así es un día en una pinturería en Uruguay" o "Lo que nadie te dice cuando vas a pintar tu casa". Genera cercanía y curiosidad. · (fuente: https://newengen.com/insights/instagram-trends/)
+- **TikTok como motor de búsqueda: optimizar para "#pinturaUruguay" y consultas de color** — Los usuarios (especialmente jóvenes) recurren a TikTok para descubrir productos, tutoriales e ideas antes que a Google, lo que obliga a optimizar el contenido usando hashtags relevantes, descripciones claras y pistas visuales. Crear videos cortos respondiendo consultas como "¿qué pintura usar para baño húmedo?" o "cuántos litros necesito para un cuarto" captura tráfico de búsqueda dentro de la app. · (fuente: [clipiku.com](https://clipiku.com/blog/tendencias-de-tiktok-en-2026-lo-que-debes-saber))
 
-- **Hashtags de proceso y satisfacción (#satisfying, #paintingprocess)** — hashtags como #satisfying y #paintingprocess impulsan la visibilidad de contenido de pintura en TikTok. Videos de mezcla de colores, rodillo sobre pared o el "destape" de una nueva lata de pintura tienen altísimo engagement en estos nichos. · (fuente: https://www.accio.com/business/painting_trend_tiktok)
+- **Hooks de apertura con framing "POV" o "Unpopular Opinion"** — Los primeros 1.5 segundos de un Reel o TikTok deciden si el resto se ve. En 2026, Meta usa una señal de retención de 1 segundo para decidir cuánto distribuye el ad; un hook débil no produce un ad levemente peor: produce un ad que la plataforma se niega a escalar. Ejemplos accionables para Propios: *"POV: elegiste el color equivocado para tu living"* o *"Opinión impopular: el blanco puro arruina cualquier cuarto"*. · (fuente: [ugccopilot.ai](https://ugccopilot.ai/blog/viral-hooks-that-convert/))
 
 ---
 
 ### 📈 Tráfico a la web
 
-- **Los colores del hogar 2026 son búsqueda activa** — los diseñadores están discutiendo y promoviendo colores específicos para 2026: marrones cálidos, blancos suaves y azules complejos, lo que genera una tendencia fuerte en interiorismo que influye directamente en las decisiones de compra de mejoras del hogar. Accionable: crear una nota de blog o guía descargable "Colores tendencia 2026 para tu hogar" con nombre de referencia exacto de las pinturas del catálogo → capta tráfico orgánico de búsqueda local. · (fuente: https://www.accio.com/business/paint_tiktok_trend)
+- **SEO en redes sociales tan importante como SEO en Google** — En 2026, el SEO en redes sociales es tan importante como el SEO tradicional, pues un video adecuado puede volverse viral justo cuando alguien lo busca. Publicar en TikTok/Reels con descripciones como "pintura para interior Uruguay", "colores de moda para paredes 2026" o "pintura lavable Montevideo" puede generar llegadas orgánicas directas al perfil o web de Propios, sin pauta. · (fuente: [clipiku.com](https://clipiku.com/blog/tendencias-de-tiktok-en-2026-lo-que-debes-saber))
 
-- **MercadoLibre Uruguay como canal de descubrimiento activo** — en MercadoLibre Uruguay, los productos más vendidos en pintura son látex exterior/interior antihongos en formato 20L. Esto indica que la gente busca conveniencia (grandes volúmenes) y funcionalidad antihongos. Optimizar el perfil de MercadoLibre con fotos de calidad y descripciones completas puede ser una fuente de tráfico directa. · (fuente: https://listado.mercadolibre.com.uy/construccion/pintureria/pinturas/)
+- **Competencia directa digital en Uruguay ya activa** — Ya existe en Uruguay la primera pinturería digital con IA educada 24/7 para indagar, razonar, sugerir y cerrar ventas. La competencia de Click & Color (clickandcolor.uy) está capturando tráfico online con asesoramiento automatizado. Propios debe posicionar contenido web/blog con consultas de color y producto para no perder ese tráfico. · (fuente: [clickandcolor.uy](https://www.clickandcolor.uy/))
 
 ---
 
 ### 🛒 Ventas / conversión
 
-- **El ángulo "presupuesto ajustado" convierte ahora** — la pintura sigue siendo uno de los proyectos de mejora del hogar más populares en 2026, impulsado por presupuestos más ajustados; cerca del 60% de los propietarios planea proyectos de pintura interior. El ángulo ganador este mes: *"Renová tu casa sin gastar una fortuna"* → comunicar precio/m², rendimiento de la pintura y ahorro vs. contratar un profesional. · (fuente: https://www.reformer.com/online_features/home_improvement/top-painting-trends-for-2026-show-diy-isn-t-slowing-down/)
+- **Ángulo de color de tendencia 2026 como disparador de compra** — La tendencia que domina el sector en 2026 es el *warm minimalism*: espacios despejados con texturas naturales. Entre las opciones más buscadas destacan acabados ultra-mate que han desplazado por completo a los acabados brillantes. Campañas que muestren exactamente *cuál* producto de Propios logra ese look (ej.: "el acabado mate que está en todos los lados") convierten mejor que campañas de precio. · (fuente: [rafaeldecoracion.com](https://rafaeldecoracion.com/tendencias-decoracion-hogar-2026/))
 
-- **UGC (contenido de clientes) convierte 4x mejor que posts de marca** — los posts de usuarios convierten 4 veces mejor que los posts de marca, no cuestan nada y generan prueba social automáticamente; un highlight de Instagram con trabajos de clientes se convierte en la página de ventas más poderosa. Accionable esta semana: pedir a clientes que etiqueten a Propios en su proyecto terminado; repostear en Stories y armar un Highlight "Resultados reales". · (fuente: https://incomecrafted.com/how-to-start-your-diy-paint-kit-business-launch-strategy-monetization-scaling-your-business/)
+- **Oferta ligada a los colores del momento: verde salvia, terracota, beige cálido** — La pintura ecológica ha ganado protagonismo, y en cuanto al color, los Eco-Tones dominan las tendencias: verde salvia, terracota suave y el buttercream son los grandes protagonistas, inundando Pinterest e Instagram. Una promo tipo "Kit color tendencia 2026" (cubo + rodillo + guía de combinación) reduce fricción de decisión y sube ticket. · (fuente: [rafaeldecoracion.com](https://rafaeldecoracion.com/tendencias-decoracion-hogar-2026/))
 
-- **Descuentos por pago digital están activos en el mercado uruguayo** — competidores en Uruguay están ofreciendo 10% de descuento por compra vía web con MercadoPago y 15% de descuento con pago contado por transferencia bancaria. Considerar implementar o comunicar una mecánica similar para incentivar la venta digital/directa. · (fuente: https://www.sau.org.uy/pinturerias-montevideo/)
+- **Hooks negativos convierten 1.3–1.8x más en TikTok** — Análisis de 50 millones de ads indican que hooks con framing de "Unpopular Opinion" producen 35–45% más hook rate. Las formulaciones negativas generan consistentemente 1.3–1.8× más hook rate en TikTok que las positivas del mismo contenido. Para ads de Propios: *"El error más común al pintar un cuarto (y cómo evitarlo)"* convertirá mejor que *"Las mejores pinturas de Uruguay"*. · (fuente: [ugccopilot.ai](https://ugccopilot.ai/blog/viral-hooks-that-convert/))
 
 ---
 
 ### 📰 Noticias del sector
 
-- **El sector construcción en Uruguay está activo con más de 62.800 viviendas bajo el régimen de vivienda promovida** — el régimen registra más de 62.800 viviendas ingresadas y más de 2.180 proyectos ingresados, consolidándose como uno de los instrumentos más relevantes del mercado residencial uruguayo. Esto representa demanda directa de pintura para obra nueva y refacción. Accionable: apuntar a constructores y arquitectos como cliente B2B. · (fuente: https://www.alianzainmobiliaria.com.uy/vivienda-promovida-uruguay-2026/)
+- **Sector pinturero llega a 2026 con mayor competencia y clientes más informados** — El sector pinturero llega al 2026 con un escenario desafiante: mayor competencia, clientes más informados, variaciones fuertes en precios y un consumo que se mueve por campañas, temporadas y crédito. Señal de que el diferenciador ya no es solo producto: es asesoramiento, confianza y presencia digital. · (fuente: [wynges.com](https://wynges.com/blog/%F0%9F%9F%A9-como-deben-adaptarse-las-pinturerias-argentinas-en-2026-para-crecer-y-no-desaparecer-en-el-intento/))
 
-- **Nueva normativa de aislamiento térmico en Montevideo impacta el tipo de pintura demandada** — en mayo de 2024 la Intendencia de Montevideo aprobó la Resolución 1962/24, que actualizó la normativa de aislamiento térmico con requisitos más exigentes en muros y techos para viviendas nuevas. Esto abre oportunidad para comunicar pinturas con propiedades térmicas o impermeabilizantes como solución técnica a la nueva norma. · (fuente: https://ingar.com.uy/blog/tendencias-en-construccion-que-buscan-los-compradores)
+- **Boom de vivienda promovida en Uruguay: +62.800 viviendas en el sistema** — Según información de la ANV consultada en julio de 2026, el régimen de vivienda promovida registra más de 62.800 viviendas ingresadas y más de 2.180 proyectos ingresados. Cada obra nueva es un cliente potencial para pinturería. Propios puede apuntar con contenido y pauta específica a arquitectos, constructores y propietarios de obras nuevas. · (fuente: [alianzainmobiliaria.com.uy](https://www.alianzainmobiliaria.com.uy/vivienda-promovida-uruguay-2026/))
 
-- **Los precios de pintura en la región vienen subiendo** — el precio de la pintura está aumentando entre un 7% y un 8% cada dos meses desde septiembre de 2025 aproximadamente. Aunque el dato es de Argentina, la tendencia regional de inflación en materiales de construcción es aplicable al contexto uruguayo. Comunicar precio fijo o stock disponible puede ser un argumento de urgencia para adelantar compras. · (fuente: https://www.lanacion.com.ar/propiedades/construccion-y-diseno/cuanto-cuesta-repintar-una-casa-en-mayo-2026-nid27052026/)
-
----
-
-### 📣 Publicidad / campañas
-
-- **Marcas DIY exitosas están integrando demostraciones reales en publicidad** — a diferencia de los anuncios tradicionales, los creadores DIY muestran los productos usados a lo largo de un proyecto completo; los espectadores pueden ver cómo rinden los materiales y qué resultados pueden esperar realisticamente. Para Meta Ads de Propios: creativos tipo "simulación de proyecto" (video de 20 seg mostrando el proceso completo con el producto) en lugar de creativos estáticos de catálogo. · (fuente: https://socialbook.io/blog/top-diy-home-improvement-youtubers-2026/)
-
-- **El audio tiene una ventana de 48 horas en Instagram** — el audio de tendencia tiene una ventana de 48 horas: después de eso ya se pierde el impulso algorítmico. Accionable esta semana: monitorear qué audio está trending en Instagram y adaptarlo a un Reel de producto (ej.: mezcla de colores, rodillo en acción) dentro de las primeras 24 horas de que el audio aparezca en el feed. · (fuente: https://www.tiktok.com/discover/hashtags-para-viralizar-em-2026-no-instagram)
+- **Nueva normativa de aislamiento térmico en Montevideo** — La Intendencia de Montevideo aprobó la Resolución 1962/24, que actualizó la normativa de aislamiento térmico para viviendas nuevas con requisitos más exigentes: mejores coeficientes de transmitancia en muros y techos, y por primera vez una fórmula prescriptiva para condensación de humedad en la envolvente. Esto eleva la demanda de pinturas impermeabilizantes, antihumedad y térmicas — categorías que Propios debería comunicar activamente. · (fuente: [ingar.com.uy](https://ingar.com.uy/blog/tendencias-en-construccion-que-buscan-los-compradores))
 
 ---
 
 ### 🗓️ Estacional / próximo
 
-- **Primavera (setiembre–noviembre) = pico de demanda en pintura exterior e interior** — en 2026, la pintura interior sigue liderando la lista de proyectos planificados por propietarios, con los repasos exteriores siguiéndole de cerca incluso en un clima de gasto más prudente. En Uruguay, setiembre marca el inicio de la temporada cálida: el cliente empieza a planificar la reforma antes del verano. **Empezar a comunicar ahora** (agosto) con contenido que instale la necesidad antes del pico. · (fuente: https://www.painterssolutions.com/blogs/painters-news/how-diy-painting-projects-are-changing-home-renovation-in-2026)
+- **Invierno en Uruguay = temporada pico de pintura interior** — Uruguay está en pleno invierno (junio–agosto), la temporada natural para refacción de interiores cuando las personas pasan más tiempo en casa y detectan humedades, manchas y desgaste. El ángulo de campaña accionable esta semana: *"Aprovechá el invierno para renovar tus ambientes antes de la primavera"* + productos antihumedad y termopinturas como ancla. Sin datos específicos de búsqueda Uruguay para esta semana, pero el patrón estacional del hemisferio sur es consistente. · (fuente contextual: [datosuruguay.com — ICCV](https://datosuruguay.com/indice-costo-construccion-vivienda))
 
-- **Mercado inmobiliario uruguayo activo = demanda de pintura para estreno y refacción** — en 2026 el tema de vivienda vuelve al centro de la conversación, también porque el nuevo Plan Quinquenal de Vivienda y Hábitat 2025–2029 plantea revisar el régimen para mejorar el acceso efectivo a nuevas construcciones. Crecimiento en obra nueva = oportunidad de posicionar a Propios como proveedor de pinturería para constructores y refaccionadores antes del boom primaveral. · (fuente: https://www.alianzainmobiliaria.com.uy/vivienda-promovida-uruguay-2026/)
+- **Primavera como horizonte de conversión: septiembre–octubre** — Los colores tendencia para pintar en 2026 incluyen claves para otoño-invierno y consejos prácticos para acertar en la elección antes de empezar a pintar. Iniciar campañas de contenido educativo ahora (agosto) posiciona a Propios justo cuando la intención de compra escala hacia la temporada de reformas exterior de primavera. Es el momento de construir la lista, el seguimiento y la autoridad de marca. · (fuente: [tiendadepinturas.es](https://www.tiendadepinturas.es/blog/colores-tendencia-para-pintar-tu-casa/))
 
 ## Fuentes
-- [Tendencias De Contenido 2025 | TikTok](https://www.tiktok.com/discover/tendencias-de-contenido-2025)
-- [Tendencias En Instagram 2025 | TikTok](https://www.tiktok.com/discover/tendencias-en-instagram-2025)
-- [Trends Nuevos 2025 Con Fotos Virales | TikTok](https://www.tiktok.com/discover/trends-nuevos-2025-con-fotos-virales)
-- [Trends Virales TikTok 2025 | TikTok](https://www.tiktok.com/discover/trends-virales-tiktok-2025)
-- [Nuevas Tendencias Historias Instagram 2025](https://www.tiktok.com/discover/nuevas-tendencias-historias-instagram-2025)
-- [Social Media Trends 2025 | TikTok](https://www.tiktok.com/discover/social-media-trends-2025)
+- [Tendencias de Instagram para ser viral en 2026 🤌✨ Lo que el algoritmo está premiando AHORITA: 📲 El contenido crudo gana al perfecto, para de esperar tener la luz ideal 💬 Los DMs valen más que los likes: si nadie manda tu video a alguien, edita el guión 🎵 El audio de tendencia tiene ventana de 48 hrs : después de eso ya perdiste el impulso 🖼️ Los carruseles con historia generan más saves que cualquier otro formato ¿Cuál de estas ya estabas haciendo sin saber que era tendencia? Cuéntame abajo 👇 #instagramr...](https://www.tiktok.com/@meycuanc/video/7621366486703050004)
+- [Tendencias en redes sociales 2026: Crece en Instagram y TikTok](https://visualpublinet.com/tendencias-redes-sociales-2026-instagram-tiktok/)
+- [Tendencias de TikTok 2026: Lo que está en tendencia](https://es.accio.com/business/most-popular-tik-tok-trends)
+- [TikTok Trends 2026: Las Tendencias Más Virales [Agosto]](https://metricool.com/es/tiktok-trends-virales/)
+- [Tendencias TikTok 2026: Contenido auténtico, IA y comercio social](https://clipiku.com/blog/tendencias-de-tiktok-en-2026-lo-que-debes-saber)
 - [Hashtags Para Viralizar Em 2026 No Instagram | TikTok](https://www.tiktok.com/discover/hashtags-para-viralizar-em-2026-no-instagram)
+- [PINTURERIA URUGUAY - Tersuave](https://tersuave.com.ar/pinturerias/pintureria-uruguay/)
+- [Tendencias laborales en Uruguay 2026: habilidades y empleabilidad](https://blog.manpowergroup.com.uy/tendencias-laborales-en-uruguay-2026-habilidades-y-empleabilidad)
 - [Mercado Latinoamericano de Pinturas y Recubrimientos, Informe 2024-2032 | Cuota, Tamano](https://www.informesdeexpertos.com/informes/mercado-latinoamericano-de-pinturas-y-recubrimientos)
-- [Pinturerías - Montevideo - Sociedad de Arquitectos del Uruguay](https://www.sau.org.uy/pinturerias-montevideo/)
-- [Pinturas | MercadoLibre.com.uy](https://listado.mercadolibre.com.uy/construccion/pintureria/pinturas/)
-- [2025 Liga AUF Uruguaya](https://en.wikipedia.org/wiki/2025_Liga_AUF_Uruguaya)
-- [2025 Uruguayan municipal elections](https://en.wikipedia.org/wiki/2025_Uruguayan_municipal_elections)
-- [2025 in Uruguay](https://en.wikipedia.org/wiki/2025_in_Uruguay)
+- [Cómo deben adaptarse las Pinturerías argentinas en 2026 para crecer y no desaparecer en el intento - Líder Gestión ERP](https://wynges.com/blog/%F0%9F%9F%A9-como-deben-adaptarse-las-pinturerias-argentinas-en-2026-para-crecer-y-no-desaparecer-en-el-intento/)
+- [Click & Color | Primera Pinturería 100% Virtual Uruguay](https://www.clickandcolor.uy/)
+- [2026 in Uruguay](https://en.wikipedia.org/wiki/2026_in_Uruguay)
+- [2026 Uruguayan Segunda Divisi%C3%B3n season](https://en.wikipedia.org/wiki/2026_Uruguayan_Segunda_Divisi%C3%B3n_season)
 - [Pintureria Uruguay (@pintureriauruguay) • Instagram photos and videos](https://www.instagram.com/pintureriauruguay/)
-- [Pinturerias | La Guía Uruguay](https://laguiauruguay.com.uy/listado-categorias/pinturerias/)
-- [Mercado del Puerto](https://en.wikipedia.org/wiki/Mercado_del_Puerto)
-- [Paint TikTok Trend 2025: Acrylic Sets Dominate & Seasonal Peaks](https://www.accio.com/business/paint_tiktok_trend)
-- [2025 TikTok Painting Trends: Viral Hashtags & Digital Tools](https://www.accio.com/business/painting_trend_tiktok)
-- [Trending Instagram Reels Songs (May 2026) | Dash Social](https://www.dashsocial.com/blog/trending-instagram-reels-songs)
-- [Instagram Trends: August 2026 — Updated Weekly](https://newengen.com/insights/instagram-trends/)
-- [10 Instagram Trends Backed By Real Data in 2026 | Metricool](https://metricool.com/instagram-trends/)
-- [Instagram Reel Trends 2026 | Viral Hooks, Formats & Audio | The Social Content Factory](https://thesocialcontentfactory.com/reel-trends)
-- [Paint Trend | TikTok](https://www.tiktok.com/discover/paint-trend)
-- [The Top Instagram Reels Trends Right Now (Updated December 2025)](https://slayingsocial.com/instagram-reels-trends/)
-- [Looking Ahead: 10 DIY Statistics Shaping the Home Improvement Industry (2026-2028)](https://www.thefarnsworthgroup.com/blog/10-diy-statistics-shaping-home-improvement)
-- [Top DIY Home Improvement YouTubers 2026](https://socialbook.io/blog/top-diy-home-improvement-youtubers-2026/)
-- [Top Painting Trends for 2026 Show DIY Isn’t Slowing Down | Home Improvement | reformer.com](https://www.reformer.com/online_features/home_improvement/top-painting-trends-for-2026-show-diy-isn-t-slowing-down/article_6962c394-b650-5f1f-8332-c58ea048bed1.html)
-- [How DIY Painting Projects Are Changing Home Renovation in 2026 — Painters Solutions](https://www.painterssolutions.com/blogs/painters-news/how-diy-painting-projects-are-changing-home-renovation-in-2026)
-- [DIY painting trends continue into 2026 | Your Home | losaltosonline.com](https://www.losaltosonline.com/home/diy-painting-trends-continue-into-2026/article_798d743c-4cc1-45f2-896e-fc4f855939d0.html)
-- [Top painting trends for 2026 show DIY isn't slowing down | Home Garden | telegraphherald.com](https://www.telegraphherald.com/magazine-websites/her/home-garden/article_e5aa8d6f-b0a4-45e7-9527-801643e199b3.html)
-- [How to start your DIY Paint Kit Business: Launch Strategy, Monetization & Scaling your Business](https://incomecrafted.com/how-to-start-your-diy-paint-kit-business-launch-strategy-monetization-scaling-your-business/)
-- [Ultimate Home Improvement Set Guide: Tools, Tips & Must-Haves for 2026 DIY Projects - Home Decor By Brittany](https://homedecorbybrittany.com/ultimate-home-improvement-set-guide-2026/)
+- [Pintelux - Pinturería Uruguay | Pinturas Inca - Empapelados](https://www.pintelux.com/)
+- [Tiktok Hooks](https://www.pinterest.com/ideas/tiktok-hooks/947853067740/)
+- [64+ Viral TikTok Hooks That Actually Work in 2026 (Free Library) | Socialync | Socialync](https://www.socialync.io/viral-hooks-library)
+- [15 Viral Hooks for Instagram Reels, TikTok & Shorts (2026)](https://ugccopilot.ai/blog/viral-hooks-that-convert/)
+- [Viral Hooks — TikTok & Instagram Hooks Library 2026](https://viralhooks.org/)
+- [Best Instagram Hooks 2026 | TikTok](https://www.tiktok.com/discover/best-instagram-hooks-2026)
+- [Hookest | Viral Hook Videos for TikTok, Instagram & Shorts 2026](https://hookest.com/)
+- [47 Viral Hook Ideas for TikTok & Instagram Reels (2026)](https://www.retiplex.com/blog/viral-hook-ideas)
+- [Las tendencias en colores de pintura para interiores 2026](https://pintor-experto.es/blog/las-tendencias-en-colores-de-pintura-para-interiores-2026-qt4m2)
+- [Tendencias de color 2026 - Una alegría silenciosa](https://www.dunnedwards.com/colors/color-trends/color-trends-2026/)
+- [Los colores tendencia de 2026 para pintar las paredes de una casa moderna y elegante](https://www.revistainteriores.es/tendencias/colores-tendencia-2026-para-pintar-paredes-casa-moderna-elegante_13154)
+- [Colores tendencia 2026: los 15 tonos que revolucionan cocinas, salones y todos los rincones de tu casa](https://www.arquitecturaydiseno.es/decoracion/colores-tendencia-2025-decoracion_10962)
+- [Los 3 colores en tendencia para este 2026, y cómo aplicarlos en nuestra casa, según la experta en decoración Marta Aguil](https://www.elmueble.com/decoracion/marta-aguil-experta-decoracion-estos-son-colores-que-mas-se-van-repetir-decoracion-2026_63783)
+- [Colores tendencia para pintar tu casa en 2026 | Tiendadepinturas](https://www.tiendadepinturas.es/blog/colores-tendencia-para-pintar-tu-casa/)
+- [Tendencias decoración hogar 2026](https://rafaeldecoracion.com/tendencias-decoracion-hogar-2026/)
+- [Colores para Pintar la Casa 2026: Qué Color va en Cada ...](https://roomix.ai/blog/colores-para-pintar-casa-2026)
+- [Ir al contenido principal](https://www.1stdibs.com/es/collections/trending-colors/art/more-art)
+- [EN URUGUAY SECTORES NOVIEMBRE 2025 CONSTRUCCIÓN E INMOBILIARIO](https://www.uruguayxxi.gub.uy/es/centro-informacion/articulo/informe-construccion-e-inmobiliario/?download=es)
 - [Vivienda promovida en Uruguay 2026: Beneficios, cambios recientes y qué mirar antes de invertir – Alianza Inmobiliaria](https://www.alianzainmobiliaria.com.uy/vivienda-promovida-uruguay-2026/)
 - [Tendencias en construcción Uruguay 2026: qué buscan los compradores | INGAR Negocios Inmobiliarios](https://ingar.com.uy/blog/tendencias-en-construccion-que-buscan-los-compradores)
-- [La casa uruguaya - Carrera de Arquitectura - Universidad ORT Uruguay](https://fa.ort.edu.uy/carrera-de-arquitectura/la-casa-uruguaya)
-- [Cuánto sale pintar una casa completa de 100 metros cuadrados en junio 2026 - LA NACION](https://www.lanacion.com.ar/propiedades/construccion-y-diseno/cuanto-sale-pintar-una-casa-completa-de-100-metros-cuadrados-en-junio-2026-nid12062026/)
-- [Cuánto cuesta repintar una casa en mayo 2026 - LA NACION](https://www.lanacion.com.ar/propiedades/construccion-y-diseno/cuanto-cuesta-repintar-una-casa-en-mayo-2026-nid27052026/)
+- [ICCV Índice de Costo de la Construcción de Vivienda Uruguay 2026: Variación | datosUruguay](https://datosuruguay.com/indice-costo-construccion-vivienda)
 - [Cuánto Cuesta Construir una Casa en Uruguay 2026 — Calculadora m²](https://cuantomecuesta.com/uy/construir-casa/)
-- [Cuánto sale pintar una casa completa de 100 metros cuadrados en julio 2026 - LA NACION](https://www.lanacion.com.ar/propiedades/construccion-y-diseno/cuanto-sale-pintar-una-casa-completa-de-100-metros-cuadrados-en-julio-2026-nid16072026/)
+- [Coste de Reformas en 2026: Guía para tu Proyecto de Hogar](https://reformashabikal.com/presupuesto-de-reforma-en-2026-cuanto-cuesta-realmente-reformar-tu-hogar/)
