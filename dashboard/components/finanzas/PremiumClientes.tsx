@@ -33,7 +33,6 @@ import {
   UserPlus,
   DollarSign,
   Percent,
-  Settings,
 } from "lucide-react";
 import {
   Area,
@@ -69,6 +68,7 @@ import { Modal } from "@/components/premium/Modal";
 import { Field, Input } from "@/components/premium/Field";
 import NewClientModal from "@/components/NewClientModal";
 import EditClientDividendModal from "@/components/EditClientDividendModal";
+import EditClientCoreModal from "@/components/EditClientCoreModal";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 
@@ -121,6 +121,9 @@ export function PremiumClientes() {
   const [editAgreementClient, setEditAgreementClient] = useState<Client | null>(null);
   // Modal para editar split de dividendos por cliente (impacta DividendosView).
   const [editDividendClient, setEditDividendClient] = useState<Client | null>(null);
+  /** Cliente cuyo editor de datos (EditClientCoreModal) está abierto
+   *  inline — se abre desde el "…" de la fila. */
+  const [editCoreClient, setEditCoreClient] = useState<Client | null>(null);
 
   function refresh() {
     setLoading(true);
@@ -851,23 +854,17 @@ export function PremiumClientes() {
                         >
                           <Percent className="w-3.5 h-3.5" />
                         </button>
-                        {/* Editar datos del cliente — va a Configuración,
-                            donde se cambia nombre, fee, moneda, contacto,
-                            datos fiscales, etc. */}
-                        <Link
-                          href={`/cliente/${row.c.id}/configuracion`}
+                        {/* Abre el editor de datos del cliente INLINE
+                            (mismo modal que "Editar datos del cliente" en
+                            su ficha): nombre, fee, moneda, contacto,
+                            datos fiscales. No navega a otra página. */}
+                        <button
+                          onClick={() => setEditCoreClient(row.c)}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
                           title="Editar datos del cliente"
                         >
-                          <Settings className="w-3.5 h-3.5" />
-                        </Link>
-                        <Link
-                          href={`/cliente/${row.c.id}`}
-                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
-                          title="Abrir ficha del cliente"
-                        >
                           <MoreHorizontal className="w-3.5 h-3.5" />
-                        </Link>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -970,6 +967,20 @@ export function PremiumClientes() {
           onClose={() => setEditDividendClient(null)}
           onSaved={() => {
             setEditDividendClient(null);
+            refresh();
+          }}
+        />
+      )}
+
+      {/* Editor de datos del cliente inline — se abre desde el "…" de
+          la fila. Es el mismo modal que en la ficha del cliente. */}
+      {editCoreClient && (
+        <EditClientCoreModal
+          client={editCoreClient}
+          open={!!editCoreClient}
+          onClose={() => setEditCoreClient(null)}
+          onSaved={() => {
+            setEditCoreClient(null);
             refresh();
           }}
         />
