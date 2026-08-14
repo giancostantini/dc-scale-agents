@@ -33,6 +33,7 @@ import {
   UserPlus,
   DollarSign,
   Percent,
+  Settings,
 } from "lucide-react";
 import {
   Area,
@@ -850,6 +851,16 @@ export function PremiumClientes() {
                         >
                           <Percent className="w-3.5 h-3.5" />
                         </button>
+                        {/* Editar datos del cliente — va a Configuración,
+                            donde se cambia nombre, fee, moneda, contacto,
+                            datos fiscales, etc. */}
+                        <Link
+                          href={`/cliente/${row.c.id}/configuracion`}
+                          className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
+                          title="Editar datos del cliente"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </Link>
                         <Link
                           href={`/cliente/${row.c.id}`}
                           className="p-1.5 rounded-premium-sm text-ink-400 hover:text-ink hover:bg-paper-200 transition-colors"
