@@ -2070,12 +2070,12 @@ export default function ContenidoPage({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              isDirector
+              canEdit
                 ? 'Ej: "Armame 12 piezas para junio enfocadas en lanzamiento" · "8 anuncios para promo de invierno con CTA" · (máx ~40 piezas por batch — partilo por mes si es más)'
-                : "Solo director puede usar el asistente"
+                : "El asistente es para director y equipo con este cliente asignado"
             }
             rows={2}
-            disabled={!isDirector || thinking}
+            disabled={!canEdit || thinking}
             style={{
               padding: "10px 12px",
               border: "1px solid rgba(10,26,12,0.15)",
@@ -2121,7 +2121,7 @@ export default function ContenidoPage({
             )}
             <button
               onClick={() => sendChat("propose")}
-              disabled={!isDirector || thinking || !input.trim()}
+              disabled={!canEdit || thinking || !input.trim()}
               style={{
                 padding: "10px 18px",
                 fontSize: 12,
@@ -2141,7 +2141,7 @@ export default function ContenidoPage({
             </button>
             <button
               onClick={() => sendChat("chat")}
-              disabled={!isDirector || thinking || !input.trim()}
+              disabled={!canEdit || thinking || !input.trim()}
               style={{
                 padding: "10px 16px",
                 fontSize: 12,
