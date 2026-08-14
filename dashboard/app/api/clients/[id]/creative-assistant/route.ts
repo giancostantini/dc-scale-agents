@@ -27,6 +27,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireClientAccess } from "@/lib/auth-guard";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import { recordApiUsage } from "@/lib/api-usage";
 
@@ -140,48 +141,14 @@ export async function POST(
 
   const { id: clientId } = await params;
 
-  // Auth director
-  const callerToken = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!callerToken) {
-    return Response.json({ error: "Sin sesión" }, { status: 401 });
-  }
-  const callerClient = createClient(url!, anonKey!, {
-    global: { headers: { Authorization: `Bearer ${callerToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const {
-    data: { user: caller },
-  } = await callerClient.auth.getUser();
-  if (!caller) return Response.json({ error: "No autenticado" }, { status: 401 });
-  const { data: callerProfile, error: profErr } = await callerClient
-    .from("profiles")
-    .select("role")
-    .eq("id", caller.id)
-    .maybeSingle();
-  if (profErr) {
+  // Auth: director, o team CON este cliente asignado (Lucía usa el
+  // asistente sobre sus clientes). El rol client queda afuera — este
+  // asistente propone piezas internas, no es del portal.
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
+  if (access.role === "client") {
     return Response.json(
-      {
-        error: "No se pudo leer el perfil.",
-        detail: profErr.message,
-      },
-      { status: 500 },
-    );
-  }
-  if (!callerProfile) {
-    return Response.json(
-      {
-        error: "Perfil no encontrado.",
-        detail: `No hay row en profiles con id=${caller.id}. Verificá que el usuario tenga perfil cargado.`,
-      },
-      { status: 403 },
-    );
-  }
-  if (callerProfile.role !== "director") {
-    return Response.json(
-      {
-        error: "Solo directores.",
-        detail: `Tu rol actual es '${callerProfile.role}'. Pedile a un director que te promueva o que use él el asistente.`,
-      },
+      { error: "El asistente creativo es interno (director/equipo)." },
       { status: 403 },
     );
   }

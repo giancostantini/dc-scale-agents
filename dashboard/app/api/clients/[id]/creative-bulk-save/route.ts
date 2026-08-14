@@ -21,6 +21,7 @@
 
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireClientAccess } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -51,23 +52,15 @@ export async function POST(
   }
   const { id: clientId } = await params;
 
-  const callerToken = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!callerToken) return Response.json({ error: "Sin sesión" }, { status: 401 });
-  const callerClient = createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${callerToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const {
-    data: { user: caller },
-  } = await callerClient.auth.getUser();
-  if (!caller) return Response.json({ error: "No autenticado" }, { status: 401 });
-  const { data: callerProfile } = await callerClient
-    .from("profiles")
-    .select("role")
-    .eq("id", caller.id)
-    .maybeSingle();
-  if (!callerProfile || callerProfile.role !== "director") {
-    return Response.json({ error: "Solo directores." }, { status: 403 });
+  // Auth: director, o team CON este cliente asignado. Las piezas entran
+  // como draft — nada llega al cliente sin pasar por el planner.
+  const access = await requireClientAccess(req, clientId);
+  if (!access.ok) return access.response;
+  if (access.role === "client") {
+    return Response.json(
+      { error: "Guardar piezas es interno (director/equipo)." },
+      { status: 403 },
+    );
   }
 
   let body: { pieces?: PieceInput[]; runId?: number };
