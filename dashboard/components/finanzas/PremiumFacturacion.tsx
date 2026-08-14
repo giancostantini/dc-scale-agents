@@ -64,6 +64,7 @@ import {
   setPaymentAmount,
   setPaymentPdfUrl,
   setPaymentStatus,
+  updateClientCore,
 } from "@/lib/storage";
 import type {
   Client,
@@ -192,6 +193,13 @@ export function PremiumFacturacion() {
   const [newClientId, setNewClientId] = useState("");
   const [newMonth, setNewMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [newAmount, setNewAmount] = useState("");
+  /** Moneda de facturación elegida en el modal. Se inicializa con la
+   *  del cliente y, al guardar, si difiere, actualiza fee_currency del
+   *  cliente — así la factura (y las futuras) quedan en esa moneda. */
+  const [newCurrency, setNewCurrency] = useState<FinanceCurrency>("USD");
+  /** Si true, al guardar el importe también se persiste como el fee
+   *  mensual base del cliente (no solo como override de este mes). */
+  const [newSaveAsFee, setNewSaveAsFee] = useState(false);
   const [newNote, setNewNote] = useState("");
   /** PDF de la factura subido por el director (factura emitida fuera
    *  del sistema). Opcional — la factura existe sin PDF. */
@@ -520,8 +528,20 @@ export function PremiumFacturacion() {
       const amount = Number(newAmount);
       const client = clients.find((c) => c.id === newClientId);
       if (!client) throw new Error("Cliente no encontrado");
+
+      // Cambios a nivel cliente (moneda de facturación y/o fee mensual).
+      // Se aplican ANTES de calcular el override, para que baseFee use
+      // el fee nuevo si corresponde.
+      const clientCur = client.fee_currency ?? "USD";
+      const corePatch: { fee?: number; fee_currency?: FinanceCurrency } = {};
+      if (newCurrency !== clientCur) corePatch.fee_currency = newCurrency;
+      if (newSaveAsFee) corePatch.fee = amount;
+      if (Object.keys(corePatch).length > 0) {
+        await updateClientCore(newClientId, corePatch);
+      }
+
       const scheduled = effectiveFeeForMonth(feeSchedules, newClientId, newMonth);
-      const baseFee = scheduled ?? client.fee;
+      const baseFee = newSaveAsFee ? amount : (scheduled ?? client.fee);
       // Solo guardamos override si difiere del fee base
       const override = amount === baseFee ? null : amount;
       await setPaymentAmount(newClientId, newMonth, override, newNote.trim() || null);
@@ -537,6 +557,7 @@ export function PremiumFacturacion() {
       setNewAmount("");
       setNewNote("");
       setNewPdfUrl(null);
+      setNewSaveAsFee(false);
       refresh();
     } catch (err) {
       const e = err as Error;
@@ -1286,11 +1307,13 @@ export function PremiumFacturacion() {
               value={newClientId}
               onChange={(e) => {
                 setNewClientId(e.target.value);
-                // Auto-suggest fee
+                // Auto-suggest fee + moneda del cliente
                 const client = clients.find((c) => c.id === e.target.value);
                 if (client) {
                   const scheduled = effectiveFeeForMonth(feeSchedules, client.id, newMonth);
                   setNewAmount(String(scheduled ?? client.fee));
+                  setNewCurrency(client.fee_currency ?? "USD");
+                  setNewSaveAsFee(false);
                 }
               }}
             >
@@ -1372,7 +1395,7 @@ export function PremiumFacturacion() {
             );
           })()}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Mes a facturar" required>
               <Input
                 type="month"
@@ -1381,11 +1404,7 @@ export function PremiumFacturacion() {
               />
             </Field>
             <Field
-              label={`Importe (${
-                clients.find((c) => c.id === newClientId)?.fee_currency === "UYU"
-                  ? "$U"
-                  : "USD"
-              })`}
+              label={`Importe (${newCurrency === "UYU" ? "$U" : "USD"})`}
               required
             >
               <Input
@@ -1395,7 +1414,69 @@ export function PremiumFacturacion() {
                 placeholder="0.00"
               />
             </Field>
+            <Field label="Moneda">
+              <Select
+                value={newCurrency}
+                onChange={(e) => setNewCurrency(e.target.value as FinanceCurrency)}
+              >
+                {FINANCE_CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c === "UYU" ? "$U · Pesos" : "USD · Dólares"}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
+
+          {/* Moneda distinta a la del cliente → se le cambia la moneda
+              de facturación (y todas sus facturas se muestran en ella,
+              porque la moneda vive a nivel cliente, no por factura). */}
+          {(() => {
+            const selected = clients.find((c) => c.id === newClientId);
+            if (!selected) return null;
+            const clientCur = selected.fee_currency ?? "USD";
+            if (clientCur === newCurrency) return null;
+            return (
+              <div
+                style={{
+                  padding: "9px 12px",
+                  background: "rgba(196,168,130,0.1)",
+                  border: "1px solid var(--sand-dark)",
+                  borderRadius: 6,
+                  fontSize: 11.5,
+                  color: "var(--sand-dark)",
+                }}
+              >
+                Se va a cambiar la moneda de facturación de{" "}
+                <strong>{selected.name}</strong> a{" "}
+                <strong>{newCurrency === "UYU" ? "pesos ($U)" : "dólares (USD)"}</strong>.
+                Afecta también cómo se ven sus facturas anteriores.
+              </div>
+            );
+          })()}
+
+          {/* Editar el pago mensual del cliente: guarda el importe como
+              su fee base, no solo como override de este mes. */}
+          {newClientId && (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={newSaveAsFee}
+                onChange={(e) => setNewSaveAsFee(e.target.checked)}
+                style={{ width: "auto" }}
+              />
+              Guardar este importe como el <strong>fee mensual</strong> del
+              cliente (para los próximos meses)
+            </label>
+          )}
           <Field
             label="Nota (opcional)"
             hint="Aparece en el comprobante como concepto extra."
