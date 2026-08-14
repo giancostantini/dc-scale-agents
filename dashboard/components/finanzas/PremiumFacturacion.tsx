@@ -115,33 +115,9 @@ interface Comprobante {
   amountOverride?: number | null;
 }
 
-function formatUsd(n: number, opts?: { compact?: boolean }) {
-  if (opts?.compact && Math.abs(n) >= 1_000_000) {
-    return `USD ${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (opts?.compact && Math.abs(n) >= 1_000) {
-    return `USD ${(n / 1_000).toFixed(0)}K`;
-  }
-  return `USD ${Math.round(n).toLocaleString("es-AR")}`;
-}
-
-/** Símbolo corto por moneda para los montos compactos. */
+/** Símbolo corto por moneda (para labels de inputs por-cliente). */
 function currencySymbol(c: FinanceCurrency): string {
   return c === "UYU" ? "$U" : "USD";
-}
-
-/** "USD 12K · $U 500K" — omite las monedas en cero. Si todo es cero,
- *  muestra "USD 0". */
-function compactByCurrency(m: Record<FinanceCurrency, number>): string {
-  const fmt = (n: number): string => {
-    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-    return Math.round(n).toLocaleString("es-AR");
-  };
-  const parts = FINANCE_CURRENCIES.filter((c) => Math.round(m[c]) !== 0).map(
-    (c) => `${currencySymbol(c)} ${fmt(m[c])}`,
-  );
-  return parts.length > 0 ? parts.join(" · ") : "USD 0";
 }
 
 function lastDayOfMonth(yyyymm: string): string {
@@ -205,6 +181,14 @@ export function PremiumFacturacion() {
    *  del sistema). Opcional — la factura existe sin PDF. */
   const [newPdfUrl, setNewPdfUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * Moneda activa de la vista. Facturación son streams separados: pesos
+   * y dólares no se suman. El toggle scopea TODO (KPIs, tabla, gráficos)
+   * a la moneda elegida — antes "Facturación del Mes" y "Ticket
+   * Promedio" sumaban las dos como si fueran USD.
+   */
+  const [currency, setCurrency] = useState<FinanceCurrency>("USD");
 
   // Modales por comprobante
   const [detailComp, setDetailComp] = useState<Comprobante | null>(null);
@@ -352,79 +336,76 @@ export function PremiumFacturacion() {
   }, [payments, period.from, period.to, clients, feeSchedules]);
 
   // ===== Stats =====
-  const facturacionTotal = comprobantes.reduce((s, c) => s + c.importe, 0);
-
-  // Totales por moneda — cada factura suma en la moneda del cliente,
-  // nunca se mezclan pesos con dólares.
+  // Moneda de un comprobante = moneda de facturación de su cliente.
   const curOf = (c: Comprobante): FinanceCurrency =>
     c.client.fee_currency === "UYU" ? "UYU" : "USD";
-  const facturacionPorMoneda = comprobantes.reduce(
-    (acc, c) => {
-      acc[curOf(c)] += c.importe;
-      return acc;
-    },
-    { USD: 0, UYU: 0 } as Record<FinanceCurrency, number>,
-  );
-  const pendientePorMoneda = comprobantes
-    .filter((c) => c.estado === "pendiente" || c.estado === "vencida")
-    .reduce(
-      (acc, c) => {
-        acc[curOf(c)] += c.importe;
-        return acc;
-      },
-      { USD: 0, UYU: 0 } as Record<FinanceCurrency, number>,
+  // Moneda de un payment (para las comparativas que van sobre payments
+  // crudos y no sobre comprobantes).
+  const payCur = (clientId: string): FinanceCurrency =>
+    clients.find((c) => c.id === clientId)?.fee_currency === "UYU"
+      ? "UYU"
+      : "USD";
+  const payAmt = (p: InvoicePayment): number => {
+    const client = clients.find((c) => c.id === p.clientId);
+    if (!client) return 0;
+    return (
+      p.amountOverride ??
+      effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ??
+      client.fee
     );
+  };
+
+  // Todo lo de abajo trabaja SOLO con la moneda activa.
+  const scoped = comprobantes.filter((c) => curOf(c) === currency);
+  const facturacionTotal = scoped.reduce((s, c) => s + c.importe, 0);
 
   const now = new Date();
   const curMonth = now.toISOString().slice(0, 7);
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7);
 
-  // Facturación del mes actual
-  const facturacionMes = comprobantes
+  // Facturación del mes actual (moneda activa)
+  const facturacionMes = scoped
     .filter((c) => c.fecha.slice(0, 7) === curMonth)
     .reduce((s, c) => s + c.importe, 0);
   const facturacionMesAnterior = payments
-    .filter((p) => p.month === prevMonth)
-    .reduce((s, p) => {
-      const client = clients.find((c) => c.id === p.clientId);
-      if (!client) return s;
-      return s + (p.amountOverride ?? effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ?? client.fee);
-    }, 0);
+    .filter((p) => p.month === prevMonth && payCur(p.clientId) === currency)
+    .reduce((s, p) => s + payAmt(p), 0);
 
   // Año anterior (mismo período shifteado)
   const comparisonMonths = monthsBetween(
     shiftYearMonth(period.from, -1),
     shiftYearMonth(period.to, -1),
   );
-  const facturacionAnioAnterior = payments
-    .filter((p) => comparisonMonths.includes(p.month))
-    .reduce((s, p) => {
-      const client = clients.find((c) => c.id === p.clientId);
-      if (!client) return s;
-      return s + (p.amountOverride ?? effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ?? client.fee);
-    }, 0);
+  const prevYearPays = payments.filter(
+    (p) => comparisonMonths.includes(p.month) && payCur(p.clientId) === currency,
+  );
+  const facturacionAnioAnterior = prevYearPays.reduce((s, p) => s + payAmt(p), 0);
 
-  const facturasEmitidas = comprobantes.length;
-  const facturasEmitidasPrev = payments.filter((p) => comparisonMonths.includes(p.month)).length;
+  const facturasEmitidas = scoped.length;
+  const facturasEmitidasPrev = prevYearPays.length;
 
   const ticketPromedio = facturasEmitidas > 0 ? facturacionTotal / facturasEmitidas : 0;
   const ticketPromedioPrev = facturasEmitidasPrev > 0 ? facturacionAnioAnterior / facturasEmitidasPrev : 0;
 
-  const pendientesDeCobro = comprobantes
+  const pendientesDeCobro = scoped
     .filter((c) => c.estado === "pendiente" || c.estado === "vencida")
     .reduce((s, c) => s + c.importe, 0);
-  const pendientesDeCobroPrev = payments
-    .filter((p) => comparisonMonths.includes(p.month) && p.status !== "paid")
-    .reduce((s, p) => {
-      const client = clients.find((c) => c.id === p.clientId);
-      if (!client) return s;
-      return s + (p.amountOverride ?? effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ?? client.fee);
-    }, 0);
+  const pendientesDeCobroPrev = prevYearPays
+    .filter((p) => p.status !== "paid")
+    .reduce((s, p) => s + payAmt(p), 0);
 
   function pct(a: number, b: number): number | null {
     if (b === 0) return a === 0 ? 0 : null;
     return ((a - b) / Math.abs(b)) * 100;
   }
+
+  // Símbolo + formato compacto en la moneda activa (para los KPI cards).
+  const sym = currency === "UYU" ? "$U" : "USD";
+  const fmtCompact = (n: number): string => {
+    if (Math.abs(n) >= 1_000_000) return `${sym} ${(n / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1_000) return `${sym} ${(n / 1_000).toFixed(0)}K`;
+    return `${sym} ${Math.round(n).toLocaleString("es-AR")}`;
+  };
 
   // ===== Chart 1: Evolución (este año vs año anterior) =====
   const evolutionData = useMemo(() => {
@@ -434,26 +415,18 @@ export function PremiumFacturacion() {
       const monthNum = m;
       const prevYearMk = shiftYearMonth(mk, -1);
       const factCur = payments
-        .filter((p) => p.month === mk)
-        .reduce((s, p) => {
-          const client = clients.find((c) => c.id === p.clientId);
-          if (!client) return s;
-          return s + (p.amountOverride ?? effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ?? client.fee);
-        }, 0);
+        .filter((p) => p.month === mk && payCur(p.clientId) === currency)
+        .reduce((s, p) => s + payAmt(p), 0);
       const factPrev = payments
-        .filter((p) => p.month === prevYearMk)
-        .reduce((s, p) => {
-          const client = clients.find((c) => c.id === p.clientId);
-          if (!client) return s;
-          return s + (p.amountOverride ?? effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ?? client.fee);
-        }, 0);
+        .filter((p) => p.month === prevYearMk && payCur(p.clientId) === currency)
+        .reduce((s, p) => s + payAmt(p), 0);
       return {
         label: MONTHS_SHORT_ES[monthNum - 1],
         actual: factCur,
         anterior: factPrev,
       };
     });
-  }, [period.from, period.to, payments, clients, feeSchedules]);
+  }, [period.from, period.to, payments, clients, feeSchedules, currency]);
 
   // ===== Chart 2: Distribución por estado =====
   const stateData = useMemo(() => {
@@ -463,7 +436,7 @@ export function PremiumFacturacion() {
       vencida: 0,
       anulada: 0,
     };
-    for (const c of comprobantes) {
+    for (const c of scoped) {
       byState[c.estado] += c.importe;
     }
     const total = byState.pagada + byState.pendiente + byState.vencida + byState.anulada;
@@ -473,11 +446,11 @@ export function PremiumFacturacion() {
       { key: "vencidas", label: "Vencidas", value: byState.vencida, pct: total > 0 ? (byState.vencida / total) * 100 : 0, color: STATE_COLORS.vencidas },
       { key: "anuladas", label: "Anuladas", value: byState.anulada, pct: total > 0 ? (byState.anulada / total) * 100 : 0, color: STATE_COLORS.anuladas },
     ];
-  }, [comprobantes]);
+  }, [scoped]);
   const totalStateValue = stateData.reduce((s, d) => s + d.value, 0);
 
-  // ===== Lista filtrada + paginada =====
-  const filteredList = comprobantes
+  // ===== Lista filtrada + paginada (ya scopeada a la moneda activa) =====
+  const filteredList = scoped
     .filter((c) => {
       if (statusFilter !== "all" && c.estado !== statusFilter) return false;
       if (search.trim()) {
@@ -509,12 +482,8 @@ export function PremiumFacturacion() {
 
   const sparkTotal = lastNMonthsSparkline((mk) =>
     payments
-      .filter((p) => p.month === mk)
-      .reduce((s, p) => {
-        const client = clients.find((c) => c.id === p.clientId);
-        if (!client) return s;
-        return s + (p.amountOverride ?? effectiveFeeForMonth(feeSchedules, p.clientId, p.month) ?? client.fee);
-      }, 0),
+      .filter((p) => p.month === mk && payCur(p.clientId) === currency)
+      .reduce((s, p) => s + payAmt(p), 0),
   );
 
   // ===== Acciones =====
@@ -769,6 +738,27 @@ export function PremiumFacturacion() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Toggle de moneda — pesos y dólares nunca se suman. Toda la
+              vista (KPIs, tabla, gráficos) muestra la moneda elegida. */}
+          <div className="inline-flex rounded-premium border border-rule overflow-hidden">
+            {FINANCE_CURRENCIES.map((c) => {
+              const active = currency === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  className={
+                    active
+                      ? "px-3.5 py-1.5 text-xs font-semibold bg-blue-900 text-white"
+                      : "px-3.5 py-1.5 text-xs font-semibold text-ink-400 hover:bg-paper-100"
+                  }
+                >
+                  {c === "UYU" ? "$U Pesos" : "USD Dólares"}
+                </button>
+              );
+            })}
+          </div>
           <PeriodSelector
             mode={periodMode}
             onModeChange={setPeriodMode}
@@ -795,7 +785,7 @@ export function PremiumFacturacion() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <SparkKpiCard
           label="Facturación Total"
-          value={compactByCurrency(facturacionPorMoneda)}
+          value={fmtCompact(facturacionTotal)}
           delta={pct(facturacionTotal, facturacionAnioAnterior)}
           subLabel="vs. año anterior"
           icon={<DollarSign className="w-4 h-4" />}
@@ -805,7 +795,7 @@ export function PremiumFacturacion() {
         />
         <SparkKpiCard
           label="Facturación del Mes"
-          value={formatUsd(facturacionMes, { compact: true })}
+          value={fmtCompact(facturacionMes)}
           delta={pct(facturacionMes, facturacionMesAnterior)}
           subLabel="vs. mes anterior"
           icon={<TrendingUp className="w-4 h-4" />}
@@ -825,7 +815,7 @@ export function PremiumFacturacion() {
         />
         <SparkKpiCard
           label="Ticket Promedio"
-          value={formatUsd(ticketPromedio, { compact: true })}
+          value={fmtCompact(ticketPromedio)}
           delta={pct(ticketPromedio, ticketPromedioPrev)}
           subLabel="vs. año anterior"
           icon={<Tag className="w-4 h-4" />}
@@ -835,7 +825,7 @@ export function PremiumFacturacion() {
         />
         <SparkKpiCard
           label="Pendientes de Cobro"
-          value={compactByCurrency(pendientePorMoneda)}
+          value={fmtCompact(pendientesDeCobro)}
           delta={pct(pendientesDeCobro, pendientesDeCobroPrev)}
           subLabel="vs. año anterior"
           icon={<Clock className="w-4 h-4" />}
@@ -894,7 +884,7 @@ export function PremiumFacturacion() {
                     }
                   />
                   <Tooltip
-                    formatter={(v: number) => formatUsd(v)}
+                    formatter={(v: number) => fmtCompact(v)}
                     contentStyle={{
                       background: "#0A1A0C",
                       border: "1px solid rgba(255,255,255,0.1)",
@@ -959,7 +949,7 @@ export function PremiumFacturacion() {
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <div className="text-md font-semibold text-ink tabular-nums">
-                      {formatUsd(totalStateValue, { compact: true })}
+                      {fmtCompact(totalStateValue)}
                     </div>
                     <div className="text-2xs text-ink-300">Total</div>
                   </div>
@@ -979,7 +969,7 @@ export function PremiumFacturacion() {
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-ink tabular-nums text-2xs">
-                          {formatUsd(d.value, { compact: true })}
+                          {fmtCompact(d.value)}
                         </span>
                         <span className="text-ink-400 tabular-nums w-12 text-right">
                           {d.pct.toFixed(1)}%
