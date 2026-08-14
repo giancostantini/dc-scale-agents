@@ -28,6 +28,8 @@ verificar leyendo el output, no va en la rubric.
 
 | Set | Qué evalúa | Rubric |
 |---|---|---|
-| fases | Reportes de fase del onboarding | `rubric-fases.md` |
-| creative | Briefs/piezas de contenido IA | `rubric-creative.md` |
-| trends | Reportes semanales de tendencias | `rubric-trends.md` |
+| fases | Reportes de fase del onboarding | [rubric-fases](rubric-fases.md) |
+| creative | Briefs/piezas de contenido IA | [rubric-creative](rubric-creative.md) |
+| trends | Reportes semanales de tendencias | [rubric-trends](rubric-trends.md) |
+
+Volver a [HOME](../../HOME.md) · El estándar sale del método: [Metodología](../methodology/README.md)

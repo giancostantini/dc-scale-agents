@@ -43,3 +43,8 @@ _Instagram, TikTok, Meta Ads, Google Ads, email, etc._
 
 ## Aprendizajes clave acumulados
 _El Consultor y los agentes escriben aqui cuando detectan patrones importantes._
+
+## 🗺 Mapa del cliente
+[Estrategia](strategy.md) · [Content library](content-library.md) · [Calendario](content-calendar.md) · [Competidores](competitors.md) · [Tendencias](sector-trends.md) · [Métricas](metrics-log.md) · [Referencias](references/)
+**Interno (el cliente no lo ve):** [Learning log](learning-log.md)
+Volver: [Clientes](../README.md) · [HOME](../../HOME.md)
