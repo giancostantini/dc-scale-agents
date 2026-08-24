@@ -1,0 +1,10 @@
+https://search.google.com/local/writereview?placeid=ChIJ_VJqXSSBn5UR4XwZUpgyYm8
+
+cliente: pintureria-propios
+place id: ChIJ_VJqXSSBn5UR4XwZUpgyYm8
+version: 8 (49x49 módulos)
+corrección de error: nivel H
+máscara: 3
+quiet zone: 4 módulos
+tamaño de impresión: 40mm
+generado por: scripts/qr-review

@@ -1,0 +1,12 @@
+{
+  "client": "pintureria-propios",
+  "placeId": "ChIJ_VJqXSSBn5UR4XwZUpgyYm8",
+  "outDir": "vault/clients/pintureria-propios/entregables/qr",
+  "level": "H",
+  "border": 4,
+  "physicalSize": "40mm",
+  "colors": {
+    "dark": "#000000",
+    "light": "#FFFFFF"
+  }
+}

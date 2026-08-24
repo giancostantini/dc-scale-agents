@@ -13,6 +13,7 @@
     "stock": "node scripts/stock/index.js",
     "stock-web": "node scripts/stock-web/index.js",
     "logistics": "node scripts/logistics/index.js",
-    "reporting-performance": "node scripts/reporting-performance/index.js"
+    "reporting-performance": "node scripts/reporting-performance/index.js",
+    "qr-review": "node scripts/qr-review/index.js"
   }
 }
