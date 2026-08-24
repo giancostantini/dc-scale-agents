@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="es-UY">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinturería Propios | Pinturas, electricidad y sanitaria en Montevideo</title>
+<meta name="description" content="Pinturería Propios, en Bv. José Batlle y Ordóñez 1738, Buceo. Pinturas, electricidad y sanitaria con asesoramiento y envío a domicilio. Mucho más que una pinturería.">
+<link rel="canonical" href="https://pintureriapropios.com.uy/">
+
+<!--
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │  DATOS A CONFIRMAR CON EL CLIENTE ANTES DE PUBLICAR                      │
+  │                                                                          │
+  │  1. HORARIOS — los de abajo salen de directorios de terceros, no del     │
+  │     cliente. Aparecen en el sitio Y en el JSON-LD que lee Google.        │
+  │     Un horario mal publicado hace que la gente vaya y encuentre cerrado. │
+  │  2. WHATSAPP — buscar "WHATSAPP_PENDIENTE". El 2613 0815 es fijo; hace   │
+  │     falta un celular 09x. Si no tienen, sacar los botones de WhatsApp.   │
+  │  3. AÑOS DE TRAYECTORIA — un directorio dice 22 años. Sin confirmar, no  │
+  │     lo pusimos. Si lo confirman, va en el bloque "Por qué Propios".      │
+  │  4. MARCAS que trabajan (Sherwin, Inca, Suvinil, etc.) — sección vacía.  │
+  │  5. LOGO — falta el vector. Ahora hay un placeholder SVG con la paleta.  │
+  │  6. ¿UN LOCAL O DOS? — hay directorios que listan el 1694 además del     │
+  │     1738. Si son dos, el sitio necesita las dos direcciones.             │
+  └──────────────────────────────────────────────────────────────────────────┘
+-->
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pinturería Propios | Pinturas, electricidad y sanitaria">
+<meta property="og:description" content="Mucho más que una pinturería. Bv. José Batlle y Ordóñez 1738, Buceo, Montevideo.">
+<meta property="og:url" content="https://pintureriapropios.com.uy/">
+<meta property="og:locale" content="es_UY">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Archivo+Black&display=swap" rel="stylesheet">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HardwareStore",
+  "name": "Pinturería Propios",
+  "description": "Pinturas, electricidad y sanitaria. Asesoramiento y envío a domicilio en Montevideo.",
+  "url": "https://pintureriapropios.com.uy/",
+  "telephone": "+59826130815",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Bv. José Batlle y Ordóñez 1738",
+    "addressLocality": "Montevideo",
+    "addressRegion": "Montevideo",
+    "postalCode": "11400",
+    "addressCountry": "UY"
+  },
+  "openingHoursSpecification": [
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "08:00", "closes": "18:00" },
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "13:00" }
+  ],
+  "sameAs": ["https://www.instagram.com/pintureriapropios/"],
+  "hasMap": "https://www.google.com/maps/place/?q=place_id:ChIJ_VJqXSSBn5UR4XwZUpgyYm8"
+}
+</script>
+
+<style>
+:root{
+  --azul:#123A8F;
+  --azul-osc:#0C2A69;
+  --amarillo:#FFD100;
+  --rojo:#D81E05;
+  --tinta:#15171C;
+  --gris:#5C626E;
+  --gris-cl:#EEF0F4;
+  --blanco:#FFFFFF;
+  --radio:14px;
+  --max:1120px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:var(--tinta);background:var(--blanco);
+  line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:"Archivo Black","Archivo",sans-serif;font-weight:400;line-height:1.05;letter-spacing:-0.02em}
+a{color:inherit}
+img,svg{max-width:100%}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+
+/* franja de marca */
+.franja{display:flex;height:6px}
+.franja i{flex:1}
+.franja i:nth-child(1){background:var(--azul)}
+.franja i:nth-child(2){background:var(--amarillo)}
+.franja i:nth-child(3){background:var(--rojo)}
+
+/* header */
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--gris-cl)}
+.nav{display:flex;align-items:center;gap:24px;padding:14px 24px;max-width:var(--max);margin:0 auto}
+.marca{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:700}
+.marca svg{height:38px;width:auto;flex:none}
+.nav ul{display:flex;gap:22px;list-style:none;margin-left:auto}
+.nav a{text-decoration:none;font-size:.95rem;font-weight:600;color:var(--gris)}
+.nav a:hover{color:var(--azul)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 22px;border-radius:999px;font-weight:700;text-decoration:none;
+  font-size:.95rem;border:2px solid transparent;transition:.16s;white-space:nowrap;
+}
+.btn-p{background:var(--rojo);color:#fff}
+.btn-p:hover{background:#B81704}
+.btn-s{background:var(--blanco);color:var(--azul);border-color:var(--azul)}
+.btn-s:hover{background:var(--azul);color:#fff}
+.nav .btn{padding:10px 18px}
+.nav-toggle{display:none}
+
+/* hero */
+.hero{padding:64px 0 56px;background:
+  radial-gradient(900px 400px at 12% -10%, rgba(18,58,143,.10), transparent 60%),
+  radial-gradient(700px 360px at 92% 0%, rgba(255,209,0,.16), transparent 60%)}
+.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
+.kicker{display:inline-flex;align-items:center;gap:8px;background:var(--amarillo);color:var(--tinta);
+  font-weight:700;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;padding:7px 14px;border-radius:999px}
+.hero h1{font-size:clamp(2.4rem,5.2vw,3.9rem);margin:20px 0 0;color:var(--azul)}
+.hero p.lead{font-size:1.14rem;color:var(--gris);margin-top:18px;max-width:34ch}
+.rubros{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;list-style:none}
+.rubros li{font-weight:700;font-size:.92rem;padding:8px 16px;border-radius:999px;background:#fff;border:2px solid var(--gris-cl)}
+.acciones{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.hero-card{
+  background:var(--azul);color:#fff;border-radius:var(--radio);padding:30px;
+  box-shadow:0 24px 60px -28px rgba(18,58,143,.65)
+}
+.hero-card h3{font-size:1.25rem;margin-bottom:14px}
+.hero-card dl{display:grid;gap:14px;margin-top:6px}
+.hero-card dt{font-size:.76rem;text-transform:uppercase;letter-spacing:.09em;color:var(--amarillo);font-weight:700}
+.hero-card dd{font-size:1.02rem;font-weight:600}
+.hero-card a{color:#fff}
+
+/* secciones */
+section{padding:72px 0}
+.eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--rojo)}
+h2{font-size:clamp(1.8rem,3.6vw,2.6rem);margin:10px 0 14px;color:var(--azul)}
+.intro{color:var(--gris);max-width:56ch;font-size:1.05rem}
+
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:38px}
+.card{border:2px solid var(--gris-cl);border-radius:var(--radio);padding:28px;transition:.16s}
+.card:hover{border-color:var(--amarillo);transform:translateY(-3px)}
+.card .ico{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px}
+.card h3{font-size:1.16rem;margin-bottom:8px}
+.card p{color:var(--gris);font-size:.98rem}
+
+.motivos{background:var(--gris-cl)}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:34px}
+.motivo{background:#fff;border-radius:var(--radio);padding:26px 28px}
+.motivo h3{font-size:1.08rem;margin-bottom:6px;color:var(--azul)}
+.motivo p{color:var(--gris);font-size:.97rem}
+
+/* visitanos */
+.visita .wrap{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
+.datos{display:grid;gap:22px;margin-top:30px}
+.dato{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+.dato .ico{width:40px;height:40px;border-radius:10px;background:var(--gris-cl);display:grid;place-items:center;flex:none}
+.dato h3{font-family:"Archivo",sans-serif;font-weight:700;font-size:.79rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--gris);margin-bottom:3px}
+.dato p{font-weight:600;font-size:1.05rem}
+.dato a{text-decoration:none;color:var(--azul)}
+.dato a:hover{text-decoration:underline}
+.mapa{border-radius:var(--radio);overflow:hidden;border:2px solid var(--gris-cl);aspect-ratio:1/1;background:var(--gris-cl)}
+.mapa iframe{width:100%;height:100%;border:0;display:block}
+
+/* opinion */
+.opinion{background:var(--azul);color:#fff;text-align:center}
+.opinion h2{color:#fff}
+.opinion p{color:rgba(255,255,255,.82);max-width:52ch;margin:14px auto 28px}
+.opinion .btn-p{background:var(--amarillo);color:var(--tinta)}
+.opinion .btn-p:hover{background:#E6BC00}
+
+/* footer */
+footer{background:var(--tinta);color:rgba(255,255,255,.68);padding:44px 0 30px;font-size:.93rem}
+.foot{display:flex;flex-wrap:wrap;gap:26px;justify-content:space-between;align-items:flex-start}
+footer a{color:rgba(255,255,255,.86);text-decoration:none}
+footer a:hover{color:var(--amarillo)}
+.foot-nota{border-top:1px solid rgba(255,255,255,.14);margin-top:28px;padding-top:18px;font-size:.83rem;color:rgba(255,255,255,.45)}
+
+@media(max-width:900px){
+  .hero .wrap,.visita .wrap{grid-template-columns:1fr}
+  .grid3,.grid2{grid-template-columns:1fr}
+  .nav ul{display:none}
+  section{padding:56px 0}
+}
+</style>
+</head>
+<body>
+
+<div class="franja"><i></i><i></i><i></i></div>
+
+<header>
+  <nav class="nav">
+    <a class="marca" href="#top">
+      <!-- PLACEHOLDER: reemplazar por el logo vectorial cuando llegue -->
+      <svg viewBox="0 0 200 74" role="img" aria-label="Pinturería Propios">
+        <ellipse cx="100" cy="37" rx="98" ry="35" fill="var(--amarillo)"/>
+        <ellipse cx="100" cy="37" rx="92" ry="30" fill="var(--azul)"/>
+        <path d="M100 7 a92 30 0 0 1 0 60 z" fill="var(--rojo)"/>
+        <rect x="94" y="7" width="12" height="60" fill="var(--amarillo)"/>
+        <text x="100" y="47" text-anchor="middle" fill="#fff"
+              font-family="Archivo Black, Arial Black, sans-serif" font-size="27" letter-spacing="-1">PROPIOS</text>
+      </svg>
+      <span class="sr-only" style="position:absolute;left:-9999px">Pinturería Propios</span>
+    </a>
+    <ul>
+      <li><a href="#rubros">Qué vendemos</a></li>
+      <li><a href="#motivos">Por qué Propios</a></li>
+      <li><a href="#visitanos">Dónde estamos</a></li>
+    </ul>
+    <a class="btn btn-p" href="tel:+59826130815">Llamar</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <span class="kicker">Buceo · Montevideo</span>
+        <h1>Mucho más que una pinturería</h1>
+        <p class="lead">Te ayudamos a encontrar la mejor solución para tu obra, tu casa o tu arreglo del sábado.</p>
+        <ul class="rubros">
+          <li>🎨 Pinturas</li>
+          <li>⚡ Electricidad</li>
+          <li>🚿 Sanitaria</li>
+        </ul>
+        <div class="acciones">
+          <a class="btn btn-p" href="tel:+59826130815">Llamanos al 2613 0815</a>
+          <a class="btn btn-s" href="https://www.google.com/maps/place/?q=place_id:ChIJ_VJqXSSBn5UR4XwZUpgyYm8" target="_blank" rel="noopener">Cómo llegar</a>
+          <!-- WHATSAPP_PENDIENTE — descomentar y poner el celular real (formato 5989XXXXXXX, sin + ni espacios).
+               Si no tienen WhatsApp comercial, borrar este bloque y el de la sección "Visitanos".
+          <a class="btn btn-s" href="https://wa.me/5989XXXXXXX?text=Hola!%20Quer%C3%ADa%20consultar%20por..." target="_blank" rel="noopener">Escribinos por WhatsApp</a>
+          -->
+        </div>
+      </div>
+
+      <aside class="hero-card">
+        <h3>Pasá por el local</h3>
+        <dl>
+          <dt>Dirección</dt>
+          <dd>Bv. José Batlle y Ordóñez 1738<br>esq. Ramón Anador · Buceo</dd>
+          <dt>Teléfono</dt>
+          <dd><a href="tel:+59826130815">2613 0815</a></dd>
+          <dt>Horario</dt>
+          <dd>Lunes a viernes 8 a 18 h<br>Sábados 8 a 13 h</dd>
+          <dt>Envíos</dt>
+          <dd>Hacemos entregas a domicilio</dd>
+        </dl>
+      </aside>
+    </div>
+  </section>
+
+  <section id="rubros">
+    <div class="wrap">
+      <span class="eyebrow">Qué vas a encontrar</span>
+      <h2>Tres rubros, un solo mostrador</h2>
+      <p class="intro">No tenés que recorrer tres comercios distintos para terminar un trabajo. Lo que necesitás para pintar, para la instalación eléctrica y para el baño o la cocina, está acá.</p>
+
+      <div class="grid3">
+        <article class="card">
+          <div class="ico" style="background:rgba(18,58,143,.10)">🎨</div>
+          <h3>Pinturas</h3>
+          <p>Látex, esmaltes, impermeabilizantes, barnices, accesorios y todo lo que hace falta para preparar y terminar bien la superficie. Te asesoramos con el cálculo de cantidades.</p>
+        </article>
+        <article class="card">
+          <div class="ico" style="background:rgba(255,209,0,.22)">⚡</div>
+          <h3>Electricidad</h3>
+          <p>Cables, llaves, tomas, tableros, iluminación y materiales de instalación. Para el electricista y para el que arregla en casa.</p>
+        </article>
+        <article class="card">
+          <div class="ico" style="background:rgba(216,30,5,.10)">🚿</div>
+          <h3>Sanitaria</h3>
+          <p>Caños, conexiones, grifería y accesorios de baño y cocina. Lo que resuelve la pérdida de hoy y lo que necesita la obra.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN MARCAS — descomentar cuando el cliente confirme qué marcas trabaja
+  <section id="marcas">
+    <div class="wrap">
+      <span class="eyebrow">Trabajamos con</span>
+      <h2>Las marcas que ya conocés</h2>
+      <div class="grid3"> ... logos ... </div>
+    </div>
+  </section>
+  -->
+
+  <section class="motivos" id="motivos">
+    <div class="wrap">
+      <span class="eyebrow">Por qué Propios</span>
+      <h2>Te atiende alguien que sabe</h2>
+      <p class="intro">La diferencia no está en el precio de la lata. Está en que salgas del local sabiendo exactamente qué comprar y cuánto.</p>
+
+      <div class="grid2">
+        <div class="motivo">
+          <h3>Asesoramiento de verdad</h3>
+          <p>Contanos qué vas a hacer y te decimos qué producto va, cuánto rinde y qué necesitás para preparar la superficie. Sin venderte de más.</p>
+        </div>
+        <div class="motivo">
+          <h3>Entregas a domicilio</h3>
+          <p>Si es mucho volumen o no tenés cómo llevarlo, lo mandamos. Consultanos por la zona.</p>
+        </div>
+        <div class="motivo">
+          <h3>Los tres rubros juntos</h3>
+          <p>Pinturas, electricidad y sanitaria en el mismo lugar. Menos vueltas para terminar el trabajo.</p>
+        </div>
+        <div class="motivo">
+          <h3>En el barrio, sobre Batlle y Ordóñez</h3>
+          <p>Sobre la avenida, con estacionamiento accesible. Fácil de llegar y fácil de cargar.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="visita" id="visitanos">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow">Dónde estamos</span>
+        <h2>Visitanos</h2>
+        <p class="intro">Estamos sobre Bv. José Batlle y Ordóñez, en la esquina de Ramón Anador, en Buceo.</p>
+
+        <div class="datos">
+          <div class="dato">
+            <div class="ico">📍</div>
+            <div>
+              <h3>Dirección</h3>
+              <p>Bv. José Batlle y Ordóñez 1738 · Buceo, Montevideo</p>
+            </div>
+          </div>
+          <div class="dato">
+            <div class="ico">🕗</div>
+            <div>
+              <h3>Horario</h3>
+              <p>Lunes a viernes de 8 a 18 h · Sábados de 8 a 13 h</p>
+            </div>
+          </div>
+          <div class="dato">
+            <div class="ico">📞</div>
+            <div>
+              <h3>Teléfono</h3>
+              <p><a href="tel:+59826130815">2613 0815</a></p>
+            </div>
+          </div>
+          <!-- WHATSAPP_PENDIENTE — mismo celular que el botón del hero.
+          <div class="dato">
+            <div class="ico">💬</div>
+            <div>
+              <h3>WhatsApp</h3>
+              <p><a href="https://wa.me/5989XXXXXXX" target="_blank" rel="noopener">09X XXX XXX</a></p>
+            </div>
+          </div>
+          -->
+          <div class="dato">
+            <div class="ico">📷</div>
+            <div>
+              <h3>Instagram</h3>
+              <p><a href="https://www.instagram.com/pintureriapropios/" target="_blank" rel="noopener">@pintureriapropios</a></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="acciones">
+          <a class="btn btn-p" href="https://www.google.com/maps/place/?q=place_id:ChIJ_VJqXSSBn5UR4XwZUpgyYm8" target="_blank" rel="noopener">Abrir en Google Maps</a>
+        </div>
+      </div>
+
+      <div class="mapa">
+        <iframe
+          title="Ubicación de Pinturería Propios en el mapa"
+          src="https://maps.google.com/maps?q=Bv.%20Jos%C3%A9%20Batlle%20y%20Ord%C3%B3%C3%B1ez%201738%2C%20Montevideo&z=16&output=embed"
+          loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <section class="opinion">
+    <div class="wrap">
+      <span class="eyebrow" style="color:var(--amarillo)">Tu opinión</span>
+      <h2>¿Compraste con nosotros?</h2>
+      <p>Contanos cómo te fue. Las opiniones en Google son lo que hace que otro vecino nos encuentre cuando busca una pinturería en la zona.</p>
+      <a class="btn btn-p" href="https://search.google.com/local/writereview?placeid=ChIJ_VJqXSSBn5UR4XwZUpgyYm8" target="_blank" rel="noopener">Dejar mi opinión en Google</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <strong style="color:#fff;font-size:1.05rem">Pinturería Propios</strong><br>
+        Bv. José Batlle y Ordóñez 1738 · Buceo, Montevideo<br>
+        <a href="tel:+59826130815">2613 0815</a>
+      </div>
+      <div>
+        <strong style="color:#fff">Horario</strong><br>
+        Lunes a viernes 8 a 18 h<br>
+        Sábados 8 a 13 h
+      </div>
+      <div>
+        <strong style="color:#fff">Seguinos</strong><br>
+        <a href="https://www.instagram.com/pintureriapropios/" target="_blank" rel="noopener">Instagram</a><br>
+        <a href="https://www.google.com/maps/place/?q=place_id:ChIJ_VJqXSSBn5UR4XwZUpgyYm8" target="_blank" rel="noopener">Google Maps</a>
+      </div>
+    </div>
+    <p class="foot-nota">© <span id="anio">2026</span> Pinturería Propios · Pinturas, electricidad y sanitaria en Montevideo</p>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('anio').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
