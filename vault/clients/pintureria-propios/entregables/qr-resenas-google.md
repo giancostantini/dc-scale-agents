@@ -89,43 +89,64 @@ Falta el test físico (ver checklist abajo).
 
 ## La pieza: cartel de mostrador
 
-A6 vertical, **100 × 150 mm + 3 mm de sangrado** por lado = 106 × 156 mm con marcas de corte.
+**LISTO PARA IMPRENTA** desde el 2026-08-24. Ya no depende de nada del cliente.
 
-**Exportar el PDF:** abrir `cartel-mostrador.html` en Chrome → Imprimir → Guardar como PDF →
-Márgenes **Ninguno** → Tamaño personalizado 106 × 156 mm → **Gráficos de fondo activado**
+A6 vertical, **100 × 150 mm + 3 mm de sangrado** por lado = 106 × 156 mm.
+Archivo: `cartel-mostrador.html`.
+
+**Exportar el PDF:** abrir en Chrome → Imprimir → Guardar como PDF → Márgenes
+**Ninguno** → Tamaño personalizado 106 × 156 mm → **Gráficos de fondo activado**
 (si no, los colores salen en blanco). Sale vectorial con las fuentes embebidas.
 
-**Materiales:** cartulina 300 g **mate** o acrílico portafolio A6. Mate, no brillante:
-el brillo genera reflejo bajo luz de tubo y arruina el escaneo.
+**Necesita internet al imprimir**: las tipografías (Anybody + Instrument Sans, las
+mismas del sitio) vienen de Google Fonts. Sin conexión caen a Arial y el layout se
+mueve — hay 7,6 mm de aire de sobra, así que no se rompe, pero no queda igual.
+
+**Materiales:** cartulina 300 g **mate** o acrílico portafolio A6. Mate, no
+brillante: el brillo refleja bajo luz de tubo y arruina el escaneo.
+
+### Marca aplicada
+
+- **Logo real** embebido en base64 (para que el archivo no dependa de ninguna
+  carpeta cuando se lo mande a la imprenta), a 27 mm de ancho = **470 dpi**.
+  Se le recortó la transparencia sobrante del PNG original (era 500×500 con el
+  dibujo de 500×415).
+- Tipografías **Anybody** (titular) + **Instrument Sans** (texto), las mismas del sitio.
+- Franja superior azul / amarillo / rojo en la proporción 2:1:1 del sitio.
+- Fondo en blanco cálido `#FDFBF7`, como manda el manual — no blanco puro.
+
+### Medidas verificadas en el navegador
+
+| | |
+|---|---|
+| Pieza con sangrado | 106 × 156 mm |
+| QR | 40 mm (0,70 mm por módulo) |
+| Logo | 27 × 22,4 mm |
+| Aire libre restante | 7,6 mm |
+| Pie al borde de corte | 4 mm |
 
 ### Copy
 
-> **¿Te atendimos bien?**
-> Contanos tu experiencia en Google.
+> **¿TE ATENDIMOS BIEN?**
+> Contanos tu experiencia en **Google**.
 > Nos ayuda a que más vecinos nos encuentren.
 >
 > [ QR 40 mm ]
 >
-> **Escaneá con la cámara del celular**
-> Son 20 segundos y no hace falta bajar ninguna app.
+> **ESCANEÁ CON LA CÁMARA DEL CELULAR**
+> Son 20 segundos. No hace falta ninguna app.
+>
+> Bv. José Batlle y Ordóñez 1738 · Buceo — 2613 0815
 
 ### Reglas del copy — no negociables
 
-- **No ofrecer descuentos ni regalos a cambio de reseñas.** Viola las políticas de Google y
-  puede terminar con las reseñas borradas o la ficha penalizada. Las 250 que ya tienen valen
-  demasiado como para arriesgarlas.
-- Pedir "contanos tu experiencia", **nunca** "dejanos 5 estrellas". Pedir una calificación
-  específica también es gating.
-- Nada de "si tuviste un problema escribinos por privado en vez de reseñar": eso es review
-  gating explícito y Google lo penaliza.
-
-### Pendiente de marca
-
-El logo es un **placeholder** hasta que llegue el vector. La paleta actual
-(azul `#123A8F`, amarillo `#FFD100`, rojo `#D81E05`) está tomada del logo del perfil de
-Instagram, que es de 150 px — hay que confirmarla contra el archivo original.
-
----
+- **No ofrecer descuentos ni regalos a cambio de reseñas.** Viola las políticas de
+  Google y puede terminar con las reseñas borradas o la ficha penalizada. Las 250
+  que ya tienen valen demasiado como para arriesgarlas.
+- Pedir "contanos tu experiencia", **nunca** "dejanos 5 estrellas". Pedir una
+  calificación específica también es gating.
+- Nada de "si tuviste un problema escribinos por privado en vez de reseñar": eso es
+  review gating explícito y Google lo penaliza.
 
 ## Guion para el mostrador
 
