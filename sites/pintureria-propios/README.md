@@ -1,5 +1,14 @@
 # Sitio · Propios — Pinturería y Ferretería
 
+> ## ⛔ NOINDEX ACTIVO — SACARLO AL PONER EL DOMINIO REAL
+>
+> `vercel.json` manda `X-Robots-Tag: noindex, nofollow` en todas las rutas.
+> Está puesto a propósito mientras el sitio vive en `*.vercel.app` con datos sin
+> confirmar (horarios). **Si esto queda puesto cuando el dominio real esté arriba,
+> el sitio no va a rankear nunca y nadie se va a dar cuenta.**
+>
+> Para sacarlo: borrar el bloque `headers` de `vercel.json` y redeployar.
+
 One-pager del cliente **Propios** (Buceo, Montevideo). HTML estático, sin build.
 Vive en `sites/` porque es un sitio **de cliente**, no una propiedad de la agencia.
 
