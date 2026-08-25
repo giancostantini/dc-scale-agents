@@ -192,8 +192,8 @@ problema del cartel.
 
 ## Checklist de rollout
 
-- [ ] Conseguir el logo en vector y reemplazar el placeholder
-- [ ] Confirmar la paleta contra el logo original
+- [x] ~~Conseguir el logo~~ — llegó el 2026-08-24, aplicado a 470 dpi
+- [x] ~~Confirmar la paleta~~ — confirmada contra la Estrategia de Marca 2026
 - [ ] Confirmar si son uno o dos locales (dos directorios listan 1738 y 1694 — si son dos
       locales son dos fichas y dos QR distintos)
 - [ ] Imprimir una prueba casera en papel común
