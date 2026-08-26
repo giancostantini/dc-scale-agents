@@ -31,3 +31,12 @@ npm-debug.log*
 # Archivos temporales
 *.tmp
 *.bak
+
+# Worktrees y estado local de Claude Code. Van sin comillas: git no las
+# interpreta, y con comillas el patron nunca matchea (los worktrees contienen
+# copias completas del vault con datos de clientes).
+.claude/
+
+# Brandbooks y fuentes pesadas: se procesan a markdown en vault/clients/<slug>/brand/
+# y el PDF queda local. El de WizTrip pesa 381 MB — GitHub rechaza >100 MB.
+*.pdf

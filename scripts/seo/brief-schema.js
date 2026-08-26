@@ -15,7 +15,7 @@
  * @typedef {Object} SEOBrief
  *
  * @property {string} client - Client slug (e.g. "<client-slug>") — required, no defaults
- * @property {string} pieceType - "blog-post" | "keyword-research" | "product-meta" | "category-meta" | "content-brief"
+ * @property {string} pieceType - "blog-post" | "keyword-research" | "product-meta" | "category-meta" | "content-brief" | "product-description"
  * @property {string} source - Who triggered this: "cli" | "consultant-agent" | "dashboard" | "strategy-agent"
  *
  * --- SEO direction (optional, progressively filled by Consultant Agent) ---
@@ -28,6 +28,7 @@
  * @property {string} [tone] - Tone override (e.g. "experto", "cercano", "tecnico")
  * @property {string} [productSlug] - For product-meta, which product to optimize
  * @property {string} [categorySlug] - For category-meta, which category to optimize
+ * @property {Object} [productData] - For product-description: real product attributes from the catalog export (name, category, color, material, price, sizes). Single source of truth for concrete facts — never invent missing attributes.
  * @property {string} [instructions] - Free-text instructions
  */
 
@@ -45,6 +46,7 @@ export const DEFAULT_BRIEF = {
   tone: null,
   productSlug: null,
   categorySlug: null,
+  productData: null,
   instructions: null,
 };
 
@@ -62,6 +64,7 @@ export function parseBrief(input) {
     "product-meta",
     "category-meta",
     "content-brief",
+    "product-description",
   ];
   if (!validTypes.includes(brief.pieceType)) {
     throw new Error(
