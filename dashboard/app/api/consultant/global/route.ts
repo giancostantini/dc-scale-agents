@@ -42,23 +42,19 @@ import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
 import { recordApiUsage } from "@/lib/api-usage";
 import { enforceAgentGuardrails } from "@/lib/agent-guardrails";
 import { getProcessStatus } from "@/lib/consultant-engine";
+import { dispatchableAgentKeys } from "@/lib/agent-registry";
 
 export const dynamic = "force-dynamic";
 
 const MODEL = CLAUDE_MODEL_OPUS;
 const MAX_TOKENS = 2048;
 
-const DISPATCHABLE_AGENTS = [
-  "content-creator",
-  "content-strategy",
-  "reporting-performance",
-  "morning-briefing",
-  "seo",
-  "social-media-metrics",
-  "stock",
-  "logistics",
-] as const;
-type DispatchableAgent = (typeof DISPATCHABLE_AGENTS)[number];
+// Derivado del registry (fuente única de la flota). La lista hardcodeada
+// anterior incluía "content-creator" — agente ELIMINADO — así que todo
+// dispatch de contenido desde el widget rebotaba contra los guardrails
+// con "Agente desconocido".
+const DISPATCHABLE_AGENTS: string[] = dispatchableAgentKeys();
+type DispatchableAgent = string;
 
 interface ChatMessage {
   role: "user" | "assistant";

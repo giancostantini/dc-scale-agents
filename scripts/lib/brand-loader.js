@@ -28,7 +28,10 @@ export function loadBrandFiles(vaultRoot, client, whitelist = "*") {
 
   let availableFiles;
   try {
-    availableFiles = readdirSync(brandDir).filter((f) => f.endsWith(".md"));
+    // Prefijo "_" = interno (fuentes crudas) — nunca al prompt de agentes.
+    availableFiles = readdirSync(brandDir).filter(
+      (f) => f.endsWith(".md") && !f.startsWith("_"),
+    );
   } catch {
     // El folder no existe (cliente sin brandbook procesado todavía).
     return {};
