@@ -168,6 +168,8 @@ Wizzo es la voz de la experiencia: el experto que ya recorrió el mundo, aprendi
 - Barrera de entrada principal: marca no reconocida
 
 ## 🗺 Mapa del cliente
-[Estrategia](strategy.md) · [Brand (8 archivos)](brand/) · [Content library](content-library.md) · [Calendario](content-calendar.md) · [Competidores](competitors.md) · [Tendencias](sector-trends.md) · [Ads library](ads-library.md) · [SEO library](seo-library.md) · [Métricas](metrics-log.md) · [Performance](performance-log.md) · [Ventas](sales-log.md) · [Catálogo](product-catalog.md) · [Referencias](references/)
+[Estrategia](strategy.md) · [Content library](content-library.md) · [Calendario](content-calendar.md) · [Competidores](competitors.md) · [Tendencias](sector-trends.md) · [Ads library](ads-library.md) · [Ads log](ads-log.md) · [SEO library](seo-library.md) · [Métricas](metrics-log.md) · [Performance](performance-log.md) · [Ventas](sales-log.md) · [Catálogo](product-catalog.md) · [Referencias](references/references.md)
+**Marca:** [Identidad visual](brand/visual-identity.md) · [Personaje](brand/voice-character.md) · [Voz decisión](brand/voice-decision.md) · [Voz operativa](brand/voice-operational.md) · [Positioning](brand/positioning.md) · [Assets](brand/assets.md) · [Formatos](brand/content-formats.md) · [Fotografía](brand/photography.md) · [Restricciones](brand/restrictions.md)
+**Trabajo hecho:** [Spec dashboard Looker](looker-dashboard-spec.md) · [SQL handoff Looker](looker-dashboard-sql-handoff.md) · [Insights del dashboard](dashboard-insights.md)
 **Interno (el cliente no lo ve):** [Learning log](learning-log.md) · [Calls log](calls-log.md)
-Volver: [Clientes](../README.md) · [HOME](../../HOME.md)
+Volver: [Clientes](../README.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)

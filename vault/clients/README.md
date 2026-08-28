@@ -6,7 +6,8 @@ updated: 2026-08-12
 # 👥 Clientes — índice
 
 Una carpeta por cliente (scaffold de `client-bootstrap`). El mapa completo de
-cada uno está al final de su `claude-client.md`. Volver a [HOME](../HOME.md).
+cada uno está al final de su `claude-client.md`.
+Volver: [Gerencia de Clientes](../empresa/Gerencia%20de%20Clientes.md) · [HOME](../HOME.md)
 
 | Cliente | Contexto | Estrategia | Contenido | Métricas y aprendizajes |
 |---|---|---|---|---|
