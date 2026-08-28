@@ -92,7 +92,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   // ============ GROWTH ============
   {
     key: "sector-trends",
-    name: "Sector Trends",
+    name: "Analista de Tendencias",
     desc: "Tendencias semanales del nicho por cliente GP (web search + fuentes). Alimenta interno, equipo y portal+mail.",
     kind: "agent",
     area: "growth",
@@ -102,7 +102,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "client-research",
-    name: "Client Research",
+    name: "Investigador de Clientes",
     desc: "Investigación web del negocio del cliente al arrancar; escribe learning-log.",
     kind: "agent",
     area: "growth",
@@ -113,7 +113,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "competitor-scanner",
-    name: "Competitor Scanner",
+    name: "Observador de Competencia",
     desc: "Sincroniza el banco de anuncios curado (competitors.md) a competitor_pieces.",
     kind: "job",
     area: "growth",
@@ -141,7 +141,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "content-strategy",
-    name: "Content Strategy",
+    name: "Estratega de Contenido",
     desc: "Calendario editorial semanal con briefs por pieza.",
     kind: "agent",
     area: "contenido",
@@ -156,7 +156,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "seo",
-    name: "SEO",
+    name: "Especialista SEO",
     desc: "Keyword research, blog posts, meta tags optimizados.",
     kind: "agent",
     area: "contenido",
@@ -173,7 +173,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   // ============ ANALYTICS ============
   {
     key: "reporting-performance",
-    name: "Analytics / Reporting",
+    name: "Analista de Performance",
     desc: "Reports diarios/semanales/mensuales + insights en lenguaje natural.",
     kind: "agent",
     area: "analytics",
@@ -189,7 +189,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "social-media-metrics",
-    name: "Social Metrics",
+    name: "Medidor de Redes",
     desc: "Evalúa performance de piezas publicadas y alimenta el learning loop.",
     kind: "agent",
     area: "analytics",
@@ -204,7 +204,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "insights-aggregator",
-    name: "Insights Aggregator",
+    name: "Agregador de Insights",
     desc: "Recalcula content_insights (hooks/formatos/ángulos ganadores) desde métricas. Determinístico.",
     kind: "job",
     area: "analytics",
@@ -217,7 +217,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   // ============ OPS / ECOMMERCE POR CLIENTE ============
   {
     key: "morning-briefing",
-    name: "Morning Briefing",
+    name: "Briefing Matutino",
     desc: "Resumen del día por cliente o por usuario del equipo.",
     kind: "agent",
     area: "ops",
@@ -232,7 +232,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "stock",
-    name: "Stock",
+    name: "Control de Inventario",
     desc: "Status / forecast / alert de inventario.",
     kind: "agent",
     area: "ecommerce-ops",
@@ -247,7 +247,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "stock-web",
-    name: "Stock Web Scanner",
+    name: "Escáner de Stock Web",
     desc: "Escanea la tienda pública (Fenicio) y reporta talles faltantes. Determinístico, diario.",
     kind: "job",
     area: "ecommerce-ops",
@@ -258,7 +258,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "logistics",
-    name: "Logistics",
+    name: "Coordinador de Logística",
     desc: "Schedule / dispatch / optimize de envíos.",
     kind: "agent",
     area: "ecommerce-ops",
@@ -275,7 +275,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   // ============ ONBOARDING ============
   {
     key: "brandbook-processor",
-    name: "Brandbook Processor",
+    name: "Procesador de Marca",
     desc: "Procesa el brandbook del wizard en 8 archivos brand/ (retry + validación de secciones).",
     kind: "agent",
     area: "onboarding",
@@ -286,7 +286,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "client-bootstrap",
-    name: "Client Bootstrap",
+    name: "Alta Técnica de Clientes",
     desc: "Scaffold del vault del cliente desde templates. Determinístico.",
     kind: "job",
     area: "onboarding",
@@ -298,8 +298,17 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
 
   // ============ PLATAFORMA ============
   {
+    key: "qr-review",
+    name: "Generador de QR de Reseñas",
+    desc: "QR de reseñas de Google + cartel imprimible para el local del cliente (CLI: scripts/qr-review).",
+    kind: "job",
+    area: "client-success",
+    owner: "gian",
+    status: "active",
+  },
+  {
     key: "evals",
-    name: "Evals",
+    name: "Auditor de Calidad",
     desc: "Juez semanal (Haiku) de los 3 sets dorados contra rubrics versionadas (vault/agency/evals). Scores a eval_runs — 'evals verdes' es trigger de H2.",
     kind: "job",
     area: "plataforma",
@@ -309,7 +318,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "budget-recommendations",
-    name: "Budget Recommendations",
+    name: "Recomendador de Presupuesto",
     desc: "Recomendación semanal de presupuesto de ads desde paid_media_daily (Stage 6). SIEMPRE YELLOW: recomienda, jamás ejecuta — el push es humano.",
     kind: "job",
     area: "growth",
@@ -318,7 +327,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "distill-learnings",
-    name: "Distill Learnings",
+    name: "Destilador de Aprendizajes",
     desc: "Destila aprendizajes semanales de los chats+ratings a consultant_memory_v2 (Haiku, incremental).",
     kind: "agent",
     area: "plataforma",
@@ -330,7 +339,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   // ============ CONSULTORES (interfaces conversacionales) ============
   {
     key: "consultant-portal",
-    name: "D&C Advisor (portal)",
+    name: "Asesor del Cliente (portal)",
     desc: "Consultor del cliente final: contexto filtrado, sin tools.",
     kind: "consultant",
     area: "client-success",
@@ -339,7 +348,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "consultant-client",
-    name: "Consultor per-client (equipo)",
+    name: "Consultor de Cuenta",
     desc: "Consultor del equipo dentro de un cliente; despacha agentes vía run_agent.",
     kind: "consultant",
     area: "ops",
@@ -348,7 +357,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "consultant-global",
-    name: "Consultor global (widget)",
+    name: "Gerente General",
     desc: "Copiloto del equipo multi-cliente; run_agent + save_memory, streaming.",
     kind: "consultant",
     area: "ops",
