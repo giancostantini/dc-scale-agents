@@ -52,6 +52,12 @@ Ver `brand/restrictions.md`. Crítico: **nunca inventar composición/material/or
 - Email/automation: `[COMPLETAR]` (hoy solo newsletter en footer sin incentivo)
 
 ## Aprendizajes clave acumulados
-- Auditoría 2026-07-13: sitio valorado **58/100**. Mayores brechas de conversión: fichas de producto sin contenido, buscador sin tolerancia a errores, sin reseñas, sin umbral de envío gratis, política de "no devoluciones de dinero", móvil con zoom bloqueado. Detalle en `auditoria-ecommerce-2026-07-13.md` y plan de ejecución en el vault del plan.
+- Auditoría 2026-07-13: sitio valorado **58/100**. Mayores brechas de conversión: fichas de producto sin contenido, buscador sin tolerancia a errores, sin reseñas, sin umbral de envío gratis, política de "no devoluciones de dinero", móvil con zoom bloqueado. Detalle en la [Auditoría ecommerce 2026-07-13](auditoria-ecommerce-2026-07-13.md) y plan de ejecución en el vault del plan.
 - Descuentos vía tarjeta **BBVA** (20% y 30% Infinite/Black/Platinum) como mecánica comercial dominante; pagos por Mercado Pago (OCA, Abitab, Redpagos, Líder, Cabal, Visa/Master/Diners).
 - Competidor directo más comparable: **Rusty Uruguay** (mismo modelo y plataforma Fenicio). Líder de categoría: **La Isla**.
+
+## 🗺 Mapa del cliente
+[Estrategia](strategy.md) · [Positioning](brand/positioning.md) · [Voz](brand/voice-operational.md) · [Restricciones](brand/restrictions.md) · [Content library](content-library.md) · [Calendario](content-calendar.md) · [Competidores](competitors.md) · [Tendencias](sector-trends.md) · [Stock web](stock-web-log.md) · [Referencias](references/references.md)
+**Trabajo hecho:** [Auditoría ecommerce 2026-07-13](auditoria-ecommerce-2026-07-13.md) · [Solicitudes técnicas Fenicio](fenicio-solicitudes-tecnicas.md) · [Punteo reunión Fenicio](entregables/fenicio-reunion-punteo.md) · [Institucional confianza](entregables/institucional-confianza.md)
+**Interno (el cliente no lo ve):** [Learning log](learning-log.md)
+Volver: [Clientes](../README.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)

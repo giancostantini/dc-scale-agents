@@ -2,8 +2,13 @@
 Última actualización: 2026-08-11 (Stage 0 — reescrito desde la auditoría; la versión anterior
 describía stack eliminado). Mapa completo: `docs/ai-company-audit/` en el repo.
 
-> 🗺 Navegación del vault: [HOME](HOME.md) · [Metodología](agency/methodology/README.md) ·
-> [Evals](agency/evals/README.md) · [Clientes](clients/README.md) · [Data ownership](agency/data-ownership.md)
+> 🗺 Navegación: [HOME](HOME.md) · [Gerente General](empresa/Gerente%20General.md) ·
+> [Metodología](agency/methodology/README.md) · [Evals](agency/evals/README.md) ·
+> [Clientes](clients/README.md) · [Data ownership](agency/data-ownership.md)
+>
+> **Regla de organigrama:** todo agente nuevo se da de alta en DOS lugares o no existe:
+> `dashboard/lib/agent-registry.ts` (la fuente técnica) + la nota de su gerencia en
+> `empresa/` (el organigrama humano).
 
 ## Quiénes somos
 Agencia con dos verticales:
@@ -34,7 +39,8 @@ directores. Equipo: Lucía (CM / account lead), Octavio (editor de video).
 - Vercel: dashboard (hub + portal cliente + finanzas + 4 consultores)
 - Resend (mails) · Microsoft Graph (calendario Outlook) · Meta Marketing API (push de campañas)
 - Obsidian: editor humano de este vault — el vault es markdown en git; los agentes lo leen por
-  paths convencionales (no hay graph/links funcionales)
+  paths convencionales; para HUMANOS el grafo ES el organigrama (HOME → empresa/ →
+  gerencias → clientes)
 
 **Eliminado del stack** (no reintroducir sin decisión explícita): Remotion + content-creator
 (la producción de video es humana; `creative-assistant` genera briefs), n8n, Google Sheets como
