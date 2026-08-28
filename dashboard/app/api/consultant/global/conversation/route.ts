@@ -54,6 +54,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Persona (mig 095): cada persona tiene su pinned. Default general.
+  const personaParam = req.nextUrl.searchParams.get("persona") ?? "general";
+  const persona = ["general", "finanzas", "marketing"].includes(personaParam)
+    ? personaParam
+    : "general";
+
   // Buscar pinned. NO la creamos acá — eso lo hace el POST cuando el user
   // efectivamente manda un mensaje. Si no existe, devolvemos vacío.
   const { data: conv } = await admin
@@ -61,6 +67,7 @@ export async function GET(req: NextRequest) {
     .select("id, title, created_at, updated_at")
     .eq("user_id", caller.userId)
     .eq("scope", "global")
+    .eq("persona", persona)
     .eq("is_pinned", true)
     .maybeSingle();
 

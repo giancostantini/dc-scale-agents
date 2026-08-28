@@ -75,6 +75,11 @@ export default function ConsultantWidget() {
   const [hasUnreadBriefing, setHasUnreadBriefing] = useState(false);
   const [briefingShown, setBriefingShown] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  /** Persona activa (mig 095): cada una tiene SU conversación pinned.
+   *  general = Gerente General (default, con briefing). */
+  const [persona, setPersona] = useState<"general" | "finanzas" | "marketing">(
+    "general",
+  );
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -94,9 +99,11 @@ export default function ConsultantWidget() {
     saveUiState({ open, draft });
   }, [open, draft, hydrated]);
 
-  // ===== Load profile + initial conversation + briefing status =====
+  // ===== Load profile + conversation de la persona + briefing status =====
+  // Corre al montar Y al cambiar de persona (cada persona tiene su chat).
   useEffect(() => {
     let cancelled = false;
+    setMessages([]);
     (async () => {
       const p = await getCurrentProfile();
       if (cancelled) return;
@@ -112,9 +119,10 @@ export default function ConsultantWidget() {
       } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      // Cargar conversación pinned + briefing status en paralelo
+      // Cargar conversación pinned DE LA PERSONA + briefing status (el
+      // briefing vive solo en 'general') en paralelo
       const [convRes, briefRes] = await Promise.all([
-        fetch("/api/consultant/global/conversation", {
+        fetch(`/api/consultant/global/conversation?persona=${persona}`, {
           headers: { authorization: `Bearer ${session.access_token}` },
         }).then((r) => (r.ok ? r.json() : null)),
         fetch("/api/consultant/global/briefing-status", {
@@ -148,7 +156,7 @@ export default function ConsultantWidget() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [persona]);
 
   // ===== Auto scroll =====
   useEffect(() => {
@@ -240,6 +248,7 @@ export default function ConsultantWidget() {
         {
           messages: historyForApi,
           activeClient,
+          persona,
           accessToken: session.access_token,
           signal: controller.signal,
         },
@@ -342,7 +351,7 @@ export default function ConsultantWidget() {
         });
       }
     }
-  }, [draft, sending, messages, activeClient]);
+  }, [draft, sending, messages, activeClient, persona]);
 
   const handleNewConversation = useCallback(async () => {
     // "Nueva conversación" en práctica = vaciar el view local. La pinned
@@ -389,6 +398,12 @@ export default function ConsultantWidget() {
     );
   }
 
+  const PERSONA_LABEL: Record<string, string> = {
+    general: "Gerente General",
+    finanzas: "Gerente de Finanzas",
+    marketing: "Gerente de Marketing",
+  };
+
   const headerSubtitle = activeClient
     ? `Contexto activo: ${activeClient}`
     : `${profile.role === "director" ? "Director" : "Team"} · ${profile.name}`;
@@ -397,7 +412,7 @@ export default function ConsultantWidget() {
     <div className={styles.panel} role="dialog" aria-label="Consultor">
       <div className={styles.header}>
         <div>
-          <div className={styles.headerTitle}>Consultor</div>
+          <div className={styles.headerTitle}>{PERSONA_LABEL[persona]}</div>
           <div className={styles.headerSub}>{headerSubtitle}</div>
         </div>
         <div className={styles.headerActions}>
@@ -420,6 +435,34 @@ export default function ConsultantWidget() {
             <CloseIcon />
           </button>
         </div>
+      </div>
+
+      {/* Selector de persona (mig 095) — finanzas es solo directores */}
+      <div style={{ display: "flex", gap: 6, padding: "6px 12px", borderBottom: "1px solid rgba(10,26,12,0.08)", flexWrap: "wrap" }}>
+        {(["general", "marketing", "finanzas"] as const)
+          .filter((p) => p !== "finanzas" || profile.role === "director")
+          .map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPersona(p)}
+              disabled={sending}
+              style={{
+                padding: "4px 10px",
+                fontSize: 11,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                borderRadius: 999,
+                cursor: "pointer",
+                border: persona === p ? "1px solid var(--deep-green)" : "1px solid rgba(10,26,12,0.15)",
+                background: persona === p ? "var(--deep-green)" : "transparent",
+                color: persona === p ? "var(--off-white)" : "var(--deep-green)",
+              }}
+            >
+              {p === "general" ? "🎩 General" : p === "marketing" ? "📣 Marketing" : "💰 Finanzas"}
+              {p === "general" && hasUnreadBriefing ? " •" : ""}
+            </button>
+          ))}
       </div>
 
       {briefingShown && messages.some((m) => m.isBriefing) && (

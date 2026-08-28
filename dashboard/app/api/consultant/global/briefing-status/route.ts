@@ -47,12 +47,13 @@ export async function GET(req: NextRequest) {
     return Response.json({ hasUnread: false });
   }
 
-  // Buscar pinned
+  // Buscar pinned del Gerente General — el briefing vive SOLO ahí (mig 095).
   const { data: conv } = await admin
     .from("consultant_conversations")
     .select("id")
     .eq("user_id", caller.userId)
     .eq("scope", "global")
+    .eq("persona", "general")
     .eq("is_pinned", true)
     .maybeSingle();
 

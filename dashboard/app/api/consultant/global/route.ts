@@ -43,6 +43,7 @@ import { recordApiUsage } from "@/lib/api-usage";
 import { enforceAgentGuardrails } from "@/lib/agent-guardrails";
 import { getProcessStatus } from "@/lib/consultant-engine";
 import { dispatchableAgentKeys } from "@/lib/agent-registry";
+import { getPersona, type PersonaConfig } from "@/lib/consultant-personas";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,8 @@ interface RequestBody {
   messages: ChatMessage[];
   conversationId?: string;
   activeClient?: string;
+  /** Persona del widget (mig 095): general (default) | finanzas | marketing. */
+  persona?: string;
 }
 
 const TITLE_MAX_CHARS = 60;
@@ -124,11 +127,24 @@ export async function POST(req: NextRequest) {
     return jsonError("El último mensaje debe ser del user con contenido.", 400);
   }
 
-  // ---- Conversation: usar/crear la pinned global del user ----
+  // ---- Persona (mig 095): valida existencia + rol server-side ----
+  const persona = getPersona(body.persona);
+  if (!persona) {
+    return jsonError(`Persona desconocida: '${body.persona}'`, 400);
+  }
+  if (!persona.allowedRoles.includes(caller.role)) {
+    return jsonError(
+      `La persona '${persona.name}' es solo para: ${persona.allowedRoles.join(", ")}.`,
+      403,
+    );
+  }
+
+  // ---- Conversation: usar/crear la pinned de ESTA persona del user ----
   const conversation = await ensurePinnedConversation(
     admin,
     caller.userId,
     lastUserMessage.content,
+    persona.id,
   );
   if (!conversation) {
     return jsonError("No se pudo crear la conversación pinned.", 500);
@@ -149,7 +165,19 @@ export async function POST(req: NextRequest) {
     lastUserMessage: lastUserMessage.content,
   });
 
-  const systemBlocks = buildSystemBlocks(ctx);
+  // Contexto extra de la persona (ej. snapshot financiero) — se carga por
+  // turno porque las tools son single-turn: si no está en el system, el
+  // gerente respondería sin ver los números.
+  let personaExtraContext: string | null = null;
+  if (persona.loadExtraContext) {
+    try {
+      personaExtraContext = await persona.loadExtraContext();
+    } catch (err) {
+      console.warn(`[consultant/global] extraContext de '${persona.id}' falló:`, err);
+    }
+  }
+
+  const systemBlocks = buildSystemBlocks(ctx, persona, personaExtraContext);
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
   // ---- Stream ----
@@ -169,7 +197,7 @@ export async function POST(req: NextRequest) {
           model: MODEL,
           max_tokens: MAX_TOKENS,
           system: systemBlocks,
-          tools: buildTools(),
+          tools: buildTools(persona),
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
 
@@ -217,7 +245,7 @@ export async function POST(req: NextRequest) {
             toolResults.push({ name: "get_process_status", ...result });
             send({ type: "tool_result", name: "get_process_status", ...result });
           } else if (tu.name === "run_agent") {
-            const result = await handleRunAgent(admin, caller, tu.input);
+            const result = await handleRunAgent(admin, caller, tu.input, persona);
             toolResults.push({ name: "run_agent", ...result });
             send({ type: "tool_result", name: "run_agent", ...result });
           }
@@ -331,12 +359,14 @@ async function ensurePinnedConversation(
   admin: SupabaseClient,
   userId: string,
   firstUserMessage: string,
+  persona: string,
 ): Promise<PinnedConversation | null> {
   const { data: existing } = await admin
     .from("consultant_conversations")
     .select("id, title")
     .eq("user_id", userId)
     .eq("scope", "global")
+    .eq("persona", persona)
     .eq("is_pinned", true)
     .maybeSingle();
 
@@ -357,6 +387,7 @@ async function ensurePinnedConversation(
       user_id: userId,
       client_id: null,
       is_pinned: true,
+      persona,
       title,
     })
     .select("id, title")
@@ -380,13 +411,23 @@ interface CacheableTextBlock {
 
 function buildSystemBlocks(
   ctx: Awaited<ReturnType<typeof loadGlobalContext>>,
+  persona: PersonaConfig,
+  personaExtraContext: string | null,
 ): CacheableTextBlock[] {
   const blocks: CacheableTextBlock[] = [
     {
+      // Base + identidad de la persona. Cacheable: el par (base, persona)
+      // es estable entre turnos de un mismo chat.
       type: "text",
-      text: GLOBAL_SYSTEM_PROMPT_BASE,
+      text: persona.systemExtra
+        ? `${GLOBAL_SYSTEM_PROMPT_BASE}\n\n${persona.systemExtra}`
+        : GLOBAL_SYSTEM_PROMPT_BASE,
       cache_control: { type: "ephemeral" },
     },
+    // Contexto vivo de la persona (ej. números financieros) — sin cache.
+    ...(personaExtraContext
+      ? [{ type: "text" as const, text: personaExtraContext }]
+      : []),
     {
       // Contexto agregado de toda la agencia para el caller. Cambia entre
       // turnos (runs nuevos, requests nuevas), no cacheamos.
@@ -412,18 +453,23 @@ function buildSystemBlocks(
   return blocks;
 }
 
-function buildTools(): Anthropic.Tool[] {
-  return [
-    {
+function buildTools(persona: PersonaConfig): Anthropic.Tool[] {
+  const tools: Anthropic.Tool[] = [];
+
+  if (persona.tools.runAgent) {
+    // Enum restringido a la flota de la persona (y validado DE NUEVO
+    // server-side en handleRunAgent — el enum solo guía al modelo).
+    const agentEnum = persona.allowedAgentKeys ?? DISPATCHABLE_AGENTS;
+    tools.push({
       name: "run_agent",
       description:
-        "Dispatch un agente operativo (content-creator, reporting-performance, seo, etc.) vía GitHub Actions. Single-turn: lanzás el agente y avisás. El user verá el resultado cuando termine — no esperás la salida en este mismo turno.",
+        "Dispatch un agente operativo vía GitHub Actions. Single-turn: lanzás el agente y avisás. El user verá el resultado cuando termine — no esperás la salida en este mismo turno.",
       input_schema: {
         type: "object",
         properties: {
           agent: {
             type: "string",
-            enum: [...DISPATCHABLE_AGENTS],
+            enum: [...agentEnum],
             description: "El agente a dispatchar.",
           },
           client: {
@@ -434,7 +480,7 @@ function buildTools(): Anthropic.Tool[] {
           brief: {
             type: "object",
             description:
-              "Brief específico del agente (ej. pieceType+angle para content-creator, mode+question para reporting query). NO incluyas 'client' acá — va en el campo de arriba.",
+              "Brief específico del agente (ej. pieceType+angle para creative-assistant, mode+question para reporting query). NO incluyas 'client' acá — va en el campo de arriba.",
           },
           reason: {
             type: "string",
@@ -443,8 +489,11 @@ function buildTools(): Anthropic.Tool[] {
         },
         required: ["agent", "client", "brief"],
       },
-    },
-    {
+    });
+  }
+
+  if (persona.tools.processStatus) {
+    tools.push({
       name: "get_process_status",
       description:
         "Estado de los procesos multi-paso (onboarding, ciclo de contenido del mes, reporte mensual) de un cliente o de todos. Usala cuando pregunten '¿en qué estamos con X?', '¿qué sigue?', o antes de proponer arrancar un ciclo — así proponés el paso que destrabe el gate real, no uno inventado.",
@@ -458,8 +507,11 @@ function buildTools(): Anthropic.Tool[] {
           },
         },
       },
-    },
-    {
+    });
+  }
+
+  if (persona.tools.saveMemory) {
+    tools.push({
       name: "save_memory",
       description:
         "Guardar una pieza de contexto durable (preference, constraint, past_decision, learning). Llamala en silencio cuando detectes algo nuevo del user (scope='user') o del cliente activo (scope='client'). No pidas permiso.",
@@ -495,8 +547,10 @@ function buildTools(): Anthropic.Tool[] {
         },
         required: ["scope", "kind", "content"],
       },
-    },
-  ];
+    });
+  }
+
+  return tools;
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +666,7 @@ async function handleRunAgent(
   admin: SupabaseClient,
   caller: CallerContext,
   input: Record<string, unknown>,
+  persona: PersonaConfig,
 ): Promise<ToolResult> {
   const agent = input.agent as DispatchableAgent | undefined;
   const client = input.client as string | undefined;
@@ -620,6 +675,22 @@ async function handleRunAgent(
 
   if (!agent || !DISPATCHABLE_AGENTS.includes(agent)) {
     return { ok: false, detail: { error: `Agente inválido: ${agent}` } };
+  }
+  // Restricción por persona (server-side — no confiamos solo en el enum):
+  // un gerente de área solo dispatcha SU flota.
+  if (!persona.tools.runAgent) {
+    return {
+      ok: false,
+      detail: { error: `La persona '${persona.name}' no dispatcha agentes.` },
+    };
+  }
+  if (persona.allowedAgentKeys && !persona.allowedAgentKeys.includes(agent)) {
+    return {
+      ok: false,
+      detail: {
+        error: `'${agent}' no es de la flota de ${persona.name} (${persona.allowedAgentKeys.join(", ")}). Pedíselo al Gerente General.`,
+      },
+    };
   }
   if (!client || typeof client !== "string") {
     return { ok: false, detail: { error: "Falta el slug del cliente." } };

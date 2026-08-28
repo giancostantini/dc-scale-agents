@@ -47,11 +47,13 @@ export async function POST(req: NextRequest) {
     return Response.json({ updated: 0 });
   }
 
+  // El briefing vive solo en la persona 'general' (mig 095).
   const { data: conv } = await admin
     .from("consultant_conversations")
     .select("id")
     .eq("user_id", caller.userId)
     .eq("scope", "global")
+    .eq("persona", "general")
     .eq("is_pinned", true)
     .maybeSingle();
 
