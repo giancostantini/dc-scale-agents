@@ -33,6 +33,8 @@ export interface StreamMessageInput {
 export interface StreamRequest {
   messages: StreamMessageInput[];
   activeClient?: string | null;
+  /** Persona del widget (mig 095): general (default) | finanzas | marketing. */
+  persona?: string;
   accessToken: string;
   signal?: AbortSignal;
 }
@@ -55,6 +57,7 @@ export async function streamChat(
     body: JSON.stringify({
       messages: req.messages,
       activeClient: req.activeClient ?? null,
+      persona: req.persona ?? "general",
     }),
     signal: req.signal,
   });

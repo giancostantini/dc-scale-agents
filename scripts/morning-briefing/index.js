@@ -303,10 +303,12 @@ async function runUserBriefing(brief) {
 }
 
 async function ensureUserPinnedConversation(userId, userName) {
-  // Look up existing pinned global conv
+  // Look up existing pinned global conv — SOLO la del Gerente General
+  // (persona='general', mig 095). Sin este filtro, con múltiples personas
+  // pinned el limit=1 podía colgar el briefing de otra persona.
   const existing = await pgGet(
     "consultant_conversations",
-    `user_id=eq.${userId}&scope=eq.global&is_pinned=is.true&limit=1&select=id,title`,
+    `user_id=eq.${userId}&scope=eq.global&persona=eq.general&is_pinned=is.true&limit=1&select=id,title`,
   );
   if (existing.length > 0) return existing[0];
 
@@ -316,6 +318,7 @@ async function ensureUserPinnedConversation(userId, userName) {
     user_id: userId,
     client_id: null,
     is_pinned: true,
+    persona: "general",
     title: `Conversación con ${userName}`,
   });
   return created;
