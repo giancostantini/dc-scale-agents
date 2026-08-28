@@ -141,7 +141,10 @@ export async function listClientBrandFiles(clientId: string): Promise<string[]> 
   type DirEntry = { type: string; name: string };
   const entries = (await res.json()) as DirEntry[];
   const files = entries
-    .filter((e) => e.type === "file" && e.name.endsWith(".md"))
+    // Prefijo "_" = archivo INTERNO (fuentes crudas, borradores) — no entra
+    // al prompt de ningún consultor. Sin este filtro, _fuente-estrategia-*.md
+    // se inyectaba entero, incluso al Consultor-Cliente del portal.
+    .filter((e) => e.type === "file" && e.name.endsWith(".md") && !e.name.startsWith("_"))
     .map((e) => e.name)
     .sort();
 
