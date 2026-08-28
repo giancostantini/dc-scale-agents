@@ -457,6 +457,77 @@ Para cada categoria:
 Se preciso con caracteres. Optimiza para CTR en resultados de Google.`;
 }
 
+function buildProductDescriptionPrompt(ctx, brief) {
+  const pd = brief.productData || {};
+  const attrLines = [];
+  if (pd.name || brief.productSlug)
+    attrLines.push(`Nombre: ${pd.name || brief.productSlug}`);
+  if (pd.category) attrLines.push(`Categoria: ${pd.category}`);
+  if (pd.color) attrLines.push(`Color: ${pd.color}`);
+  if (pd.material)
+    attrLines.push(`Material/Composicion (dato real): ${pd.material}`);
+  if (pd.price) attrLines.push(`Precio: ${pd.price}`);
+  if (pd.sizes) attrLines.push(`Talles: ${pd.sizes}`);
+  if (pd.extra) attrLines.push(`Otros atributos: ${pd.extra}`);
+  const attrsBlock =
+    attrLines.length > 0
+      ? attrLines.join("\n")
+      : "SIN ATRIBUTOS PROVISTOS — no dispones de datos reales del producto mas alla del nombre/slug. Trata TODO dato concreto como desconocido.";
+
+  return `Eres el SEO/Content Agent de D&C Scale Partners.
+
+Tu trabajo es escribir la FICHA DE PRODUCTO (cuerpo de la PDP) para un e-commerce de indumentaria surf, lista para pegar en Fenicio. Objetivo: reducir la incertidumbre del comprador (calce, tela, uso, cuidado) con la voz de la marca, para que compre con confianza.
+
+CLIENTE: ${brief.client}
+FECHA: ${getTodayFormatted()}
+${brief.instructions ? `INSTRUCCIONES: ${brief.instructions}` : ""}
+
+--- ATRIBUTOS REALES DEL PRODUCTO (unica fuente de verdad para datos concretos) ---
+${attrsBlock}
+
+--- MARCA DEL CLIENTE (overview) ---
+${ctx.clientBrand || "Sin contexto de marca cargado."}
+
+${ctx.brandBlock}
+
+---
+
+REGLA DE ORO — NO INVENTAR (obligatoria):
+- NO inventes composicion, % de tela, gramaje, origen, medidas ni certificaciones.
+- Si un dato concreto NO esta en los ATRIBUTOS REALES de arriba, escribi el placeholder literal [COMPLETAR: <dato>] (ej. "[COMPLETAR: composicion]"). El CM lo llena con dato verificado antes de publicar.
+- Es MEJOR una ficha con [COMPLETAR] visible que una con un invento. Nunca rellenes con supuestos.
+
+REGLAS DE ESTILO:
+- Voz de marca (rioplatense, voseo, actitud surf) pero UTIL PRIMERO. Sin malas palabras en la ficha.
+- Beneficio antes que caracteristica. Parrafos cortos, bullets para specs. Sin keyword stuffing.
+- No prometer plazos de envio/stock ni claims no verificables.
+
+GENERA (formato Markdown, listo para pegar):
+
+## Descripcion
+[2-4 lineas: gancho de estilo/uso + para que/cuando usarlo. Voz de marca.]
+
+## Material y composicion
+[Solo dato real. Si falta -> [COMPLETAR: composicion].]
+
+## Calce
+[Regular/oversize/entallado solo si se deduce del nombre/categoria; si no -> [COMPLETAR: calce]. Cerra con: "Si dudas entre talles, mira la Guia de Talles".]
+
+## Cuidado
+[Instrucciones estandar seguras SOLO si el material es conocido (ej. lavar del reves, agua fria, no usar secadora). Si el material es desconocido -> [COMPLETAR: cuidado].]
+
+## Por que te va a gustar
+- [Beneficio 1]
+- [Beneficio 2]
+- [Beneficio 3]
+
+## Meta tags (SEO)
+- **Meta title:** [max 60 chars, keyword transaccional al inicio, "Glassy Waves" al final] ([X chars])
+- **Meta description:** [max 155 chars, que es + diferencial + CTA] ([X chars])
+
+Se especifico al producto y a la marca. No repitas el nombre del producto en cada linea.`;
+}
+
 // --- Prompt Router ---
 
 function buildPrompt(ctx, brief) {
@@ -466,6 +537,7 @@ function buildPrompt(ctx, brief) {
     "product-meta": buildProductMetaPrompt,
     "category-meta": buildCategoryMetaPrompt,
     "content-brief": buildContentBriefPrompt,
+    "product-description": buildProductDescriptionPrompt,
   };
 
   const builder = builders[brief.pieceType];
@@ -485,6 +557,7 @@ function getMaxTokens(pieceType) {
     "product-meta": 2048,
     "category-meta": 2048,
     "content-brief": 4096,
+    "product-description": 2048,
   };
   return tokens[pieceType] || 4096;
 }
@@ -558,6 +631,7 @@ export async function createSEOPiece(briefInput) {
     "product-meta": "Product Meta Tags",
     "category-meta": "Category Meta Tags",
     "content-brief": "Content Brief",
+    "product-description": "Product Description",
   };
 
   const summary = `SEO Agent — Pieza #${pieceId}\nTipo: ${pieceTypeLabels[brief.pieceType] || brief.pieceType}\nCliente: ${brief.client}${brief.targetKeyword ? `\nKeyword: ${brief.targetKeyword}` : ""}${brief.topic ? `\nTema: ${brief.topic}` : ""}\nEstado: DRAFT — revisar y aprobar\nRegistro: vault/clients/${brief.client}/seo-library.md`;

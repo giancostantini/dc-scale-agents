@@ -1,0 +1,14 @@
+{
+  "client": "glassy-waves",
+  "pieceType": "product-description",
+  "source": "cli",
+  "productSlug": "hoodie-original-negro",
+  "instructions": "Producto de prueba para validar el agente. No hay dato de composicion en el input a proposito: el agente DEBE marcar [COMPLETAR: composicion] y [COMPLETAR: cuidado] en vez de inventar.",
+  "productData": {
+    "name": "Hoodie Original / Negro",
+    "category": "Hoodies",
+    "color": "Negro",
+    "price": "$1.758 UYU (precio de venta; lista $2.790)",
+    "sizes": "XS, S, M"
+  }
+}
