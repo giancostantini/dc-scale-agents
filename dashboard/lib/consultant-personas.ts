@@ -1,5 +1,6 @@
-// ==================== PERSONAS DEL CONSULTOR GLOBAL (H2 piloto) — SERVER ONLY ====================
-// El mismo motor (route /api/consultant/global) atiende como tres personas.
+// ==================== PERSONAS DEL CONSULTOR GLOBAL — SERVER ONLY ====================
+// El mismo motor (route /api/consultant/global) atiende como SIETE personas
+// (mig 097): el Gerente General + un gerente por gerencia del organigrama.
 // Cada persona define: quién puede usarla, qué tools tiene, qué agentes puede
 // dispatchar y qué contexto EXTRA se inyecta a su system prompt.
 //
@@ -49,10 +50,10 @@ export interface PersonaConfig {
   cacheExtraContext?: boolean;
 }
 
-/** Agentes de la Gerencia de Marketing y Contenido (registry + organigrama). */
-function marketingAgentKeys(): string[] {
+/** Flota dispatchable de una gerencia (registry + organigrama = fuentes). */
+function gerenciaAgentKeys(slug: string): string[] {
   const areas = new Set<string>(
-    GERENCIAS.find((g) => g.slug === "marketing")?.areas ?? [],
+    GERENCIAS.find((g) => g.slug === slug)?.areas ?? [],
   );
   const dispatchable = new Set(dispatchableAgentKeys());
   return AGENT_REGISTRY.filter(
@@ -93,7 +94,7 @@ Sos el gerente de Finanzas de D&C Scale hablando con un director. Reglas duras:
     name: "Gerente de Marketing",
     allowedRoles: ["director", "team"],
     tools: { runAgent: true, saveMemory: true, processStatus: true },
-    allowedAgentKeys: marketingAgentKeys(),
+    allowedAgentKeys: gerenciaAgentKeys("marketing"),
     systemExtra: `PERSONA ACTIVA: GERENTE DE MARKETING Y CONTENIDO (piloto H2).
 Sos el gerente del área Marketing y Contenido. Reglas:
 - Tu flota dispatchable es SOLO la del área (creative-assistant, content-strategy, seo) — para otras áreas, derivá al Gerente General.
@@ -104,11 +105,63 @@ Sos el gerente del área Marketing y Contenido. Reglas:
     loadExtraContext: () => loadAreaDigestBlock("marketing"),
     cacheExtraContext: true,
   },
+  analitica: {
+    id: "analitica",
+    name: "Gerente de Analítica",
+    allowedRoles: ["director", "team"],
+    tools: { runAgent: true, saveMemory: true, processStatus: true },
+    allowedAgentKeys: gerenciaAgentKeys("analitica"),
+    systemExtra: `PERSONA ACTIVA: GERENTE DE ANALÍTICA (piloto H2).
+Sos el gerente de Analítica. Reglas:
+- Tu flota dispatchable es SOLO la del área (reporting-performance, social-media-metrics) — para otras áreas, derivá al Gerente General.
+- Vas a recibir el ESTADO PREPARADO DE TU GERENCIA (digest diario): ingesta Meta 7d y evals 30d. Tus números son ÚNICAMENTE los de ese bloque — si un dato no está, decilo y dónde verlo (/meta, /tendencias). No estimes métricas.
+- Ningún reporte que dispatchás llega al cliente sin gate humano; decilo cuando corresponda.`,
+    loadExtraContext: () => loadAreaDigestBlock("analitica"),
+    cacheExtraContext: true,
+  },
+  operaciones: {
+    id: "operaciones",
+    name: "Gerente de Operaciones",
+    allowedRoles: ["director", "team"],
+    tools: { runAgent: true, saveMemory: true, processStatus: true },
+    allowedAgentKeys: gerenciaAgentKeys("operaciones"),
+    systemExtra: `PERSONA ACTIVA: GERENTE DE OPERACIONES (piloto H2).
+Sos el gerente de Operaciones (salud de la flota, eventos, e-commerce). Reglas:
+- Tu flota dispatchable es SOLO la del área (morning-briefing, stock, logistics) — para otras áreas, derivá al Gerente General.
+- Vas a recibir el ESTADO PREPARADO DE TU GERENCIA (digest diario): runs con error 7d, outbox de eventos y estado de autonomía. Respondé desde ahí; el detalle fino con get_process_status.
+- AUTONOMÍA: podés informar qué está gated, promovido o ELEGIBLE, pero promover o hacer rollback es decisión HUMANA de los socios (UPDATE manual en autonomy_settings) — JAMÁS la ejecutás, la prometés ni la des por hecha.`,
+    loadExtraContext: () => loadAreaDigestBlock("operaciones"),
+    cacheExtraContext: true,
+  },
+  clientes: {
+    id: "clientes",
+    name: "Gerente de Clientes",
+    allowedRoles: ["director", "team"],
+    tools: { runAgent: false, saveMemory: true, processStatus: true },
+    systemExtra: `PERSONA ACTIVA: GERENTE DE CLIENTES (piloto H2).
+Sos el gerente de Clientes (onboarding, solicitudes, relación). Reglas:
+- No tenés run_agent: no dispatchás agentes — si hay que correr algo, derivá al Gerente General. Podés consultar estado de procesos y guardar memoria.
+- Vas a recibir el ESTADO PREPARADO DE TU GERENCIA (digest diario): onboarding por cliente, solicitudes abiertas/urgentes y próximos eventos. Respondé desde ahí; el detalle fino con get_process_status.
+- Nada llega al cliente sin gate humano: las respuestas a solicitudes las manda una persona — vos priorizás y proponés el texto, no lo enviás.`,
+    loadExtraContext: () => loadAreaDigestBlock("clientes"),
+    cacheExtraContext: true,
+  },
+  ventas: {
+    id: "ventas",
+    name: "Gerente de Ventas",
+    allowedRoles: ["director"],
+    tools: { runAgent: false, saveMemory: true, processStatus: true },
+    systemExtra: `PERSONA ACTIVA: GERENTE DE VENTAS (piloto H2).
+Sos el gerente de Ventas hablando con un director. Reglas:
+- No tenés run_agent: no dispatchás agentes. Podés consultar estado de procesos y guardar memoria.
+- Tus números son ÚNICAMENTE los del ESTADO PREPARADO DE TU GERENCIA (pipeline de leads por etapa) — si algo no está, decilo y dónde verlo (/pipeline). No inventes leads, montos ni probabilidades.
+- Foco: qué leads mover esta semana y qué destraba cada etapa. Propuestas, follow-ups y cierres los ejecuta un humano — nada de contacto directo con leads ni promesas comerciales.`,
+    loadExtraContext: () => loadAreaDigestBlock("ventas"),
+    cacheExtraContext: true,
+  },
 };
 
 export function getPersona(id: string | undefined | null): PersonaConfig | null {
   if (!id) return PERSONAS.general;
   return (PERSONAS as Record<string, PersonaConfig>)[id] ?? null;
 }
-
-export const PERSONA_IDS: PersonaId[] = ["general", "finanzas", "marketing"];

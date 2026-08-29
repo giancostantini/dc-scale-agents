@@ -1,20 +1,21 @@
 "use client";
 
 /**
- * EstadoEmpresa — cards con el estado de las 6 gerencias (tabla `digests`,
+ * EstadoEmpresa — rail con el estado de las 6 gerencias (tabla `digests`,
  * mig 096, level='area'). El mismo dato que recibe inyectado el Gerente
- * General, mostrado a humanos.
+ * General, mostrado a humanos. Vive SOLO en /gerente (el hub no lo
+ * muestra — decisión de producto).
  *
  * - Lee con el browser client → la RLS filtra sola: director ve las 6,
  *   team ve 4 (sin finanzas/ventas).
- * - variant='hub': grid ancho en /hub. variant='rail': columna angosta
- *   en /gerente.
- * - Cada card linkea a /gerente?gerencia=<slug> (abre el chat con la
- *   persona correspondiente).
+ * - `onSelectGerencia` (lo pasa /gerente): las cards son BOTONES que
+ *   cambian el gerente del chat al instante — sin depender de la URL,
+ *   así el click funciona SIEMPRE (antes navegaba a ?gerencia=X y si el
+ *   param no cambiaba, no pasaba nada). Sin callback, fallback a Link.
  * - Empty state honesto: si el cron nunca corrió, lo dice — no inventa.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/client";
 import { GERENCIAS, type GerenciaSlug } from "@/lib/gerencias";
@@ -52,7 +53,12 @@ function signalLines(md: string, max: number): string[] {
     .slice(0, max);
 }
 
-export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) {
+export default function EstadoEmpresa({
+  onSelectGerencia,
+}: {
+  /** Si viene, las cards cambian el gerente del chat en vez de navegar. */
+  onSelectGerencia?: (slug: GerenciaSlug) => void;
+}) {
   const [rows, setRows] = useState<DigestRow[] | null>(null);
 
   useEffect(() => {
@@ -77,42 +83,19 @@ export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) 
   // Orden canónico del organigrama; solo las gerencias que la RLS devolvió.
   const visibles = GERENCIAS.filter((g) => byKey.has(g.slug));
 
-  const isRail = variant === "rail";
-
   return (
-    <div style={{ marginBottom: isRail ? 0 : 24 }}>
+    <div>
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
+          fontSize: 10,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "var(--sand-dark)",
+          fontWeight: 700,
           marginBottom: 10,
         }}
       >
-        <div
-          style={{
-            fontSize: 10,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color: "var(--sand-dark)",
-            fontWeight: 700,
-          }}
-        >
-          Estado de la empresa
-        </div>
-        {!isRail && (
-          <Link
-            href="/gerente"
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--deep-green)",
-              textDecoration: "none",
-            }}
-          >
-            Hablar con el Gerente General →
-          </Link>
-        )}
+        Estado por gerencia
       </div>
 
       {visibles.length === 0 ? (
@@ -121,7 +104,7 @@ export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) 
             background: "var(--white)",
             border: "1px dashed var(--hairline)",
             borderRadius: "var(--r-lg)",
-            padding: isRail ? 16 : 24,
+            padding: 16,
             fontSize: 12,
             color: "var(--text-muted)",
             lineHeight: 1.6,
@@ -132,33 +115,13 @@ export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) 
           lo refresque.
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isRail
-              ? "1fr"
-              : "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: isRail ? 10 : 14,
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
           {visibles.map((g) => {
             const d = byKey.get(g.slug)!;
             const sev = d.data?.severity ?? "ok";
-            const signals = signalLines(d.content_md, isRail ? 2 : 3);
-            return (
-              <Link
-                key={g.slug}
-                href={`/gerente?gerencia=${g.slug as GerenciaSlug}`}
-                style={{
-                  display: "block",
-                  background: "var(--white)",
-                  border: "1px solid var(--hairline)",
-                  borderRadius: "var(--r-lg)",
-                  padding: isRail ? "12px 14px" : "16px 18px",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
-              >
+            const signals = signalLines(d.content_md, 2);
+            const inner = (
+              <>
                 <div
                   style={{
                     display: "flex",
@@ -167,10 +130,10 @@ export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) 
                     marginBottom: 8,
                   }}
                 >
-                  <span style={{ fontSize: isRail ? 14 : 16 }}>{g.emoji}</span>
+                  <span style={{ fontSize: 14 }}>{g.emoji}</span>
                   <span
                     style={{
-                      fontSize: isRail ? 12 : 13,
+                      fontSize: 12,
                       fontWeight: 700,
                       color: "var(--deep-green)",
                       flex: 1,
@@ -199,7 +162,7 @@ export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) 
                     color: "var(--text-muted)",
                     lineHeight: 1.55,
                     display: "-webkit-box",
-                    WebkitLineClamp: isRail ? 2 : 3,
+                    WebkitLineClamp: 2,
                     WebkitBoxOrient: "vertical",
                     overflow: "hidden",
                   }}
@@ -216,13 +179,59 @@ export default function EstadoEmpresa({ variant }: { variant: "hub" | "rail" }) 
                     marginTop: 8,
                   }}
                 >
-                  {relativeTime(d.updated_at)}
+                  {relativeTime(d.updated_at)} · click = hablar con este gerente
                 </div>
-              </Link>
+              </>
+            );
+            return (
+              <GerenciaCard
+                key={g.slug}
+                slug={g.slug}
+                onSelectGerencia={onSelectGerencia}
+              >
+                {inner}
+              </GerenciaCard>
             );
           })}
         </div>
       )}
     </div>
+  );
+}
+
+const cardStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  background: "var(--white)",
+  border: "1px solid var(--hairline)",
+  borderRadius: "var(--r-lg)",
+  padding: "12px 14px",
+  textDecoration: "none",
+  color: "inherit",
+  fontFamily: "inherit",
+  cursor: "pointer",
+};
+
+function GerenciaCard({
+  slug,
+  onSelectGerencia,
+  children,
+}: {
+  slug: GerenciaSlug;
+  onSelectGerencia?: (slug: GerenciaSlug) => void;
+  children: ReactNode;
+}) {
+  if (onSelectGerencia) {
+    return (
+      <button type="button" style={cardStyle} onClick={() => onSelectGerencia(slug)}>
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Link href={`/gerente?gerencia=${slug}`} style={cardStyle}>
+      {children}
+    </Link>
   );
 }

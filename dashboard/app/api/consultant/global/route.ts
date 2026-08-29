@@ -66,7 +66,7 @@ interface RequestBody {
   messages: ChatMessage[];
   conversationId?: string;
   activeClient?: string;
-  /** Persona del widget (mig 095): general (default) | finanzas | marketing. */
+  /** Persona (mig 097): general (default) o el gerente de una gerencia. */
   persona?: string;
 }
 

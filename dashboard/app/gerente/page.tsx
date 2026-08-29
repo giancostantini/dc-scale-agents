@@ -28,8 +28,9 @@ import {
 import {
   PERSONA_LABEL,
   PERSONA_EMOJI,
+  PERSONA_SHORT,
   personaForGerencia,
-  type PersonaId,
+  personasVisibles,
 } from "@/lib/gerencias";
 import { hasSession, getCurrentProfile } from "@/lib/supabase/auth";
 import styles from "./gerente.module.css";
@@ -117,7 +118,7 @@ function GerenteInner() {
   const handleNewConversation = useCallback(() => {
     if (
       !window.confirm(
-        "¿Empezar una conversación nueva? Esto limpia el chat visible (el historial queda guardado).",
+        "¿Empezar de cero con este gerente? La conversación actual se archiva (no se borra) y el chat arranca vacío.",
       )
     )
       return;
@@ -192,23 +193,23 @@ function GerenteInner() {
                   Limpiar chat
                 </button>
               </div>
-              {/* Personas — finanzas solo director */}
+              {/* Personas (mig 097): los 7 gerentes — team sin finanzas/ventas */}
               <div className={styles.personaRow}>
-                {(["general", "marketing", "finanzas"] as PersonaId[])
-                  .filter((p) => p !== "finanzas" || profile.role === "director")
-                  .map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPersona(p)}
-                      disabled={sending}
-                      className={`${styles.personaChip} ${
-                        persona === p ? styles.personaChipActive : ""
-                      }`}
-                    >
-                      {PERSONA_EMOJI[p]} {PERSONA_LABEL[p]}
-                    </button>
-                  ))}
+                {personasVisibles(
+                  profile.role === "director" ? "director" : "team",
+                ).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPersona(p)}
+                    disabled={sending}
+                    className={`${styles.personaChip} ${
+                      persona === p ? styles.personaChipActive : ""
+                    }`}
+                  >
+                    {PERSONA_EMOJI[p]} {PERSONA_SHORT[p]}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -263,9 +264,19 @@ function GerenteInner() {
             </div>
           </div>
 
-          {/* ===== Rail: estado por gerencia ===== */}
+          {/* ===== Rail: estado por gerencia. Click = cambiar el chat a ese
+              gerente SIEMPRE (callback directo, sin depender de la URL) ===== */}
           <div>
-            <EstadoEmpresa variant="rail" />
+            <EstadoEmpresa
+              onSelectGerencia={(slug) =>
+                setPersona(
+                  personaForGerencia(
+                    slug,
+                    profile.role === "director" ? "director" : "team",
+                  ),
+                )
+              }
+            />
           </div>
         </div>
       </div>

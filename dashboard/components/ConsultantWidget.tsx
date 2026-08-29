@@ -21,7 +21,12 @@ import {
   useGlobalConsultantChat,
   type UIMessage,
 } from "./consultant/useGlobalConsultantChat";
-import { PERSONA_LABEL, PERSONA_EMOJI, type PersonaId } from "@/lib/gerencias";
+import {
+  PERSONA_LABEL,
+  PERSONA_EMOJI,
+  PERSONA_SHORT,
+  personasVisibles,
+} from "@/lib/gerencias";
 import styles from "./ConsultantWidget.module.css";
 
 interface StoredUiState {
@@ -130,11 +135,11 @@ export default function ConsultantWidget() {
   }, [abort]);
 
   const handleNewConversation = useCallback(() => {
-    // "Nueva conversación" en práctica = vaciar el view local. La pinned
-    // sigue siendo la misma server-side.
+    // Limpiar REAL: archiva la conversación server-side (queda guardada
+    // despinneada) y el próximo mensaje arranca una nueva.
     if (
       !window.confirm(
-        "¿Empezar una conversación nueva? Esto limpia el chat visible (el historial queda guardado).",
+        "¿Empezar de cero con este gerente? La conversación actual se archiva (no se borra) y el chat arranca vacío.",
       )
     )
       return;
@@ -204,32 +209,33 @@ export default function ConsultantWidget() {
         </div>
       </div>
 
-      {/* Selector de persona (mig 095) — finanzas es solo directores */}
+      {/* Selector de persona (mig 097): los 7 gerentes — team no ve
+          finanzas/ventas (mismo gating server-side + RLS de digests) */}
       <div style={{ display: "flex", gap: 6, padding: "6px 12px", borderBottom: "1px solid rgba(10,26,12,0.08)", flexWrap: "wrap" }}>
-        {(["general", "marketing", "finanzas"] as PersonaId[])
-          .filter((p) => p !== "finanzas" || profile.role === "director")
-          .map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPersona(p)}
-              disabled={sending}
-              style={{
-                padding: "4px 10px",
-                fontSize: 11,
-                fontWeight: 600,
-                fontFamily: "inherit",
-                borderRadius: 999,
-                cursor: "pointer",
-                border: persona === p ? "1px solid var(--deep-green)" : "1px solid rgba(10,26,12,0.15)",
-                background: persona === p ? "var(--deep-green)" : "transparent",
-                color: persona === p ? "var(--off-white)" : "var(--deep-green)",
-              }}
-            >
-              {PERSONA_EMOJI[p]} {p === "general" ? "General" : p === "marketing" ? "Marketing" : "Finanzas"}
-              {p === "general" && hasUnreadBriefing ? " •" : ""}
-            </button>
-          ))}
+        {personasVisibles(
+          profile.role === "director" ? "director" : "team",
+        ).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPersona(p)}
+            disabled={sending}
+            style={{
+              padding: "4px 10px",
+              fontSize: 11,
+              fontWeight: 600,
+              fontFamily: "inherit",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: persona === p ? "1px solid var(--deep-green)" : "1px solid rgba(10,26,12,0.15)",
+              background: persona === p ? "var(--deep-green)" : "transparent",
+              color: persona === p ? "var(--off-white)" : "var(--deep-green)",
+            }}
+          >
+            {PERSONA_EMOJI[p]} {PERSONA_SHORT[p]}
+            {p === "general" && hasUnreadBriefing ? " •" : ""}
+          </button>
+        ))}
       </div>
 
       {briefingShown && messages.some((m) => m.isBriefing) && (
