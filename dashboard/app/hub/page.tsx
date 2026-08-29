@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
+import EstadoEmpresa from "@/components/EstadoEmpresa";
 import {
   getClients,
   getAllTasks,
@@ -712,6 +713,12 @@ export default function HubPage() {
             pendingRequests={pendingClientRequests}
           />
         )}
+
+        {/* ============ ESTADO DE LA EMPRESA (mig 096) ============
+            Cards por gerencia con el mismo digest que recibe inyectado
+            el Gerente General. La RLS decide qué ve cada rol (team no
+            ve finanzas/ventas). Cada card abre /gerente?gerencia=X. */}
+        <EstadoEmpresa variant="hub" />
 
         {/* ============ MIS CLIENTES — EMPTY STATE ============
             La grid de clientes vive ahora DENTRO del hero verde (ver

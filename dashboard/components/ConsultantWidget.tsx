@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ConsultantWidget — chat flotante del Consultor global.
+ * ConsultantWidget — chat flotante del Gerente General.
  *
  * - FAB cerrado bottom-right con badge si hay briefing sin leer.
  * - Panel abierto: chat con streaming SSE contra /api/consultant/global.
@@ -9,22 +9,20 @@
  *   { open: bool, draft: string } para UX.
  * - Pathname hint: si estás en /cliente/[id], se manda como activeClient para
  *   que el backend pre-cargue ese cliente.
+ *
+ * La lógica del chat (carga por persona, streaming, briefing) vive en
+ * useGlobalConsultantChat — compartida con la página /gerente. Acá queda
+ * solo el markup del panel flotante.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getSupabase } from "@/lib/supabase/client";
-import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
-import { streamChat, type StreamMessageInput } from "@/lib/consultant-stream";
+import {
+  useGlobalConsultantChat,
+  type UIMessage,
+} from "./consultant/useGlobalConsultantChat";
+import { PERSONA_LABEL, PERSONA_EMOJI, type PersonaId } from "@/lib/gerencias";
 import styles from "./ConsultantWidget.module.css";
-
-interface UIMessage {
-  id?: string;
-  role: "user" | "assistant";
-  content: string;
-  isBriefing?: boolean;
-  isError?: boolean;
-}
 
 interface StoredUiState {
   open: boolean;
@@ -68,22 +66,27 @@ export default function ConsultantWidget() {
   const activeClient = extractActiveClient(pathname);
 
   const [open, setOpen] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [messages, setMessages] = useState<UIMessage[]>([]);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [hasUnreadBriefing, setHasUnreadBriefing] = useState(false);
   const [briefingShown, setBriefingShown] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  /** Persona activa (mig 095): cada una tiene SU conversación pinned.
-   *  general = Gerente General (default, con briefing). */
-  const [persona, setPersona] = useState<"general" | "finanzas" | "marketing">(
-    "general",
-  );
+
+  const chat = useGlobalConsultantChat({ activeClient });
+  const {
+    profile,
+    messages,
+    draft,
+    setDraft,
+    sending,
+    persona,
+    setPersona,
+    hasUnreadBriefing,
+    send,
+    clearChat,
+    markBriefingRead,
+    abort,
+  } = chat;
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   // ===== Hydration =====
   useEffect(() => {
@@ -91,6 +94,8 @@ export default function ConsultantWidget() {
     setOpen(ui.open);
     setDraft(ui.draft);
     setHydrated(true);
+    // setDraft es estable (viene de useState dentro del hook)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ===== Persist UI state =====
@@ -99,65 +104,6 @@ export default function ConsultantWidget() {
     saveUiState({ open, draft });
   }, [open, draft, hydrated]);
 
-  // ===== Load profile + conversation de la persona + briefing status =====
-  // Corre al montar Y al cambiar de persona (cada persona tiene su chat).
-  useEffect(() => {
-    let cancelled = false;
-    setMessages([]);
-    (async () => {
-      const p = await getCurrentProfile();
-      if (cancelled) return;
-      setProfile(p);
-
-      // Si es client role, no cargamos nada — el widget no debe siquiera
-      // montarse para ellos, pero defensa en profundidad.
-      if (!p || p.role === "client") return;
-
-      const supabase = getSupabase();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      // Cargar conversación pinned DE LA PERSONA + briefing status (el
-      // briefing vive solo en 'general') en paralelo
-      const [convRes, briefRes] = await Promise.all([
-        fetch(`/api/consultant/global/conversation?persona=${persona}`, {
-          headers: { authorization: `Bearer ${session.access_token}` },
-        }).then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/consultant/global/briefing-status", {
-          headers: { authorization: `Bearer ${session.access_token}` },
-        }).then((r) => (r.ok ? r.json() : null)),
-      ]);
-
-      if (cancelled) return;
-
-      if (convRes?.messages) {
-        type RawMsg = {
-          id: string;
-          role: "user" | "assistant";
-          content: string;
-          is_briefing: boolean;
-        };
-        setMessages(
-          (convRes.messages as RawMsg[]).map((m) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            isBriefing: m.is_briefing,
-          })),
-        );
-      }
-
-      if (briefRes?.hasUnread) {
-        setHasUnreadBriefing(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [persona]);
-
   // ===== Auto scroll =====
   useEffect(() => {
     if (!open) return;
@@ -165,25 +111,6 @@ export default function ConsultantWidget() {
       messagesEndRef.current?.scrollIntoView({ block: "end" });
     });
   }, [messages, open]);
-
-  // ===== Mark briefing read when user opens =====
-  const markBriefingRead = useCallback(async () => {
-    if (!hasUnreadBriefing) return;
-    const supabase = getSupabase();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session?.access_token) return;
-    try {
-      await fetch("/api/consultant/global/mark-read", {
-        method: "POST",
-        headers: { authorization: `Bearer ${session.access_token}` },
-      });
-      setHasUnreadBriefing(false);
-    } catch {
-      /* non-critical */
-    }
-  }, [hasUnreadBriefing]);
 
   // ===== Handlers =====
 
@@ -199,183 +126,29 @@ export default function ConsultantWidget() {
 
   const handleClose = useCallback(() => {
     setOpen(false);
-    abortRef.current?.abort();
-    abortRef.current = null;
-  }, []);
+    abort();
+  }, [abort]);
 
-  const handleSend = useCallback(async () => {
-    const text = draft.trim();
-    if (!text || sending) return;
-
-    const supabase = getSupabase();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "No hay sesión. Refrescá la página e iniciá sesión.",
-          isError: true,
-        },
-      ]);
-      return;
-    }
-
-    // Push user message + placeholder assistant
-    const userMsg: UIMessage = { role: "user", content: text };
-    const assistantPlaceholder: UIMessage = { role: "assistant", content: "" };
-    setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
-    setDraft("");
-    setSending(true);
-
-    // Build messages para el endpoint (sin briefings ni errores)
-    const historyForApi: StreamMessageInput[] = [
-      ...messages
-        .filter((m) => !m.isError)
-        .map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: text },
-    ];
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    let errored = false;
-
-    try {
-      await streamChat(
-        {
-          messages: historyForApi,
-          activeClient,
-          persona,
-          accessToken: session.access_token,
-          signal: controller.signal,
-        },
-        {
-          onDelta: (delta) => {
-            setMessages((prev) => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last && last.role === "assistant") {
-                next[next.length - 1] = {
-                  ...last,
-                  content: last.content + delta,
-                };
-              }
-              return next;
-            });
-          },
-          onToolResult: (name, ok, detail) => {
-            if (name === "run_agent" && ok) {
-              const agent = detail.agent as string | undefined;
-              const client = detail.client as string | undefined;
-              const runId = detail.runId as number | undefined;
-              const note = `\n\n_[dispatch: ${agent} para ${client}${runId ? ` · run #${runId}` : ""}]_`;
-              setMessages((prev) => {
-                const next = [...prev];
-                const last = next[next.length - 1];
-                if (last && last.role === "assistant") {
-                  next[next.length - 1] = {
-                    ...last,
-                    content: last.content + note,
-                  };
-                }
-                return next;
-              });
-            }
-            if (!ok) {
-              const err = detail.error as string | undefined;
-              setMessages((prev) => {
-                const next = [...prev];
-                const last = next[next.length - 1];
-                if (last && last.role === "assistant") {
-                  next[next.length - 1] = {
-                    ...last,
-                    content:
-                      last.content +
-                      `\n\n_[error en ${name}: ${err ?? "desconocido"}]_`,
-                  };
-                }
-                return next;
-              });
-            }
-          },
-          onError: (message) => {
-            errored = true;
-            setMessages((prev) => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last && last.role === "assistant" && !last.content) {
-                // Reemplazar placeholder vacío con error
-                next[next.length - 1] = {
-                  role: "assistant",
-                  content: message,
-                  isError: true,
-                };
-              } else {
-                next.push({
-                  role: "assistant",
-                  content: message,
-                  isError: true,
-                });
-              }
-              return next;
-            });
-          },
-        },
-      );
-    } catch (err) {
-      if (err instanceof Error && err.name !== "AbortError") {
-        errored = true;
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `Error de red: ${err.message}`,
-            isError: true,
-          },
-        ]);
-      }
-    } finally {
-      abortRef.current = null;
-      setSending(false);
-      // Si el placeholder quedó vacío sin error, lo removemos (caso raro)
-      if (!errored) {
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === "assistant" && !last.content) {
-            return prev.slice(0, -1);
-          }
-          return prev;
-        });
-      }
-    }
-  }, [draft, sending, messages, activeClient, persona]);
-
-  const handleNewConversation = useCallback(async () => {
+  const handleNewConversation = useCallback(() => {
     // "Nueva conversación" en práctica = vaciar el view local. La pinned
-    // sigue siendo la misma server-side; el contexto de Claude usa todos
-    // los mensajes del array que mandamos. Si el user quiere reset
-    // completo se puede mejorar luego (DELETE messages? otra conv?).
-    // Por ahora hacemos visual reset.
+    // sigue siendo la misma server-side.
     if (
       !window.confirm(
         "¿Empezar una conversación nueva? Esto limpia el chat visible (el historial queda guardado).",
       )
     )
       return;
-    setMessages([]);
-  }, []);
+    clearChat();
+  }, [clearChat]);
 
   const handleKey = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSend();
+        send();
       }
     },
-    [handleSend],
+    [send],
   );
 
   // ===== Render =====
@@ -390,7 +163,7 @@ export default function ConsultantWidget() {
         type="button"
         className={styles.fab}
         onClick={handleOpen}
-        aria-label="Abrir consultor"
+        aria-label="Abrir Gerente General"
       >
         <ChatIcon />
         {hasUnreadBriefing && <span className={styles.fabBadge} />}
@@ -398,18 +171,12 @@ export default function ConsultantWidget() {
     );
   }
 
-  const PERSONA_LABEL: Record<string, string> = {
-    general: "Gerente General",
-    finanzas: "Gerente de Finanzas",
-    marketing: "Gerente de Marketing",
-  };
-
   const headerSubtitle = activeClient
     ? `Contexto activo: ${activeClient}`
     : `${profile.role === "director" ? "Director" : "Team"} · ${profile.name}`;
 
   return (
-    <div className={styles.panel} role="dialog" aria-label="Consultor">
+    <div className={styles.panel} role="dialog" aria-label="Gerente General">
       <div className={styles.header}>
         <div>
           <div className={styles.headerTitle}>{PERSONA_LABEL[persona]}</div>
@@ -439,7 +206,7 @@ export default function ConsultantWidget() {
 
       {/* Selector de persona (mig 095) — finanzas es solo directores */}
       <div style={{ display: "flex", gap: 6, padding: "6px 12px", borderBottom: "1px solid rgba(10,26,12,0.08)", flexWrap: "wrap" }}>
-        {(["general", "marketing", "finanzas"] as const)
+        {(["general", "marketing", "finanzas"] as PersonaId[])
           .filter((p) => p !== "finanzas" || profile.role === "director")
           .map((p) => (
             <button
@@ -459,7 +226,7 @@ export default function ConsultantWidget() {
                 color: persona === p ? "var(--off-white)" : "var(--deep-green)",
               }}
             >
-              {p === "general" ? "🎩 General" : p === "marketing" ? "📣 Marketing" : "💰 Finanzas"}
+              {PERSONA_EMOJI[p]} {p === "general" ? "General" : p === "marketing" ? "Marketing" : "Finanzas"}
               {p === "general" && hasUnreadBriefing ? " •" : ""}
             </button>
           ))}
@@ -474,9 +241,9 @@ export default function ConsultantWidget() {
       <div className={styles.messages}>
         {messages.length === 0 ? (
           <div className={styles.empty}>
-            Hola {profile.name.split(" ")[0]}, soy el consultor del equipo.
+            Hola {profile.name.split(" ")[0]}, soy el Gerente General.
             <br />
-            Preguntame sobre cualquier cliente, agente o estado de la operación.
+            Preguntame sobre cualquier cliente, gerencia o estado de la operación.
           </div>
         ) : (
           messages.map((m, idx) => (
@@ -516,7 +283,7 @@ export default function ConsultantWidget() {
           <button
             type="button"
             className={styles.sendBtn}
-            onClick={handleSend}
+            onClick={send}
             disabled={!draft.trim() || sending}
           >
             {sending ? "Enviando…" : "Enviar"}

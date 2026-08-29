@@ -10,6 +10,7 @@ import {
   IFinanzas,
   IEquipo,
   IConfiguracion,
+  IUserCircle,
 } from "./icons/BrandIcons";
 import {
   getCurrentProfile,
@@ -80,6 +81,16 @@ export default function Topbar({
             onClick={() => router.push("/pipeline")}
           >
             <IPipeline size={15} /> Pipeline
+          </button>
+        )}
+
+        {/* Gerente General (jerarquía de gerencias): director y team */}
+        {!isClient && (
+          <button
+            className={styles.btn}
+            onClick={() => router.push("/gerente")}
+          >
+            <IUserCircle size={15} /> Gerente
           </button>
         )}
 
