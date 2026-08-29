@@ -24,7 +24,7 @@ Esto es el MÉTODO OFICIAL de la agencia versionado en git. Una página por fase
 | [SOP Onboarding](sop-onboarding.md) | Alta de cliente → fases con gates → optimización continua |
 | [SOP Reporting](sop-reporting.md) | Reporte mensual + seguimiento continuo |
 
-Volver: [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md) · Estándar de calidad: [Evals](../evals/README.md) · [Data ownership](../data-ownership.md)
+Volver: [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md) · Estándar de calidad: [Evals](../evals/Estandar%20de%20Calidad.md) · [Data ownership](../data-ownership.md)
 
 ## Reglas de edición
 

@@ -47,4 +47,4 @@ _El Consultor y los agentes escriben aqui cuando detectan patrones importantes._
 **Marca:** [Positioning](brand/positioning.md) · [Voz operativa](brand/voice-operational.md) · [Personaje](brand/voice-character.md) · [Voz decisión](brand/voice-decision.md) · [Identidad visual](brand/visual-identity.md) · [Formatos](brand/content-formats.md) · [Fotografía](brand/photography.md) · [Restricciones](brand/restrictions.md)
 **Trabajo hecho:** [Google y sitio web](entregables/google-y-sitio-web.md) · [QR de reseñas](entregables/qr-resenas-google.md)
 **Interno (el cliente no lo ve):** [Learning log](learning-log.md)
-Volver: [Clientes](../README.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)
+Volver: [Clientes](../Indice%20de%20Clientes.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)

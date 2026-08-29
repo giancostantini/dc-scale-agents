@@ -41,4 +41,4 @@ lado se corrige.
    se revisa como código.
 
 ---
-[HOME](../HOME.md) · [Metodología](methodology/README.md) · [Evals](evals/README.md) · [Clientes](../clients/README.md)
+[HOME](../HOME.md) · [Metodología](methodology/Metodologia%20Growth.md) · [Estándar de calidad](evals/Estandar%20de%20Calidad.md) · [Clientes](../clients/Indice%20de%20Clientes.md)

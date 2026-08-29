@@ -172,4 +172,4 @@ Wizzo es la voz de la experiencia: el experto que ya recorrió el mundo, aprendi
 **Marca:** [Identidad visual](brand/visual-identity.md) · [Personaje](brand/voice-character.md) · [Voz decisión](brand/voice-decision.md) · [Voz operativa](brand/voice-operational.md) · [Positioning](brand/positioning.md) · [Assets](brand/assets.md) · [Formatos](brand/content-formats.md) · [Fotografía](brand/photography.md) · [Restricciones](brand/restrictions.md)
 **Trabajo hecho:** [Spec dashboard Looker](looker-dashboard-spec.md) · [SQL handoff Looker](looker-dashboard-sql-handoff.md) · [Insights del dashboard](dashboard-insights.md)
 **Interno (el cliente no lo ve):** [Learning log](learning-log.md) · [Calls log](calls-log.md)
-Volver: [Clientes](../README.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)
+Volver: [Clientes](../Indice%20de%20Clientes.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)
