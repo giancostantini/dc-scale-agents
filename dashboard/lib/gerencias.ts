@@ -57,35 +57,74 @@ export function gerenciasVisibles(role: "director" | "team"): GerenciaDef[] {
 }
 
 /**
- * Personas del consultor global (mig 095). El tipo vive acá (client-safe)
- * para que widget/página lo usen sin importar código server-only;
- * consultant-personas.ts (server) lo re-exporta.
+ * Personas del consultor global (migs 095 + 097). El tipo vive acá
+ * (client-safe) para que widget/página lo usen sin importar código
+ * server-only; consultant-personas.ts (server) lo re-exporta. Cada
+ * gerencia del organigrama tiene su gerente conversacional + el general.
+ * OJO: agregar un valor acá exige extender el CHECK de la mig 097.
  */
-export type PersonaId = "general" | "finanzas" | "marketing";
+export type PersonaId = "general" | GerenciaSlug;
 
-/** Labels de las personas del widget/página del consultor (mig 095). */
+/** Orden canónico de chips: el general primero, después el organigrama. */
+export const PERSONA_IDS: PersonaId[] = [
+  "general",
+  ...GERENCIAS.map((g) => g.slug),
+];
+
+/** Labels completos (headers/títulos). */
 export const PERSONA_LABEL: Record<PersonaId, string> = {
   general: "Gerente General",
-  finanzas: "Gerente de Finanzas",
   marketing: "Gerente de Marketing",
+  analitica: "Gerente de Analítica",
+  finanzas: "Gerente de Finanzas",
+  operaciones: "Gerente de Operaciones",
+  clientes: "Gerente de Clientes",
+  ventas: "Gerente de Ventas",
+};
+
+/** Labels cortos para chips (7 chips tienen que entrar en 2 filas). */
+export const PERSONA_SHORT: Record<PersonaId, string> = {
+  general: "General",
+  marketing: "Marketing",
+  analitica: "Analítica",
+  finanzas: "Finanzas",
+  operaciones: "Operaciones",
+  clientes: "Clientes",
+  ventas: "Ventas",
 };
 
 export const PERSONA_EMOJI: Record<PersonaId, string> = {
   general: "🎩",
-  finanzas: "💰",
   marketing: "📣",
+  analitica: "📊",
+  finanzas: "💰",
+  operaciones: "⚙️",
+  clientes: "🤝",
+  ventas: "📈",
 };
 
 /**
+ * Personas que un rol puede usar (espejo de gerenciasVisibles + el gate
+ * server-side de allowedRoles en consultant-personas.ts).
+ */
+export function personasVisibles(role: "director" | "team"): PersonaId[] {
+  if (role === "director") return PERSONA_IDS;
+  return PERSONA_IDS.filter((p) => p !== "finanzas" && p !== "ventas");
+}
+
+/**
  * Con qué persona se abre el chat al llegar desde la card de una gerencia.
- * Solo marketing y finanzas tienen persona propia (piloto H2); el resto
- * atiende el Gerente General con el digest del área ya inyectado.
+ * 1:1 desde la mig 097; finanzas/ventas son de directores — para team caen
+ * al Gerente General (que igual no recibe esos digests por RLS).
  */
 export function personaForGerencia(
   slug: string | null,
   role: "director" | "team",
 ): PersonaId {
-  if (slug === "marketing") return "marketing";
-  if (slug === "finanzas" && role === "director") return "finanzas";
-  return "general";
+  const g = GERENCIAS.find((x) => x.slug === slug);
+  if (!g) return "general";
+  if ((g.slug === "finanzas" || g.slug === "ventas") && role !== "director") {
+    return "general";
+  }
+  return g.slug;
 }

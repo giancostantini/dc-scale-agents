@@ -33,7 +33,7 @@ export interface StreamMessageInput {
 export interface StreamRequest {
   messages: StreamMessageInput[];
   activeClient?: string | null;
-  /** Persona del widget (mig 095): general (default) | finanzas | marketing. */
+  /** Persona (mig 097): general (default) o el gerente de una gerencia. */
   persona?: string;
   accessToken: string;
   signal?: AbortSignal;

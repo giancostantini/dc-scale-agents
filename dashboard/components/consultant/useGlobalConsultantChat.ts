@@ -39,8 +39,13 @@ export interface GlobalConsultantChat {
   hasUnreadBriefing: boolean;
   /** Envía el draft actual (no-op si está vacío o ya hay un send en vuelo). */
   send: () => Promise<void>;
-  /** Limpia el chat visible (la conversación server-side queda). */
-  clearChat: () => void;
+  /**
+   * Limpiar chat REAL: archiva la conversación pinned de la persona
+   * server-side (DELETE /conversation) y vacía la vista. El historial no
+   * se borra — queda despinneado en la DB; el próximo mensaje crea una
+   * conversación nueva.
+   */
+  clearChat: () => Promise<void>;
   /** Marca el briefing como leído (llamar al abrir la superficie). */
   markBriefingRead: () => Promise<void>;
   /** Aborta el streaming en vuelo (llamar al cerrar/desmontar). */
@@ -268,9 +273,36 @@ export function useGlobalConsultantChat(options?: {
     }
   }, [draft, sending, messages, activeClient, persona]);
 
-  const clearChat = useCallback(() => {
+  const clearChat = useCallback(async () => {
+    // Cortar cualquier stream en vuelo (sus mensajes caerían en la
+    // conversación que estamos por archivar).
+    abortRef.current?.abort();
+    abortRef.current = null;
+
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await fetch(
+          `/api/consultant/global/conversation?persona=${persona}`,
+          {
+            method: "DELETE",
+            headers: { authorization: `Bearer ${session.access_token}` },
+          },
+        );
+      }
+    } catch {
+      // Si el archive falla, igual limpiamos la vista — al recargar el
+      // historial va a reaparecer y el user puede reintentar.
+    }
+
     setMessages([]);
-  }, []);
+    // La pinned de general se archivó → sus briefings sin leer quedan
+    // atrás; sin esto el dot • del chip quedaría prendido hasta reload.
+    if (persona === "general") setHasUnreadBriefing(false);
+  }, [persona]);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
