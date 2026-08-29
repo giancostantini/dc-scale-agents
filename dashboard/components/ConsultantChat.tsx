@@ -275,7 +275,7 @@ export default function ConsultantChat({
               marginBottom: 4,
             }}
           >
-            Consultor
+            Gerente de Proyecto
           </div>
           <div
             style={{
@@ -396,7 +396,7 @@ export default function ConsultantChat({
               padding: "20px 0",
             }}
           >
-            Hola. Soy el Consultor. Preguntame por el estado del cliente o
+            Hola. Soy el Gerente de Proyecto de este cliente. Preguntame por el estado o
             pedime que dispare un agente (contenido, analítica, SEO, stock,
             logística). Cuando un agente termine, te aviso acá mismo con el
             resultado.

@@ -165,13 +165,14 @@ export async function POST(req: NextRequest) {
     lastUserMessage: lastUserMessage.content,
   });
 
-  // Contexto extra de la persona (ej. snapshot financiero) — se carga por
-  // turno porque las tools son single-turn: si no está en el system, el
-  // gerente respondería sin ver los números.
+  // Contexto extra de la persona (digests de gerencias / snapshot financiero)
+  // — se carga por turno porque las tools son single-turn: si no está en el
+  // system, el gerente respondería sin verlo. Recibe el caller para filtrar
+  // por rol (team no ve finanzas/ventas).
   let personaExtraContext: string | null = null;
   if (persona.loadExtraContext) {
     try {
-      personaExtraContext = await persona.loadExtraContext();
+      personaExtraContext = await persona.loadExtraContext(caller);
     } catch (err) {
       console.warn(`[consultant/global] extraContext de '${persona.id}' falló:`, err);
     }
@@ -424,9 +425,19 @@ function buildSystemBlocks(
         : GLOBAL_SYSTEM_PROMPT_BASE,
       cache_control: { type: "ephemeral" },
     },
-    // Contexto vivo de la persona (ej. números financieros) — sin cache.
+    // Contexto extra de la persona. Los digests (cambian 1×/día) se cachean;
+    // los snapshots vivos (finanzas) no. Con esto quedan ≤3 breakpoints de
+    // cache (máximo de la API: 4).
     ...(personaExtraContext
-      ? [{ type: "text" as const, text: personaExtraContext }]
+      ? [
+          {
+            type: "text" as const,
+            text: personaExtraContext,
+            ...(persona.cacheExtraContext
+              ? { cache_control: { type: "ephemeral" as const } }
+              : {}),
+          },
+        ]
       : []),
     {
       // Contexto agregado de toda la agencia para el caller. Cambia entre
