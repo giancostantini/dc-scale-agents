@@ -348,8 +348,8 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   },
   {
     key: "consultant-client",
-    name: "Consultor de Cuenta",
-    desc: "Consultor del equipo dentro de un cliente; despacha agentes vía run_agent.",
+    name: "Gerente de Proyecto",
+    desc: "Gerente embebido en un cliente: conoce su estado a fondo y despacha agentes vía run_agent. Su digest diario alimenta a las gerencias (mig 096).",
     kind: "consultant",
     area: "ops",
     owner: "socios",
@@ -358,7 +358,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   {
     key: "consultant-global",
     name: "Gerente General",
-    desc: "Copiloto del equipo multi-cliente; run_agent + save_memory, streaming.",
+    desc: "Cabeza de la jerarquía: recibe los digests de las 6 gerencias preparados de antemano (mig 096) y responde con precisión; run_agent + save_memory, streaming.",
     kind: "consultant",
     area: "ops",
     owner: "socios",

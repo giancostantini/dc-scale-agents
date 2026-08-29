@@ -35,6 +35,7 @@ import {
   type MemoryRow,
 } from "@/lib/consultant-engine";
 import { dispatchableAgentKeys } from "@/lib/agent-registry";
+import { loadClientDigestBlock } from "@/lib/digests";
 
 const MODEL = CLAUDE_MODEL_OPUS;
 
@@ -45,7 +46,7 @@ const DISPATCHABLE_AGENTS: string[] = dispatchableAgentKeys();
 
 type DispatchableAgent = string;
 
-const SYSTEM_PROMPT = `Sos el Consultor de D&C Scale Partners para un cliente específico. Tu rol:
+const SYSTEM_PROMPT = `Sos el Gerente de Proyecto de D&C Scale Partners para un cliente específico — el gerente embebido en ese cliente. Tu rol:
 
 1. Sos el ÚNICO punto de contacto humano con el dueño del negocio del cliente.
 2. Conocés el contexto del cliente (sector, fase, método, runs recientes).
@@ -126,8 +127,14 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  const [{ data: client }, { data: recentRuns }, memories, vault, processRows] =
-    await Promise.all([
+  const [
+    { data: client },
+    { data: recentRuns },
+    memories,
+    vault,
+    processRows,
+    digestBlock,
+  ] = await Promise.all([
       supabase
         .from("clients")
         .select("id, name, sector, type, phase, method, fee")
@@ -156,6 +163,9 @@ export async function POST(req: NextRequest) {
       // Estado de procesos (Stage 3/4) — el consultor sabe en qué paso está
       // el cliente y qué gate lo bloquea. Best-effort.
       getProcessStatus(clientId).catch(() => []),
+      // Digest diario del cliente (mig 096) — el estado que este Gerente de
+      // Proyecto "preparó de antemano". Best-effort: sin digest, el chat sigue.
+      loadClientDigestBlock(clientId).catch(() => null),
     ]);
 
   if (!client) {
@@ -198,6 +208,8 @@ export async function POST(req: NextRequest) {
           type: "text",
           text: processBlock,
         },
+        // Digest diario (mig 096) — foto preparada del estado del cliente.
+        ...(digestBlock ? [{ type: "text" as const, text: digestBlock }] : []),
       ],
       tools: [
         {
