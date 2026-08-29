@@ -13,12 +13,14 @@
 // Regla dura transversal: ninguna persona ejecuta dinero ni saltea gates.
 
 import { AGENT_REGISTRY, dispatchableAgentKeys } from "@/lib/agent-registry";
-import { GERENCIAS } from "@/lib/gerencias";
+import { GERENCIAS, type PersonaId } from "@/lib/gerencias";
 import { loadFinanceContext } from "@/lib/finance-context";
 import { loadGerenciasBlock, loadAreaDigestBlock } from "@/lib/digests";
 import type { CallerContext } from "@/lib/consultant-global-context";
 
-export type PersonaId = "general" | "finanzas" | "marketing";
+// El tipo vive en gerencias.ts (client-safe); acá se re-exporta para los
+// consumers server-side existentes.
+export type { PersonaId };
 
 export interface PersonaConfig {
   id: PersonaId;

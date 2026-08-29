@@ -56,9 +56,36 @@ export function gerenciasVisibles(role: "director" | "team"): GerenciaDef[] {
   return GERENCIAS.filter((g) => g.slug !== "finanzas" && g.slug !== "ventas");
 }
 
+/**
+ * Personas del consultor global (mig 095). El tipo vive acá (client-safe)
+ * para que widget/página lo usen sin importar código server-only;
+ * consultant-personas.ts (server) lo re-exporta.
+ */
+export type PersonaId = "general" | "finanzas" | "marketing";
+
 /** Labels de las personas del widget/página del consultor (mig 095). */
-export const PERSONA_LABEL: Record<string, string> = {
+export const PERSONA_LABEL: Record<PersonaId, string> = {
   general: "Gerente General",
   finanzas: "Gerente de Finanzas",
   marketing: "Gerente de Marketing",
 };
+
+export const PERSONA_EMOJI: Record<PersonaId, string> = {
+  general: "🎩",
+  finanzas: "💰",
+  marketing: "📣",
+};
+
+/**
+ * Con qué persona se abre el chat al llegar desde la card de una gerencia.
+ * Solo marketing y finanzas tienen persona propia (piloto H2); el resto
+ * atiende el Gerente General con el digest del área ya inyectado.
+ */
+export function personaForGerencia(
+  slug: string | null,
+  role: "director" | "team",
+): PersonaId {
+  if (slug === "marketing") return "marketing";
+  if (slug === "finanzas" && role === "director") return "finanzas";
+  return "general";
+}

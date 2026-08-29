@@ -7,6 +7,7 @@
  *   - `/`               → login
  *   - `/auth/*`         → reset password, forgot, etc.
  *   - `/portal/*`       → portal del cliente final (usan otro consultor)
+ *   - `/gerente`        → la página ES el chat (mismo motor, sin doble UI)
  *
  * El widget en sí también filtra por profile.role !== 'client' como
  * defensa en profundidad.
@@ -21,6 +22,7 @@ function shouldMount(pathname: string | null): boolean {
   if (pathname.startsWith("/auth")) return false;
   if (pathname.startsWith("/portal")) return false;
   if (pathname.startsWith("/api")) return false;
+  if (pathname.startsWith("/gerente")) return false;
   return true;
 }
 
