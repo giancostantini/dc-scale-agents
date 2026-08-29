@@ -92,10 +92,28 @@ export default function EstadoEmpresa({
           textTransform: "uppercase",
           color: "var(--sand-dark)",
           fontWeight: 700,
-          marginBottom: 10,
+          marginBottom: 6,
         }}
       >
         Estado por gerencia
+      </div>
+
+      {/* Leyenda del semáforo (mismos colores que los puntos de las cards) */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          columnGap: 12,
+          rowGap: 2,
+          fontSize: 10,
+          color: "var(--text-muted)",
+          marginBottom: 10,
+          lineHeight: 1.5,
+        }}
+      >
+        <LegendDot color={SEV_COLOR.ok} label="en orden" />
+        <LegendDot color={SEV_COLOR.warn} label="esperando un humano" />
+        <LegendDot color={SEV_COLOR.crit} label="errores o pagos atrasados" />
       </div>
 
       {visibles.length === 0 ? (
@@ -196,6 +214,23 @@ export default function EstadoEmpresa({
         </div>
       )}
     </div>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: color,
+          flexShrink: 0,
+        }}
+      />
+      {label}
+    </span>
   );
 }
 
