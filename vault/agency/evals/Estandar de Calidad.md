@@ -32,4 +32,4 @@ verificar leyendo el output, no va en la rubric.
 | creative | Briefs/piezas de contenido IA | [rubric-creative](rubric-creative.md) |
 | trends | Reportes semanales de tendencias | [rubric-trends](rubric-trends.md) |
 
-Volver: [Gerencia de Operaciones](../../empresa/Gerencia%20de%20Operaciones.md) · El estándar sale del método: [Metodología](../methodology/README.md)
+Volver: [Gerencia de Operaciones](../../empresa/Gerencia%20de%20Operaciones.md) · El estándar sale del método: [Metodología](../methodology/Metodologia%20Growth.md)

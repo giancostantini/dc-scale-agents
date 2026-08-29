@@ -11,10 +11,16 @@ y herramientas reales.
 
 ## Quién es y qué ve
 
-- **Dónde vive:** el widget flotante del dashboard (burbuja abajo a la derecha), en
-  cualquier página. Te habla con TU contexto: si sos director ve toda la agencia
-  (clientes, corridas de agentes, solicitudes, pipeline, finanzas resumidas); si sos
-  team ve solo tus clientes asignados.
+- **Dónde vive:** su oficina es la página **`/gerente`** del dashboard (botón
+  "Gerente" en la barra superior) — chat a pantalla completa + el estado de las 6
+  gerencias al costado. El widget flotante (burbuja abajo a la derecha) es el mismo
+  gerente en versión de bolsillo, disponible en cualquier página. Te habla con TU
+  contexto: si sos director ve toda la agencia; si sos team, solo tus clientes.
+- **Cómo le llega la información (la jerarquía en acción):** cada cliente tiene un
+  **Gerente de Proyecto** embebido que prepara a diario el estado de SU cliente; cada
+  **gerencia** agrega los de sus clientes + sus fuentes propias; el GG recibe los 6
+  estados YA preparados antes de responderte. Por eso contesta con datos precisos al
+  instante — ya "le preguntó" a la cadena, sin charlas agente→agente (principio #4).
 - **Memoria:** guarda tus preferencias y las reglas de cada cliente en silencio
   (`consultant_memory_v2` — la misma que lee TODA la flota).
 - **Procesos:** sabe en qué paso está cada cliente (onboarding, ciclo de contenido,

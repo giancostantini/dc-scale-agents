@@ -2,9 +2,9 @@
 Última actualización: 2026-08-11 (Stage 0 — reescrito desde la auditoría; la versión anterior
 describía stack eliminado). Mapa completo: `docs/ai-company-audit/` en el repo.
 
-> 🗺 Navegación: [HOME](HOME.md) · [Gerente General](empresa/Gerente%20General.md) ·
-> [Metodología](agency/methodology/README.md) · [Evals](agency/evals/README.md) ·
-> [Clientes](clients/README.md) · [Data ownership](agency/data-ownership.md)
+> 🗺 Navegación: [HOME](HOME.md) — este archivo es el REGLAMENTO transversal de la
+> flota (los 7 agentes de scripts lo leen por path), no un hub de navegación: para
+> moverte por la empresa, HOME.
 >
 > **Regla de organigrama:** todo agente nuevo se da de alta en DOS lugares o no existe:
 > `dashboard/lib/agent-registry.ts` (la fuente técnica) + la nota de su gerencia en

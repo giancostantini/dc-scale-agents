@@ -60,4 +60,4 @@ Ver `brand/restrictions.md`. Crítico: **nunca inventar composición/material/or
 [Estrategia](strategy.md) · [Positioning](brand/positioning.md) · [Voz](brand/voice-operational.md) · [Restricciones](brand/restrictions.md) · [Content library](content-library.md) · [Calendario](content-calendar.md) · [Competidores](competitors.md) · [Tendencias](sector-trends.md) · [Stock web](stock-web-log.md) · [Referencias](references/references.md)
 **Trabajo hecho:** [Auditoría ecommerce 2026-07-13](auditoria-ecommerce-2026-07-13.md) · [Solicitudes técnicas Fenicio](fenicio-solicitudes-tecnicas.md) · [Punteo reunión Fenicio](entregables/fenicio-reunion-punteo.md) · [Institucional confianza](entregables/institucional-confianza.md)
 **Interno (el cliente no lo ve):** [Learning log](learning-log.md)
-Volver: [Clientes](../README.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)
+Volver: [Clientes](../Indice%20de%20Clientes.md) · [Gerencia de Clientes](../../empresa/Gerencia%20de%20Clientes.md)
