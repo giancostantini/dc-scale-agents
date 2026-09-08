@@ -269,6 +269,7 @@ export async function POST(req: NextRequest) {
         {
           month_key: mk,
           currency: "USD",
+          seq: 0,
           net_profit: totals.net,
           partner_a_pct: configForDist.partner_a_pct,
           partner_b_pct: configForDist.partner_b_pct,
@@ -281,7 +282,7 @@ export async function POST(req: NextRequest) {
           auto_generated: true,
           notes: "auto-distribute endpoint (per-client splits)",
         },
-        { onConflict: "month_key,currency" },
+        { onConflict: "month_key,currency,seq" },
       );
     if (upErr) {
       console.error("auto-distribute upsert error:", upErr);

@@ -55,6 +55,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import {
+  createDividendReajuste,
   deleteDividendDistribution,
   distributeDividends,
   distributeMonthByClient,
@@ -86,6 +87,11 @@ import { cn } from "@/lib/cn";
 const MONTHS_SHORT_ES = [
   "Ene", "Feb", "Mar", "Abr", "May", "Jun",
   "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+];
+
+const MONTHS_LONG_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 
 // Paleta navy/blue alineada al mockup
@@ -176,18 +182,29 @@ export function PremiumDividendos({
   // Modal para elegir cuenta al marcar como pagado.
   const [payFromModal, setPayFromModal] = useState<{
     monthKey: string;
+    seq: number;
     fecha: string;
     importe: number;
     cuentaId: string;
   } | null>(null);
-  // Solo los snapshots de la moneda activa, indexados por mes.
+  // Snapshots de la moneda activa, indexados por mes. Un mes puede
+  // tener varios: seq=0 (distribución original) + reajustes (seq>=1).
   const distributionsByMonth = useMemo(() => {
-    const m = new Map<string, DividendDistribution>();
+    const m = new Map<string, DividendDistribution[]>();
     for (const d of distributions) {
-      if ((d.currency ?? "USD") === currency) m.set(d.month_key, d);
+      if ((d.currency ?? "USD") !== currency) continue;
+      const arr = m.get(d.month_key) ?? [];
+      arr.push(d);
+      m.set(d.month_key, arr);
     }
+    // Ordenar cada mes por seq ascendente (original primero).
+    for (const arr of m.values()) arr.sort((a, b) => a.seq - b.seq);
     return m;
   }, [distributions, currency]);
+
+  /** Snapshot original (seq=0) de un mes, si existe. */
+  const snap0Of = (mk: string): DividendDistribution | undefined =>
+    (distributionsByMonth.get(mk) ?? []).find((d) => d.seq === 0);
 
   function refresh() {
     setLoading(true);
@@ -223,6 +240,28 @@ export function PremiumDividendos({
    * distribución original.
    */
   async function handleDeleteRow(r: HistRow) {
+    // Reajuste (seq>=1): eliminar sin regenerar — es una fila de ajuste
+    // manual/automática que no se recalcula desde los datos del mes.
+    if (r.isReajuste) {
+      if (
+        !confirm(
+          `¿Eliminar el reajuste de ${r.fecha}?\n\nBorra esta fila de ajuste y su movimiento bancario asociado (si estaba pago). La distribución original NO se toca.`,
+        )
+      ) {
+        return;
+      }
+      try {
+        await deleteDividendDistribution(r.monthKey, currency, r.seq);
+        toast.success("Reajuste eliminado");
+        refresh();
+      } catch (err) {
+        const e = err as Error;
+        toast.error("No se pudo eliminar el reajuste", {
+          description: e.message,
+        });
+      }
+      return;
+    }
     if (
       !confirm(
         `¿Regenerar la distribución de ${r.fecha}?\n\nVa a borrar el snapshot guardado y a recalcularlo con los datos actuales del mes (payments, expenses, ingresos manuales). Hacelo después de cargar gastos olvidados.`,
@@ -231,14 +270,14 @@ export function PremiumDividendos({
       return;
     }
     try {
-      await deleteDividendDistribution(r.monthKey, currency);
+      await deleteDividendDistribution(r.monthKey, currency, 0);
       toast.success("Snapshot borrado — se va a regenerar al recargar");
       // Inmediatamente recalculamos y persistimos el snapshot nuevo
       // con los datos actuales del mes.
       if (config) {
         const fresh = monthNet(r.monthKey);
         try {
-          await upsertDividendDistribution(r.monthKey, currency, fresh, config, false);
+          await upsertDividendDistribution(r.monthKey, currency, fresh, config, false, null, 0);
         } catch {
           // Silencioso — el refresh va a intentar persistir igual.
         }
@@ -261,12 +300,29 @@ export function PremiumDividendos({
     if (!config) return;
     // Caso pagada → pendiente: cambio directo. Esto también borra el
     // movimiento bancario asociado vía syncDividendDistributionMovement.
+    const rowExists = (distributionsByMonth.get(r.monthKey) ?? []).some(
+      (s) => s.seq === r.seq,
+    );
     if (r.estado === "pagada") {
       try {
-        if (!distributionsByMonth.has(r.monthKey)) {
-          await upsertDividendDistribution(r.monthKey, currency, r.net, config, true);
+        if (!rowExists) {
+          await upsertDividendDistribution(
+            r.monthKey,
+            currency,
+            r.net,
+            config,
+            true,
+            r.label ?? null,
+            r.seq,
+          );
         }
-        await setDividendDistributionStatus(r.monthKey, currency, "pending", null);
+        await setDividendDistributionStatus(
+          r.monthKey,
+          currency,
+          "pending",
+          null,
+          r.seq,
+        );
         toast.success(
           "Marcada como pendiente — movimiento bancario asociado borrado",
         );
@@ -290,6 +346,7 @@ export function PremiumDividendos({
       "";
     setPayFromModal({
       monthKey: r.monthKey,
+      seq: r.seq,
       fecha: r.fecha,
       importe,
       cuentaId: defaultCuenta,
@@ -299,20 +356,33 @@ export function PremiumDividendos({
   /** Confirmar el pago: persistir status='paid' con la cuenta elegida. */
   async function confirmMarkAsPaid() {
     if (!payFromModal || !config) return;
-    const { monthKey, cuentaId } = payFromModal;
+    const { monthKey, seq, cuentaId } = payFromModal;
     if (!cuentaId) {
       toast.error("Elegí una cuenta bancaria primero.");
       return;
     }
     try {
       // Asegurar snapshot exista (idempotente).
-      if (!distributionsByMonth.has(monthKey)) {
-        const row = history.find((r) => r.monthKey === monthKey);
+      const rowExists = (distributionsByMonth.get(monthKey) ?? []).some(
+        (s) => s.seq === seq,
+      );
+      if (!rowExists) {
+        const row = history.find(
+          (r) => r.monthKey === monthKey && r.seq === seq,
+        );
         if (row) {
-          await upsertDividendDistribution(monthKey, currency, row.net, config, true);
+          await upsertDividendDistribution(
+            monthKey,
+            currency,
+            row.net,
+            config,
+            true,
+            row.label ?? null,
+            seq,
+          );
         }
       }
-      await setDividendDistributionStatus(monthKey, currency, "paid", cuentaId);
+      await setDividendDistributionStatus(monthKey, currency, "paid", cuentaId, seq);
       toast.success(
         "Marcada como pagada — movimiento creado en la cuenta seleccionada",
       );
@@ -426,6 +496,12 @@ export function PremiumDividendos({
   // ===== Historial del período (1 fila por mes con actividad) =====
   type HistRow = {
     monthKey: string;
+    /** 0 = distribución original; >=1 = reajuste. */
+    seq: number;
+    /** true si es una fila de reajuste (seq>=1). */
+    isReajuste: boolean;
+    /** Label del reajuste (de notes). null para la original. */
+    label: string | null;
     fecha: string; // dd/mm/yyyy
     ejercicio: string;
     net: number;
@@ -492,7 +568,7 @@ export function PremiumDividendos({
       // esos números. Si no hay y el mes está cerrado, computamos
       // ahora (en otro lugar disparamos el upsert para persistirlo).
       // Si es el mes en curso, siempre computamos en vivo.
-      const snap = distributionsByMonth.get(mk);
+      const snap = snap0Of(mk);
       let net: number;
       let amounts: {
         partnerA: number;
@@ -579,6 +655,9 @@ export function PremiumDividendos({
         (Number(config.back_pct) > 0 ? 1 : 0);
       out.push({
         monthKey: mk,
+        seq: 0,
+        isReajuste: false,
+        label: null,
         fecha: fechaCierre,
         ejercicio: String(yy),
         net,
@@ -591,8 +670,41 @@ export function PremiumDividendos({
         sociosCount,
         estado,
       });
+
+      // Reajustes (seq>=1) persistidos: una fila por cada uno, con sus
+      // propios montos y estado. Reparten SOLO la diferencia.
+      const reajustes = (distributionsByMonth.get(mk) ?? []).filter(
+        (d) => d.seq >= 1,
+      );
+      for (const rj of reajustes) {
+        const rjImporte = rj.partner_a_amount + rj.partner_b_amount;
+        const rjSaldo = rj.inversiones_amount + rj.back_amount;
+        out.push({
+          monthKey: mk,
+          seq: rj.seq,
+          isReajuste: true,
+          label: rj.notes ?? `Reajuste distribución de ${MONTHS_LONG_ES[mm - 1]}`,
+          fecha: fechaCierre,
+          ejercicio: String(yy),
+          net: rj.net_profit,
+          partnerA: rj.partner_a_amount,
+          partnerB: rj.partner_b_amount,
+          inversiones: rj.inversiones_amount,
+          back: rj.back_amount,
+          importeDistribuido: rjImporte,
+          saldoDisponible: rjSaldo,
+          sociosCount,
+          estado: rj.status === "paid" ? "pagada" : "pendiente",
+        });
+      }
     }
-    return out.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    // Orden: por mes desc, y dentro del mes original (seq 0) antes que
+    // sus reajustes.
+    return out.sort((a, b) => {
+      const cmp = b.monthKey.localeCompare(a.monthKey);
+      if (cmp !== 0) return cmp;
+      return a.seq - b.seq;
+    });
   }, [config, currency, period.from, period.to, payments, expenses, manualRevs, clients, feeSchedules, distributionsByMonth]);
 
   /**
@@ -608,15 +720,16 @@ export function PremiumDividendos({
     const curMonth = new Date().toISOString().slice(0, 7);
     const missing: Array<{ mk: string; net: number }> = [];
     for (const row of history) {
+      if (row.isReajuste) continue; // los reajustes se crean en otro efecto
       if (row.monthKey >= curMonth) continue; // solo meses cerrados
-      if (distributionsByMonth.has(row.monthKey)) continue;
+      if (snap0Of(row.monthKey)) continue; // ya tiene la original (seq=0)
       missing.push({ mk: row.monthKey, net: row.net });
     }
     if (missing.length === 0) return;
     void (async () => {
       const results = await Promise.allSettled(
         missing.map(({ mk, net }) =>
-          upsertDividendDistribution(mk, currency, net, config, true),
+          upsertDividendDistribution(mk, currency, net, config, true, null, 0),
         ),
       );
       const failed = results.filter((r) => r.status === "rejected");
@@ -630,6 +743,48 @@ export function PremiumDividendos({
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history, config, loading]);
+
+  /**
+   * Reajuste automático: si un mes tiene su distribución ORIGINAL
+   * (seq=0) ya PAGADA y después entra un movimiento nuevo de ese mes
+   * (ingreso o egreso), la utilidad real cambia. Detectamos la
+   * diferencia entre el neto en vivo y lo ya distribuido (original +
+   * reajustes previos) y, si supera 1 unidad, generamos una fila de
+   * "Reajuste distribución de <mes>" con SOLO la diferencia — sin tocar
+   * la original. El director la paga como cualquier otra.
+   */
+  useEffect(() => {
+    if (!config || loading) return;
+    const curMonth = new Date().toISOString().slice(0, 7);
+    const toCreate: Array<{ mk: string; delta: number; seq: number }> = [];
+    for (const [mk, arr] of distributionsByMonth) {
+      if (mk >= curMonth) continue;
+      const orig = arr.find((d) => d.seq === 0);
+      // Solo reajustamos meses cuya distribución original ya está paga.
+      if (!orig || orig.status !== "paid") continue;
+      const liveNet = monthNet(mk);
+      const distribuido = arr.reduce((s, d) => s + d.net_profit, 0);
+      const delta = liveNet - distribuido;
+      // Umbral de 1 unidad para no generar reajustes por redondeos.
+      if (Math.abs(delta) < 1) continue;
+      const maxSeq = arr.reduce((m, d) => Math.max(m, d.seq), 0);
+      toCreate.push({ mk, delta, seq: maxSeq + 1 });
+    }
+    if (toCreate.length === 0) return;
+    void (async () => {
+      for (const { mk, delta, seq } of toCreate) {
+        const label = `Reajuste distribución de ${MONTHS_LONG_ES[Number(mk.slice(5, 7)) - 1]}`;
+        try {
+          await createDividendReajuste(mk, currency, delta, config, seq, label);
+        } catch (err) {
+          console.warn("[dividendos] reajuste falló:", (err as Error).message);
+        }
+      }
+      const fresh = await listDividendDistributions();
+      setDistributions(fresh);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [distributionsByMonth, config, loading, currency, payments, expenses, manualRevs, clients, feeSchedules]);
 
   // ===== KPIs del período =====
   // Utilidades = sum REAL de nets (puede ser negativo si hubo pérdida).
@@ -666,6 +821,9 @@ export function PremiumDividendos({
       const saldoDisponible = dist.inversiones + dist.back;
       out.push({
         monthKey: mk,
+        seq: 0,
+        isReajuste: false,
+        label: null,
         fecha: "",
         ejercicio: "",
         net,
@@ -736,8 +894,10 @@ export function PremiumDividendos({
   const evolucionData = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of history) {
-      // No graficamos distribución sobre meses con pérdida.
-      map.set(r.monthKey, r.net > 0 ? r.importeDistribuido : 0);
+      // No graficamos distribución sobre meses con pérdida. Acumulamos
+      // (un mes puede tener original + reajustes).
+      const add = r.net > 0 ? r.importeDistribuido : 0;
+      map.set(r.monthKey, (map.get(r.monthKey) ?? 0) + add);
     }
     // Asegurar 12 meses si periodMode es this_year/ytd
     const months = monthsBetween(period.from, period.to);
@@ -1140,9 +1300,32 @@ export function PremiumDividendos({
                 </tr>
               ) : (
                 history.map((r) => (
-                  <tr key={r.monthKey} className="border-b border-rule-soft hover:bg-paper-100">
-                    <td className="px-4 py-3 text-ink tabular-nums">{r.fecha}</td>
-                    <td className="px-4 py-3 text-ink-400 tabular-nums">{r.ejercicio}</td>
+                  <tr
+                    key={`${r.monthKey}-${r.seq}`}
+                    className={cn(
+                      "border-b border-rule-soft hover:bg-paper-100",
+                      r.isReajuste && "bg-sky-50/40",
+                    )}
+                  >
+                    <td className="px-4 py-3 text-ink tabular-nums">
+                      {r.isReajuste ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-sky-500">↳</span>
+                          {r.fecha}
+                        </span>
+                      ) : (
+                        r.fecha
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-ink-400 tabular-nums">
+                      {r.isReajuste ? (
+                        <span className="text-2xs font-semibold text-sky-700">
+                          {r.label ?? "Reajuste"}
+                        </span>
+                      ) : (
+                        r.ejercicio
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-ink tabular-nums">
                       {fmt(r.importeDistribuido)}
                     </td>
