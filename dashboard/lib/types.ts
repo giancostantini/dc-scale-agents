@@ -719,6 +719,10 @@ export interface InvoicePayment {
   /** URL pública al PDF de la factura subida manualmente
    *  (migración 054). NULL = sin PDF cargado. */
   pdfUrl?: string | null;
+  /** Monto efectivamente cobrado (migración 098). NULL = sin cobro
+   *  registrado. Si 0 < paidAmount < importe → "Pago parcial" (estado
+   *  derivado); si >= importe la factura pasa a status="paid". */
+  paidAmount?: number | null;
 }
 
 // ==================== OBJETIVOS DEL CLIENTE ====================

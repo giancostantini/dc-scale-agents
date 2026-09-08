@@ -42,6 +42,7 @@ import {
   CheckCircle2,
   Trash2,
   XCircle,
+  HandCoins,
 } from "lucide-react";
 import {
   Cell,
@@ -61,6 +62,7 @@ import {
   getClients,
   getPayments,
   listFeeSchedules,
+  registerInvoicePayment,
   setPaymentAmount,
   setPaymentPdfUrl,
   setPaymentStatus,
@@ -93,6 +95,7 @@ const MONTHS_LONG_ES = [
 // Paleta del mockup
 const STATE_COLORS = {
   pagadas: "#1E3A8A",      // navy
+  parciales: "#0EA5E9",     // sky-500
   pendientes: "#3B82F6",    // blue-500
   vencidas: "#F87171",      // red-400
   anuladas: "#94A3B8",      // slate-400
@@ -100,7 +103,12 @@ const STATE_COLORS = {
 
 type PeriodMode = "this_year" | "last_year" | "last_12m" | "ytd" | "custom";
 
-type EstadoFactura = "pagada" | "pendiente" | "vencida" | "anulada";
+type EstadoFactura =
+  | "pagada"
+  | "parcial"
+  | "pendiente"
+  | "vencida"
+  | "anulada";
 
 interface Comprobante {
   id: string;            // payment_id
@@ -113,6 +121,8 @@ interface Comprobante {
   estado: EstadoFactura;
   note?: string | null;
   amountOverride?: number | null;
+  /** Monto ya cobrado (pago parcial). NULL/0 = sin cobro. */
+  paidAmount?: number | null;
 }
 
 /** Símbolo corto por moneda (para labels de inputs por-cliente). */
@@ -197,6 +207,11 @@ export function PremiumFacturacion() {
   const [editNote, setEditNote] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
+  // Modal de pago parcial
+  const [partialComp, setPartialComp] = useState<Comprobante | null>(null);
+  const [partialAmount, setPartialAmount] = useState("");
+  const [partialSaving, setPartialSaving] = useState(false);
+
   function refresh() {
     setLoading(true);
     Promise.all([getClients(), getPayments(), listFeeSchedules()]).then(
@@ -265,10 +280,13 @@ export function PremiumFacturacion() {
     return p?.amountOverride ?? scheduled ?? c.fee;
   }
 
-  function statusToEstado(p: InvoicePayment): EstadoFactura {
+  function statusToEstado(p: InvoicePayment, importe: number): EstadoFactura {
     const now = new Date().toISOString().slice(0, 7);
     if (p.status === "paid") return "pagada";
     if (p.status === "cancelled") return "anulada";
+    // Pago parcial (derivado): hay un cobro > 0 pero no cubre el importe.
+    const paid = p.paidAmount ?? 0;
+    if (paid > 0 && paid < importe) return "parcial";
     if (p.status === "late") return "vencida";
     // pending: si el mes ya pasó → vencida; si no → pendiente
     if (p.month < now) return "vencida";
@@ -327,9 +345,10 @@ export function PremiumFacturacion() {
         client,
         concepto: `Honorarios - ${MONTHS_LONG_ES[m - 1]} ${y}`,
         importe,
-        estado: statusToEstado(p),
+        estado: statusToEstado(p, importe),
         note: p.note ?? null,
         amountOverride: p.amountOverride ?? null,
+        paidAmount: p.paidAmount ?? null,
       } as Comprobante;
     });
     return out.filter((x): x is Comprobante => x !== null);
@@ -387,9 +406,15 @@ export function PremiumFacturacion() {
   const ticketPromedio = facturasEmitidas > 0 ? facturacionTotal / facturasEmitidas : 0;
   const ticketPromedioPrev = facturasEmitidasPrev > 0 ? facturacionAnioAnterior / facturasEmitidasPrev : 0;
 
+  // Pendiente REAL de cobro: para las parciales resta lo ya cobrado.
   const pendientesDeCobro = scoped
-    .filter((c) => c.estado === "pendiente" || c.estado === "vencida")
-    .reduce((s, c) => s + c.importe, 0);
+    .filter(
+      (c) =>
+        c.estado === "pendiente" ||
+        c.estado === "vencida" ||
+        c.estado === "parcial",
+    )
+    .reduce((s, c) => s + (c.importe - (c.paidAmount ?? 0)), 0);
   const pendientesDeCobroPrev = prevYearPays
     .filter((p) => p.status !== "paid")
     .reduce((s, p) => s + payAmt(p), 0);
@@ -432,16 +457,31 @@ export function PremiumFacturacion() {
   const stateData = useMemo(() => {
     const byState: Record<EstadoFactura, number> = {
       pagada: 0,
+      parcial: 0,
       pendiente: 0,
       vencida: 0,
       anulada: 0,
     };
     for (const c of scoped) {
-      byState[c.estado] += c.importe;
+      if (c.estado === "parcial") {
+        // Lo cobrado ya es plata que entró → cuenta como pagada; el
+        // resto adeudado queda en la porción "parcial".
+        const cobrado = c.paidAmount ?? 0;
+        byState.pagada += cobrado;
+        byState.parcial += Math.max(0, c.importe - cobrado);
+      } else {
+        byState[c.estado] += c.importe;
+      }
     }
-    const total = byState.pagada + byState.pendiente + byState.vencida + byState.anulada;
+    const total =
+      byState.pagada +
+      byState.parcial +
+      byState.pendiente +
+      byState.vencida +
+      byState.anulada;
     return [
       { key: "pagadas", label: "Pagadas", value: byState.pagada, pct: total > 0 ? (byState.pagada / total) * 100 : 0, color: STATE_COLORS.pagadas },
+      { key: "parciales", label: "Parciales (saldo)", value: byState.parcial, pct: total > 0 ? (byState.parcial / total) * 100 : 0, color: STATE_COLORS.parciales },
       { key: "pendientes", label: "Pendientes", value: byState.pendiente, pct: total > 0 ? (byState.pendiente / total) * 100 : 0, color: STATE_COLORS.pendientes },
       { key: "vencidas", label: "Vencidas", value: byState.vencida, pct: total > 0 ? (byState.vencida / total) * 100 : 0, color: STATE_COLORS.vencidas },
       { key: "anuladas", label: "Anuladas", value: byState.anulada, pct: total > 0 ? (byState.anulada / total) * 100 : 0, color: STATE_COLORS.anuladas },
@@ -544,6 +584,51 @@ export function PremiumFacturacion() {
     } catch (err) {
       const e = err as Error;
       toast.error(`Error: ${e.message}`);
+    }
+  }
+
+  function openPartial(c: Comprobante) {
+    setPartialComp(c);
+    // Preseteamos con lo ya cobrado (si había un pago parcial previo).
+    setPartialAmount(c.paidAmount != null ? String(c.paidAmount) : "");
+  }
+
+  async function savePartial() {
+    if (!partialComp) return;
+    const n = Number(partialAmount);
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error("Monto inválido");
+      return;
+    }
+    if (n > partialComp.importe) {
+      toast.error("El monto cobrado no puede superar el importe de la factura");
+      return;
+    }
+    setPartialSaving(true);
+    try {
+      const c = partialComp;
+      await registerInvoicePayment(c.client.id, c.fecha.slice(0, 7), n);
+      const isFull = n >= c.importe;
+      toast.success(
+        isFull
+          ? `${c.number} saldada. ${
+              c.client.default_cuenta_id
+                ? "Movimiento actualizado en la cuenta del cliente."
+                : "⚠️ El cliente no tiene cuenta bancaria default — el movimiento NO se creó."
+            }`
+          : `Pago parcial registrado: ${formatCurrency(n, curOf(c))} de ${formatCurrency(
+              c.importe,
+              curOf(c),
+            )}. Saldo ${formatCurrency(c.importe - n, curOf(c))}.`,
+      );
+      setPartialComp(null);
+      setPartialAmount("");
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setPartialSaving(false);
     }
   }
 
@@ -1007,6 +1092,7 @@ export function PremiumFacturacion() {
             >
               <option value="all">Filtros</option>
               <option value="pagada">Pagadas</option>
+              <option value="parcial">Pago parcial</option>
               <option value="pendiente">Pendientes</option>
               <option value="vencida">Vencidas</option>
               <option value="anulada">Anuladas</option>
@@ -1064,6 +1150,16 @@ export function PremiumFacturacion() {
                     <td className="px-4 py-3 text-ink-400">{c.concepto}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
                       {formatCurrency(c.importe, curOf(c))}
+                      {c.estado === "parcial" && (
+                        <div className="text-2xs text-sky-600 mt-0.5 font-medium">
+                          Cobrado {formatCurrency(c.paidAmount ?? 0, curOf(c))}
+                          {" · "}Saldo{" "}
+                          {formatCurrency(
+                            c.importe - (c.paidAmount ?? 0),
+                            curOf(c),
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <EstadoSelect
@@ -1100,6 +1196,15 @@ export function PremiumFacturacion() {
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
+                        {c.estado !== "pagada" && c.estado !== "anulada" && (
+                          <button
+                            onClick={() => openPartial(c)}
+                            className="p-1.5 rounded-premium-sm text-ink-400 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+                            title="Registrar pago parcial"
+                          >
+                            <HandCoins className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {c.estado !== "pagada" ? (
                           <button
                             onClick={() => markAsPaid(c)}
@@ -1269,6 +1374,92 @@ export function PremiumFacturacion() {
             />
           </Field>
         </div>
+      </Modal>
+
+      {/* Modal Pago parcial — registrar cuánto se cobró de una factura
+          pendiente. Genera/actualiza el movimiento de ingreso en la
+          cuenta default del cliente por el monto cobrado. */}
+      <Modal
+        open={!!partialComp}
+        onClose={() => !partialSaving && setPartialComp(null)}
+        title={partialComp ? `Pago parcial · ${partialComp.number}` : ""}
+        description={
+          partialComp
+            ? `${partialComp.client.name} · ${partialComp.concepto}`
+            : ""
+        }
+        size="md"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setPartialComp(null)}
+              disabled={partialSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={savePartial}
+              loading={partialSaving}
+            >
+              Registrar cobro
+            </Button>
+          </>
+        }
+      >
+        {partialComp && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-premium-sm bg-paper-100 px-4 py-3">
+              <span className="text-xs text-ink-400">Importe de la factura</span>
+              <span className="tabular-nums font-semibold text-ink">
+                {formatCurrency(partialComp.importe, curOf(partialComp))}
+              </span>
+            </div>
+            <Field
+              label={`Monto cobrado (${currencySymbol(curOf(partialComp))})`}
+              hint="Cuánto pagó la empresa. Si iguala el importe, la factura pasa a Pagada."
+              required
+            >
+              <Input
+                type="number"
+                value={partialAmount}
+                onChange={(e) => setPartialAmount(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+              />
+            </Field>
+            {(() => {
+              const n = Number(partialAmount);
+              if (!Number.isFinite(n) || n <= 0) return null;
+              const saldo = partialComp.importe - n;
+              if (saldo < 0) {
+                return (
+                  <p className="text-xs text-rose-600">
+                    El monto supera el importe de la factura.
+                  </p>
+                );
+              }
+              return (
+                <div className="flex items-center justify-between rounded-premium-sm border border-sky-200 bg-sky-50 px-4 py-3">
+                  <span className="text-xs text-sky-700">
+                    {saldo === 0 ? "Factura saldada" : "Saldo restante"}
+                  </span>
+                  <span className="tabular-nums font-semibold text-sky-700">
+                    {formatCurrency(saldo, curOf(partialComp))}
+                  </span>
+                </div>
+              );
+            })()}
+            {!partialComp.client.default_cuenta_id && (
+              <p className="text-xs text-amber-600">
+                ⚠️ {partialComp.client.name} no tiene cuenta bancaria default:
+                se registra el cobro pero no se creará el movimiento
+                automáticamente.
+              </p>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* Modal Nueva Factura — adjuntá el PDF de una factura emitida
@@ -1601,6 +1792,7 @@ function DetailRow({
 function EstadoPill({ estado }: { estado: EstadoFactura }) {
   const config: Record<EstadoFactura, { label: string; classes: string }> = {
     pagada: { label: "Pagada", classes: "bg-emerald-50 text-emerald-700" },
+    parcial: { label: "Pago parcial", classes: "bg-sky-50 text-sky-700" },
     pendiente: { label: "Pendiente", classes: "bg-amber-50 text-amber-700" },
     vencida: { label: "Vencida", classes: "bg-red-50 text-red-700" },
     anulada: { label: "Anulada", classes: "bg-slate-100 text-slate-600" },
@@ -1642,6 +1834,7 @@ function EstadoSelect({
         : "pendiente";
   const visualClasses: Record<EstadoFactura, string> = {
     pagada: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    parcial: "border-sky-200 bg-sky-50 text-sky-700",
     pendiente: "border-amber-200 bg-amber-50 text-amber-700",
     vencida: "border-rose-200 bg-rose-50 text-rose-700",
     anulada: "border-slate-200 bg-slate-100 text-slate-600",

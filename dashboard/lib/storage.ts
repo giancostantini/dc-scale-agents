@@ -1758,6 +1758,7 @@ export async function getPayments(): Promise<InvoicePayment[]> {
       amount_override: number | null;
       note: string | null;
       pdf_url: string | null;
+      paid_amount: number | string | null;
     }>
   ).map((r) => ({
     clientId: r.client_id,
@@ -1767,6 +1768,12 @@ export async function getPayments(): Promise<InvoicePayment[]> {
     amountOverride: r.amount_override ?? null,
     note: r.note ?? null,
     pdfUrl: r.pdf_url ?? null,
+    paidAmount:
+      r.paid_amount == null
+        ? null
+        : typeof r.paid_amount === "string"
+          ? parseFloat(r.paid_amount)
+          : Number(r.paid_amount),
   }));
 }
 
@@ -1821,76 +1828,173 @@ export async function setPaymentStatus(
   }
 }
 
-/**
- * Cuando una factura se marca como pagada, crea un movimiento de
- * ingreso en la cuenta bancaria default del cliente (si tiene una
- * configurada). Idempotente — usa una descripción canónica para
- * evitar duplicar el movimiento si se marca pagada / no-pagada /
- * pagada nuevamente.
- *
- * No-op si:
- *   · El cliente no tiene default_cuenta_id configurado.
- *   · Ya existe un movimiento con la descripción canónica.
- */
-async function autoCreatePaymentMovement(
+/** Marker por-factura en cuenta_movimientos.notes — hace idempotente
+ *  el movimiento de ingreso de una factura (cliente+mes). Incluye la
+ *  clave completa para no pisar el movimiento de otra factura. */
+const INVOICE_MOVEMENT_MARKER = (clientId: string, month: string) =>
+  `[auto-invoice:${clientId}:${month}]`;
+
+/** Resuelve cuenta default + nombre + importe (override > schedule >
+ *  fee base) de la factura de un cliente/mes. NULL si no hay cuenta
+ *  default o el importe no es válido. */
+async function resolveInvoiceContext(
   clientId: string,
   month: string,
-): Promise<void> {
+): Promise<{ cuentaId: string; name: string; importe: number } | null> {
   const supabase = getSupabase();
-
-  // 1. Datos del cliente: cuenta default + nombre
   const { data: client, error: cliErr } = await supabase
     .from("clients")
     .select("name, default_cuenta_id, fee")
     .eq("id", clientId)
     .maybeSingle();
-  if (cliErr || !client) return;
-  const cuentaId = (client as { default_cuenta_id?: string | null }).default_cuenta_id;
-  if (!cuentaId) return;
+  if (cliErr || !client) return null;
+  const cuentaId = (client as { default_cuenta_id?: string | null })
+    .default_cuenta_id;
+  if (!cuentaId) return null;
 
-  // 2. Importe del payment (override > schedule > fee base)
   const { data: payment } = await supabase
     .from("payments")
     .select("amount_override")
     .eq("client_id", clientId)
     .eq("month", month)
     .maybeSingle();
-  const override = (payment as { amount_override?: number | string | null } | null)?.amount_override;
-  // Fee schedule efectivo para el mes
+  const override = (
+    payment as { amount_override?: number | string | null } | null
+  )?.amount_override;
   const schedules = await listFeeSchedulesForClient(clientId);
   const scheduled = effectiveFeeForMonth(schedules, clientId, month);
-  const fee =
+  const importe =
     (override == null
       ? null
       : typeof override === "string"
         ? parseFloat(override)
         : Number(override)) ??
     scheduled ??
-    (typeof client.fee === "string" ? parseFloat(client.fee) : Number(client.fee));
-  if (!fee || fee <= 0) return;
+    (typeof client.fee === "string"
+      ? parseFloat(client.fee)
+      : Number(client.fee));
+  if (!importe || importe <= 0) return null;
+  return { cuentaId, name: client.name as string, importe };
+}
 
-  // 3. Descripción canónica + chequeo de existencia (idempotente)
-  const description = `Cobro factura ${month} · ${client.name}`;
+/**
+ * Sincroniza el movimiento de INGRESO de una factura en la cuenta
+ * default del cliente, por el monto EFECTIVAMENTE cobrado (`cobrado`).
+ * Idempotente vía marker por-factura en notes: un segundo cobro (pago
+ * parcial que sube, o completar el saldo) ACTUALIZA el mismo movimiento
+ * en vez de duplicarlo.
+ *
+ * No-op si el cliente no tiene cuenta default o el importe no es válido.
+ * Si `cobrado` <= 0, borra el movimiento que hubiera quedado.
+ */
+async function syncInvoiceMovement(
+  clientId: string,
+  month: string,
+  cobrado: number,
+): Promise<void> {
+  const supabase = getSupabase();
+  const ctx = await resolveInvoiceContext(clientId, month);
+  if (!ctx) return;
+
+  const marker = INVOICE_MOVEMENT_MARKER(clientId, month);
   const { data: existing } = await supabase
     .from("cuenta_movimientos")
     .select("id")
-    .eq("cuenta_id", cuentaId)
-    .eq("description", description)
+    .like("notes", `%${marker}%`)
+    .limit(1)
     .maybeSingle();
-  if (existing) return;
 
-  // 4. Crear el movimiento
+  // La cuenta exige entry_amount > 0. Sin cobro → borrar si existía.
+  if (!(cobrado > 0)) {
+    if (existing?.id) {
+      await supabase.from("cuenta_movimientos").delete().eq("id", existing.id);
+    }
+    return;
+  }
+
   const today = new Date().toISOString().slice(0, 10);
-  const { error: movErr } = await supabase.from("cuenta_movimientos").insert({
-    cuenta_id: cuentaId,
+  const movementBody = {
+    cuenta_id: ctx.cuentaId,
     fecha: today,
-    description,
-    category: "ingreso",
-    entry_amount: fee,
+    description: `Cobro factura ${month} · ${ctx.name}`,
+    category: "ingreso" as const,
+    entry_amount: cobrado,
     exit_amount: 0,
-  });
-  if (movErr) {
-    console.error("autoCreatePaymentMovement insert:", movErr);
+    comprobante_id: null,
+    notes: marker,
+  };
+
+  const { error: movErr } = existing?.id
+    ? await supabase
+        .from("cuenta_movimientos")
+        .update(movementBody)
+        .eq("id", existing.id)
+    : await supabase.from("cuenta_movimientos").insert(movementBody);
+  if (movErr) console.error("syncInvoiceMovement:", movErr);
+}
+
+/**
+ * Cuando una factura se marca como pagada del todo, sincroniza el
+ * movimiento de ingreso por el importe COMPLETO de la factura.
+ */
+async function autoCreatePaymentMovement(
+  clientId: string,
+  month: string,
+): Promise<void> {
+  const ctx = await resolveInvoiceContext(clientId, month);
+  if (!ctx) return;
+  await syncInvoiceMovement(clientId, month, ctx.importe);
+}
+
+/**
+ * Registra un PAGO PARCIAL (o total) de una factura: guarda el monto
+ * cobrado y deriva el estado —
+ *   · paidAmount >= importe → status="paid" (factura saldada)
+ *   · 0 < paidAmount < importe → status="pending" ("Pago parcial", derivado)
+ *   · paidAmount <= 0 → limpia el cobro (vuelve a pendiente sin cobro)
+ * Sincroniza el movimiento bancario de ingreso por el monto cobrado.
+ */
+export async function registerInvoicePayment(
+  clientId: string,
+  month: string,
+  paidAmount: number,
+): Promise<void> {
+  const supabase = getSupabase();
+  const ctx = await resolveInvoiceContext(clientId, month);
+  const importe = ctx?.importe ?? null;
+  const isFull = importe != null && paidAmount >= importe;
+  const cobro = paidAmount > 0 ? paidAmount : null;
+
+  // Preservar status previo salvo que el cobro complete la factura.
+  const { data: prev } = await supabase
+    .from("payments")
+    .select("status")
+    .eq("client_id", clientId)
+    .eq("month", month)
+    .maybeSingle();
+  const prevStatus = (prev as { status?: InvoicePayment["status"] } | null)
+    ?.status;
+  const status: InvoicePayment["status"] = isFull
+    ? "paid"
+    : prevStatus === "paid"
+      ? "pending" // se bajó el cobro por debajo del importe → deja de estar saldada
+      : (prevStatus ?? "pending");
+
+  await supabase.from("payments").upsert(
+    {
+      client_id: clientId,
+      month,
+      status,
+      paid_date: isFull ? new Date().toISOString() : null,
+      paid_amount: cobro,
+    },
+    { onConflict: "client_id,month" },
+  );
+
+  try {
+    await syncInvoiceMovement(clientId, month, paidAmount);
+  } catch (err) {
+    console.error("registerInvoicePayment movement:", err);
   }
 }
 
