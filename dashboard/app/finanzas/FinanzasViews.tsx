@@ -28,11 +28,18 @@ import {
 } from "recharts";
 import { listAllAssignments, listProfiles } from "@/lib/team";
 import {
+  addExpense,
   computeMonthlyMrr,
   effectiveFeeForMonth,
+  getExpenses,
   listClientMktBudgets,
   setClientMktBudget,
 } from "@/lib/storage";
+import {
+  listCuentas,
+  formatCurrency,
+  type CuentaBancaria,
+} from "@/lib/cuentas-bancarias";
 import type { Profile } from "@/lib/supabase/auth";
 import {
   createManualRevenue,
@@ -54,6 +61,7 @@ import type {
   ClientFeeSchedule,
   ClientMktBudget,
   Expense,
+  FinanceCurrency,
   InvoicePayment,
   Lead,
 } from "@/lib/types";
@@ -751,14 +759,29 @@ export function TeamCostView() {
     }>
   >([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Modal para elegir cuenta al marcar pagado a un funcional. */
+  const [payModal, setPayModal] = useState<{
+    profile: Profile;
+    amount: number;
+    currency: FinanceCurrency;
+    cuentaId: string;
+  } | null>(null);
+  const [paying, setPaying] = useState(false);
 
-  useEffect(() => {
+  const monthKey = new Date().toISOString().slice(0, 7);
+
+  function refresh() {
+    setLoading(true);
     Promise.all([
       listProfiles(),
       listAllAssignments(),
       getClientsForFinanzas(),
-    ]).then(([list, asg, cls]) => {
+      getExpenses(),
+      listCuentas(),
+    ]).then(([list, asg, cls, exps, cts]) => {
       setProfiles(
         list.filter(
           (p) =>
@@ -769,9 +792,32 @@ export function TeamCostView() {
       );
       setAssignments(asg);
       setClients(cls);
+      setExpenses(exps);
+      setCuentas(cts);
       setLoading(false);
     });
+  }
+
+  useEffect(() => {
+    refresh();
   }, []);
+
+  /** Concepto canónico de la nómina de un miembro — mismo formato que
+   *  generateTeamPayroll, para detectar si ya está pago este mes. */
+  const payrollConcept = (p: Profile) => `Nómina · ${p.name}`;
+
+  /** ¿Ya se pagó a este funcional este mes? Busca el egreso equipo del
+   *  mes en curso con ese concepto. */
+  function paidThisMonth(p: Profile): Expense | null {
+    return (
+      expenses.find(
+        (e) =>
+          e.category === "equipo" &&
+          e.concept === payrollConcept(p) &&
+          (e.date ?? "").startsWith(monthKey),
+      ) ?? null
+    );
+  }
 
   const today = new Date();
   const todayDay = today.getDate();
@@ -803,19 +849,65 @@ export function TeamCostView() {
   /**
    * Costo mensual EFECTIVO de un miembro según su payment_type.
    *
-   * - fijo / por_proyecto / por_hora / mixto → payment_amount tal cual
-   *   (no tenemos tracking de proyectos ni horas todavía, así que el
-   *   amount cargado se trata como el costo base mensual).
-   * - por_cliente → payment_amount × cantidad de clientes activos
-   *   asignados. Si gana USD 200 por cliente y tiene 3 → USD 600/mes.
+   * - por_cliente / por_proyecto → payment_amount × cantidad de
+   *   clientes activos asignados (cada cliente asignado cuenta como un
+   *   proyecto). Si gana USD 150 por proyecto y tiene 2 → USD 300/mes.
+   * - fijo / por_hora / mixto → payment_amount tal cual (no hay
+   *   tracking de horas; el amount se trata como costo base mensual).
    */
   function effectiveMonthlyCost(p: Profile): number {
     const base = Number(p.payment_amount ?? 0);
-    if (p.payment_type === "por_cliente") {
-      const clientCount = assignmentsFor(p.id).length;
-      return base * clientCount;
+    if (p.payment_type === "por_cliente" || p.payment_type === "por_proyecto") {
+      return base * assignmentsFor(p.id).length;
     }
     return base;
+  }
+
+  /** Abre el modal de pago para un funcional: preselecciona la moneda
+   *  del funcional y la primera cuenta bancaria de esa moneda. */
+  function openPayModal(p: Profile) {
+    const currency: FinanceCurrency =
+      p.payment_currency === "UYU" ? "UYU" : "USD";
+    const match = cuentas.find((c) => c.currency === currency);
+    setPayModal({
+      profile: p,
+      amount: effectiveMonthlyCost(p),
+      currency,
+      cuentaId: match?.id ?? cuentas[0]?.id ?? "",
+    });
+  }
+
+  /** Confirma el pago: registra un egreso de nómina que, vía
+   *  syncExpenseToMovement, genera el movimiento de salida en la cuenta
+   *  elegida — igual mecanismo que el pago de dividendos. */
+  async function confirmPay() {
+    if (!payModal || !payModal.cuentaId) return;
+    setPaying(true);
+    try {
+      const { profile, amount, currency, cuentaId } = payModal;
+      // Fecha = último día del mes en curso (fin de período de nómina).
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const dateIso = `${monthEnd.getFullYear()}-${String(
+        monthEnd.getMonth() + 1,
+      ).padStart(2, "0")}-${String(monthEnd.getDate()).padStart(2, "0")}`;
+      await addExpense({
+        date: dateIso,
+        concept: payrollConcept(profile),
+        category: "equipo",
+        assignedTo: profile.id,
+        amount,
+        currency,
+        recurrence: "one_time",
+        status: "paid",
+        cuentaId,
+      });
+      setPayModal(null);
+      refresh();
+    } catch (err) {
+      alert(`No se pudo registrar el pago: ${(err as Error).message}`);
+    } finally {
+      setPaying(false);
+    }
   }
 
   const grandTotal = profiles.reduce(
@@ -1009,13 +1101,17 @@ export function TeamCostView() {
                         </div>
                       </div>
                       <div className={styles.num}>
-                        {/* Caso por_cliente: monto unitario + cantidad
-                            de clientes + multiplicación → costo final */}
-                        {p.payment_type === "por_cliente" ? (
+                        {/* por_cliente / por_proyecto: monto unitario ×
+                            cantidad de clientes asignados → costo final */}
+                        {p.payment_type === "por_cliente" ||
+                        p.payment_type === "por_proyecto" ? (
                           (() => {
                             const unit = Number(p.payment_amount ?? 0);
                             const cnt = assignmentsFor(p.id).length;
                             const total = unit * cnt;
+                            const esProyecto =
+                              p.payment_type === "por_proyecto";
+                            const unidad = esProyecto ? "proyecto" : "cliente";
                             return (
                               <>
                                 <strong style={{ fontSize: 15 }}>
@@ -1031,7 +1127,7 @@ export function TeamCostView() {
                                 >
                                   {p.payment_currency ?? "USD"}{" "}
                                   {unit.toLocaleString()} × {cnt}{" "}
-                                  {cnt === 1 ? "cliente" : "clientes"}
+                                  {cnt === 1 ? unidad : `${unidad}s`}
                                 </div>
                                 <div
                                   style={{
@@ -1043,7 +1139,7 @@ export function TeamCostView() {
                                     marginTop: 4,
                                   }}
                                 >
-                                  POR CLIENTE
+                                  {esProyecto ? "POR PROYECTO" : "POR CLIENTE"}
                                 </div>
                               </>
                             );
@@ -1100,7 +1196,54 @@ export function TeamCostView() {
                           </span>
                         )}
                       </div>
-                      <div style={{ textAlign: "right" }}>
+                      <div
+                        style={{
+                          textAlign: "right",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-end",
+                          gap: 6,
+                        }}
+                      >
+                        {(() => {
+                          const paid = paidThisMonth(p);
+                          if (paid) {
+                            return (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--green-ok)",
+                                  fontWeight: 700,
+                                  border: "1px solid var(--green-ok)",
+                                  padding: "4px 10px",
+                                  borderRadius: "var(--r-sm)",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Pagado ✓
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openPayModal(p)}
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: "var(--off-white)",
+                                background: "var(--deep-green)",
+                                border: "none",
+                                padding: "5px 12px",
+                                borderRadius: "var(--r-sm)",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Marcar pagado
+                            </button>
+                          );
+                        })()}
                         <Link
                           href={`/equipo/${p.id}`}
                           style={{
@@ -1204,6 +1347,165 @@ export function TeamCostView() {
               })}
           </div>
         </>
+      )}
+
+      {/* Modal: marcar pagado a un funcional → egreso + movimiento bancario */}
+      {payModal && (
+        <div
+          onClick={() => !paying && setPayModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--off-white)",
+              borderRadius: "var(--r-lg)",
+              padding: 28,
+              width: "100%",
+              maxWidth: 420,
+              boxShadow: "0 20px 60px rgba(10,26,12,0.3)",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 18,
+                color: "var(--deep-green)",
+                fontWeight: 700,
+              }}
+            >
+              Pagar a {payModal.profile.name}
+            </h3>
+            <p
+              style={{
+                margin: "8px 0 20px",
+                fontSize: 13,
+                color: "var(--text-muted)",
+              }}
+            >
+              Se registrará un egreso de nómina por{" "}
+              <strong style={{ color: "var(--deep-green)" }}>
+                {formatCurrency(payModal.amount, payModal.currency)}
+              </strong>{" "}
+              y el movimiento de salida en la cuenta elegida.
+            </p>
+
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 6,
+              }}
+            >
+              Cuenta bancaria
+            </label>
+            <select
+              value={payModal.cuentaId}
+              onChange={(e) =>
+                setPayModal({ ...payModal, cuentaId: e.target.value })
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "var(--r-sm)",
+                border: "1px solid rgba(10,26,12,0.2)",
+                fontSize: 14,
+                background: "#fff",
+                marginBottom: 4,
+              }}
+            >
+              {cuentas.length === 0 && (
+                <option value="">Sin cuentas bancarias</option>
+              )}
+              {cuentas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.bank_name} · {c.account_name} · {c.currency}
+                </option>
+              ))}
+            </select>
+            {(() => {
+              const sel = cuentas.find((c) => c.id === payModal.cuentaId);
+              if (sel && sel.currency !== payModal.currency) {
+                return (
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      fontSize: 11,
+                      color: "var(--red-warn)",
+                    }}
+                  >
+                    ⚠ La cuenta es en {sel.currency} pero el pago es en{" "}
+                    {payModal.currency}. Elegí una cuenta en{" "}
+                    {payModal.currency}.
+                  </p>
+                );
+              }
+              return null;
+            })()}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                marginTop: 24,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setPayModal(null)}
+                disabled={paying}
+                style={{
+                  padding: "9px 16px",
+                  borderRadius: "var(--r-sm)",
+                  border: "1px solid rgba(10,26,12,0.2)",
+                  background: "transparent",
+                  fontSize: 13,
+                  cursor: paying ? "default" : "pointer",
+                  color: "var(--deep-green)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmPay}
+                disabled={
+                  paying ||
+                  !payModal.cuentaId ||
+                  cuentas.find((c) => c.id === payModal.cuentaId)?.currency !==
+                    payModal.currency
+                }
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: "var(--r-sm)",
+                  border: "none",
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: paying ? "default" : "pointer",
+                  opacity: paying ? 0.6 : 1,
+                }}
+              >
+                {paying ? "Registrando…" : "Confirmar pago"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
