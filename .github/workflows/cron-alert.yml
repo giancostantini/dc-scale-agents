@@ -48,6 +48,9 @@ on:
       # Stage 2c — si el juez semanal muere, los sets dorados dejan de
       # medirse (y "evals verdes" es trigger de H2).
       - "Evals"
+      # Ventas — si el prospector del lunes muere, dejan de entrar
+      # prospectos nuevos al pipeline sin que nadie lo note.
+      - "Prospección"
     types: [completed]
 
 jobs:

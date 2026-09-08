@@ -373,6 +373,24 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
     owner: "lucia",
     status: "active",
   },
+
+  // ============ VENTAS ============
+  // Primera flota de la Gerencia de Ventas (antes "en formación"). Regla
+  // dura de la gerencia: contacto en frío automático JAMÁS — estos agentes
+  // solo cargan/preparan; el envío es siempre humano.
+  {
+    key: "prospeccion",
+    name: "Prospector de Llamados",
+    desc: "Busca llamados laborales públicos de marketing (web search, lunes) y carga los candidatos score ≥4 como prospectos en /pipeline. Solo carga: la redacción es el botón de mensaje del pipeline y el envío SIEMPRE humano. Config: vault/agents/prospeccion/busquedas.md.",
+    kind: "agent",
+    area: "ventas",
+    owner: "socios",
+    status: "active",
+    workflow: "prospeccion.yml",
+    // Sin repositoryDispatch/dispatchable: v1 corre por cron + dispatch
+    // manual del workflow (los canales de dispatch del dashboard exigen
+    // clientId y este agente es de agencia — deuda declarada).
+  },
 ];
 
 // ============ Derivaciones (los ex-registries duplicados) ============
