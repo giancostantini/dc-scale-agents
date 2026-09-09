@@ -1,0 +1,49 @@
+name: Prospección
+
+# Prospector de Llamados (Gerencia de Ventas). Lunes 10:30 UTC = 07:30 UY:
+# busca llamados laborales públicos de marketing (web search) y carga los
+# candidatos score ≥4 como prospectos en /pipeline. El refresh de digests
+# de las 11:15 UTC los mete solo en el contexto del Gerente General y del
+# Gerente de Ventas ese mismo lunes.
+#
+# SOLO CARGA — jamás contacta: redacción vía el botón de mensaje del
+# pipeline, envío SIEMPRE humano (regla dura de la Gerencia de Ventas).
+#
+# Config de búsqueda editable: vault/agents/prospeccion/busquedas.md
+
+on:
+  schedule:
+    - cron: '30 10 * * 1'
+  workflow_dispatch:
+    inputs:
+      extra_query:
+        description: 'Búsqueda extra para este run (opcional, ej. "ecommerce Chile")'
+        required: false
+
+jobs:
+  prospectar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Correr prospección
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
+            exit 1
+          fi
+          cat > /tmp/brief.json << BRIEF_EOF
+          {"source":"scheduled","extraQuery":"${{ inputs.extra_query || '' }}"}
+          BRIEF_EOF
+          node scripts/prospeccion/index.js --brief /tmp/brief.json
