@@ -38,6 +38,8 @@ import {
   FileText as FileTextIcon,
   Trash2,
   Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import {
   Area,
@@ -62,6 +64,7 @@ import {
   formatCurrency,
   listCuentas,
   listMovimientos,
+  updateMovimiento,
   type BankSlug,
   type CuentaBancaria,
   type CuentaMovimiento,
@@ -228,6 +231,11 @@ export function PremiumCuentasBancarias() {
     amount: "",
   });
   const [savingMov, setSavingMov] = useState(false);
+
+  // Edición inline de la fecha de un movimiento en la tabla.
+  const [editingFechaId, setEditingFechaId] = useState<string | null>(null);
+  const [editingFecha, setEditingFecha] = useState("");
+  const [savingFecha, setSavingFecha] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -566,6 +574,40 @@ export function PremiumCuentasBancarias() {
     }
   }
 
+  function startEditFecha(m: CuentaMovimiento) {
+    setEditingFechaId(m.id);
+    setEditingFecha(m.fecha.slice(0, 10));
+  }
+
+  function cancelEditFecha() {
+    setEditingFechaId(null);
+    setEditingFecha("");
+  }
+
+  async function saveEditFecha(m: CuentaMovimiento) {
+    const nueva = editingFecha.trim();
+    if (!nueva) {
+      toast.error("Elegí una fecha válida.");
+      return;
+    }
+    if (nueva === m.fecha.slice(0, 10)) {
+      cancelEditFecha();
+      return;
+    }
+    setSavingFecha(true);
+    try {
+      await updateMovimiento(m.id, { fecha: nueva });
+      toast.success("Fecha actualizada");
+      cancelEditFecha();
+      refresh();
+    } catch (err) {
+      const e = err as Error;
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setSavingFecha(false);
+    }
+  }
+
   function exportCsv() {
     const header = ["Fecha", "Cuenta", "Descripción", "Categoría", "Entrada", "Salida", "Saldo cuenta", "Moneda"];
     const rows = filteredMovs.map((m) => {
@@ -900,7 +942,49 @@ export function PremiumCuentasBancarias() {
                   const saldo = saldoSnapshot.get(m.id)?.saldoCuenta ?? 0;
                   return (
                     <tr key={m.id} className="border-b border-rule-soft hover:bg-paper-100">
-                      <td className="px-4 py-3 text-ink-400 tabular-nums">{m.fecha}</td>
+                      <td className="px-4 py-3 text-ink-400 tabular-nums">
+                        {editingFechaId === m.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="date"
+                              value={editingFecha}
+                              autoFocus
+                              disabled={savingFecha}
+                              onChange={(e) => setEditingFecha(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEditFecha(m);
+                                if (e.key === "Escape") cancelEditFecha();
+                              }}
+                              className="px-2 py-1 text-xs border border-rule rounded-premium-sm bg-paper focus:outline-none focus:border-rule-strong"
+                            />
+                            <button
+                              onClick={() => saveEditFecha(m)}
+                              disabled={savingFecha}
+                              className="p-1 rounded-premium-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              title="Guardar"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={cancelEditFecha}
+                              disabled={savingFecha}
+                              className="p-1 rounded-premium-sm text-ink-400 hover:bg-paper-200 transition-colors"
+                              title="Cancelar"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startEditFecha(m)}
+                            className="group inline-flex items-center gap-1.5 hover:text-ink transition-colors"
+                            title="Editar fecha"
+                          >
+                            <span className="tabular-nums">{m.fecha}</span>
+                            <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-ink">
                         {cuenta ? (
                           <span className="flex items-center gap-2">

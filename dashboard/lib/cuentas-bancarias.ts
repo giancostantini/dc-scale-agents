@@ -277,6 +277,40 @@ export async function createMovimiento(
   return movFromRow(data);
 }
 
+/** Campos editables de un movimiento existente. Todos opcionales:
+ *  solo se actualiza lo que venga. El saldo de la cuenta lo recalcula
+ *  el trigger de DB al modificar la fila. */
+export interface UpdateMovimientoInput {
+  fecha?: string;
+  description?: string;
+  category?: MovimientoCategoria;
+  entry_amount?: number;
+  exit_amount?: number;
+  notes?: string | null;
+}
+
+export async function updateMovimiento(
+  id: string,
+  patch: UpdateMovimientoInput,
+): Promise<CuentaMovimiento> {
+  const supabase = getSupabase();
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.fecha !== undefined) dbPatch.fecha = patch.fecha;
+  if (patch.description !== undefined) dbPatch.description = patch.description;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.entry_amount !== undefined) dbPatch.entry_amount = patch.entry_amount;
+  if (patch.exit_amount !== undefined) dbPatch.exit_amount = patch.exit_amount;
+  if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+  const { data, error } = await supabase
+    .from("cuenta_movimientos")
+    .update(dbPatch)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw new Error(`Error actualizando movimiento: ${error.message}`);
+  return movFromRow(data);
+}
+
 export async function deleteMovimiento(id: string): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase
