@@ -991,39 +991,127 @@ export function PremiumDividendos({
     toast.success("CSV descargado");
   }
 
-  function exportActa(r: HistRow) {
-    if (!config) return;
-    const header = ["Concepto", "Porcentaje", "Importe USD"];
-    const lines = [
-      [config.partner_a_name, `${config.partner_a_pct}%`, r.partnerA.toFixed(2)],
-      [config.partner_b_name, `${config.partner_b_pct}%`, r.partnerB.toFixed(2)],
-      ["Inversiones empresa", `${config.inversiones_pct}%`, r.inversiones.toFixed(2)],
-    ];
-    if (Number(config.back_pct) > 0) {
-      lines.push(["Back empresa", `${config.back_pct}%`, r.back.toFixed(2)]);
+  /** Desglose tipo P&L del mes en la moneda activa: los ingresos
+   *  (fees cobrados + revenues manuales) y egresos que componen el
+   *  resultado neto. Misma lógica que monthNet, pero devolviendo cada
+   *  línea para el acta. */
+  function buildPnl(mk: string): {
+    ingresos: { label: string; amount: number }[];
+    egresos: { label: string; amount: number }[];
+    totalIngresos: number;
+    totalEgresos: number;
+    net: number;
+  } {
+    const ingresos: { label: string; amount: number }[] = [];
+    for (const c of clients) {
+      if ((c.fee_currency ?? "USD") !== currency) continue;
+      const p = payments.find((pp) => pp.clientId === c.id && pp.month === mk);
+      if (!p || p.status !== "paid") continue;
+      const scheduled = effectiveFeeForMonth(feeSchedules, c.id, mk);
+      const amt = p.amountOverride ?? scheduled ?? c.fee;
+      if (amt > 0) ingresos.push({ label: c.name, amount: amt });
     }
-    lines.push(["TOTAL DISTRIBUIDO", "", r.importeDistribuido.toFixed(2)]);
-    lines.push(["Saldo disponible", "", r.saldoDisponible.toFixed(2)]);
-    const rows = lines.map((row) =>
-      row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
-    );
-    const csv = "﻿" + [
-      `"Acta de distribución ${currency} — ${r.monthKey}"`,
-      `"Resultado neto: ${sym} ${r.net.toFixed(2)}"`,
-      "",
-      header.join(","),
-      ...rows,
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `acta-distribucion-${r.monthKey}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast.success("Acta descargada");
+    for (const rev of manualRevs) {
+      if ((rev.status ?? "paid") !== "paid") continue;
+      if ((rev.currency === "UYU" ? "UYU" : "USD") !== currency) continue;
+      const impact = revenueMonthlyImpact(rev, mk);
+      if (impact > 0)
+        ingresos.push({
+          label: rev.description || "Ingreso manual",
+          amount: impact,
+        });
+    }
+    const egresos: { label: string; amount: number }[] = [];
+    for (const e of expenses) {
+      if ((e.currency ?? "USD") !== currency) continue;
+      const dateMk = (e.date ?? "").slice(0, 7);
+      if (!dateMk) continue;
+      let applies: boolean;
+      if (e.recurrence === "monthly_fixed") {
+        const endMk = e.recurrenceEndDate?.slice(0, 7) ?? "9999-99";
+        applies = mk >= dateMk && mk <= endMk;
+      } else {
+        applies = dateMk === mk;
+      }
+      if (!applies) continue;
+      const amt = Number(e.amount) || 0;
+      if (amt !== 0) egresos.push({ label: e.concept || "Egreso", amount: amt });
+    }
+    ingresos.sort((a, b) => b.amount - a.amount);
+    egresos.sort((a, b) => b.amount - a.amount);
+    const totalIngresos = ingresos.reduce((s, x) => s + x.amount, 0);
+    const totalEgresos = egresos.reduce((s, x) => s + x.amount, 0);
+    return {
+      ingresos,
+      egresos,
+      totalIngresos,
+      totalEgresos,
+      net: totalIngresos - totalEgresos,
+    };
+  }
+
+  async function exportActa(r: HistRow) {
+    if (!config) return;
+    try {
+      const [yy, mm] = r.monthKey.split("-").map(Number);
+      const monthLabel = `${MONTHS_LONG_ES[mm - 1].charAt(0).toUpperCase()}${MONTHS_LONG_ES[mm - 1].slice(1)} ${yy}`;
+
+      const distribucion: { label: string; pct: number; amount: number }[] = [
+        { label: config.partner_a_name, pct: Number(config.partner_a_pct), amount: r.partnerA },
+        { label: config.partner_b_name, pct: Number(config.partner_b_pct), amount: r.partnerB },
+        { label: "Inversiones empresa", pct: Number(config.inversiones_pct), amount: r.inversiones },
+      ];
+      if (Number(config.back_pct) > 0) {
+        distribucion.push({
+          label: "Back empresa",
+          pct: Number(config.back_pct),
+          amount: r.back,
+        });
+      }
+
+      // P&L completo solo para la distribución original (seq=0). Para un
+      // reajuste el neto es la diferencia, no el resultado del mes.
+      const pnl = r.isReajuste
+        ? { ingresos: [], egresos: [], totalIngresos: 0, totalEgresos: 0, net: r.net }
+        : buildPnl(r.monthKey);
+
+      const { pdf } = await import("@react-pdf/renderer");
+      const { default: DividendActaPdf } = await import(
+        "@/components/DividendActaPdf"
+      );
+      const blob = await pdf(
+        <DividendActaPdf
+          monthLabel={monthLabel}
+          currencyCode={currency}
+          symbol={sym}
+          estado={r.estado}
+          isReajuste={r.isReajuste}
+          reajusteLabel={r.label}
+          ingresos={pnl.ingresos}
+          egresos={pnl.egresos}
+          totalIngresos={pnl.totalIngresos}
+          totalEgresos={pnl.totalEgresos}
+          net={pnl.net}
+          distribucion={distribucion}
+          totalDistribuido={r.importeDistribuido}
+          saldoDisponible={r.saldoDisponible}
+        />,
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const suffix = r.isReajuste ? `-reajuste-${r.seq}` : "";
+      a.download = `acta-distribucion-${r.monthKey}-${currency}${suffix}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Acta descargada");
+    } catch (err) {
+      const e = err as Error;
+      toast.error("No se pudo generar el acta", { description: e.message });
+    }
   }
 
   if (loading) {
