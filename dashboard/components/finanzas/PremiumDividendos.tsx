@@ -745,33 +745,70 @@ export function PremiumDividendos({
   }, [history, config, loading]);
 
   /**
-   * Reajuste automático: si un mes tiene su distribución ORIGINAL
-   * (seq=0) ya PAGADA y después entra un movimiento nuevo de ese mes
-   * (ingreso o egreso), la utilidad real cambia. Detectamos la
-   * diferencia entre el neto en vivo y lo ya distribuido (original +
-   * reajustes previos) y, si supera 1 unidad, generamos una fila de
-   * "Reajuste distribución de <mes>" con SOLO la diferencia — sin tocar
-   * la original. El director la paga como cualquier otra.
+   * Impacto automático de movimientos cargados tarde sobre la
+   * distribución del mes. Para cada mes cerrado con distribución
+   * original (seq=0):
+   *
+   *   · Si está PENDIENTE (no pagada): mantenemos el snapshot original
+   *     en sync con el neto en vivo. Cargar un egreso/ingreso de un mes
+   *     no pagado recalcula su distribución directamente.
+   *   · Si está PAGADA: no tocamos la original (ya se pagó). Si el neto
+   *     en vivo difiere de lo distribuido (original + reajustes),
+   *     generamos un "Reajuste distribución de <mes>" con SOLO la
+   *     diferencia — positiva o NEGATIVA/deudora si el neto bajó por un
+   *     egreso nuevo. El director lo paga (o cobra) como cualquier otro.
+   *
+   * Umbral de 1 unidad para no disparar por redondeos.
    */
   useEffect(() => {
     if (!config || loading) return;
     const curMonth = new Date().toISOString().slice(0, 7);
     const toCreate: Array<{ mk: string; delta: number; seq: number }> = [];
+    const toRefresh: Array<{ mk: string; net: number; notes: string | null }> =
+      [];
     for (const [mk, arr] of distributionsByMonth) {
       if (mk >= curMonth) continue;
       const orig = arr.find((d) => d.seq === 0);
-      // Solo reajustamos meses cuya distribución original ya está paga.
-      if (!orig || orig.status !== "paid") continue;
+      if (!orig) continue; // sin original → lo crea el efecto lazy de arriba
       const liveNet = monthNet(mk);
+
+      // Pendiente: el snapshot sigue al neto en vivo.
+      if (orig.status !== "paid") {
+        if (Math.abs(liveNet - orig.net_profit) >= 1) {
+          toRefresh.push({ mk, net: liveNet, notes: orig.notes ?? null });
+        }
+        continue;
+      }
+
+      // Pagada: reajuste por la diferencia (puede ser deudora).
       const distribuido = arr.reduce((s, d) => s + d.net_profit, 0);
       const delta = liveNet - distribuido;
-      // Umbral de 1 unidad para no generar reajustes por redondeos.
       if (Math.abs(delta) < 1) continue;
       const maxSeq = arr.reduce((m, d) => Math.max(m, d.seq), 0);
       toCreate.push({ mk, delta, seq: maxSeq + 1 });
     }
-    if (toCreate.length === 0) return;
+    if (toCreate.length === 0 && toRefresh.length === 0) return;
     void (async () => {
+      // Actualizar los originales pendientes al neto en vivo.
+      for (const { mk, net, notes } of toRefresh) {
+        try {
+          await upsertDividendDistribution(
+            mk,
+            currency,
+            net,
+            config,
+            true,
+            notes,
+            0,
+          );
+        } catch (err) {
+          console.warn(
+            "[dividendos] refresh pendiente falló:",
+            (err as Error).message,
+          );
+        }
+      }
+      // Crear los reajustes de los meses ya pagados.
       for (const { mk, delta, seq } of toCreate) {
         const label = `Reajuste distribución de ${MONTHS_LONG_ES[Number(mk.slice(5, 7)) - 1]}`;
         try {
@@ -1407,14 +1444,25 @@ export function PremiumDividendos({
                     </td>
                     <td className="px-4 py-3 text-ink-400 tabular-nums">
                       {r.isReajuste ? (
-                        <span className="text-2xs font-semibold text-sky-700">
+                        <span
+                          className={cn(
+                            "text-2xs font-semibold",
+                            r.net < 0 ? "text-rose-700" : "text-sky-700",
+                          )}
+                        >
                           {r.label ?? "Reajuste"}
+                          {r.net < 0 ? " · deudor" : ""}
                         </span>
                       ) : (
                         r.ejercicio
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-ink tabular-nums">
+                    <td
+                      className={cn(
+                        "px-4 py-3 text-right tabular-nums",
+                        r.isReajuste && r.net < 0 ? "text-rose-700" : "text-ink",
+                      )}
+                    >
                       {fmt(r.importeDistribuido)}
                     </td>
                     <td className="px-4 py-3 text-center text-ink-400 tabular-nums">{r.sociosCount}</td>
