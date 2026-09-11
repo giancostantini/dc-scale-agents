@@ -47,3 +47,35 @@ jobs:
           {"source":"scheduled","extraQuery":"${{ inputs.extra_query || '' }}"}
           BRIEF_EOF
           node scripts/prospeccion/index.js --brief /tmp/brief.json
+
+      # Redacta los primeros contactos de los prospectos nuevos y los deja
+      # en la cola de aprobación. NADA se envía acá: el envío lo decide un
+      # humano en /pipeline/mensajes. Si algo falla, el job no se rompe —
+      # los prospectos ya están cargados, que es lo importante.
+      - name: Llenar la cola de mensajes
+        env:
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          if [ -z "${DASHBOARD_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::warning::DASHBOARD_BASE_URL o CRON_SECRET no seteados — la cola no se llenó."
+            exit 0
+          fi
+          for i in 1 2 3 4 5; do
+            response=$(curl -fsS -X POST \
+              "${DASHBOARD_BASE_URL}/api/cron/outreach-draft" \
+              -H "x-internal-secret: ${CRON_SECRET}" \
+              -H "Content-Type: application/json" \
+              -d '{}') || {
+                echo "::warning::el endpoint de drafts falló (intento $i)"; exit 0; }
+            echo "Response: $response"
+            configured=$(echo "$response" | jq -r '.configured // false')
+            if [ "$configured" = "false" ]; then
+              echo "::notice::Cola dormida: $(echo "$response" | jq -r '.detail // "sin detalle"')"
+              exit 0
+            fi
+            remaining=$(echo "$response" | jq -r '.remaining // 0')
+            echo "Mensajes redactados en esta tanda: $(echo "$response" | jq -r '.created // 0') · faltan: $remaining"
+            [ "$remaining" = "0" ] && break
+          done

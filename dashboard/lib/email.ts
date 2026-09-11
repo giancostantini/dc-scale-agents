@@ -67,6 +67,100 @@ export async function sendEmail({
 }
 
 // ============================================================
+// Outbound frío (cola de prospección) — canal SEPARADO a propósito
+// ============================================================
+// Mandar cold email desde el mismo dominio que las credenciales del portal
+// y los reportes de los clientes es un riesgo real: un par de denuncias de
+// spam y el dominio queda marcado, y el cliente deja de recibir su acceso.
+// Por eso esto exige su propio remitente y su propia API key.
+//
+// Además NO usa baseLayout: un mail frío con header corporativo, botón
+// gigante y pie de "generado automáticamente" se lee como spam. Va texto
+// plano con párrafos, como lo escribiría una persona.
+
+let _outboundClient: Resend | null = null;
+
+/** `configured:false` cuando falta el setup — la UI lo dice en vez de fallar. */
+export function outboundEmailStatus(): { configured: boolean; reason?: string } {
+  if (!process.env.RESEND_OUTBOUND_API_KEY?.trim()) {
+    return {
+      configured: false,
+      reason:
+        "Falta RESEND_OUTBOUND_API_KEY. El outbound frío usa un remitente aparte para no arriesgar el dominio que manda los accesos al portal.",
+    };
+  }
+  if (!process.env.OUTBOUND_EMAIL_FROM?.trim()) {
+    return {
+      configured: false,
+      reason:
+        "Falta OUTBOUND_EMAIL_FROM (ej. \"Gianluca de D&C <gianluca@out.tudominio.com>\"), con su subdominio verificado en Resend.",
+    };
+  }
+  if (!process.env.OUTBOUND_EMAIL_REPLY_TO?.trim()) {
+    return {
+      configured: false,
+      reason:
+        "Falta OUTBOUND_EMAIL_REPLY_TO: un mail real de un socio. Un cold email que responde a noreply no se contesta.",
+    };
+  }
+  return { configured: true };
+}
+
+function getOutboundResend(): Resend {
+  if (_outboundClient) return _outboundClient;
+  const status = outboundEmailStatus();
+  if (!status.configured) throw new Error(status.reason);
+  _outboundClient = new Resend(process.env.RESEND_OUTBOUND_API_KEY!.trim());
+  return _outboundClient;
+}
+
+/** Texto plano → párrafos HTML simples. Sin marca, sin botones, sin tablas. */
+function plainLayout(text: string): string {
+  const paragraphs = text
+    .trim()
+    .split(/\n{2,}/)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 14px;">${p
+          .trim()
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\n/g, "<br />")}</p>`,
+    )
+    .join("");
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;color:#111;">${paragraphs}</div>`;
+}
+
+/**
+ * Envía un mensaje de la cola de outreach. Solo lo llama
+ * /api/outreach/send, y solo después de que un humano aprobó.
+ */
+export async function sendOutreachEmail({
+  to,
+  subject,
+  text,
+}: {
+  to: string;
+  subject: string;
+  text: string;
+}): Promise<{ id: string }> {
+  const resend = getOutboundResend();
+  const { data, error } = await resend.emails.send({
+    from: process.env.OUTBOUND_EMAIL_FROM!.trim(),
+    to: [to],
+    subject,
+    html: plainLayout(text),
+    text,
+    replyTo: process.env.OUTBOUND_EMAIL_REPLY_TO!.trim(),
+  });
+  if (error) {
+    throw new Error(`Resend error: ${error.message ?? JSON.stringify(error)}`);
+  }
+  return { id: data?.id ?? "unknown" };
+}
+
+// ============================================================
 // Templates de los 4 eventos definidos en el plan
 // ============================================================
 

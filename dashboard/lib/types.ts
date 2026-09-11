@@ -1228,3 +1228,35 @@ export interface Notification {
   read: boolean;
   created_at: string;
 }
+
+// ==================== OUTREACH (cola de aprobación, mig 100) ====================
+
+export type OutreachChannelType = "email" | "linkedin";
+export type OutreachStatus =
+  | "draft"
+  | "approved"
+  | "sent"
+  | "discarded"
+  | "failed";
+
+/** Un mensaje de primer contacto redactado por la IA, esperando gate humano. */
+export interface OutreachMessage {
+  id: string;
+  leadId: string;
+  campaignId: string | null;
+  channel: OutreachChannelType;
+  sequence: number;
+  subject: string | null;
+  body: string;
+  status: OutreachStatus;
+  toEmail: string | null;
+  model: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  repliedAt: string | null;
+  error: string | null;
+  /** Datos del lead, para no pedirlos aparte en la cola. */
+  leadName?: string;
+  leadCompany?: string;
+  campaignName?: string | null;
+}

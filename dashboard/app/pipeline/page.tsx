@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Cell,
   Pie,
@@ -24,6 +25,7 @@ import {
   deleteLead,
   archiveCampaign,
   setCampaignStatus,
+  countPendingOutreach,
 } from "@/lib/storage";
 import {
   hasSession,
@@ -95,6 +97,8 @@ export default function PipelinePage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [lostLeads, setLostLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<ProspectCampaign[]>([]);
+  /** Mensajes de outreach esperando decisión — badge del header. */
+  const [pendingMessages, setPendingMessages] = useState(0);
   const [leadModal, setLeadModal] = useState<{
     open: boolean;
     stage: PipelineStage;
@@ -125,6 +129,7 @@ export default function PipelinePage() {
     getLeads().then(setLeads);
     getLostLeads().then(setLostLeads);
     getCampaigns().then(setCampaigns);
+    countPendingOutreach().then(setPendingMessages);
   }, []);
 
   useEffect(() => {
@@ -434,6 +439,26 @@ export default function PipelinePage() {
               )}
             </div>
           </div>
+          {pendingMessages > 0 && (
+            <Link
+              href="/pipeline/mensajes"
+              style={{
+                padding: "10px 16px",
+                background: "var(--sand)",
+                color: "var(--deep-green)",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12.5,
+                fontWeight: 600,
+                textDecoration: "none",
+                marginRight: 10,
+                whiteSpace: "nowrap",
+              }}
+            >
+              ✉ {pendingMessages}{" "}
+              {pendingMessages === 1 ? "mensaje por aprobar" : "mensajes por aprobar"}
+            </Link>
+          )}
           <button
             onClick={exportPipelineReport}
             disabled={leads.length === 0 && lostLeads.length === 0}
@@ -681,6 +706,16 @@ export default function PipelinePage() {
                         </div>
                       )}
                       <div className={styles.kActions}>
+                        {/* Mensajes de este prospecto en la cola */}
+                        <button
+                          className={styles.kBtn}
+                          onClick={() =>
+                            router.push(`/pipeline/mensajes?lead=${lead.id}`)
+                          }
+                          title="Ver el mensaje de contacto de este prospecto"
+                        >
+                          ✉
+                        </button>
                         {idx > 0 && (
                           <button
                             className={styles.kBtn}
