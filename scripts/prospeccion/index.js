@@ -49,6 +49,7 @@ import {
   pushNotification,
   recordApiUsage,
 } from "../lib/supabase.js";
+import { enrichmentStatus, enrichCompanyContacts } from "../lib/enrichment.js";
 
 const AGENT = "prospeccion";
 const MODEL = "claude-sonnet-4-6";
@@ -58,6 +59,9 @@ const MAX_CAMPAIGNS_PER_RUN = 5;
 /** Prospectos por campaña: el daily_volume de la campaña, acotado. */
 const DEFAULT_CAP = 30;
 const HARD_CAP = 50;
+/** Tope de créditos de enriquecimiento por corrida — un bug no puede
+ *  quemar el saldo de la cuenta. */
+const ENRICH_BUDGET_PER_RUN = Number(process.env.ENRICH_BUDGET_PER_RUN ?? 20) || 20;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -424,6 +428,104 @@ async function insertLeads(rows) {
   throw new Error(`insert de leads falló: ${detail}`);
 }
 
+/** Los leads recién cargados, para poder enriquecerlos. */
+async function fetchLeadsByCompanies(companies) {
+  if (companies.length === 0) return [];
+  const inList = companies
+    .map((c) => `"${String(c).replace(/"/g, '\\"')}"`)
+    .join(",");
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/leads?select=id,company,company_domain&company=in.(${encodeURIComponent(inList)})&limit=200`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } },
+  );
+  if (!res.ok) {
+    console.warn(`[${AGENT}] no pude releer los leads para enriquecer: ${await res.text()}`);
+    return [];
+  }
+  return await res.json();
+}
+
+async function patchLead(id, patch) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    console.warn(`[${AGENT}] patch del lead ${id} falló: ${await res.text()}`);
+  }
+}
+
+/**
+ * Completa el contacto (nombre, cargo, email) de los prospectos nuevos.
+ * Sin proveedor configurado no hace nada y lo dice — el prospecto ya está
+ * cargado, que es lo que importa.
+ */
+async function enrichNewLeads(results, campaigns) {
+  const status = enrichmentStatus();
+  if (!status.configured) {
+    return { dormant: true, reason: status.reason, enriched: 0, creditsSpent: 0 };
+  }
+
+  const budget = { spent: 0, max: ENRICH_BUDGET_PER_RUN };
+  const empresas = [];
+  for (const r of results) {
+    for (const row of r.inserted ?? []) empresas.push(row.company);
+  }
+  if (empresas.length === 0) return { enriched: 0, creditsSpent: 0 };
+
+  const leads = await fetchLeadsByCompanies(empresas);
+  const targeting = {
+    titles: [...new Set(campaigns.flatMap((c) => c.roles ?? []))].slice(0, 10),
+    seniorities: [...new Set(campaigns.flatMap((c) => c.seniorities ?? []))],
+    locations: [
+      ...new Set(campaigns.flatMap((c) => [...(c.countries ?? []), ...(c.cities ?? [])])),
+    ].slice(0, 5),
+  };
+
+  let enriched = 0;
+  const errores = [];
+  for (const lead of leads) {
+    if (budget.spent >= budget.max) break;
+    try {
+      const out = await enrichCompanyContacts(
+        {
+          companyName: lead.company,
+          domain: lead.company_domain ?? null,
+          titles: targeting.titles,
+          seniorities: targeting.seniorities,
+          locations: targeting.locations,
+        },
+        { limit: 1, budget },
+      );
+      budget.spent += out.creditsSpent ?? 0;
+      const c = out.contacts?.[0];
+      if (c) {
+        await patchLead(lead.id, {
+          name: c.nombre || lead.company,
+          contact_role: c.cargo,
+          contact_email: c.email,
+          linkedin_url: c.linkedinUrl,
+          enriched_at: new Date().toISOString(),
+          enrichment_source: c.provider,
+        });
+        enriched += 1;
+      }
+    } catch (err) {
+      errores.push(`${lead.company}: ${err.message}`);
+      // Un 401/403 significa plan/API key mal: cortamos, no insistimos.
+      if (err.status === 401 || err.status === 403) break;
+    }
+  }
+
+  return { enriched, creditsSpent: budget.spent, errores: errores.slice(0, 5) };
+}
+
 /** Note compacto (≤300 chars): el kanban lo renderiza completo sin clamp. */
 function buildNote(item, today) {
   const parts = [
@@ -528,7 +630,7 @@ Al final escribí un análisis en texto con TODOS los llamados encontrados y sus
 // ---------------------------------------------------------------------------
 
 /** Una sección por campaña (o una sola si corrió en modo fallback). */
-function buildReportMd(results, today, totalInserted) {
+function buildReportMd(results, today, totalInserted, enrich) {
   const lines = [`# Prospección de llamados — ${today}`, ""];
   const campañas = results.filter((r) => r.campaign).length;
   lines.push(
@@ -568,6 +670,28 @@ function buildReportMd(results, today, totalInserted) {
       lines.push("", "</details>");
     }
     lines.push("");
+  }
+
+  if (enrich) {
+    lines.push("## Contactos");
+    if (enrich.dormant) {
+      lines.push(
+        "",
+        `Sin proveedor de enriquecimiento configurado: los prospectos quedan a nivel empresa (sin nombre ni email del decisor). ${enrich.reason ?? ""}`,
+        "",
+        "Antes de pagar una suscripción, medí si sirve para nuestro mercado: `node scripts/prospeccion/coverage.js` (no gasta créditos).",
+        "",
+      );
+    } else {
+      lines.push(
+        "",
+        `Contactos completados: **${enrich.enriched}** · créditos gastados: ${enrich.creditsSpent} (tope por corrida: ${ENRICH_BUDGET_PER_RUN}).`,
+        "",
+      );
+      if (enrich.errores?.length) {
+        lines.push(`Problemas: ${enrich.errores.join(" · ")}`, "");
+      }
+    }
   }
 
   lines.push(
@@ -646,7 +770,15 @@ async function run() {
       console.log(
         `[${AGENT}] "${label}": ${toInsert.length} cargados (dup: ${dupCompanies.size}).`,
       );
-      results.push({ campaign, items, insertedCompanies, dupCompanies, sources, error: null });
+      results.push({
+        campaign,
+        items,
+        insertedCompanies,
+        dupCompanies,
+        sources,
+        inserted: toInsert,
+        error: null,
+      });
     } catch (err) {
       // Principio #7: una campaña que falla no corta el resto.
       const msg = err instanceof Error ? err.message : "unknown";
@@ -657,6 +789,7 @@ async function run() {
         insertedCompanies: new Set(),
         dupCompanies: new Set(),
         sources: [],
+        inserted: [],
         error: msg,
       });
     }
@@ -669,8 +802,24 @@ async function run() {
     );
   }
 
+  // Enriquecimiento del contacto (dormido sin proveedor configurado)
+  let enrich = { dormant: true, enriched: 0, creditsSpent: 0 };
+  try {
+    enrich = await enrichNewLeads(results, campaigns);
+    if (enrich.dormant) {
+      console.log(`[${AGENT}] enriquecimiento dormido: ${enrich.reason}`);
+    } else {
+      console.log(
+        `[${AGENT}] contactos completados: ${enrich.enriched} (créditos: ${enrich.creditsSpent}).`,
+      );
+    }
+  } catch (err) {
+    console.warn(`::warning::[${AGENT}] el enriquecimiento falló: ${err.message}`);
+    enrich = { enriched: 0, creditsSpent: 0, errores: [err.message] };
+  }
+
   // Reporte + cierre
-  const reportMd = buildReportMd(results, today, totalInserted);
+  const reportMd = buildReportMd(results, today, totalInserted, enrich);
   await registerAgentOutput(runId, "_system", AGENT, {
     output_type: "report",
     title: `Prospección ${today}: ${totalInserted} prospectos nuevos`,

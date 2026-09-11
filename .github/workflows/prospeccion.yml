@@ -37,6 +37,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Opcional: sin esta key el enriquecimiento de contactos queda
+          # dormido y el agente carga los prospectos igual (a nivel empresa).
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then

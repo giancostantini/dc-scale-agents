@@ -30,6 +30,12 @@ nuevo y lo deja en la **cola de aprobación** (`/pipeline/mensajes`).
      términos de LinkedIn y arriesga la cuenta: **no se hace**.
 4. Descartar un mensaje es definitivo: no se vuelve a generar.
 
+El paso 0 opcional es el [enriquecimiento](../agents/prospeccion/enriquecimiento.md):
+con una API key de contactos, el prospecto pasa de ser una empresa a ser una
+persona con nombre, cargo y mail. Está **dormido** hasta que haya key — y
+antes de pagar una, se mide la cobertura real en Uruguay con
+`node scripts/prospeccion/coverage.js` (no gasta créditos).
+
 ## Qué decide sola vs. gates (no negociables)
 
 - El Prospector **SOLO CARGA** prospectos con su señal y ángulo de pitch.
