@@ -30,11 +30,27 @@ nuevo y lo deja en la **cola de aprobación** (`/pipeline/mensajes`).
      términos de LinkedIn y arriesga la cuenta: **no se hace**.
 4. Descartar un mensaje es definitivo: no se vuelve a generar.
 
-El paso 0 opcional es el [enriquecimiento](../agents/prospeccion/enriquecimiento.md):
-con una API key de contactos, el prospecto pasa de ser una empresa a ser una
-persona con nombre, cargo y mail. Está **dormido** hasta que haya key — y
-antes de pagar una, se mide la cobertura real en Uruguay con
-`node scripts/prospeccion/coverage.js` (no gasta créditos).
+## De dónde sale el contacto
+
+Se evaluó un proveedor de datos (Apollo) y **se descartó**: su cobertura en
+Uruguay —nuestro mercado principal— es de sus zonas más flojas, y su API
+exige plan pago. El contacto lo busca el propio agente en fuentes públicas:
+el aviso y la web institucional de la empresa.
+
+**Lo que eso consigue es contacto de EMPRESA, no del decisor.** Los avisos
+de LinkedIn casi nunca muestran mail (se postula en la plataforma); cuando
+un portal sí lo muestra, suele ser una casilla de CVs. Por eso el sistema
+separa dos campos:
+
+| Campo | Qué es | Habilita el envío |
+|---|---|---|
+| Casilla de la empresa | `info@`, `rrhh@`, teléfono, web | **No** |
+| Email del decisor | el mail de la persona que decide | **Sí** |
+
+Mandar un pitch comercial a una casilla de CVs es la peor primera impresión
+posible en un mercado chico, así que promover un contacto de una columna a
+la otra es **siempre una decisión humana**, desde la ficha del prospecto en
+el CRM.
 
 ## Qué decide sola vs. gates (no negociables)
 

@@ -19,6 +19,10 @@ on:
       extra_query:
         description: 'Búsqueda extra para este run (opcional, ej. "ecommerce Chile")'
         required: false
+  # El dashboard dispara una corrida dirigida al crear una campana
+  # (POST /api/prospeccion/run). El brief viaja en client_payload.brief.
+  repository_dispatch:
+    types: [prospeccion]
 
 jobs:
   prospectar:
@@ -37,18 +41,21 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # Opcional: sin esta key el enriquecimiento de contactos queda
-          # dormido y el agente carga los prospectos igual (a nivel empresa).
-          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
             echo "ERROR: SUPABASE_URL o SUPABASE_KEY no están seteados" >&2
             exit 1
           fi
-          cat > /tmp/brief.json << BRIEF_EOF
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Corrida dirigida desde el dashboard: el brief trae campaignId.
+            # En repository_dispatch `inputs` no existe.
+            echo '${{ toJson(github.event.client_payload.brief) }}' > /tmp/brief.json
+          else
+            cat > /tmp/brief.json << BRIEF_EOF
           {"source":"scheduled","extraQuery":"${{ inputs.extra_query || '' }}"}
           BRIEF_EOF
+          fi
           node scripts/prospeccion/index.js --brief /tmp/brief.json
 
       # Redacta los primeros contactos de los prospectos nuevos y los deja

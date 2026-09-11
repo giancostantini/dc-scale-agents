@@ -29,9 +29,20 @@
  * — guía de scoring, exclusiones duras, fuentes e ICP de fallback. Editarlo
  * cambia la búsqueda desde la corrida siguiente.
  *
+ * CONTACTO: tras cargar los prospectos hace UNA pasada de busqueda web para
+ * completar web, telefono y casilla de contacto de las empresas con mejor
+ * score. Lo que se consigue de fuentes publicas es contacto de EMPRESA, no
+ * del decisor: por eso va a company_email y NO a contact_email, que es el
+ * unico que habilita el envio automatico de la cola. (Se evaluo Apollo y se
+ * descarto: cobertura floja en Uruguay + API de plan pago.)
+ *
  * Uso:
  *   node scripts/prospeccion/index.js --brief /tmp/brief.json
- *   brief = { "source": "scheduled", "extraQuery"?: "texto extra de búsqueda" }
+ *   brief = {
+ *     "source": "scheduled" | "dashboard",
+ *     "extraQuery"?: "texto extra de busqueda",
+ *     "campaignId"?: "uuid"   // corrida dirigida a UNA campana
+ *   }
  *
  * Agente de AGENCIA (sin cliente): agent_runs usa el slug "_system"
  * (convención de evals/insights-aggregator); notifications van con
@@ -49,7 +60,6 @@ import {
   pushNotification,
   recordApiUsage,
 } from "../lib/supabase.js";
-import { enrichmentStatus, enrichCompanyContacts } from "../lib/enrichment.js";
 
 const AGENT = "prospeccion";
 const MODEL = "claude-sonnet-4-6";
@@ -59,9 +69,8 @@ const MAX_CAMPAIGNS_PER_RUN = 5;
 /** Prospectos por campaña: el daily_volume de la campaña, acotado. */
 const DEFAULT_CAP = 30;
 const HARD_CAP = 50;
-/** Tope de créditos de enriquecimiento por corrida — un bug no puede
- *  quemar el saldo de la cuenta. */
-const ENRICH_BUDGET_PER_RUN = Number(process.env.ENRICH_BUDGET_PER_RUN ?? 20) || 20;
+/** Empresas a las que se les busca contacto publico por corrida. */
+const MAX_CONTACT_LOOKUPS = 8;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -237,6 +246,21 @@ const REPORT_TOOL = {
               description: "Fit con la agencia según la guía de scoring de la config.",
             },
             pitch_angle: { type: "string", description: "Ángulo de pitch sugerido, 1 frase." },
+            fecha_publicacion: {
+              type: "string",
+              description:
+                "La fecha de publicación TAL COMO LA MUESTRA EL AVISO, textual: 'hace 5 días', 'Publicado el 3/9/2026', '2026-09-03'. Si el aviso no muestra ninguna, dejá el campo VACÍO — no la estimes ni la deduzcas.",
+            },
+            requisitos: {
+              type: "string",
+              description:
+                "Qué se pretende en el puesto: 2-4 frases con lo que pide el aviso (experiencia, herramientas, modalidad, responsabilidades). Es el material del primer mensaje — cuanto más concreto, mejor.",
+            },
+            email_contacto: {
+              type: "string",
+              description:
+                "Email que aparezca EN EL AVISO para postularse o contactar. Vacío si no muestra ninguno (LinkedIn casi nunca lo muestra). No inventes.",
+            },
           },
           required: ["empresa", "puesto", "score", "vertical"],
         },
@@ -351,7 +375,7 @@ async function fetchExistingCompanies() {
  * una define un ICP y el agente busca una vez por campaña. Si no hay
  * ninguna, el agente corre con el ICP de fallback del vault (modo previo).
  */
-async function fetchActiveCampaigns() {
+async function fetchActiveCampaigns(campaignId = null) {
   requireSupabase();
   const cols = [
     "id",
@@ -369,8 +393,12 @@ async function fetchActiveCampaigns() {
     "revenue_range",
     "daily_volume",
   ].join(",");
+  // Corrida dirigida (el dashboard al crear una campaña): solo esa.
+  const filtro = campaignId
+    ? `id=eq.${encodeURIComponent(campaignId)}&status=eq.active`
+    : "status=eq.active";
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/prospect_campaigns?status=eq.active&select=${cols}`,
+    `${SUPABASE_URL}/rest/v1/prospect_campaigns?${filtro}&select=${cols}`,
     {
       headers: {
         apikey: SUPABASE_KEY,
@@ -380,6 +408,11 @@ async function fetchActiveCampaigns() {
   );
   if (!res.ok) {
     const detail = await res.text();
+    // En una corrida dirigida no podemos degradar: si la query falla, caer
+    // al ICP del vault cargaría prospectos de otro perfil.
+    if (campaignId) {
+      throw new Error(`no pude leer la campaña ${campaignId}: ${detail.slice(0, 200)}`);
+    }
     // Tabla vieja o sin migrar: seguimos en modo fallback en vez de morir.
     console.warn(
       `[${AGENT}] no pude leer prospect_campaigns (${detail.slice(0, 160)}) — sigo con el ICP del vault.`,
@@ -396,59 +429,115 @@ async function postLeads(rows) {
       "Content-Type": "application/json",
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${SUPABASE_KEY}`,
-      Prefer: "return=minimal",
+      // representation: necesitamos los id para completar el contacto después.
+      Prefer: "return=representation",
     },
     body: JSON.stringify(rows),
   });
   return res;
 }
 
-/** Columnas que agrega la mig 100 — si no está aplicada, PostgREST rechaza
- *  el batch entero y perderíamos la corrida del lunes. */
-const MIG_100_COLS = ["campaign_id", "score", "source_url"];
+/**
+ * Columnas que agregan las migraciones y que el prospecto puede sobrevivir
+ * sin ellas (la señal y la URL viven también en `note`). Si la migración no
+ * está aplicada, se sacan de a una y el lead entra igual — ruidoso, pero la
+ * corrida del lunes no se pierde.
+ */
+const OPTIONAL_LEAD_COLS = new Set([
+  // mig 100
+  "campaign_id", "score", "source_url", "company_domain", "contact_email",
+  "contact_role", "linkedin_url", "enriched_at", "enrichment_source",
+  // mig 101
+  "job_title", "job_location", "posted_at", "posted_at_text",
+  "role_requirements", "contact_phone", "company_email", "company_website",
+]);
 
+/** @returns {Promise<Array>} las filas insertadas (con id). */
 async function insertLeads(rows) {
   requireSupabase();
-  if (rows.length === 0) return;
+  if (rows.length === 0) return [];
 
-  const res = await postLeads(rows);
-  if (res.ok) return;
+  let payload = rows;
+  // Una vuelta por columna faltante. El tope evita un loop infinito si el
+  // error menciona algo que no sabemos sacar.
+  for (let i = 0; i < OPTIONAL_LEAD_COLS.size + 1; i++) {
+    const res = await postLeads(payload);
+    if (res.ok) return await res.json();
 
-  const detail = await res.text();
-  // Fallback: reintentar sin las columnas de la mig 100. Ruidoso, pero el
-  // prospecto entra igual (la señal y la URL viven también en `note`).
-  if (MIG_100_COLS.some((c) => detail.includes(c))) {
+    const detail = await res.text();
+    // PostgREST: "Could not find the 'job_title' column of 'leads' ..."
+    const col = /'([a-z_]+)' column/.exec(detail)?.[1];
+    if (!col || !OPTIONAL_LEAD_COLS.has(col)) {
+      throw new Error(`insert de leads falló: ${detail}`);
+    }
     console.warn(
-      `::warning::[${AGENT}] la migración 100 no está aplicada — cargo los leads sin campaign_id/score/source_url. Aplicala en el SQL editor.`,
+      `::warning::[${AGENT}] la columna '${col}' no existe todavía — reintento sin ella. Aplicá la migración pendiente en el SQL editor.`,
     );
-    const minimal = rows.map((r) => {
+    payload = payload.map((r) => {
       const copy = { ...r };
-      for (const c of MIG_100_COLS) delete copy[c];
+      delete copy[col];
       return copy;
     });
-    const retry = await postLeads(minimal);
-    if (retry.ok) return;
-    throw new Error(`insert de leads falló (retry sin mig 100): ${await retry.text()}`);
   }
-
-  throw new Error(`insert de leads falló: ${detail}`);
+  throw new Error("insert de leads falló: demasiadas columnas faltantes");
 }
 
-/** Los leads recién cargados, para poder enriquecerlos. */
-async function fetchLeadsByCompanies(companies) {
-  if (companies.length === 0) return [];
-  const inList = companies
-    .map((c) => `"${String(c).replace(/"/g, '\\"')}"`)
-    .join(",");
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/leads?select=id,company,company_domain&company=in.(${encodeURIComponent(inList)})&limit=200`,
-    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } },
-  );
-  if (!res.ok) {
-    console.warn(`[${AGENT}] no pude releer los leads para enriquecer: ${await res.text()}`);
-    return [];
+// ---------------------------------------------------------------------------
+// Fecha de publicación del aviso
+// ---------------------------------------------------------------------------
+
+const MESES = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
+  agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+};
+
+/**
+ * Normaliza lo que diga el aviso ("hace 5 días", "3 de septiembre",
+ * "2026-09-03") a una fecha YYYY-MM-DD. NUNCA inventa: el texto crudo se
+ * guarda siempre, así "el aviso no tenía fecha" y "no la pude parsear"
+ * quedan distinguibles.
+ */
+function parsePostedAt(raw) {
+  const text = String(raw ?? "").trim();
+  if (!text) return { postedAt: null, postedAtText: null };
+  const t = text.toLowerCase();
+  const out = { postedAt: null, postedAtText: text.slice(0, 120) };
+
+  const now = new Date();
+  const utc = (y, m, d) => Date.UTC(y, m - 1, d);
+  const todayUTC = utc(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
+  const DAY = 86400000;
+  let ms = null;
+  let m;
+
+  if (/\bhoy\b/.test(t)) ms = todayUTC;
+  else if (/\banteayer\b/.test(t)) ms = todayUTC - 2 * DAY;
+  else if (/\bayer\b/.test(t)) ms = todayUTC - DAY;
+  else if ((m = /hace\s+(\d{1,3})\s*(d[ií]a|semana|mes)/.exec(t))) {
+    const mult = m[2].startsWith("d") ? 1 : m[2].startsWith("s") ? 7 : 30;
+    ms = todayUTC - Number(m[1]) * mult * DAY;
+  } else if ((m = /(\d{1,3})\s+(day|week|month)s?\s+ago/.exec(t))) {
+    const mult = m[2] === "day" ? 1 : m[2] === "week" ? 7 : 30;
+    ms = todayUTC - Number(m[1]) * mult * DAY;
+  } else if ((m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t))) {
+    ms = utc(Number(m[1]), Number(m[2]), Number(m[3]));
+  } else if ((m = /(\d{1,2})\s+de\s+([a-zñáéíóú]+)(?:\s+de\s+(\d{4}))?/.exec(t)) && MESES[m[2]]) {
+    const y = m[3] ? Number(m[3]) : now.getUTCFullYear();
+    ms = utc(y, MESES[m[2]], Number(m[1]));
+    // "3 de diciembre" visto en marzo es del año pasado.
+    if (!m[3] && ms > todayUTC) ms = utc(y - 1, MESES[m[2]], Number(m[1]));
+  } else if ((m = /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/.exec(t))) {
+    // Convención es-LA: día primero.
+    const y = Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3]);
+    ms = utc(y, Number(m[2]), Number(m[1]));
   }
-  return await res.json();
+
+  // Clamp de sanidad: un aviso no se publica en el futuro, y un parseo que
+  // da 1970 es un bug, no un dato. Ante la duda, null.
+  if (ms == null || Number.isNaN(ms)) return out;
+  if (ms > todayUTC || todayUTC - ms > 400 * DAY) return out;
+  out.postedAt = new Date(ms).toISOString().slice(0, 10);
+  return out;
 }
 
 async function patchLead(id, patch) {
@@ -467,69 +556,128 @@ async function patchLead(id, patch) {
   }
 }
 
-/**
- * Completa el contacto (nombre, cargo, email) de los prospectos nuevos.
- * Sin proveedor configurado no hace nada y lo dice — el prospecto ya está
- * cargado, que es lo que importa.
- */
-async function enrichNewLeads(results, campaigns) {
-  const status = enrichmentStatus();
-  if (!status.configured) {
-    return { dormant: true, reason: status.reason, enriched: 0, creditsSpent: 0 };
-  }
+// ---------------------------------------------------------------------------
+// Contacto público de la empresa (reemplaza al enriquecimiento por proveedor)
+// ---------------------------------------------------------------------------
+// Apollo se descartó: su cobertura en Uruguay —nuestro mercado #1— es floja.
+// El contacto sale del aviso y de la web institucional de la empresa.
+//
+// HONESTIDAD: esto consigue contacto de EMPRESA (info@, teléfono de la web),
+// casi nunca el mail nominal del decisor. Por eso va a company_email y NO a
+// contact_email, que es el único que habilita el envío automático.
+//
+// Corre UNA VEZ POR CORRIDA, después del dedup y del cap: recién ahí se sabe
+// a quién vale la pena buscarle contacto.
 
-  const budget = { spent: 0, max: ENRICH_BUDGET_PER_RUN };
-  const empresas = [];
-  for (const r of results) {
-    for (const row of r.inserted ?? []) empresas.push(row.company);
-  }
-  if (empresas.length === 0) return { enriched: 0, creditsSpent: 0 };
-
-  const leads = await fetchLeadsByCompanies(empresas);
-  const targeting = {
-    titles: [...new Set(campaigns.flatMap((c) => c.roles ?? []))].slice(0, 10),
-    seniorities: [...new Set(campaigns.flatMap((c) => c.seniorities ?? []))],
-    locations: [
-      ...new Set(campaigns.flatMap((c) => [...(c.countries ?? []), ...(c.cities ?? [])])),
-    ].slice(0, 5),
-  };
-
-  let enriched = 0;
-  const errores = [];
-  for (const lead of leads) {
-    if (budget.spent >= budget.max) break;
-    try {
-      const out = await enrichCompanyContacts(
-        {
-          companyName: lead.company,
-          domain: lead.company_domain ?? null,
-          titles: targeting.titles,
-          seniorities: targeting.seniorities,
-          locations: targeting.locations,
+const CONTACT_TOOL = {
+  name: "report_contactos",
+  description: "Reporta los datos de contacto público encontrados por empresa.",
+  input_schema: {
+    type: "object",
+    properties: {
+      contactos: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            empresa: { type: "string", description: "Nombre de la empresa, igual al que te pasaron." },
+            web: { type: "string", description: "Web institucional (URL completa). Vacío si no encontraste." },
+            email: { type: "string", description: "Email de contacto de la empresa (info@, contacto@…). Vacío si no hay." },
+            telefono: { type: "string", description: "Teléfono de contacto. Vacío si no hay." },
+            linkedin: { type: "string", description: "URL del perfil de LinkedIn DE LA EMPRESA. Vacío si no hay." },
+          },
+          required: ["empresa"],
         },
-        { limit: 1, budget },
-      );
-      budget.spent += out.creditsSpent ?? 0;
-      const c = out.contacts?.[0];
-      if (c) {
-        await patchLead(lead.id, {
-          name: c.nombre || lead.company,
-          contact_role: c.cargo,
-          contact_email: c.email,
-          linkedin_url: c.linkedinUrl,
-          enriched_at: new Date().toISOString(),
-          enrichment_source: c.provider,
-        });
-        enriched += 1;
-      }
-    } catch (err) {
-      errores.push(`${lead.company}: ${err.message}`);
-      // Un 401/403 significa plan/API key mal: cortamos, no insistimos.
-      if (err.status === 401 || err.status === 403) break;
-    }
-  }
+      },
+    },
+    required: ["contactos"],
+  },
+};
 
-  return { enriched, creditsSpent: budget.spent, errores: errores.slice(0, 5) };
+/** Búsqueda + estructuración del contacto público. Non-fatal: si falla, los
+ *  prospectos ya están cargados y eso es lo que importa. */
+async function buscarContactos(empresas) {
+  if (empresas.length === 0) return [];
+
+  const lista = empresas.map((e) => `- ${e.company}`).join("\n");
+  const prompt = `Buscá los datos de CONTACTO PÚBLICO de estas empresas (Uruguay y Latam). Para cada una: su web institucional, el email de contacto que publique (info@, contacto@, ventas@), el teléfono y el LinkedIn de la empresa.
+
+EMPRESAS:
+${lista}
+
+REGLAS:
+1. Buscá el sitio oficial de cada empresa y su página de contacto. Si no tiene web, fijate si tiene página de LinkedIn.
+2. NO inventes nada: si no encontrás un dato, dejá el campo vacío. Un email inventado es peor que ninguno.
+3. NO busques el email personal de ningún empleado — solo datos de contacto institucionales publicados por la empresa.
+4. Devolvé el nombre de la empresa EXACTAMENTE como te lo pasé, para poder cruzarlo.`;
+
+  const { text } = await callClaudeWebSearch(prompt, {
+    maxTokens: 4000,
+    maxSearches: Math.min(2 * empresas.length, 15),
+  });
+  if (!text.trim()) return [];
+
+  // Estructuración forzada (sin web search), mismo patrón que los prospectos.
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 3000,
+      tools: [CONTACT_TOOL],
+      tool_choice: { type: "tool", name: "report_contactos" },
+      messages: [
+        {
+          role: "user",
+          content: `Extraé los datos de contacto del siguiente análisis. Solo lo que realmente aparece — campos vacíos si no está.\n\n${text}`,
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    console.warn(`[${AGENT}] estructuración de contactos falló: ${res.status}`);
+    return [];
+  }
+  const data = await res.json();
+  recordApiUsage({ source: `agent:${AGENT}`, model: MODEL, usage: data.usage }).catch(() => {});
+  const block = (data?.content ?? []).find((b) => b.type === "tool_use");
+  return Array.isArray(block?.input?.contactos) ? block.input.contactos : [];
+}
+
+/** Completa el contacto de los leads recién cargados. */
+async function completarContactos(insertedLeads) {
+  // Los mejores primero: si hay muchos, priorizamos por score.
+  const candidatos = [...insertedLeads]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, MAX_CONTACT_LOOKUPS);
+  if (candidatos.length === 0) return { completados: 0 };
+
+  const contactos = await buscarContactos(candidatos);
+  const byName = new Map(
+    contactos.map((c) => [normalizeCompany(c.empresa), c]),
+  );
+
+  let completados = 0;
+  for (const lead of candidatos) {
+    const c = byName.get(normalizeCompany(lead.company));
+    if (!c) continue;
+    const patch = {};
+    if (c.web?.trim()) patch.company_website = c.web.trim();
+    if (c.telefono?.trim()) patch.contact_phone = c.telefono.trim();
+    // Solo si el aviso no trajo uno: el del aviso es más específico.
+    if (c.email?.trim() && !lead.company_email) patch.company_email = c.email.trim();
+    if (c.linkedin?.trim()) patch.linkedin_url = c.linkedin.trim();
+    if (Object.keys(patch).length === 0) continue;
+    patch.enriched_at = new Date().toISOString();
+    patch.enrichment_source = "web";
+    await patchLead(lead.id, patch);
+    completados += 1;
+  }
+  return { completados, buscados: candidatos.length };
 }
 
 /** Note compacto (≤300 chars): el kanban lo renderiza completo sin clamp. */
@@ -546,6 +694,8 @@ function buildNote(item, today) {
 }
 
 function leadRowFromItem(item, today, campaign) {
+  const publicado = parsePostedAt(item.fecha_publicacion);
+  const avisoEmail = item.email_contacto?.trim() || null;
   return {
     name: `Buscan: ${item.puesto}`.slice(0, 120),
     company: item.empresa,
@@ -563,6 +713,18 @@ function leadRowFromItem(item, today, campaign) {
     campaign_id: campaign?.id ?? null,
     score: item.score ?? null,
     source_url: item.url ?? null,
+    // Mig 101: el aviso, en campos propios (la card los muestra separados).
+    job_title: item.puesto?.trim() || null,
+    job_location: item.ubicacion?.trim() || null,
+    posted_at: publicado.postedAt,
+    posted_at_text: publicado.postedAtText,
+    role_requirements: item.requisitos?.trim() || null,
+    // El email del aviso es casi siempre una casilla de CVs (rrhh@, cv@):
+    // va a company_email, NO a contact_email. Esa promoción la decide un
+    // humano desde la ficha — mandar un pitch frío a RRHH quema la marca.
+    company_email: avisoEmail,
+    enrichment_source: avisoEmail ? "aviso" : null,
+    enriched_at: avisoEmail ? new Date().toISOString() : null,
   };
 }
 
@@ -646,7 +808,7 @@ Al final escribí un análisis en texto con TODOS los llamados encontrados y sus
 // ---------------------------------------------------------------------------
 
 /** Una sección por campaña (o una sola si corrió en modo fallback). */
-function buildReportMd(results, today, totalInserted, enrich) {
+function buildReportMd(results, today, totalInserted, contacto) {
   const lines = [`# Prospección de llamados — ${today}`, ""];
   const campañas = results.filter((r) => r.campaign).length;
   lines.push(
@@ -693,26 +855,15 @@ function buildReportMd(results, today, totalInserted, enrich) {
     lines.push("");
   }
 
-  if (enrich) {
-    lines.push("## Contactos");
-    if (enrich.dormant) {
-      lines.push(
-        "",
-        `Sin proveedor de enriquecimiento configurado: los prospectos quedan a nivel empresa (sin nombre ni email del decisor). ${enrich.reason ?? ""}`,
-        "",
-        "Antes de pagar una suscripción, medí si sirve para nuestro mercado: `node scripts/prospeccion/coverage.js` (no gasta créditos).",
-        "",
-      );
-    } else {
-      lines.push(
-        "",
-        `Contactos completados: **${enrich.enriched}** · créditos gastados: ${enrich.creditsSpent} (tope por corrida: ${ENRICH_BUDGET_PER_RUN}).`,
-        "",
-      );
-      if (enrich.errores?.length) {
-        lines.push(`Problemas: ${enrich.errores.join(" · ")}`, "");
-      }
-    }
+  if (contacto) {
+    lines.push("## Contacto", "");
+    lines.push(
+      `Datos de contacto encontrados en **${contacto.completados}** de ${contacto.buscados ?? 0} empresas (web institucional, telefono, casilla de contacto).`,
+      "",
+      "Lo que se consigue por fuentes publicas es contacto de EMPRESA, no el mail del decisor: queda en la ficha como casilla de la empresa y **no habilita el envio automatico**. Para eso, cargale a mano el mail del decisor desde la ficha del prospecto.",
+      "",
+    );
+    if (contacto.error) lines.push(`No se pudo completar: ${contacto.error}`, "");
   }
 
   lines.push(
@@ -733,19 +884,42 @@ async function run() {
   const today = new Date().toISOString().slice(0, 10);
   const busquedasMd = loadBusquedas();
 
+  // Corrida dirigida: el dashboard manda campaignId al crear una campaña.
+  const campaignId =
+    typeof brief.campaignId === "string" && brief.campaignId.trim()
+      ? brief.campaignId.trim()
+      : null;
+
   const runId = await logAgentRun("_system", AGENT, "running", "Buscando llamados laborales…", {
     source: brief.source ?? "manual",
     extraQuery: brief.extraQuery ?? null,
+    campaignId,
   });
   currentRunId = runId;
 
   // Campañas activas = la config operativa (mig 100). Sin ninguna, [null]
   // hace UNA corrida con el ICP de fallback del vault — idéntico al
   // comportamiento previo a las campañas.
-  const campaigns = await fetchActiveCampaigns();
-  const targets = campaigns.length > 0 ? campaigns.slice(0, MAX_CAMPAIGNS_PER_RUN) : [null];
+  const campaigns = await fetchActiveCampaigns(campaignId);
+
+  // Dirigida a una campaña que ya no está activa (la pausaron o borraron):
+  // NO caemos al ICP del vault, eso cargaría prospectos de otro perfil.
+  if (campaignId && campaigns.length === 0) {
+    const summary = "La campaña pedida ya no está activa — no se buscó nada.";
+    console.log(`[${AGENT}] ${summary}`);
+    if (runId) await updateAgentRun(runId, { status: "success", summary });
+    return;
+  }
+
+  const targets = campaignId
+    ? campaigns
+    : campaigns.length > 0
+      ? campaigns.slice(0, MAX_CAMPAIGNS_PER_RUN)
+      : [null];
   console.log(
-    `[${AGENT}] campañas activas: ${campaigns.length}${campaigns.length > MAX_CAMPAIGNS_PER_RUN ? ` (corro las primeras ${MAX_CAMPAIGNS_PER_RUN})` : ""}`,
+    campaignId
+      ? `[${AGENT}] corrida dirigida a la campaña "${campaigns[0]?.name ?? campaignId}"`
+      : `[${AGENT}] campañas activas: ${campaigns.length}${campaigns.length > MAX_CAMPAIGNS_PER_RUN ? ` (corro las primeras ${MAX_CAMPAIGNS_PER_RUN})` : ""}`,
   );
 
   // Dedup contra TODO el pipeline (incluye descartados: si lo rechazaron,
@@ -786,7 +960,9 @@ async function run() {
         seen.add(norm);
       }
 
-      await insertLeads(toInsert);
+      // Devuelve las filas con su id: las necesitamos para completar el
+      // contacto despues.
+      const insertadas = await insertLeads(toInsert);
       totalInserted += toInsert.length;
       console.log(
         `[${AGENT}] "${label}": ${toInsert.length} cargados (dup: ${dupCompanies.size}).`,
@@ -797,7 +973,7 @@ async function run() {
         insertedCompanies,
         dupCompanies,
         sources,
-        inserted: toInsert,
+        inserted: insertadas,
         error: null,
       });
     } catch (err) {
@@ -823,24 +999,23 @@ async function run() {
     );
   }
 
-  // Enriquecimiento del contacto (dormido sin proveedor configurado)
-  let enrich = { dormant: true, enriched: 0, creditsSpent: 0 };
+  // Contacto publico de las empresas nuevas. Una pasada por corrida, despues
+  // del dedup: recien aca se sabe a quien vale la pena buscarle contacto.
+  // Non-fatal: los prospectos ya estan cargados.
+  let contacto = { completados: 0, buscados: 0 };
   try {
-    enrich = await enrichNewLeads(results, campaigns);
-    if (enrich.dormant) {
-      console.log(`[${AGENT}] enriquecimiento dormido: ${enrich.reason}`);
-    } else {
-      console.log(
-        `[${AGENT}] contactos completados: ${enrich.enriched} (créditos: ${enrich.creditsSpent}).`,
-      );
-    }
+    const nuevos = results.flatMap((r) => r.inserted ?? []);
+    contacto = await completarContactos(nuevos);
+    console.log(
+      `[${AGENT}] contacto completado en ${contacto.completados}/${contacto.buscados ?? 0} empresas.`,
+    );
   } catch (err) {
-    console.warn(`::warning::[${AGENT}] el enriquecimiento falló: ${err.message}`);
-    enrich = { enriched: 0, creditsSpent: 0, errores: [err.message] };
+    console.warn(`::warning::[${AGENT}] la busqueda de contacto fallo: ${err.message}`);
+    contacto = { completados: 0, buscados: 0, error: err.message };
   }
 
   // Reporte + cierre
-  const reportMd = buildReportMd(results, today, totalInserted, enrich);
+  const reportMd = buildReportMd(results, today, totalInserted, contacto);
   await registerAgentOutput(runId, "_system", AGENT, {
     output_type: "report",
     title: `Prospección ${today}: ${totalInserted} prospectos nuevos`,

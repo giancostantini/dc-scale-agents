@@ -65,6 +65,8 @@ interface LeadRow {
   contact_role: string | null;
   linkedin_url: string | null;
   source_url: string | null;
+  job_title: string | null;
+  role_requirements: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
       const { data: leads, error: leadErr } = await admin
         .from("leads")
         .select(
-          "id, name, company, type, sector, note, contact_email, contact_role, linkedin_url, source_url",
+          "id, name, company, type, sector, note, contact_email, contact_role, linkedin_url, source_url, job_title, role_requirements",
         )
         .eq("campaign_id", campaign.id)
         .is("lost_at", null)
@@ -142,9 +144,11 @@ export async function POST(req: NextRequest) {
 
       const pendientes: Array<{ lead: LeadRow; channel: OutreachChannel }> = [];
       for (const lead of leads as LeadRow[]) {
-        // Email solo si sabemos a dónde escribir. Sin enriquecimiento
-        // (Fase Apollo) casi todos caen a LinkedIn — es la verdad, no un
-        // bug: generar mails sin destinatario llenaría la cola de humo.
+        // Email solo si sabemos a dónde escribir. El mail del decisor casi
+        // nunca está en un aviso público (y la casilla genérica de la
+        // empresa NO habilita el envío a propósito), así que la mayoría cae
+        // a LinkedIn. Es la verdad del sistema, no un bug: generar mails sin
+        // destinatario llenaría la cola de humo.
         const canal: OutreachChannel =
           lead.contact_email && channels.includes("email")
             ? "email"
@@ -197,6 +201,8 @@ export async function POST(req: NextRequest) {
               notes: lead.note ?? undefined,
               sourceUrl: lead.source_url ?? undefined,
               vertical: lead.type === "dev" ? "dev" : "growth",
+              jobTitle: lead.job_title ?? undefined,
+              roleRequirements: lead.role_requirements ?? undefined,
             },
             channel,
             usageSource: "dashboard:outreach-draft",

@@ -506,8 +506,28 @@ export interface Lead {
   contactRole?: string | null;
   linkedinUrl?: string | null;
   enrichedAt?: string | null;
-  /** Proveedor del enriquecimiento (ej. 'apollo'). null = a mano. */
+  /** De donde salio el contacto: aviso | web | manual. */
   enrichmentSource?: string | null;
+
+  // ===== El aviso (mig 101) =====
+  /** Puesto que ofrece el aviso. Antes vivia embebido en name. */
+  jobTitle?: string | null;
+  jobLocation?: string | null;
+  /** Fecha de PUBLICACION del aviso (YYYY-MM-DD). Distinta de createdAt,
+   *  que es cuando lo encontramos nosotros. null = el aviso no la mostraba. */
+  postedAt?: string | null;
+  /** Lo que decia el aviso, textual. Distingue "sin fecha" de "no parseo". */
+  postedAtText?: string | null;
+  /** Que se pretende en el puesto, 2-4 frases. */
+  roleRequirements?: string | null;
+
+  // ===== Contacto (mig 101) =====
+  contactPhone?: string | null;
+  /** Casilla GENERICA (info@, rrhh@). NO habilita el envio automatico:
+   *  para eso el dato tiene que estar en contactEmail, y esa promocion la
+   *  decide una persona. */
+  companyEmail?: string | null;
+  companyWebsite?: string | null;
 }
 
 // Seniority alineado con Apollo.io

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { addCampaign } from "@/lib/storage";
-import type { CampaignCTA, Seniority } from "@/lib/types";
+import type { CampaignCTA, ProspectCampaign, Seniority } from "@/lib/types";
 import styles from "./NewClientModal.module.css";
 
 interface NewCampaignModalProps {
   open: boolean;
   onClose: () => void;
-  onCreated?: () => void;
+  /** Recibe la campana creada: el padre dispara la busqueda con su id. */
+  onCreated?: (campaign: ProspectCampaign) => void;
 }
 
 const COUNTRY_OPTIONS = [
@@ -117,7 +118,7 @@ export default function NewCampaignModal({
     if (!canSubmit || saving) return;
     setSaving(true);
     try {
-      await addCampaign({
+      const created = await addCampaign({
         name: name.trim(),
         status,
 
@@ -162,7 +163,7 @@ export default function NewCampaignModal({
       setCtaUrl("");
       setStep(1);
       onClose();
-      onCreated?.();
+      onCreated?.(created);
     } catch (err) {
       // Supabase errors have non-enumerable props → hay que serializarlos a mano
       const detail = {
