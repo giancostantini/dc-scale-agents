@@ -200,9 +200,12 @@ export default function NewCampaignModal({
         <h2 className={styles.title}>Definir ICP</h2>
         <p className={styles.sub}>
           Cada lunes el agente busca llamados laborales públicos que matcheen
-          este perfil (una empresa contratando marketing in-house es candidata
-          a tercerizar con nosotros) y carga los prospectos en el CRM. El
-          mensaje lo redacta la IA y lo aprobás vos antes de que salga.
+          este perfil y carga los prospectos en el CRM. Sirve para las dos
+          verticales según los puestos que pongas: <strong>Growth</strong> (si
+          buscan marketing in-house) y <strong>Desarrollo</strong> (si buscan
+          perfiles de tecnología/datos, o el aviso describe un proceso manual
+          y repetitivo). El mensaje lo redacta la IA y lo aprobás vos antes de
+          que salga.
         </p>
 
         {/* Step indicator */}

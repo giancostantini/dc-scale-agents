@@ -50,6 +50,8 @@ export default function MessagePreviewModal({
 
   /** true = no hay leads reales de esta campaña y estamos con el ejemplo. */
   const [usingExample, setUsingExample] = useState(false);
+  /** Qué se le vende: cambia el ángulo completo del mensaje. */
+  const [leadVertical, setLeadVertical] = useState<"growth" | "dev">("growth");
 
   // Pre-fill con un prospecto REAL de la campaña; si todavía no encontró
   // ninguno, cae al ejemplo y lo dice.
@@ -75,8 +77,10 @@ export default function MessagePreviewModal({
         setLeadRole(real.contactRole || campaign.roles[0] || "");
         setLeadSector(real.sector || campaign.industries[0] || "");
         setLeadNotes(real.note ?? "");
+        setLeadVertical(real.type === "dev" ? "dev" : "growth");
       } else {
         setUsingExample(true);
+        setLeadVertical("growth");
         setLeadName(EXAMPLE_PROSPECT.name);
         setLeadCompany(EXAMPLE_PROSPECT.company);
         setLeadRole(campaign.roles[0] || "CEO");
@@ -125,6 +129,7 @@ export default function MessagePreviewModal({
             role: leadRole.trim() || undefined,
             sector: leadSector.trim() || undefined,
             notes: leadNotes.trim() || undefined,
+            vertical: leadVertical,
           },
           channel,
         }),

@@ -14,10 +14,23 @@ Volver: [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)
 > corrida: geografías, puestos, rubros, señales, exclusiones propias y tope
 > de prospectos. Este archivo define el MÉTODO, que aplica siempre: guía de
 > scoring, exclusiones duras y fuentes. Las keywords y geografías de abajo
-> son el **ICP de fallback**: se usan cuando no hay ninguna campaña activa
-> (ahí el agente corre como antes de las campañas).
+> son el **ICP de fallback**: se usan cuando no hay ninguna campaña activa.
 
-## Keywords de puestos a buscar (fallback)
+## Las dos señales que buscamos
+
+La agencia tiene dos verticales y cada una tiene su propia señal de compra
+en un aviso laboral. El agente **clasifica cada hallazgo** en una de las dos
+(`vertical: growth | dev`), y eso define el tipo del prospecto en el CRM
+(Growth Partner o Desarrollo) y el ángulo del mensaje.
+
+| Vertical | La señal | Por qué es candidata |
+|---|---|---|
+| **growth** | Busca marketing in-house (CM, redes, paid media, contenido) | Tiene necesidad y presupuesto de marketing; tercerizarlo con una agencia es una alternativa directa |
+| **dev** | Busca perfiles de tecnología/datos, o el aviso describe un proceso manual y repetitivo | Tiene un problema operativo con presupuesto asignado; parte de eso se resuelve con automatización en vez de (o antes de) sumar gente |
+
+---
+
+## Vertical GROWTH — puestos a buscar (fallback)
 
 - community manager
 - marketing digital / responsable de marketing / analista de marketing
@@ -26,6 +39,48 @@ Volver: [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)
 - paid media / trafficker digital / media buyer
 - content manager / creador de contenido
 
+---
+
+## Vertical DESARROLLO (automatización e IA) — qué buscar
+
+### A. Puestos de tecnología y datos (señal más limpia)
+
+Contratan tecnología: tienen agenda y presupuesto. Ofrecer construirlo no
+compite con la persona, la complementa.
+
+- desarrollador / programador / analista funcional
+- analista de datos / Power BI / business intelligence
+- automatización / RPA / integraciones / API
+- implementación de ERP / analista de sistemas
+- soporte técnico / mesa de ayuda con foco en procesos
+
+### B. Puestos operativos repetitivos (señal más frecuente)
+
+El aviso describe, sin querer, el proceso que se puede automatizar.
+
+- administrativo / a · data entry · carga de datos
+- facturación · conciliación · cobranzas · liquidación
+- control de stock / inventario · seguimiento de pedidos
+- atención al cliente por WhatsApp / mesa de entrada
+- coordinación logística / armado de rutas
+
+### C. Lo que dice el aviso (el dato más valioso)
+
+Cuando el texto menciona **planillas de Excel, carga manual, control
+cruzado, reportes armados a mano, seguimiento por WhatsApp, "uso avanzado
+de Excel"** — eso es literalmente la especificación de lo que se puede
+automatizar. **Capturalo en la señal**: es lo que hace específico al primer
+mensaje.
+
+### Regla de tono para esta vertical (no negociable)
+
+Nunca plantear "no contrates a esa persona" ni "reemplazá ese puesto". El
+ángulo es **aditivo**: hay una parte del proceso que un sistema absorbe para
+que la persona que entre haga el trabajo que de verdad importa. Un mensaje
+que suena a "despedí gente" quema la marca en un mercado chico como Uruguay.
+
+---
+
 ## Geografías (fallback, en orden de prioridad)
 
 1. **Uruguay** (Montevideo primero) — mercado principal, servicio más fácil
@@ -33,15 +88,18 @@ Volver: [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)
 3. Perú
 4. Paraguay
 
-## Exclusiones (no cargar)
+## Exclusiones (no cargar, las dos verticales)
 
 - **Agencias de marketing/publicidad contratando para sí mismas** (competencia, no cliente)
+- **Software factories / consultoras de IT contratando devs** (competencia de la vertical dev)
 - Búsquedas de freelance puro por proyecto chico (sin presupuesto recurrente)
 - Clientes actuales de la agencia
-- Puestos corporativos de multinacionales gigantes (no compran agencia boutique)
+- Puestos corporativos de multinacionales gigantes (no compran boutique)
 - Avisos sin empresa identificable (consultora de RRHH sin revelar cliente final) → score máximo 2
 
 ## Guía de scoring (1-5)
+
+**Growth**
 
 | Score | Perfil |
 |---|---|
@@ -50,6 +108,16 @@ Volver: [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)
 | 3 | Señal buena pero con fricción (empresa muy chica, rol muy senior/estratégico in-house) |
 | 2 | Empresa no identificable o fit dudoso |
 | 1 | Fuera de perfil (excluible) |
+
+**Desarrollo**
+
+| Score | Perfil |
+|---|---|
+| 5 | El aviso describe un proceso manual concreto y repetitivo (facturación, conciliación, stock, pedidos) en una empresa con volumen real — sabemos exactamente qué construir |
+| 4 | Busca perfil de tecnología/datos en una PyME o empresa mediana: hay agenda de sistemas y presupuesto |
+| 3 | Señal de proceso pero difusa, o empresa demasiado chica para un proyecto |
+| 2 | Empresa no identificable, o el rol es puramente técnico sin proceso de negocio atrás |
+| 1 | Software factory, consultora de IT, o fuera de perfil |
 
 **Solo score ≥ 4 entra al pipeline.** El resto queda en el reporte del run
 (campana → link) por si los socios quieren repescar alguno a mano.

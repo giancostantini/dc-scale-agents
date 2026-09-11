@@ -57,6 +57,8 @@ interface LeadRow {
   id: string;
   name: string;
   company: string;
+  /** 'gp' = growth · 'dev' = automatización e IA. Define el ángulo. */
+  type: "gp" | "dev";
   sector: string | null;
   note: string | null;
   contact_email: string | null;
@@ -115,7 +117,7 @@ export async function POST(req: NextRequest) {
       const { data: leads, error: leadErr } = await admin
         .from("leads")
         .select(
-          "id, name, company, sector, note, contact_email, contact_role, linkedin_url, source_url",
+          "id, name, company, type, sector, note, contact_email, contact_role, linkedin_url, source_url",
         )
         .eq("campaign_id", campaign.id)
         .is("lost_at", null)
@@ -194,6 +196,7 @@ export async function POST(req: NextRequest) {
               email: lead.contact_email ?? undefined,
               notes: lead.note ?? undefined,
               sourceUrl: lead.source_url ?? undefined,
+              vertical: lead.type === "dev" ? "dev" : "growth",
             },
             channel,
             usageSource: "dashboard:outreach-draft",

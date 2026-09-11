@@ -222,8 +222,14 @@ const REPORT_TOOL = {
             ubicacion: { type: "string", description: "Ciudad/país del llamado." },
             url: { type: "string", description: "URL del llamado (real, del análisis — no inventar)." },
             fuente: { type: "string", description: "Dónde se publicó (LinkedIn, Computrabajo, BuscoJobs, etc.)." },
-            senal: { type: "string", description: "Por qué es candidata a tercerizar con la agencia, 1 frase." },
+            senal: { type: "string", description: "Por qué es candidata, 1 frase. Para vertical 'dev', incluí el proceso manual concreto que menciona el aviso (planillas, carga manual, conciliación, seguimiento por WhatsApp…) — es el dato más valioso." },
             sector: { type: "string", description: "Rubro de la empresa (ej. 'gastronomía', 'retail')." },
+            vertical: {
+              type: "string",
+              enum: ["growth", "dev"],
+              description:
+                "growth = busca marketing in-house (CM, redes, paid media, contenido). dev = busca perfiles de tecnología/datos, o el aviso describe un proceso manual y repetitivo que se puede automatizar.",
+            },
             score: {
               type: "integer",
               minimum: 1,
@@ -232,7 +238,7 @@ const REPORT_TOOL = {
             },
             pitch_angle: { type: "string", description: "Ángulo de pitch sugerido, 1 frase." },
           },
-          required: ["empresa", "puesto", "score"],
+          required: ["empresa", "puesto", "score", "vertical"],
         },
       },
     },
@@ -544,7 +550,10 @@ function leadRowFromItem(item, today, campaign) {
     name: `Buscan: ${item.puesto}`.slice(0, 120),
     company: item.empresa,
     sector: item.sector?.trim() || "—",
-    type: "gp",
+    // El CRM distingue las dos verticales (etiqueta de la card y campos de
+    // cotización distintos: fee+bono para growth, producción+mantenimiento
+    // para desarrollo). Default conservador a growth.
+    type: item.vertical === "dev" ? "dev" : "gp",
     value: 0,
     stage: "prospecto",
     source: /linkedin/i.test(item.fuente ?? "") ? "linkedin" : "otro",
@@ -611,16 +620,23 @@ function buildIcpBlock(campaign) {
 }
 
 function buildSearchPrompt(busquedasMd, extraQuery, campaign) {
-  return `Sos el Prospector de Llamados de D&C Scale Partners (agencia de growth marketing, Uruguay). Tu trabajo HOY: encontrar LLAMADOS LABORALES PÚBLICOS Y VIGENTES donde una empresa busca contratar roles de marketing in-house. La señal comercial: si una empresa busca contratar un community manager o un rol de marketing, tiene la necesidad y el presupuesto — es candidata a tercerizar ese trabajo con una agencia.
+  return `Sos el Prospector de Llamados de D&C Scale Partners (Uruguay). La agencia tiene DOS verticales y vos buscás señales de compra para las dos en LLAMADOS LABORALES PÚBLICOS Y VIGENTES:
+
+1. GROWTH (vertical "growth"): la empresa busca marketing in-house — community manager, redes, marketing digital, paid media, contenido. Señal: tiene la necesidad y el presupuesto de marketing; tercerizarlo con la agencia es una alternativa directa.
+
+2. DESARROLLO / automatización e IA (vertical "dev"): la empresa busca perfiles de tecnología o datos (desarrollador, analista de datos, BI, automatización, implementación de ERP), O BIEN el aviso describe un PROCESO MANUAL Y REPETITIVO: planillas de Excel, carga manual de datos, facturación, conciliación, control de stock, seguimiento de pedidos o consultas por WhatsApp, reportes armados a mano. Señal: hay un problema operativo con presupuesto asignado, y parte de eso se resuelve automatizando en vez de (o antes de) sumar gente. Cuando el aviso describe el proceso manual, CAPTURALO TEXTUALMENTE en la señal: es lo más valioso que vas a encontrar.
+
+Clasificá cada hallazgo en una de las dos verticales.
 
 CONFIG DE BÚSQUEDA (scoring, exclusiones duras, fuentes e ICP de fallback — respetala al pie de la letra):
 ${busquedasMd}
 ${buildIcpBlock(campaign)}${extraQuery ? `\nBÚSQUEDA EXTRA pedida en este run: "${extraQuery}"\n` : ""}
 INSTRUCCIONES:
-1. Usá la web search para buscar llamados VIGENTES (publicados en los últimos ~30 días) combinando las keywords con las geografías de la config. Buscá en: LinkedIn Jobs (resultados públicos indexados, ej. "site:linkedin.com/jobs community manager Uruguay"), Computrabajo, BuscoJobs y portales locales.
-2. Por cada llamado real que encuentres, reportá: EMPRESA (el dato más importante — si el aviso es de una consultora de RRHH y no se sabe la empresa final, decilo), PUESTO, UBICACIÓN, URL del aviso, FUENTE, por qué es candidata (SEÑAL), SECTOR de la empresa, SCORE 1-5 según la guía de la config, y un ÁNGULO DE PITCH de una frase.
-3. Aplicá las exclusiones de la config (agencias contratando para sí, freelance puro, etc.).
-4. NO inventes llamados ni empresas: solo lo que realmente encontraste, con su URL. Si encontrás pocos, está bien — mejor 3 reales que 10 inventados.
+1. Usá la web search para buscar llamados VIGENTES (publicados en los últimos ~30 días) combinando las keywords con las geografías de la config. Repartí las búsquedas entre las DOS verticales. Buscá en: LinkedIn Jobs (resultados públicos indexados, ej. "site:linkedin.com/jobs community manager Uruguay"), Computrabajo, BuscoJobs y portales locales.
+2. Por cada llamado real que encuentres, reportá: EMPRESA (el dato más importante — si el aviso es de una consultora de RRHH y no se sabe la empresa final, decilo), PUESTO, UBICACIÓN, URL del aviso, FUENTE, VERTICAL (growth o dev), por qué es candidata (SEÑAL), SECTOR de la empresa, SCORE 1-5 según la guía de la config, y un ÁNGULO DE PITCH de una frase.
+3. Aplicá las exclusiones de la config (agencias de marketing contratando para sí, software factories y consultoras de IT contratando devs, freelance puro, etc.).
+4. ÁNGULO DE PITCH para la vertical dev: SIEMPRE aditivo. Nunca "no contrates a esa persona" ni "reemplazá el puesto" — el ángulo es que un sistema absorbe la parte repetitiva para que quien entre haga el trabajo que importa.
+5. NO inventes llamados ni empresas: solo lo que realmente encontraste, con su URL. Si encontrás pocos, está bien — mejor 3 reales que 10 inventados.
 
 Al final escribí un análisis en texto con TODOS los llamados encontrados y sus datos.`;
 }
@@ -650,7 +666,11 @@ function buildReportMd(results, today, totalInserted, enrich) {
       lines.push("", "Sin llamados encontrados (o la estructuración falló).", "");
       continue;
     }
-    lines.push("", "| Empresa | Puesto | Score | Estado | Señal |", "|---|---|---|---|---|");
+    lines.push(
+      "",
+      "| Empresa | Vertical | Puesto | Score | Estado | Señal |",
+      "|---|---|---|---|---|---|",
+    );
     for (const it of r.items) {
       const norm = normalizeCompany(it.empresa);
       const estado = r.insertedCompanies.has(norm)
@@ -660,8 +680,9 @@ function buildReportMd(results, today, totalInserted, enrich) {
           : (it.score ?? 0) >= SCORE_MIN_PIPELINE
             ? "— (tope de la campaña alcanzado)"
             : `score ${it.score} < ${SCORE_MIN_PIPELINE} (solo reporte)`;
+      const vert = it.vertical === "dev" ? "⚙ Desarrollo" : "📣 Growth";
       lines.push(
-        `| ${it.empresa} | ${it.puesto}${it.ubicacion ? ` (${it.ubicacion})` : ""} | ${it.score} | ${estado} | ${(it.senal ?? "").slice(0, 140)}${it.url ? ` — [aviso](${it.url})` : ""} |`,
+        `| ${it.empresa} | ${vert} | ${it.puesto}${it.ubicacion ? ` (${it.ubicacion})` : ""} | ${it.score} | ${estado} | ${(it.senal ?? "").slice(0, 140)}${it.url ? ` — [aviso](${it.url})` : ""} |`,
       );
     }
     if (r.sources.length > 0) {

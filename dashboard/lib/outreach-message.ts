@@ -44,6 +44,12 @@ export interface OutreachLead {
   notes?: string;
   /** URL del aviso que originó el prospecto — el gancho más específico. */
   sourceUrl?: string;
+  /**
+   * Qué le vendemos: growth (marketing) o dev (automatización e IA). El
+   * ángulo del mensaje cambia por completo — y el de dev tiene una regla
+   * de tono propia (ver SYSTEM_PROMPT).
+   */
+  vertical?: "growth" | "dev";
 }
 
 export interface OutreachResult {
@@ -75,7 +81,16 @@ Two service lines:
 
 OUTBOUND RULES (non-negotiable):
 - Reference something SPECIFIC about the prospect: their company, role, industry signal, something observable from their LinkedIn or site
-- If the prospect was found because they published a JOB POSTING for an in-house marketing role, that is the strongest hook: acknowledge it naturally (they are hiring for X) and frame the agency as an alternative or a complement — never in a way that sounds like surveillance or mocks their hiring process
+- If the prospect was found because they published a JOB POSTING, that is the strongest hook: acknowledge it naturally (they are hiring for X) and frame the offer as an alternative or a complement — never in a way that sounds like surveillance or mocks their hiring process
+
+WHICH SERVICE LINE TO PITCH (the brief says which):
+- vertical "growth" → marketing: they are hiring for an in-house marketing role, and the agency can do that work with skin in the game.
+- vertical "dev" → automation / applied AI: they are hiring for a tech or data role, or the posting describes a repetitive manual process (spreadsheets, manual data entry, invoicing, reconciliation, stock control, order or customer follow-up over WhatsApp). If the brief names that specific process, reference IT — it is the most concrete thing you can say.
+
+HARD RULE FOR THE "dev" VERTICAL (non-negotiable):
+- The angle is ADDITIVE, never replacement. Do NOT suggest they skip the hire, cut the role, or "save on headcount". Never imply someone's job is unnecessary.
+- The correct framing: a system absorbs the repetitive part of the process so the person they are hiring does the work that actually matters. Curiosity about how they handle that process today beats any claim about savings.
+- A message that reads as "fire people / don't hire" destroys the brand in a small market. If in doubt, ask about the process instead of proposing anything.
 - Avoid generic openers: "hope this finds you well", "quick question", "I'd love to connect", "saw your profile"
 - No big promises, no bullet-list pitches, no "free consultation" language
 - Soft, curious tone — the goal is to open a conversation, not close a deal in the first message
@@ -155,6 +170,9 @@ function buildUserPrompt(
 
   lines.push("");
   lines.push("SPECIFIC PROSPECT:");
+  lines.push(
+    `- Service line to pitch (vertical): ${lead.vertical === "dev" ? "dev — automation / applied AI (remember the ADDITIVE hard rule)" : "growth — marketing"}`,
+  );
   lines.push(`- Name: ${lead.name}`);
   lines.push(`- Company: ${lead.company}`);
   if (lead.role) lines.push(`- Role: ${lead.role}`);
