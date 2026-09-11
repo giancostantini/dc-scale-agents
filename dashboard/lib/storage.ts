@@ -716,6 +716,15 @@ interface LeadRow {
   linkedin_url?: string | null;
   enriched_at?: string | null;
   enrichment_source?: string | null;
+  // Migracion 101 - el aviso + el contacto
+  job_title?: string | null;
+  job_location?: string | null;
+  posted_at?: string | null;
+  posted_at_text?: string | null;
+  role_requirements?: string | null;
+  contact_phone?: string | null;
+  company_email?: string | null;
+  company_website?: string | null;
 }
 
 function leadFromRow(r: LeadRow): Lead {
@@ -752,6 +761,15 @@ function leadFromRow(r: LeadRow): Lead {
     linkedinUrl: r.linkedin_url ?? null,
     enrichedAt: r.enriched_at ?? null,
     enrichmentSource: r.enrichment_source ?? null,
+    // Migracion 101
+    jobTitle: r.job_title ?? null,
+    jobLocation: r.job_location ?? null,
+    postedAt: r.posted_at ?? null,
+    postedAtText: r.posted_at_text ?? null,
+    roleRequirements: r.role_requirements ?? null,
+    contactPhone: r.contact_phone ?? null,
+    companyEmail: r.company_email ?? null,
+    companyWebsite: r.company_website ?? null,
   };
 }
 
@@ -3001,16 +3019,40 @@ export async function markOutreachReplied(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Datos de contacto del prospecto — el email habilita el envío. */
+/**
+ * Datos de contacto del prospecto. El que habilita el envío por email es
+ * `contactEmail` — `companyEmail` (info@, rrhh@) a propósito NO: promoverlo
+ * es una decisión humana, porque mandar un pitch frío a una casilla de CVs
+ * quema la marca.
+ *
+ * Lanza si falla (incluida la columna inexistente cuando la mig 101 no está
+ * aplicada): el caller tiene que MOSTRAR el error, no tragárselo.
+ */
 export async function updateLeadContact(
   id: string,
-  patch: { contactEmail?: string | null; contactRole?: string | null; linkedinUrl?: string | null },
+  patch: {
+    contactEmail?: string | null;
+    contactRole?: string | null;
+    contactPhone?: string | null;
+    companyEmail?: string | null;
+    companyWebsite?: string | null;
+    linkedinUrl?: string | null;
+    /** Marca que alguien completó el contacto recién (origen 'manual'). */
+    touchEnrichedAt?: boolean;
+  },
 ): Promise<void> {
   const supabase = getSupabase();
   const row: Record<string, string | null> = {};
   if (patch.contactEmail !== undefined) row.contact_email = patch.contactEmail;
   if (patch.contactRole !== undefined) row.contact_role = patch.contactRole;
+  if (patch.contactPhone !== undefined) row.contact_phone = patch.contactPhone;
+  if (patch.companyEmail !== undefined) row.company_email = patch.companyEmail;
+  if (patch.companyWebsite !== undefined) row.company_website = patch.companyWebsite;
   if (patch.linkedinUrl !== undefined) row.linkedin_url = patch.linkedinUrl;
+  if (patch.touchEnrichedAt) {
+    row.enriched_at = new Date().toISOString();
+    row.enrichment_source = "manual";
+  }
   const { error } = await supabase.from("leads").update(row).eq("id", id);
   if (error) throw error;
 }

@@ -122,6 +122,24 @@ que suena a "despedí gente" quema la marca en un mercado chico como Uruguay.
 **Solo score ≥ 4 entra al pipeline.** El resto queda en el reporte del run
 (campana → link) por si los socios quieren repescar alguno a mano.
 
+## Qué capturar de cada aviso
+
+Además de la señal y el score, el agente extrae lo que la card y la ficha
+del prospecto muestran:
+
+- **Puesto** que ofrecen y **ubicación**.
+- **Fecha de publicación**, TAL COMO LA MUESTRE el aviso ("hace 5 días",
+  "3/9/2026"). Si no la muestra, se deja vacía: **no se estima**.
+- **Qué se pretende en el puesto**: 2-4 frases con experiencia, herramientas,
+  modalidad y responsabilidades. Es el material del primer mensaje.
+- **Email de contacto del aviso**, si lo publica. Va a la casilla de la
+  empresa, nunca al email del decisor (ver
+  [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)).
+
+Después de cargar los prospectos, el agente hace **una** pasada de búsqueda
+web para completar web institucional, teléfono y casilla de contacto de las
+empresas con mejor score.
+
 ## Fuentes
 
 Resultados públicos vía web search de Claude: LinkedIn Jobs (avisos públicos

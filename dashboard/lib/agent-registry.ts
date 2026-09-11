@@ -387,9 +387,11 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
     owner: "socios",
     status: "active",
     workflow: "prospeccion.yml",
-    // Sin repositoryDispatch/dispatchable: v1 corre por cron + dispatch
-    // manual del workflow (los canales de dispatch del dashboard exigen
-    // clientId y este agente es de agencia — deuda declarada).
+    // El workflow SI escucha repository_dispatch (el dashboard lanza una
+    // corrida al crear una campana), pero el canal es /api/prospeccion/run,
+    // no /api/agents/run: ese exige clientId y abre un agent_run que este
+    // agente ignora (abre el suyo con client="_system"), dejando una fila
+    // "running" eterna. Por eso repositoryDispatch queda en false aca.
   },
 ];
 

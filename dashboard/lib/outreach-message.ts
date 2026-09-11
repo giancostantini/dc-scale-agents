@@ -50,6 +50,10 @@ export interface OutreachLead {
    * de tono propia (ver SYSTEM_PROMPT).
    */
   vertical?: "growth" | "dev";
+  /** El puesto que publicaron y qué piden: el gancho más específico que
+   *  hay, porque lo escribió el propio prospecto. */
+  jobTitle?: string;
+  roleRequirements?: string;
 }
 
 export interface OutreachResult {
@@ -179,6 +183,10 @@ function buildUserPrompt(
   if (lead.sector) lines.push(`- Sector: ${lead.sector}`);
   if (lead.linkedin) lines.push(`- LinkedIn URL: ${lead.linkedin}`);
   if (lead.email) lines.push(`- Email: ${lead.email}`);
+  if (lead.jobTitle) lines.push(`- Job posting they published: ${lead.jobTitle}`);
+  if (lead.roleRequirements) {
+    lines.push(`- What the posting asks for: ${lead.roleRequirements}`);
+  }
   if (lead.sourceUrl) {
     lines.push(`- Signal that surfaced this prospect (job posting or similar): ${lead.sourceUrl}`);
   }

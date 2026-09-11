@@ -11,6 +11,10 @@ import {
   Tooltip,
 } from "recharts";
 import Topbar from "@/components/Topbar";
+import LeadDetailModal from "@/components/LeadDetailModal";
+import { cardSubject } from "@/lib/lead-display";
+import { agoFromDate } from "@/lib/relative-time";
+import { getSupabase } from "@/lib/supabase/client";
 import NewLeadModal from "@/components/NewLeadModal";
 import NewCampaignModal from "@/components/NewCampaignModal";
 import MessagePreviewModal from "@/components/MessagePreviewModal";
@@ -82,6 +86,24 @@ const SOURCE_COLORS: Record<LeadSource, string> = {
   manual: "#7A8A7E",
 };
 
+/** Sector + ubicacion del aviso, para la linea meta de la card. */
+function cardMeta(lead: Lead): string {
+  return [
+    lead.sector && lead.sector !== "—" ? lead.sector : null,
+    lead.jobLocation,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Hace cuanto se publico el AVISO. Nunca cae a createdAt: eso responde
+ * "cuando lo encontramos nosotros", que es otra pregunta.
+ */
+function postedAgo(lead: Lead): string | null {
+  return agoFromDate(lead.postedAt) ?? lead.postedAtText ?? null;
+}
+
 /** Días en la etapa actual. Si no hay stage_changed_at usa createdAt. */
 function daysInStage(lead: Lead): number {
   const ref = lead.stageChangedAt ?? lead.createdAt;
@@ -99,6 +121,12 @@ export default function PipelinePage() {
   const [campaigns, setCampaigns] = useState<ProspectCampaign[]>([]);
   /** Mensajes de outreach esperando decisión — badge del header. */
   const [pendingMessages, setPendingMessages] = useState(0);
+  /** Ficha del prospecto abierta. Guardamos el ID y no el objeto: el lead
+   *  se re-resuelve en cada render, si no el modal muestra datos viejos
+   *  despues de refresh(). */
+  const [detailLeadId, setDetailLeadId] = useState<string | null>(null);
+  /** Aviso mientras el agente busca tras crear una campana. */
+  const [searchBanner, setSearchBanner] = useState<string | null>(null);
   const [leadModal, setLeadModal] = useState<{
     open: boolean;
     stage: PipelineStage;
@@ -148,6 +176,21 @@ export default function PipelinePage() {
       refresh();
     });
   }, [router, refresh]);
+
+  /**
+   * Mientras el Prospector busca, refrescamos solos. Acotado a proposito:
+   * cada 20s y corte a los 5 minutos — el agente tarda 2-4 y un polling
+   * infinito castiga a Supabase sin motivo.
+   */
+  useEffect(() => {
+    if (!searchBanner) return;
+    const iv = setInterval(refresh, 20_000);
+    const stop = setTimeout(() => setSearchBanner(null), 5 * 60_000);
+    return () => {
+      clearInterval(iv);
+      clearTimeout(stop);
+    };
+  }, [searchBanner, refresh]);
 
   if (!authChecked) return null;
 
@@ -376,6 +419,55 @@ export default function PipelinePage() {
     refresh();
   }
 
+  /**
+   * Al crear una campana no esperamos al lunes: disparamos una corrida
+   * dirigida a ese ICP. El agente tarda 2-4 minutos, asi que mostramos un
+   * banner y refrescamos solos un rato.
+   *
+   * Si el disparo falla, la campana IGUAL quedo creada — el mensaje lo dice
+   * asi, no como un error que sugiera que se perdio.
+   */
+  const handleCampaignCreated = useCallback(
+    async (campaign: ProspectCampaign) => {
+      refresh();
+      setSearchBanner("Campaña creada. Lanzando la búsqueda…");
+      try {
+        const supabase = getSupabase();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const res = await fetch("/api/prospeccion/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token
+              ? { authorization: `Bearer ${session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify({ campaignId: campaign.id }),
+        });
+        const data = (await res.json()) as {
+          queued?: boolean;
+          reason?: string;
+          error?: string;
+        };
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        setSearchBanner(
+          data.queued
+            ? "Campaña creada. El Prospector está buscando avisos — los prospectos aparecen en 2-4 minutos."
+            : `Campaña creada. ${data.reason ?? ""}`,
+        );
+      } catch (err) {
+        setSearchBanner(
+          `Campaña creada. No pude lanzar la búsqueda ahora (${
+            err instanceof Error ? err.message : "error"
+          }) — corre igual el lunes.`,
+        );
+      }
+    },
+    [refresh],
+  );
+
   /** Pausar = el agente la ignora el lunes. Activar = vuelve a buscar. */
   async function toggleCampaign(cmp: ProspectCampaign) {
     await setCampaignStatus(cmp.id, cmp.status === "active" ? "paused" : "active");
@@ -484,6 +576,56 @@ export default function PipelinePage() {
           </button>
         </div>
 
+        {/* Aviso mientras el agente busca (tras crear una campana). */}
+        {searchBanner && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "12px 16px",
+              background: "var(--white)",
+              border: "1px solid var(--hairline)",
+              borderLeft: "3px solid var(--sand)",
+              borderRadius: "var(--r-md)",
+              fontSize: 12.5,
+              color: "var(--text-muted)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <span style={{ flex: 1 }}>{searchBanner}</span>
+            <button
+              onClick={refresh}
+              style={{
+                padding: "5px 12px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                border: "1px solid var(--sand)",
+                background: "var(--off-white)",
+                borderRadius: 4,
+                cursor: "pointer",
+                color: "var(--deep-green)",
+              }}
+            >
+              Actualizar
+            </button>
+            <button
+              onClick={() => setSearchBanner(null)}
+              aria-label="Cerrar aviso"
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "var(--text-muted)",
+                fontSize: 16,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* ============ KANBAN ============ */}
         <div className={styles.kanbanHeader} style={{ marginTop: 8 }}>
           <h2>Pipeline · Kanban</h2>
@@ -567,6 +709,11 @@ export default function PipelinePage() {
                           ? "3px solid #F87171"
                           : undefined,
                       }}
+                      onClick={() => {
+                        // No abrir la ficha si estaban seleccionando texto.
+                        if (window.getSelection()?.toString()) return;
+                        setDetailLeadId(lead.id);
+                      }}
                     >
                       {stale && (
                         <div
@@ -592,14 +739,48 @@ export default function PipelinePage() {
                         {lead.type === "gp" ? "Growth Partner" : "Desarrollo"}
                         {lead.source === "linkedin" ? " · in" : ""}
                         {lead.source === "email" ? " · ✉" : ""}
+                        {lead.score != null && (
+                          <span className={styles.kScore}>fit {lead.score}/5</span>
+                        )}
                       </div>
-                      <div className={styles.kName}>{lead.name}</div>
-                      <div className={styles.kSector}>
-                        {lead.company} · {lead.sector}
-                      </div>
+                      {/* La empresa es el título y el único control accesible
+                          que abre la ficha (el onClick de la card es azúcar
+                          para el mouse). */}
+                      <button
+                        type="button"
+                        className={`${styles.kName} ${styles.kNameBtn}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailLeadId(lead.id);
+                        }}
+                        title={`Ver la ficha de ${lead.company}`}
+                      >
+                        {lead.company}
+                      </button>
+                      {cardSubject(lead) && (
+                        <div className={styles.kSubject}>{cardSubject(lead)}</div>
+                      )}
+                      {(cardMeta(lead) || postedAgo(lead)) && (
+                        <div className={styles.kSector}>
+                          {cardMeta(lead)}
+                          {cardMeta(lead) && postedAgo(lead) ? " · " : ""}
+                          {postedAgo(lead) && (
+                            <span title="Fecha que muestra el aviso">
+                              publicado {postedAgo(lead)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {/* Qué se pretende en el puesto (o la nota, si es un
+                          lead cargado a mano). */}
+                      {(lead.roleRequirements?.trim() || lead.note?.trim()) && (
+                        <div className={styles.kReq}>
+                          {lead.roleRequirements?.trim() || lead.note?.trim()}
+                        </div>
+                      )}
                       {showValue ? (
                         lead.value > 0 || (lead.type === "gp" ? lead.bono : lead.costoProduccion) ? (
-                          <div>
+                          <div onClick={(e) => e.stopPropagation()}>
                             <div className={styles.kValue}>
                               {lead.type === "gp"
                                 ? lead.feeMensual && lead.feeMensual > 0
@@ -643,7 +824,10 @@ export default function PipelinePage() {
                             </button>
                           </div>
                         ) : (
-                          <div className={styles.kValue}>
+                          <div
+                            className={styles.kValue}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => openQuoteModal(lead)}
                               style={{
@@ -705,7 +889,12 @@ export default function PipelinePage() {
                           {lead.note}
                         </div>
                       )}
-                      <div className={styles.kActions}>
+                      {/* stopPropagation a nivel del contenedor: cubre los
+                          botones de hoy y los que agreguemos manana. */}
+                      <div
+                        className={styles.kActions}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {/* Mensajes de este prospecto en la cola */}
                         <button
                           className={styles.kBtn}
@@ -987,7 +1176,23 @@ export default function PipelinePage() {
       <NewCampaignModal
         open={campaignModal}
         onClose={() => setCampaignModal(false)}
-        onCreated={refresh}
+        onCreated={handleCampaignCreated}
+      />
+
+      {/* Ficha del prospecto: todo lo necesario para contactarlo. */}
+      <LeadDetailModal
+        lead={leads.find((l) => l.id === detailLeadId) ?? null}
+        onClose={() => setDetailLeadId(null)}
+        onSaved={refresh}
+        onMoveStage={(lead, dir) => moveLead(lead, dir)}
+        onQuote={(lead) => {
+          setDetailLeadId(null);
+          openQuoteModal(lead);
+        }}
+        onLost={(lead) => {
+          setDetailLeadId(null);
+          openLostModal(lead);
+        }}
       />
 
       <MessagePreviewModal
