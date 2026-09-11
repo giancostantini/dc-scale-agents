@@ -1,134 +1,107 @@
 # Tendencias del nicho — Glassy Waves
 
-> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-09-04.
+> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-09-11.
 > Tendencias recientes y accionables del nicho. Cada ítem cita su fuente.
 
 ### 🎬 Contenido que está funcionando
 
-**1. UGC "raw" de producto en acción — try-on + calce real en TikTok e Instagram Reels**
+- **Nostalgia surf '90s como gancho visual en Reels** — Creadores que centran contenido en nostalgia de los '90s están obteniendo tasas de engagement más altas y mejores conversiones en 2026; no son throwbacks pasivos, son revivals calculados para alcance, guardados y agotamiento de stock. Para Glassy Waves esto es ORO: el surfwear vintage (Quiksilver, Rusty, Billabong) está siendo masivamente evocado en TikTok bajo `#vintagesurfwear` y `#90ssurfstyle`. El formato "Last one crazy" con prendas vintage '90s y marcas como Rusty circula activamente en TikTok bajo los tags `#surfwear #90s #vintage`. **Acción inmediata:** publicar Reels mostrando prendas actuales de Glassy con filtro retro/granulado y audio nostálgico, con el hook "el surfwear de los '90 era otro nivel… por eso lo trajimos de vuelta 🌊" · Plataforma: Instagram Reels + TikTok · (fuente: https://www.amraandelma.com/influencers-pushing-90s-nostalgia-fashion/ y https://www.tiktok.com/discover/surfwear-brands)
 
-Los videos pulidos de marca ya no impulsan compras. En 2026 los consumidores son cada vez más escépticos de la perfección y pasan directo a buscar el video casero, sin editar, porque se siente real. Para Glassy Waves esto es oro: clientes surfeando o en la playa con las prendas, con audio ambiente real, sin producción. Videos de before/after de estilismo, outfit-of-the-day y testimonios de talle/calce son los que atacan las principales dudas de compra en moda. **Plataforma prioritaria: TikTok + Instagram Reels.** · (fuente: [yotpo.com](https://www.yotpo.com/blog/user-generated-content-strategy/) / [invideo.io](https://invideo.io/blog/ai-ugc-strategy-guide/))
+- **"Flop-Core" adaptado a marca lifestyle** — El formato anti-highlight-reel donde los creadores postean sus fracasos y momentos vergonzosos en vez de sus éxitos está ganando tracción en Reels con audio original, sin licencia bloqueada. Para Glassy: "el día que salimos a surfear y el mar estaba liso" / "el outfit que armamos vs. cómo quedó" — contenido auténtico que encaja perfecto con el tono irreverente de la marca. · Plataforma: Instagram Reels · (fuente: https://newengen.com/insights/instagram-trends/)
 
----
+- **GRWM + fit check con energía de "protagonista del verano"** — El audio con energía "main-character, summer-coded" está funcionando para videos de day-in-the-life, demos de producto y fit checks; la vibra despreocupada gana siempre. Formato: alguien de la comunidad surf de Glassy mostrando el outfit desde levantarse hasta llegar a la playa con la tabla. Cada clip de 1 segundo cortado al ritmo. · Plataforma: Instagram Reels / TikTok · (fuente: https://later.com/blog/instagram-reels-trends/)
 
-**2. Vintage surf wear — nostalgia estética en TikTok**
+- **Construcción de comunidad con sorpresa / giveaway de producto** — Marcas de surf pequeñas están usando el gancho "somos tan chicos que te mandamos un set por seguirnos, likear y comentar" para crecer su comunidad; el formato está activo en TikTok bajo `#surfcommunity #lifestylebrand`. Para Glassy, este formato es directamente replicable con una remera o bikini como premio, reforzando la identidad de "marca nacida de la comunidad". · Plataforma: TikTok + Instagram · (fuente: https://www.tiktok.com/discover/surf-clothing-brands)
 
-En TikTok, los videos de surf wear vintage están acumulando cientos de miles de vistas: "vintage surfwear was top tier… that's why we're bringing it back" con clips en el rango de 310K–1M de reproducciones. Glassy Waves puede montar sobre esto con contenido que muestre el "origen" de sus diseños o su vínculo con la cultura surf local uruguaya. **Hook accionable esta semana:** *"Esta semana rescatamos el estilo que nunca debió irse — te mostramos cómo lo usamos acá en Uruguay."* · (fuente: [TikTok Surf Wear](https://www.tiktok.com/discover/surf-wear?lang=en))
-
----
-
-**3. GRWM ("Get Ready With Me") adaptado al lifestyle surf**
-
-"Get ready with me" es un formato TikTok de primera línea usado por influencers de moda y lifestyle para mostrar rutinas. Es ideal para marcas de indumentaria, especialmente si se puede activar con creadores que integren los productos de forma auténtica. Para Glassy Waves: GRWM para ir a surfear, para La Barra, para el shopping de Punta Carretas. Bajo costo, alta resonancia en el público 15–30. · (fuente: [Shopify TikTok Trends](https://www.shopify.com/in/blog/tiktok-trends))
-
----
-
-**4. "Relatabilidad" sobre perfección — celebrar el outfit repetido y lo cotidiano**
-
-Después de años de rutinas hiper-curadas y estilos aspiracionales, hay algo refrescante en elegir lo ordinario. Las marcas de moda están empezando a celebrar el outfit repetido en lugar de empujar constantemente lo nuevo. Para Glassy Waves: mostrar las prendas core (remeras, hoodies) usadas mil veces, en contextos reales del río, la playa, el barrio. Conecta directo con el voseo y el tono irreverente de la marca. · (fuente: [Pepper Agency](https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026-and-how-brands-can-actually-use-them))
+- **Photo booth strips / secuencias de fotos con estética retro** — Las tiras de foto tipo photo booth están volviendo oficialmente; el formato funciona para throwbacks, evolución de marca o recaps que se sienten sacados de 2009 (para bien). Para Glassy: serie de fotos de los drops de temporada o de un surf camp, en tira de 4 imágenes con filtro lavado. Muy shareable entre el público 15–25. · Plataforma: Instagram Stories + Reels · (fuente: https://later.com/blog/instagram-reels-trends/)
 
 ---
 
 ### 📈 Tráfico a la web
 
-**5. Mobile-first es innegociable en Uruguay — el 91% intenta comprar desde el celular**
+- **Instagram como motor de búsqueda de producto** — El SEO en Instagram es altamente efectivo y obligatorio en 2026: casi el 26% de los usuarios usa la plataforma como buscador de productos y contenido, por lo que optimizar nombre de perfil, bio, captions y texto en pantalla con palabras clave impacta directamente la visibilidad en Explore y Search. **Acción:** incluir "ropa surf Uruguay", "moda playa Montevideo", "surf lifestyle UY" en captions y texto on-screen de cada Reel de Glassy. · (fuente: https://www.socibly.com/blog/instagram-trends-2026)
 
-El celular domina las compras en Uruguay: el 91% intentó comprar desde su dispositivo móvil y el 88% logró concretar la operación, aunque persisten dificultades vinculadas a procesos complejos, exceso de pasos o solicitudes de información. Con el sitio de Glassy Waves auditado en 58/100 y el zoom bloqueado en mobile, cada peso invertido en tráfico pago está siendo sub-aprovechado. El contenido que lleva a la web debe tener destinos móvil-optimizados con fichas rápidas. · (fuente: [grupormultimedio.com – eCommerce Day UY 2026](https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/))
+- **Mobile-first es la única opción real en Uruguay** — El celular sigue siendo el dispositivo preferido para comprar: el 91% de los consumidores uruguayos intenta concretar compras desde móvil y el 88% logra finalizar la operación. Dado que la auditoría de Glassy ya marcó el zoom bloqueado en mobile como brecha crítica, resolver esto tiene impacto directo en tráfico que convierte. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026/)
 
----
-
-**6. Championes / calzado deportivo: categoría con el mayor salto de demanda en Uruguay**
-
-Al analizar la categoría Deportes en el mercado uruguayo, la subcategoría de championes registró más del doble de ventas en 2025 comparado con 2024, mostrando alto potencial de crecimiento para 2026. Glassy Waves tiene championes y calzado en su catálogo. Contenido específico de calzado (lookbooks, styling, unboxing) puede capturar búsqueda orgánica y tráfico social que hoy no está siendo explotado. · (fuente: [Nubimetrics – Tendencias eCommerce 2026](https://academia.nubimetrics.com/tendencias-ecommerce))
+- **TikTok + Meta Ads como dupla de tráfico validada para moda UY** — Para productos que lucen en video, la combinación de Instagram y TikTok orgánico más Meta Ads con presupuesto chico para validar es la estrategia más mencionada para e-commerces en Uruguay en 2026. El surfwear es un producto visualmente fuerte: el contenido en movimiento (olas, playa, skate) tiene ventaja natural frente a moda genérica. · (fuente: https://tiendli.com/blog/dropshipping-uruguay)
 
 ---
 
 ### 🛒 Ventas / conversión
 
-**7. Política de devoluciones = palanca de conversión directa (no solo un problema legal)**
+- **Envío gratuito y política de cambios visibles = conversión directa** — Estrategias como devoluciones sin costo o envíos gratuitos en la primera compra se presentan como herramientas efectivas para conquistar y retener clientes en el ecommerce uruguayo 2026. Glassy hoy no tiene umbral de envío gratis ni política de devoluciones de dinero: ambas son barreras documentadas de conversión. Definir zonas de envío, costos y plazos claros antes del checkout reduce el abandono de carrito; el comprador uruguayo valora la transparencia: políticas de cambios y devoluciones visibles, datos de contacto reales y una tienda profesional y segura. · (fuente: https://www.elobservador.com.uy/cafe-y-negocios/ y https://agile.uy/recursos/guia-ecommerce-uruguay-2026/)
 
-El crecimiento del ecommerce uruguayo no depende solo de innovaciones tecnológicas: casi 6 de cada 10 personas comprarían más si hubiera mejores políticas de devolución, y cerca de la mitad lo haría con mayores facilidades de pago. Glassy Waves tiene hoy la política más dura del mercado ("no devolución de dinero"). Comunicar activamente cambio o mejora en este punto — aunque sea cambio de talle gratuito — podría destrabar conversión inmediata. · (fuente: [grupormultimedio.com – eCommerce Day UY 2026](https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/))
+- **Confianza post-compra como ventaja competitiva** — Una política de devoluciones poco clara puede convertirse en una barrera antes de comprar. La experiencia posventa es una parte fundamental de la estrategia de ecommerce: una marca que responde cuando las cosas salen bien y también cuando aparece un inconveniente tiene mayores posibilidades de construir relaciones comerciales duraderas. Esto aplica directamente a la brecha de Glassy (emails @gmail, sin RUT visible, sin reseñas). Publicar la política claramente + activar reseñas en ficha de producto = palanca de conversión inmediata. · (fuente: https://encolombia.com/economia/empresas/ecommerce-competitivo-confianza/)
 
----
+- **Indumentaria, calzado y accesorios: categoría #1 en Ciberlunes** — Vestimenta, calzado y accesorios lideran el Ciberlunes con el 21% del volumen, seguidos por electrodomésticos (7%) y perfumería (6%). Glassy está en la categoría que más convierte en el evento de descuentos más grande de Uruguay. La segunda edición del Ciberlunes 2026 se viene en noviembre: hay que preparar stock, precios reales y ficha de producto completa ya. · (fuente: https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-lanza-inscripciones-para-la-preventa-del-primer-ciberlunes-de-2026/)
 
-**8. UGC en fichas de producto = más add-to-cart**
-
-Un retailer de indumentaria que agrega un carrusel UGC con notas de talle en las fichas de producto genera tasas de add-to-cart más altas en productos específicos. Glassy Waves tiene fichas vacías (sin reseñas, sin guía de talle, sin fotos de cliente real). Poner UGC — aunque sea reposteos de Instagram con permiso — en las páginas de producto es accionable esta semana en Fenicio. · (fuente: [vidlo.video – UGC Marketing Trends 2026](https://vidlo.video/blog/ugc-marketing-trends/))
+- **Preventa como mecánica de conversión anticipada** — Glassy ya usa "Preventa" como eje de merchandising en el sitio. Productos de ticket medio y decisión de compra rápida performan mejor que ticket alto con venta consultiva en el contexto de eventos como Ciberlunes. Potenciar los drops con countdown + preventa activada en Reels puede comprimir el ciclo de decisión. · (fuente: https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
 
 ---
 
 ### 📰 Noticias del sector
 
-**9. "Impuesto Temu" vigente desde mayo 2026: ventaja competitiva real para marcas locales**
+- **Ecommerce uruguayo facturó casi USD 3.000 millones y creció 35%** — El canal digital facturó casi 3.000 millones de dólares en el último año móvil, con un crecimiento del 35% en dólares que ubica a Uruguay en el top 10 mundial; el eCommerce representa el 3% del PIB y genera cerca de 100 millones de transacciones anuales. El mercado está en su mejor momento: hay más compradores activos que nunca para capturar. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026/)
 
-Desde el 1° de mayo de 2026, las compras en plataformas internacionales como Temu, Shein y AliExpress que llegan a Uruguay bajo régimen de encomiendas pagan IVA del 22%. La medida fue aprobada en el Presupuesto quinquenal de diciembre 2025 y reglamentada por decreto del MEF. Esto impactó negativamente al comercio externo en sectores como vestimenta y calzado. **Para Glassy Waves es una ventana de comunicación**: "comprá marca uruguaya, sin sorpresas de aduana, con cambio presencial". Comunicarlo explícitamente en ads y redes es un ángulo diferencial hoy. · (fuente: [tramitesyconsultas.org](https://tramitesyconsultas.org/impuesto-temu-que-cambia-en-las-compras-online-y-como-te-impacta/) / [lasersolutions.com.uy](https://lasersolutions.com.uy/nuevas-regulaciones-en-uruguay-para-compras-en-el-exterior-que-cambia-y-como-impacta-a-los-consumidores/))
+- **85% del crecimiento del ecommerce UY es mercado interno** — Si bien las adquisiciones en el exterior (especialmente vestimenta y juguetes) siguen siendo relevantes, apenas el 15% del crecimiento del ecommerce corresponde a compras realizadas en el exterior; el 85% fue impulsado por el mercado interno. Esto favorece a marcas locales como Glassy frente al crossborder: hay espacio real para crecer sin competir contra Shein/Amazon. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026/)
+
+- **Ley de envíos exprés protege al comercio local** — La ley de envíos exprés limita las compras al exterior libres de impuestos a tres operaciones de hasta US$ 200 por año por persona; el diferencial frente a plataformas globales es la cercanía: entrega rápida, atención en español, cambios sencillos y confianza. Glassy debe comunicar activamente este diferencial ("entrega en 24–48h, cambios fáciles, marca uruguaya") en sus campañas. · (fuente: https://agile.uy/recursos/guia-ecommerce-uruguay-2026/)
+
+- **Surf-inspired swimwear como tendencia de producto 2026** — El swimwear con inspiración surf está trayendo una sensibilidad deportiva a la moda de playa: rash guards, one-pieces con cierre y tops de manga larga ofrecen protección solar siendo on-trend para 2026; el look es práctico para nadar y sports de playa, pero lo suficientemente estilizado para usarse fuera del agua. Para Glassy, este es un ángulo de producto y contenido aún no explotado. · (fuente: https://shopping.yahoo.com/style/clothing/articles/swimsuit-trends-see-everywhere-152816303.html)
 
 ---
 
-**10. El comprador uruguayo compra poco frecuente — el desafío es retención, no solo adquisición**
+### 📣 Publicidad / campañas
 
-El estudio Tendencias de Consumo Digital 2026 revela que 1.850.000 uruguayos realizaron compras online en 2025 (7 de cada 10 adultos), pero el principal desafío sigue siendo aumentar la frecuencia: el 56% compra de forma ocasional. Para Glassy Waves: drops frecuentes, preventa, newsletter con incentivo real y programa de fidelización son las palancas correctas para este contexto — no solo captar clientes nuevos. · (fuente: [grupormultimedio.com – eCommerce Day UY 2026](https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/))
+- **Micro-influencers de surf/lifestyle en UY: el modelo que convierte** — El impacto de los influencers va más allá del estilo: influyen en decisiones de compra, lealtad de marca y producción; los seguidores confían porque el contenido se siente personal y relatable — esa autenticidad impulsa el engagement y las conversiones. Para Glassy, activar 3–5 surfers/riders locales (Punta del Este, La Barra, Montevideo) con producto a cambio de contenido auténtico es más eficiente que pauta masiva esta semana. · (fuente: https://smartresponces.com/influencer-fashion-trends-on-instagram-whats-driving-style-in-2026/)
+
+- **Nostalgia de archivo como campaña de bajo costo** — Para marcas establecidas, la recomendación de septiembre 2026 es mirar lo que ya existe antes de fabricar una nueva campaña de nostalgia: avisos viejos, fotos de campañas pasadas, packaging descontinuado y colaboraciones olvidadas pueden convertirse en contenido social; para audiencias jóvenes, algo que lleva 5–7 años en un archivo puede sentirse genuinamente nuevo. Glassy puede activar fotos de sus primeras temporadas, de surf camps anteriores o de la apertura de locales como contenido de Reels de alto engagement a costo $0. · (fuente: https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026/)
 
 ---
 
 ### 🗓️ Estacional / próximo
 
-**Primavera + temporada de playa = ventana máxima para surf lifestyle (septiembre–enero)**
+- **Ciberlunes edición noviembre 2026: 3 al 5 de noviembre** — Del 3 al 5 de noviembre llega el Ciberlunes Uruguay 2026, el evento online más esperado del año, con descuentos en todas las categorías incluyendo moda. Quedan menos de 8 semanas. Glassy debe definir ya: qué SKUs participan, precio real con margen, y ficha de producto completa (sin fichas vacías no hay conversión en el pico de tráfico). En 2025 el 36% de los uruguayos compró en el evento y el 57% lo asocia con los mejores precios del año. · (fuente: https://todonexo.com.uy/pages/ciberlunes-uruguay-2026 y https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
 
-El inicio de la primavera (22 de septiembre en Uruguay) es ideal para promocionar moda fresca y artículos para actividades al aire libre. Conviene destacar colecciones coloridas que celebren la renovación. Para Glassy Waves, esto significa:
+- **Primavera / pre-temporada de verano (septiembre–octubre)** — Uruguay entra en primavera esta semana (21 de septiembre). El período septiembre–octubre es la ventana clave para activar bikinis, musculosas, shorts y sandalias antes del verano real. El formato "A New Season Had Begun" — clips sin texto que dan la bienvenida a la nueva estación con momentos de lifestyle costero — está activo en Reels ahora mismo. Para Glassy: activar drops de nueva temporada con este formato + contenido de La Barra/Punta del Este apenas el clima acompañe. · (fuente: https://newengen.com/insights/instagram-trends/)
 
-- **Septiembre 22 → Drop colección primavera/verano** con contenido de surf en agua real.
-- **Octubre–noviembre:** preparar inventario y creatividades para **Black Friday / Cyber Monday** — Black Friday, Cyber Monday y Cyber Day están entre las fechas más relevantes del ecommerce latinoamericano, aunque su impacto varía según el país.
-- **Diciembre–enero:** temporada alta Punta del Este / La Barra — activación física + digital coordinada.
-
-El Hot Sale Uruguay es organizado por la Cámara de la Economía Digital del Uruguay (CEDU) y es clave para impulsar las ventas online y atraer nuevos clientes en diversas categorías. Conviene preparar inventario y campañas digitales con anticipación. · (fuente: [yavendio.com – Calendario UY](https://yavendio.com/pe/blog/fechas-ecommerce-uruguay) / [enviame.io – Calendario LATAM](https://enviame.io/calendario-comercial-ecommerce-latinoamerica/))
-
----
-
-> **Sin datos recientes para:** campañas publicitarias específicas de competidores directos (Rusty UY, La Isla) en redes sociales — no hay señales públicas rastreables esta semana. Se recomienda monitoreo manual de sus cuentas de Instagram/TikTok.
+- **Derecho de retracto en compras online (5 días) — cumplimiento Ley 17.250** — En web o app, en la ficha y el checkout debe ser visible el precio final, gastos de envío, plazos, alcance de garantía y política de cambios/devoluciones incluyendo el retracto en compras a distancia; lo que se promete se cumple. En e-commerce, el derecho de retracto es de 5 días si aplica. Glassy hoy no tiene esto visible: es una obligación legal y una palanca de conversión. Resolverlo antes del Ciberlunes es urgente. · (fuente: https://www.abogadouy.com/guias-legales/defensa-consumidor-uruguay)
 
 ## Fuentes
-- [Top 20 Fashion Tiktokers in 2026 [🏆Rating] - Favikon](https://www.favikon.com/blog/top-fashion-tiktokers)
-- [Top TikTok Trends in 2026: 18 Ideas To Go Viral - Shopify India](https://www.shopify.com/in/blog/tiktok-trends)
-- [Viral Fitness Content for 2026 | TikTok](https://www.tiktok.com/discover/viral-fitness-content-for-2026)
-- [Surf Wear | TikTok](https://www.tiktok.com/discover/surf-wear?lang=en)
-- [Viral Fashion Trends Taking Over Social Media in 2026](https://www.urbandripdiary.com/viral-fashion-trends-social-media-2026/)
+- [Instagram Trends: September 2026 — Updated Weekly](https://newengen.com/insights/instagram-trends/)
 - [TikTok & Instagram Trends for September 2026 (and How Brands Can Actually Use Them) | Pepper Agency Blog](https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026-and-how-brands-can-actually-use-them)
+- [Surfwear Brands | TikTok](https://www.tiktok.com/discover/surfwear-brands)
+- [Viral Clothing Brand Video | TikTok](https://www.tiktok.com/discover/viral-clothing-brand-video)
+- [Surf Clothing Brands | TikTok](https://www.tiktok.com/discover/surf-clothing-brands)
+- [Surf Clothing Brand | TikTok](https://www.tiktok.com/discover/surf-clothing-brand)
+- [Surf Wear | TikTok](https://www.tiktok.com/discover/surf-wear?lang=en)
+- [Viral Clothing Brand Content Ideas](https://www.tiktok.com/discover/viral-clothing-brand-content-ideas)
 - [eCommerce Day Uruguay 2026 - 15ª edición: Tendencias, innovación y networking en retail digital - YouTube](https://www.youtube.com/watch?v=Ucxh-yPTfWQ)
-- [E-commerce en Uruguay: datos clave y tendencias 2025](https://paymentscmi.com/insights/comercio-electronico-uruguay-datos-proyecciones/)
-- [Tendencias de mercado 2026: qué esperar del e-commerce](https://academia.nubimetrics.com/tendencias-ecommerce)
+- [El eCommerce Day Uruguay 2026 reunió a los líderes del Digital Commerce para impulsar la próxima etapa de la transformación digital en el país - eCommerce Institute](https://ecommerce.institute/el-ecommerce-day-uruguay-2026-reunio-a-los-lideres-del-digital-commerce-para-impulsar-la-proxima-etapa-de-la-transformacion-digital-en-el-pais/)
 - [eCommerce Day Uruguay 2026 | El evento más importante de Digital Commerce de la región - El tour de eventos que conecta, inspira y transforma el ecosistema digital de la región.](https://ecommerceday.org.uy/2026/)
 - [Guía del eCommerce en Uruguay 2026: datos, plataformas y cómo vender online | Agile Commerce Uruguay](https://agile.uy/recursos/guia-ecommerce-uruguay-2026/)
+- [El eCommerce Day Uruguay 2026 reunió a los líderes del Digital Commerce para impulsar la próxima etapa de la transformación digital en el país - eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2026-reunio-a-los-lideres-del-digital-commerce-para-impulsar-la-proxima-etapa-de-la-transformacion-digital-en-el-pais/)
 - [El eCommerce Day Uruguay 2026 celebró 20 años de evolución del comercio electrónico en la región - Diario La R](https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
-- [The Complete Guide to User-Generated Content (UGC) in 2026](https://invideo.io/blog/ai-ugc-strategy-guide/)
-- [A Complete Guide to User Generated Content (UGC) in 2026](https://www.socialpilot.co/blog/user-generated-content-ugc)
-- [User-Generated Content 2026: 9 Tips To Master Strategy](https://www.yotpo.com/blog/user-generated-content-strategy/)
-- [UGC Content Examples: 12 Brands Doing It Right in 2026 | YouScan](https://youscan.io/blog/ugc-content-examples/)
-- [What Is UGC? The Complete Guide to User Generated Content for Brands (2026)](https://designrevision.com/blog/what-is-ugc)
-- [Surf Brand Digital Content Strategy: 12 Winning Tactics for 2026 🌊 - Surf Brands](https://www.surfbrands.org/surf-brand-digital-content-strategy/)
-- [UGC Marketing Trends 2026: Formats, Strategy & Examples](https://vidlo.video/blog/ugc-marketing-trends/)
-- [UGC Content Strategy: Complete Brand Guide (June 2026) | Launchpoint](https://www.launchpointhq.com/blog/ugc-content-strategy-guide-brands)
-- [Surf - Patagonia Argentina | Ropa Outdoor](https://patagonia-ar.com/pages/surf)
-- [Cambios y Devoluciones - Underwave Brand- surfing lifestyle](https://underwavebrand.com/cambios-y-devoluciones/)
-- [Drifters | La Tienda de Skate y Surf N°1 de Argentina](https://drifters.com.ar/)
-- [Underwave Brand: Ropa y Accesorios de Surf | Remeras Surf](https://underwavebrand.com/)
-- [Indy | Tienda Online N1 en Action Sports](https://www.indy.com.ar/)
-- [G%C3%A9ant Uruguay](https://en.wikipedia.org/wiki/G%C3%A9ant_Uruguay)
-- [Billabong Argentina](https://www.billabong.com.ar/)
-- [2026 World Surf League](https://en.wikipedia.org/wiki/2026_World_Surf_League)
-- [Uruguay at the 2026 Winter Olympics](https://en.wikipedia.org/wiki/Uruguay_at_the_2026_Winter_Olympics)
-- [2026 in Uruguay](https://en.wikipedia.org/wiki/2026_in_Uruguay)
-- [El “efecto Temu”: cuándo empieza a regir el nuevo impuesto a compras online - Noticias Uruguay, LARED21 Diario Digital](https://www.lr21.com.uy/economia/1490673-impuestos-compras-online-uruguay-temu)
-- [Nuevas regulaciones en Uruguay para compras en el exterior: ¿Qué cambia y Cómo impacta a los consumidores? - Laser Solutions](https://lasersolutions.com.uy/nuevas-regulaciones-en-uruguay-para-compras-en-el-exterior-que-cambia-y-como-impacta-a-los-consumidores/)
-- [Impuesto Temu Uruguay 2026: IVA desde mayo, cuánto pagás y cómo funciona](https://tramitesyconsultas.org/impuesto-temu-que-cambia-en-las-compras-online-y-como-te-impacta/)
-- [Consumidores deben conocer urgente los cambios que impactan sus compras por Temu ahora – Uruguay Al Día](https://uruguayaldia.com.uy/compras-por-temu-nuevo-regimen-impuestos/)
-- [El “impuesto Temu” en Uruguay: Qué cambia en las compras online - AmericaMalls & Retail](https://americaretail-malls.com/retail-online/el-impuesto-temu-en-uruguay-que-cambia-en-las-compras-online/)
-- [El nuevo límite de US$800 y cómo el “efecto Temu” está cambiando el comercio en Uruguay - AmericaMalls & Retail](https://americaretail-malls.com/paises/uruguay/el-nuevo-limite-de-us800-y-como-el-efecto-temu-esta-cambiando-el-comercio-en-uruguay/)
-- [Uruguay regula las compras en plataformas internacionales - AmericaMalls & Retail](https://americaretail-malls.com/paises/uruguay/uruguay-regula-las-compras-en-plataformas-internacionales/)
-- [Calendario Comercial eCommerce Latinoamérica 2026 | Fechas Clave](https://enviame.io/calendario-comercial-ecommerce-latinoamerica/)
-- [Fechas importantes del e-commerce ¡con calendario 2026 gratis!](https://www.tiendanube.com/blog/fechas-importantes-ecommerce/)
-- [Calendario de Eventos de Ecommerce Argentina 2026 — Fechas Clave para Vender](https://singlesday.com.ar/calendario-ecommerce-argentina)
-- [Arrancó el Hot Sale 2026: qué productos participan, hasta cuándo dura y cómo encontrar los mejores precios](https://www.perfil.com/noticias/economia/arranco-el-hot-sale-2026-que-productos-participan-hasta-cuando-dura-y-como-encontrar-los-mejores-precios-a35.phtml)
-- [Calendario eCommerce 2026: fechas clave y estrategia en LATAM - ID4YOU](https://www.id4you.com/blog/ecommerce/calendario-ecommerce-2026-latam/)
-- [Calendario 2026: las fechas comerciales más importantes del e-commerce](https://academia.nubimetrics.com/fechas-importantes-ecommerce)
-- [Calendario E-commerce de Uruguay: Fechas comerciales 2025 | yavendió!](https://yavendio.com/pe/blog/fechas-ecommerce-uruguay)
+- [Ciberlunes 2026 ¡Las mejores ofertas!](https://www.mercadolibre.com.uy/ciberlunes)
+- [¿Cuándo es el Cyber Monday 2026 y qué tiendas participan en Uruguay?](https://www.megacupones.uy/blog/cuando-se-celebra-cyber-monday-en-uruguay)
+- [⚡ Ciberlunes Uruguay 2026 | Ofertas Online en TodoNexo](https://todonexo.com.uy/pages/%E2%9A%A1-ciberlunes-uruguay-2026-ofertas-online-en-todonexo)
+- [Ciberlunes 2026: inscripción hasta el 24 de abril | Conly](https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
+- [Cámara de la Economía Digital del Uruguay lanza inscripciones para la preventa del primer CIBERLUNES® de 2026 - CEDU](https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-lanza-inscripciones-para-la-preventa-del-primer-ciberlunes-de-2026/)
+- [Ciberlunes Stadium: Hasta 60% OFF en Calzado y Moda ...](https://www.stadium.com.uy/ciberlunes)
+- [Ciberlunes | Junio 2026](https://ciberlunes.uy/)
+- [Ciberlunes 2026 | Ofertas en ropa y accesorios | H&M UY | H&M UY](https://uy.hm.com/ciberlunes)
+- [Preguntas frecuentes sobre Ciberlunes](https://www.ciberlunes.uy/preguntas-frecuentes)
+- [Tabla, calendario, marcadores en vivo y resultados de Liga AUF Uruguaya 2026, Uruguay](https://cl.soccerway.com/uruguay/liga-auf-uruguaya)
+- [20 Instagram Trends for Your Strategy in 2026 | Sprout Social](https://sproutsocial.com/insights/instagram-trends/)
+- [Top Instagram Reels Trends to Try in 2026 (Updated Weekly)](https://later.com/blog/instagram-reels-trends/)
+- [The Swimsuit Trends You’re About to See Everywhere](https://shopping.yahoo.com/style/clothing/articles/swimsuit-trends-see-everywhere-152816303.html)
+- [Top 20 Instagram Trends to Boost Engagement in 2026](https://www.haulpack.com/blog/top-20-instagram-trendings/)
+- [Influencer Fashion Trends on Instagram: What’s Driving Style in 2026](https://smartresponces.com/influencer-fashion-trends-on-instagram-whats-driving-style-in-2026/)
+- [25 INFLUENCERS PUSHING 90S NOSTALGIA FASHION IN 2026 GOING VIRAL FAST](https://www.amraandelma.com/influencers-pushing-90s-nostalgia-fashion/)
+- [28 Viral Reels Trends in 2026: Avoid These Costly Mistakes](https://socialbaddie.com/lab-notes/28-viral-reels-trends-in-2026/)
+- [Top Instagram Reels Trends in January 2026 You Should Use | Life Designer® Blog](https://www.lifedesigner.io/blog/top-instagram-reels-trends-in-january-2026-you-should-use)
+- [15 Instagram Trends You Need to Know in 2026 to Explode Your Growth](https://www.socibly.com/blog/instagram-trends-2026)
+- [Ecommerce competitivo en 2026: por qué la confianza es la nueva moneda digital](https://encolombia.com/economia/empresas/transporte-mercancias-emprendimiento/ecommerce-competitivo-confianza/)
+- [Las nuevas reglas del ecommerce: tendencias de consumo y estrategias para competir en un ecosistema digital cada vez más competitivo](https://www.elobservador.com.uy/cafe-y-negocios/las-nuevas-reglas-del-ecommerce-tendencias-consumo-y-estrategias-competir-un-ecosistema-digital-cada-vez-mas-competitivo-n6017619)
+- [Dropshipping en Uruguay 2026: guía realista para empezar | Tiendli](https://tiendli.com/blog/dropshipping-uruguay)
+- [Defensa del Consumidor en Uruguay: Guía práctica, garantías y cómo reclamar (2025) | Abogado UY](https://www.abogadouy.com/guias-legales/defensa-consumidor-uruguay)
