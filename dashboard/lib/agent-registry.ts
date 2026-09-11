@@ -381,7 +381,7 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
   {
     key: "prospeccion",
     name: "Prospector de Llamados",
-    desc: "Busca llamados laborales públicos de marketing (web search, lunes) y carga los candidatos score ≥4 como prospectos en /pipeline. Solo carga: la redacción es el botón de mensaje del pipeline y el envío SIEMPRE humano. Config: vault/agents/prospeccion/busquedas.md.",
+    desc: "Una corrida por campaña activa del CRM: busca llamados laborales públicos de marketing (web search, lunes) y carga los candidatos score ≥4 como prospectos en /pipeline, atados a su campaña. Solo carga: la redacción es asistida y el envío SIEMPRE humano. Método: vault/agents/prospeccion/busquedas.md.",
     kind: "agent",
     area: "ventas",
     owner: "socios",

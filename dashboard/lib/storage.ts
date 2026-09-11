@@ -703,6 +703,16 @@ interface LeadRow {
   costo_produccion?: number | string | null;
   costo_mantenimiento?: number | string | null;
   referrer_name?: string | null;
+  // Migración 100 — prospección: trazabilidad + datos del contacto
+  campaign_id?: string | null;
+  score?: number | null;
+  source_url?: string | null;
+  company_domain?: string | null;
+  contact_email?: string | null;
+  contact_role?: string | null;
+  linkedin_url?: string | null;
+  enriched_at?: string | null;
+  enrichment_source?: string | null;
 }
 
 function leadFromRow(r: LeadRow): Lead {
@@ -729,6 +739,16 @@ function leadFromRow(r: LeadRow): Lead {
     costoProduccion: num(r.costo_produccion),
     costoMantenimiento: num(r.costo_mantenimiento),
     referrerName: r.referrer_name ?? null,
+    // Migración 100 — undefined si la migración todavía no se aplicó
+    campaignId: r.campaign_id ?? null,
+    score: r.score ?? null,
+    sourceUrl: r.source_url ?? null,
+    companyDomain: r.company_domain ?? null,
+    contactEmail: r.contact_email ?? null,
+    contactRole: r.contact_role ?? null,
+    linkedinUrl: r.linkedin_url ?? null,
+    enrichedAt: r.enriched_at ?? null,
+    enrichmentSource: r.enrichment_source ?? null,
   };
 }
 
@@ -909,11 +929,10 @@ interface CampaignRow {
   demographics: string;
   client_type: string;
   channels: string[];
-  status: "active" | "paused";
-  leads_found: number;
-  contacted: number;
-  replied: number;
-  meetings: number;
+  status: ProspectCampaign["status"];
+  // leads_found/contacted/replied/meetings existen en la tabla pero están
+  // MUERTAS desde la mig 100 (nadie las escribía: eran 4 ceros fijos). Las
+  // stats reales salen de la vista prospect_campaign_stats.
   created_at: string;
   // Nuevas columnas (Fase 1)
   countries: string[] | null;
@@ -935,7 +954,25 @@ interface CampaignRow {
   follow_ups: number | null;
 }
 
-function campaignFromRow(r: CampaignRow): ProspectCampaign {
+/** Stats computadas on-read (vista prospect_campaign_stats, mig 100). */
+export interface CampaignStats {
+  leadsFound: number;
+  contacted: number;
+  replied: number;
+  meetings: number;
+}
+
+const ZERO_STATS: CampaignStats = {
+  leadsFound: 0,
+  contacted: 0,
+  replied: 0,
+  meetings: 0,
+};
+
+function campaignFromRow(
+  r: CampaignRow,
+  stats: CampaignStats = ZERO_STATS,
+): ProspectCampaign {
   return {
     id: r.id,
     name: r.name,
@@ -965,10 +1002,11 @@ function campaignFromRow(r: CampaignRow): ProspectCampaign {
 
     channels: r.channels,
 
-    leadsFound: r.leads_found,
-    contacted: r.contacted,
-    replied: r.replied,
-    meetings: r.meetings,
+    // Stats reales (vista), no las columnas muertas de la tabla.
+    leadsFound: stats.leadsFound,
+    contacted: stats.contacted,
+    replied: stats.replied,
+    meetings: stats.meetings,
 
     // compat display
     country: r.country,
@@ -979,52 +1017,108 @@ function campaignFromRow(r: CampaignRow): ProspectCampaign {
   };
 }
 
-export async function getCampaigns(): Promise<ProspectCampaign[]> {
+/**
+ * Campañas + sus stats REALES. Dos queries fijas (tabla + vista) y merge
+ * por id — no N+1. Si la vista todavía no existe (migración 100 sin
+ * aplicar), las stats quedan en cero en vez de romper la página.
+ *
+ * Por default no devuelve las archivadas.
+ */
+export async function getCampaigns(
+  opts: { includeArchived?: boolean } = {},
+): Promise<ProspectCampaign[]> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from("prospect_campaigns")
     .select("*")
     .order("created_at", { ascending: false });
+  if (!opts.includeArchived) query = query.neq("status", "archived");
+  const { data, error } = await query;
   if (error) return [];
-  return (data as CampaignRow[]).map(campaignFromRow);
+
+  const statsById = new Map<string, CampaignStats>();
+  const { data: statRows, error: statsError } = await supabase
+    .from("prospect_campaign_stats")
+    .select("campaign_id, leads_found, contacted, replied, meetings");
+  if (statsError) {
+    console.warn(
+      "[getCampaigns] no pude leer prospect_campaign_stats (¿falta la migración 100?) — stats en cero:",
+      statsError.message,
+    );
+  } else {
+    for (const s of (statRows ?? []) as Array<{
+      campaign_id: string;
+      leads_found: number;
+      contacted: number;
+      replied: number;
+      meetings: number;
+    }>) {
+      statsById.set(s.campaign_id, {
+        leadsFound: s.leads_found ?? 0,
+        contacted: s.contacted ?? 0,
+        replied: s.replied ?? 0,
+        meetings: s.meetings ?? 0,
+      });
+    }
+  }
+
+  return (data as CampaignRow[]).map((r) =>
+    campaignFromRow(r, statsById.get(r.id) ?? ZERO_STATS),
+  );
+}
+
+type CampaignInput = Omit<
+  ProspectCampaign,
+  "id" | "createdAt" | "leadsFound" | "contacted" | "replied" | "meetings"
+>;
+
+/**
+ * Las columnas legacy (country/demographics/client_type) siguen siendo el
+ * fallback de display cuando los arrays del ICP están vacíos, así que hay
+ * que re-derivarlas en CADA escritura — si no, un update las deja viejas y
+ * la UI muestra datos que ya no son.
+ */
+function deriveLegacyDisplay(data: CampaignInput): {
+  country: string;
+  demographics: string;
+  client_type: string;
+} {
+  return {
+    country: data.countries[0] ?? data.country ?? "—",
+    demographics:
+      data.demographics ||
+      [data.roles.join(", "), data.seniorities.join(", ")]
+        .filter(Boolean)
+        .join(" · ") ||
+      "—",
+    client_type:
+      data.clientType ||
+      [
+        data.industries.join(", "),
+        data.companySizeMin && data.companySizeMax
+          ? `${data.companySizeMin}-${data.companySizeMax} empleados`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" · ") ||
+      "—",
+  };
 }
 
 export async function addCampaign(
-  data: Omit<
-    ProspectCampaign,
-    "id" | "createdAt" | "leadsFound" | "contacted" | "replied" | "meetings"
-  >,
+  data: CampaignInput,
 ): Promise<ProspectCampaign> {
   const supabase = getSupabase();
-
-  // Derivamos strings compat para las columnas legacy (country, demographics, client_type)
-  const countryLegacy = data.countries[0] ?? data.country ?? "—";
-  const demographicsLegacy =
-    data.demographics ||
-    [data.roles.join(", "), data.seniorities.join(", ")]
-      .filter(Boolean)
-      .join(" · ") ||
-    "—";
-  const clientTypeLegacy =
-    data.clientType ||
-    [
-      data.industries.join(", "),
-      data.companySizeMin && data.companySizeMax
-        ? `${data.companySizeMin}-${data.companySizeMax} empleados`
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" · ") ||
-    "—";
+  const legacy = deriveLegacyDisplay(data);
 
   const { data: inserted, error } = await supabase
     .from("prospect_campaigns")
     .insert({
       // Legacy compat columns
       name: data.name,
-      country: countryLegacy,
-      demographics: demographicsLegacy,
-      client_type: clientTypeLegacy,
+      country: legacy.country,
+      demographics: legacy.demographics,
+      client_type: legacy.client_type,
       channels: data.channels,
       status: data.status,
       // Nuevas columnas estructuradas
@@ -1052,6 +1146,69 @@ export async function addCampaign(
   return campaignFromRow(inserted as CampaignRow);
 }
 
+/**
+ * Cambia el estado de una campaña. Es lo que hace que pausar signifique
+ * algo: el agente solo lee las `active`. Antes no existía ningún update y
+ * el badge "● Corriendo" era puro adorno.
+ */
+export async function setCampaignStatus(
+  id: string,
+  status: ProspectCampaign["status"],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("prospect_campaigns")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Archivar = sale de la lista pero NO se borra (sus leads conservan la
+ *  trazabilidad). El botón decía "Archivar" y borraba de verdad. */
+export async function archiveCampaign(id: string): Promise<void> {
+  await setCampaignStatus(id, "archived");
+}
+
+/** Edición completa del ICP. Re-deriva las columnas legacy de display. */
+export async function updateCampaign(
+  id: string,
+  data: CampaignInput,
+): Promise<void> {
+  const supabase = getSupabase();
+  const legacy = deriveLegacyDisplay(data);
+  const { error } = await supabase
+    .from("prospect_campaigns")
+    .update({
+      name: data.name,
+      country: legacy.country,
+      demographics: legacy.demographics,
+      client_type: legacy.client_type,
+      channels: data.channels,
+      status: data.status,
+      countries: data.countries,
+      regions: data.regions,
+      cities: data.cities,
+      industries: data.industries,
+      company_size_min: data.companySizeMin ?? null,
+      company_size_max: data.companySizeMax ?? null,
+      revenue_range: data.revenueRange ?? null,
+      buying_signals: data.buyingSignals,
+      excluded_companies: data.excludedCompanies,
+      roles: data.roles,
+      seniorities: data.seniorities,
+      cta: data.cta,
+      cta_url: data.ctaUrl ?? null,
+      message_tone: data.messageTone ?? null,
+      value_angle: data.valueAngle ?? null,
+      daily_volume: data.dailyVolume,
+      follow_ups: data.followUps,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Borrado físico. Los leads que encontró quedan con campaign_id=null. */
 export async function deleteCampaign(id: string): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("prospect_campaigns").delete().eq("id", id);

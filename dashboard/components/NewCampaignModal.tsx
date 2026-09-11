@@ -199,8 +199,10 @@ export default function NewCampaignModal({
         </div>
         <h2 className={styles.title}>Definir ICP</h2>
         <p className={styles.sub}>
-          El agente va a buscar leads que matcheen este perfil en LinkedIn y Apollo,
-          luego los contactará automáticamente por los canales elegidos.
+          Cada lunes el agente busca llamados laborales públicos que matcheen
+          este perfil (una empresa contratando marketing in-house es candidata
+          a tercerizar con nosotros) y carga los prospectos en el CRM. El
+          mensaje lo redacta la IA y lo aprobás vos antes de que salga.
         </p>
 
         {/* Step indicator */}
@@ -683,11 +685,16 @@ export default function NewCampaignModal({
                 lineHeight: 1.6,
               }}
             >
-              <strong style={{ color: "var(--deep-green)" }}>⏳ Próximo paso:</strong>{" "}
-              Una vez creada la campaña, el agente empieza a buscar leads.
-              Por ahora la búsqueda real con Apollo está pendiente (Fase 3).
-              Lo que sí ya funciona: queda guardada con todo el ICP listo para
-              consumir cuando conectemos la API.
+              <strong style={{ color: "var(--deep-green)" }}>Qué pasa al crearla:</strong>{" "}
+              el próximo lunes (o cuando dispares el agente a mano) busca con
+              este ICP y carga los prospectos que superen el score mínimo.
+              <br />
+              <br />
+              <strong>Letra chica, sin vueltas:</strong> el tamaño de empresa y
+              la facturación no se pueden verificar en un aviso público —
+              sirven para priorizar, no filtran. Los follow-ups todavía no se
+              envían solos. Y &quot;Cold call&quot; no tiene automatización: es
+              un recordatorio para vos.
             </div>
           </>
         )}

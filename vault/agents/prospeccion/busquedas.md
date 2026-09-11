@@ -1,15 +1,23 @@
 ---
 type: agent-config
-updated: 2026-09-08
+updated: 2026-09-11
 ---
 
-# Prospector de Llamados — config de búsqueda
+# Prospector de Llamados — método de búsqueda
 
-La config que usa el agente `prospeccion` cada lunes. **Editar este archivo
-cambia la búsqueda desde la corrida siguiente** (se trata como código: PR).
+Lo que usa el agente `prospeccion` cada lunes. **Editar este archivo cambia
+la búsqueda desde la corrida siguiente** (se trata como código: PR).
 Volver: [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)
 
-## Keywords de puestos a buscar
+> **Quién manda sobre qué (mig 100).** Las **campañas activas del CRM**
+> (`/pipeline` → Campañas de prospección) definen el TARGETING de cada
+> corrida: geografías, puestos, rubros, señales, exclusiones propias y tope
+> de prospectos. Este archivo define el MÉTODO, que aplica siempre: guía de
+> scoring, exclusiones duras y fuentes. Las keywords y geografías de abajo
+> son el **ICP de fallback**: se usan cuando no hay ninguna campaña activa
+> (ahí el agente corre como antes de las campañas).
+
+## Keywords de puestos a buscar (fallback)
 
 - community manager
 - marketing digital / responsable de marketing / analista de marketing
@@ -18,7 +26,7 @@ Volver: [Gerencia de Ventas](../../empresa/Gerencia%20de%20Ventas.md)
 - paid media / trafficker digital / media buyer
 - content manager / creador de contenido
 
-## Geografías (en orden de prioridad)
+## Geografías (fallback, en orden de prioridad)
 
 1. **Uruguay** (Montevideo primero) — mercado principal, servicio más fácil
 2. Colombia
