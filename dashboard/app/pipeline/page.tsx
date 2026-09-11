@@ -22,7 +22,8 @@ import {
   markLeadLost,
   restoreLead,
   deleteLead,
-  deleteCampaign,
+  archiveCampaign,
+  setCampaignStatus,
 } from "@/lib/storage";
 import {
   hasSession,
@@ -360,8 +361,19 @@ export default function PipelinePage() {
   }
 
   async function removeCampaign(id: string) {
-    if (!confirm("¿Eliminar esta campaña de prospección?")) return;
-    await deleteCampaign(id);
+    if (
+      !confirm(
+        "¿Archivar esta campaña? Deja de buscar y sale de la lista, pero los prospectos que encontró quedan en el pipeline.",
+      )
+    )
+      return;
+    await archiveCampaign(id);
+    refresh();
+  }
+
+  /** Pausar = el agente la ignora el lunes. Activar = vuelve a buscar. */
+  async function toggleCampaign(cmp: ProspectCampaign) {
+    await setCampaignStatus(cmp.id, cmp.status === "active" ? "paused" : "active");
     refresh();
   }
 
@@ -734,7 +746,9 @@ export default function PipelinePage() {
                   marginTop: 4,
                 }}
               >
-                El agente busca y contacta leads que matcheen tu ICP
+                El agente busca cada lunes los llamados laborales que
+                matcheen tu ICP y carga los prospectos acá. El contacto lo
+                redacta la IA y lo aprobás vos — nada sale automático.
               </div>
             </div>
             <button
@@ -747,8 +761,10 @@ export default function PipelinePage() {
 
           {campaigns.length === 0 ? (
             <div className={styles.campaignsEmpty}>
-              Todavía no hay campañas activas. Creá una para que el agente
-              empiece a buscar leads calificados automáticamente.
+              Todavía no hay campañas. Sin ninguna, el agente igual corre los
+              lunes con el perfil de búsqueda general del vault. Creá una
+              campaña para apuntarlo a un ICP específico y poder medir qué
+              trae cada una.
             </div>
           ) : (
             campaigns.map((cmp) => (
@@ -770,13 +786,23 @@ export default function PipelinePage() {
                       }}
                     >
                       <div className={styles.campaignName}>{cmp.name}</div>
-                      <span
+                      {/* Toggle real: el agente solo corre las activas. */}
+                      <button
+                        onClick={() => toggleCampaign(cmp)}
+                        title={
+                          cmp.status === "active"
+                            ? "Pausar — el agente deja de buscar con este ICP"
+                            : "Activar — vuelve a buscar el próximo lunes"
+                        }
                         style={{
                           padding: "3px 8px",
                           fontSize: 10,
                           letterSpacing: "0.12em",
                           textTransform: "uppercase",
                           fontWeight: 600,
+                          fontFamily: "inherit",
+                          cursor: "pointer",
+                          border: "1px solid transparent",
                           background:
                             cmp.status === "active"
                               ? "rgba(58,139,92,0.18)"
@@ -787,8 +813,8 @@ export default function PipelinePage() {
                               : "var(--text-muted)",
                         }}
                       >
-                        {cmp.status === "active" ? "● Corriendo" : "◌ Pausada"}
-                      </span>
+                        {cmp.status === "active" ? "● Activa" : "◌ Pausada"}
+                      </button>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>

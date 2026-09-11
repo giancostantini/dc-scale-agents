@@ -18,9 +18,16 @@
  * se scrapea directo (login wall + ToS). Cobertura buena, no exhaustiva —
  * upgrade declarado a API de jobs con key si algún día hace falta.
  *
- * Config editable (el vault manda): vault/agents/prospeccion/busquedas.md
- * — keywords, geografías, exclusiones y guía de scoring. Editarlo cambia
- * la búsqueda desde la corrida siguiente.
+ * QUÉ BUSCA (mig 100): las **campañas de prospección activas** del CRM son
+ * la config operativa — una corrida por campaña, con su ICP (geografías,
+ * puestos, rubros, señales, exclusiones y tope). Los leads quedan atados a
+ * su campaña (`campaign_id`), así las métricas del panel salen de datos
+ * reales. Si no hay campañas activas, corre con el ICP de fallback del
+ * vault, exactamente como antes.
+ *
+ * Config del método (el vault manda): vault/agents/prospeccion/busquedas.md
+ * — guía de scoring, exclusiones duras, fuentes e ICP de fallback. Editarlo
+ * cambia la búsqueda desde la corrida siguiente.
  *
  * Uso:
  *   node scripts/prospeccion/index.js --brief /tmp/brief.json
@@ -46,6 +53,11 @@ import {
 const AGENT = "prospeccion";
 const MODEL = "claude-sonnet-4-6";
 const SCORE_MIN_PIPELINE = 4;
+/** Tope de campañas por corrida (2 llamadas a Claude cada una). */
+const MAX_CAMPAIGNS_PER_RUN = 5;
+/** Prospectos por campaña: el daily_volume de la campaña, acotado. */
+const DEFAULT_CAP = 30;
+const HARD_CAP = 50;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(__dirname, "../../vault");
@@ -324,9 +336,50 @@ async function fetchExistingCompanies() {
   return new Set(rows.map((r) => normalizeCompany(r.company)).filter(Boolean));
 }
 
-async function insertLeads(rows) {
+/**
+ * Campañas de prospección activas (mig 100). Son la config operativa: cada
+ * una define un ICP y el agente busca una vez por campaña. Si no hay
+ * ninguna, el agente corre con el ICP de fallback del vault (modo previo).
+ */
+async function fetchActiveCampaigns() {
   requireSupabase();
-  if (rows.length === 0) return;
+  const cols = [
+    "id",
+    "name",
+    "countries",
+    "regions",
+    "cities",
+    "industries",
+    "roles",
+    "seniorities",
+    "buying_signals",
+    "excluded_companies",
+    "company_size_min",
+    "company_size_max",
+    "revenue_range",
+    "daily_volume",
+  ].join(",");
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/prospect_campaigns?status=eq.active&select=${cols}`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    // Tabla vieja o sin migrar: seguimos en modo fallback en vez de morir.
+    console.warn(
+      `[${AGENT}] no pude leer prospect_campaigns (${detail.slice(0, 160)}) — sigo con el ICP del vault.`,
+    );
+    return [];
+  }
+  return await res.json();
+}
+
+async function postLeads(rows) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
     method: "POST",
     headers: {
@@ -337,9 +390,38 @@ async function insertLeads(rows) {
     },
     body: JSON.stringify(rows),
   });
-  if (!res.ok) {
-    throw new Error(`insert de leads falló: ${await res.text()}`);
+  return res;
+}
+
+/** Columnas que agrega la mig 100 — si no está aplicada, PostgREST rechaza
+ *  el batch entero y perderíamos la corrida del lunes. */
+const MIG_100_COLS = ["campaign_id", "score", "source_url"];
+
+async function insertLeads(rows) {
+  requireSupabase();
+  if (rows.length === 0) return;
+
+  const res = await postLeads(rows);
+  if (res.ok) return;
+
+  const detail = await res.text();
+  // Fallback: reintentar sin las columnas de la mig 100. Ruidoso, pero el
+  // prospecto entra igual (la señal y la URL viven también en `note`).
+  if (MIG_100_COLS.some((c) => detail.includes(c))) {
+    console.warn(
+      `::warning::[${AGENT}] la migración 100 no está aplicada — cargo los leads sin campaign_id/score/source_url. Aplicala en el SQL editor.`,
+    );
+    const minimal = rows.map((r) => {
+      const copy = { ...r };
+      for (const c of MIG_100_COLS) delete copy[c];
+      return copy;
+    });
+    const retry = await postLeads(minimal);
+    if (retry.ok) return;
+    throw new Error(`insert de leads falló (retry sin mig 100): ${await retry.text()}`);
   }
+
+  throw new Error(`insert de leads falló: ${detail}`);
 }
 
 /** Note compacto (≤300 chars): el kanban lo renderiza completo sin clamp. */
@@ -355,7 +437,7 @@ function buildNote(item, today) {
   return note;
 }
 
-function leadRowFromItem(item, today) {
+function leadRowFromItem(item, today, campaign) {
   return {
     name: `Buscan: ${item.puesto}`.slice(0, 120),
     company: item.empresa,
@@ -365,6 +447,11 @@ function leadRowFromItem(item, today) {
     stage: "prospecto",
     source: /linkedin/i.test(item.fuente ?? "") ? "linkedin" : "otro",
     note: buildNote(item, today),
+    // Mig 100: trazabilidad. Antes el score y la URL solo vivían embebidos
+    // en `note` y se perdían para cualquier query.
+    campaign_id: campaign?.id ?? null,
+    score: item.score ?? null,
+    source_url: item.url ?? null,
   };
 }
 
@@ -372,12 +459,61 @@ function leadRowFromItem(item, today) {
 // Prompt de búsqueda
 // ---------------------------------------------------------------------------
 
-function buildSearchPrompt(busquedasMd, extraQuery) {
+const list = (arr) => (Array.isArray(arr) ? arr.filter(Boolean) : []);
+
+/**
+ * Bloque de ICP derivado de la campaña. Nota honesta: tamaño de empresa y
+ * facturación NO son verificables por búsqueda web, así que van como
+ * preferencia de priorización, no como filtro duro.
+ */
+function buildIcpBlock(campaign) {
+  if (!campaign) return "";
+  const geos = [
+    ...list(campaign.countries),
+    ...list(campaign.regions),
+    ...list(campaign.cities),
+  ];
+  const lines = [`\nICP DE LA CAMPAÑA ACTIVA "${campaign.name}" (manda sobre las keywords y geografías genéricas de la config):`];
+  if (geos.length) lines.push(`- Geografías objetivo: ${geos.join(", ")}`);
+  if (list(campaign.roles).length) {
+    lines.push(`- Puestos a buscar: ${list(campaign.roles).join(", ")}`);
+  }
+  if (list(campaign.seniorities).length) {
+    lines.push(`- Seniority del decisor: ${list(campaign.seniorities).join(", ")}`);
+  }
+  if (list(campaign.industries).length) {
+    lines.push(`- Rubros objetivo: ${list(campaign.industries).join(", ")}`);
+  }
+  if (list(campaign.buying_signals).length) {
+    lines.push(
+      `- Señales de compra a priorizar: ${list(campaign.buying_signals).join(", ")}`,
+    );
+  }
+  if (list(campaign.excluded_companies).length) {
+    lines.push(
+      `- EXCLUIR explícitamente estas empresas: ${list(campaign.excluded_companies).join(", ")}`,
+    );
+  }
+  const size =
+    campaign.company_size_min && campaign.company_size_max
+      ? `${campaign.company_size_min}-${campaign.company_size_max} empleados`
+      : null;
+  if (size || campaign.revenue_range) {
+    lines.push(
+      `- Preferencia (NO verificable por web, usala solo para priorizar el score): ${[size, campaign.revenue_range].filter(Boolean).join(" · ")}`,
+    );
+  }
+  const cap = campaign.daily_volume ?? 30;
+  lines.push(`- Reportá hasta ${cap} llamados en esta corrida.`);
+  return lines.join("\n") + "\n";
+}
+
+function buildSearchPrompt(busquedasMd, extraQuery, campaign) {
   return `Sos el Prospector de Llamados de D&C Scale Partners (agencia de growth marketing, Uruguay). Tu trabajo HOY: encontrar LLAMADOS LABORALES PÚBLICOS Y VIGENTES donde una empresa busca contratar roles de marketing in-house. La señal comercial: si una empresa busca contratar un community manager o un rol de marketing, tiene la necesidad y el presupuesto — es candidata a tercerizar ese trabajo con una agencia.
 
-CONFIG DE BÚSQUEDA (keywords, geografías, exclusiones, scoring — respetala al pie de la letra):
+CONFIG DE BÚSQUEDA (scoring, exclusiones duras, fuentes e ICP de fallback — respetala al pie de la letra):
 ${busquedasMd}
-${extraQuery ? `\nBÚSQUEDA EXTRA pedida en este run: "${extraQuery}"\n` : ""}
+${buildIcpBlock(campaign)}${extraQuery ? `\nBÚSQUEDA EXTRA pedida en este run: "${extraQuery}"\n` : ""}
 INSTRUCCIONES:
 1. Usá la web search para buscar llamados VIGENTES (publicados en los últimos ~30 días) combinando las keywords con las geografías de la config. Buscá en: LinkedIn Jobs (resultados públicos indexados, ej. "site:linkedin.com/jobs community manager Uruguay"), Computrabajo, BuscoJobs y portales locales.
 2. Por cada llamado real que encuentres, reportá: EMPRESA (el dato más importante — si el aviso es de una consultora de RRHH y no se sabe la empresa final, decilo), PUESTO, UBICACIÓN, URL del aviso, FUENTE, por qué es candidata (SEÑAL), SECTOR de la empresa, SCORE 1-5 según la guía de la config, y un ÁNGULO DE PITCH de una frase.
@@ -391,32 +527,51 @@ Al final escribí un análisis en texto con TODOS los llamados encontrados y sus
 // Reporte del run
 // ---------------------------------------------------------------------------
 
-function buildReportMd(items, insertedCompanies, dupCompanies, sources, today) {
+/** Una sección por campaña (o una sola si corrió en modo fallback). */
+function buildReportMd(results, today, totalInserted) {
   const lines = [`# Prospección de llamados — ${today}`, ""];
-  if (items.length === 0) {
-    lines.push("Sin llamados encontrados en esta corrida (o la estructuración falló — ver texto del run).");
-  } else {
-    lines.push("| Empresa | Puesto | Score | Estado | Señal |");
-    lines.push("|---|---|---|---|---|");
-    for (const it of items) {
+  const campañas = results.filter((r) => r.campaign).length;
+  lines.push(
+    campañas > 0
+      ? `**${totalInserted} prospectos nuevos** de ${results.reduce((n, r) => n + r.items.length, 0)} llamados, en ${campañas} campaña(s) activa(s).`
+      : `**${totalInserted} prospectos nuevos**. Sin campañas activas: corrí con el ICP de fallback del vault.`,
+    "",
+  );
+
+  for (const r of results) {
+    lines.push(`## ${r.campaign ? r.campaign.name : "Sin campaña (ICP del vault)"}`);
+    if (r.error) {
+      lines.push("", `⚠ Esta campaña falló: ${r.error}`, "");
+      continue;
+    }
+    if (r.items.length === 0) {
+      lines.push("", "Sin llamados encontrados (o la estructuración falló).", "");
+      continue;
+    }
+    lines.push("", "| Empresa | Puesto | Score | Estado | Señal |", "|---|---|---|---|---|");
+    for (const it of r.items) {
       const norm = normalizeCompany(it.empresa);
-      const estado = insertedCompanies.has(norm)
+      const estado = r.insertedCompanies.has(norm)
         ? "✅ cargado a /pipeline"
-        : dupCompanies.has(norm)
-        ? "↩ ya estaba en el pipeline"
-        : `score ${it.score} < ${SCORE_MIN_PIPELINE} (solo reporte)`;
+        : r.dupCompanies.has(norm)
+          ? "↩ ya estaba en el pipeline"
+          : (it.score ?? 0) >= SCORE_MIN_PIPELINE
+            ? "— (tope de la campaña alcanzado)"
+            : `score ${it.score} < ${SCORE_MIN_PIPELINE} (solo reporte)`;
       lines.push(
         `| ${it.empresa} | ${it.puesto}${it.ubicacion ? ` (${it.ubicacion})` : ""} | ${it.score} | ${estado} | ${(it.senal ?? "").slice(0, 140)}${it.url ? ` — [aviso](${it.url})` : ""} |`,
       );
     }
+    if (r.sources.length > 0) {
+      lines.push("", "<details><summary>Fuentes consultadas</summary>", "");
+      for (const s of r.sources.slice(0, 15)) lines.push(`- [${s.title}](${s.url})`);
+      lines.push("", "</details>");
+    }
+    lines.push("");
   }
-  if (sources.length > 0) {
-    lines.push("", "## Fuentes consultadas");
-    for (const s of sources.slice(0, 15)) lines.push(`- [${s.title}](${s.url})`);
-  }
+
   lines.push(
-    "",
-    "_Este agente SOLO carga prospectos. Redacción: botón de mensaje en /pipeline. Envío: SIEMPRE humano._",
+    "_Este agente SOLO carga prospectos. La redacción del mensaje es asistida y el ENVÍO es SIEMPRE humano._",
   );
   return lines.join("\n");
 }
@@ -439,59 +594,118 @@ async function run() {
   });
   currentRunId = runId;
 
-  // 1) Búsqueda con web search
-  const { text: rawText, sources } = await callClaudeWebSearch(
-    buildSearchPrompt(busquedasMd, brief.extraQuery),
-    { maxTokens: 6000, maxSearches: 10 },
+  // Campañas activas = la config operativa (mig 100). Sin ninguna, [null]
+  // hace UNA corrida con el ICP de fallback del vault — idéntico al
+  // comportamiento previo a las campañas.
+  const campaigns = await fetchActiveCampaigns();
+  const targets = campaigns.length > 0 ? campaigns.slice(0, MAX_CAMPAIGNS_PER_RUN) : [null];
+  console.log(
+    `[${AGENT}] campañas activas: ${campaigns.length}${campaigns.length > MAX_CAMPAIGNS_PER_RUN ? ` (corro las primeras ${MAX_CAMPAIGNS_PER_RUN})` : ""}`,
   );
-  console.log(`[${AGENT}] análisis: ${rawText.length} chars, ${sources.length} fuentes.`);
 
-  // 2) Estructurar (non-fatal)
-  const items = await structureProspects(rawText, busquedasMd);
-  console.log(`[${AGENT}] llamados estructurados: ${items.length}`);
-
-  // 3) Dedup contra el pipeline completo (incl. lost) + score mínimo
+  // Dedup contra TODO el pipeline (incluye descartados: si lo rechazaron,
+  // no vuelve a entrar). Se lee una sola vez para toda la corrida.
   const existing = await fetchExistingCompanies();
-  const insertedCompanies = new Set();
-  const dupCompanies = new Set();
-  const toInsert = [];
-  for (const it of items) {
-    const norm = normalizeCompany(it.empresa);
-    if (!norm) continue;
-    if (existing.has(norm) || insertedCompanies.has(norm)) {
-      dupCompanies.add(norm);
-      continue;
-    }
-    if ((it.score ?? 0) >= SCORE_MIN_PIPELINE) {
-      toInsert.push(leadRowFromItem(it, today));
-      insertedCompanies.add(norm);
+  // Acumula entre campañas: la campaña B no puede recargar lo que cargó A.
+  const seen = new Set();
+
+  const results = [];
+  let totalInserted = 0;
+
+  for (const campaign of targets) {
+    const label = campaign ? campaign.name : "ICP del vault";
+    try {
+      const { text: rawText, sources } = await callClaudeWebSearch(
+        buildSearchPrompt(busquedasMd, brief.extraQuery, campaign),
+        { maxTokens: 6000, maxSearches: 10 },
+      );
+      const items = await structureProspects(rawText, busquedasMd);
+      console.log(`[${AGENT}] "${label}": ${items.length} llamados estructurados.`);
+
+      const cap = Math.min(campaign?.daily_volume ?? DEFAULT_CAP, HARD_CAP);
+      const insertedCompanies = new Set();
+      const dupCompanies = new Set();
+      const toInsert = [];
+
+      for (const it of items) {
+        const norm = normalizeCompany(it.empresa);
+        if (!norm) continue;
+        if (existing.has(norm) || seen.has(norm)) {
+          dupCompanies.add(norm);
+          continue;
+        }
+        if ((it.score ?? 0) < SCORE_MIN_PIPELINE) continue;
+        if (toInsert.length >= cap) break;
+        toInsert.push(leadRowFromItem(it, today, campaign));
+        insertedCompanies.add(norm);
+        seen.add(norm);
+      }
+
+      await insertLeads(toInsert);
+      totalInserted += toInsert.length;
+      console.log(
+        `[${AGENT}] "${label}": ${toInsert.length} cargados (dup: ${dupCompanies.size}).`,
+      );
+      results.push({ campaign, items, insertedCompanies, dupCompanies, sources, error: null });
+    } catch (err) {
+      // Principio #7: una campaña que falla no corta el resto.
+      const msg = err instanceof Error ? err.message : "unknown";
+      console.warn(`::warning::[${AGENT}] la campaña "${label}" falló: ${msg}`);
+      results.push({
+        campaign,
+        items: [],
+        insertedCompanies: new Set(),
+        dupCompanies: new Set(),
+        sources: [],
+        error: msg,
+      });
     }
   }
 
-  // 4) Cargar prospectos
-  await insertLeads(toInsert);
-  console.log(`[${AGENT}] prospectos cargados: ${toInsert.length} (dup: ${dupCompanies.size})`);
+  const fallaron = results.filter((r) => r.error).length;
+  if (fallaron === results.length) {
+    throw new Error(
+      `todas las campañas fallaron (${results.map((r) => r.error).join(" | ")})`,
+    );
+  }
 
-  // 5) Reporte + cierre
-  const reportMd = buildReportMd(items, insertedCompanies, dupCompanies, sources, today);
+  // Reporte + cierre
+  const reportMd = buildReportMd(results, today, totalInserted);
   await registerAgentOutput(runId, "_system", AGENT, {
     output_type: "report",
-    title: `Prospección ${today}: ${toInsert.length} prospectos nuevos de ${items.length} llamados`,
+    title: `Prospección ${today}: ${totalInserted} prospectos nuevos`,
     body_md: reportMd,
-    structured: { items, inserted: toInsert.length, duplicates: dupCompanies.size },
+    structured: {
+      campaigns: results.map((r) => ({
+        id: r.campaign?.id ?? null,
+        name: r.campaign?.name ?? null,
+        items: r.items,
+        inserted: r.insertedCompanies.size,
+        error: r.error,
+      })),
+      totalInserted,
+    },
     dedupKey: `prospeccion-${today}`,
   });
 
-  const summary = `${toInsert.length} prospectos nuevos en /pipeline (${items.length} llamados encontrados, ${dupCompanies.size} ya estaban).`;
+  const scope =
+    campaigns.length > 0
+      ? `${results.length} campaña(s)${fallaron > 0 ? `, ${fallaron} con error` : ""}`
+      : "sin campañas activas (ICP del vault)";
+  const summary = `${totalInserted} prospectos nuevos en /pipeline — ${scope}.`;
   if (runId) {
-    await updateAgentRun(runId, { status: "success", summary });
+    await updateAgentRun(runId, {
+      status: "success",
+      summary,
+      metadata: { campaigns: campaigns.length, inserted: totalInserted, failed: fallaron },
+    });
   }
 
   await pushNotification(
     null,
-    toInsert.length > 0 ? "success" : "info",
-    `Prospección semanal: ${toInsert.length} prospectos nuevos`,
-    `${summary} Revisalos en el pipeline — el mensaje se redacta con el botón de cada card y el envío es siempre humano.`,
+    totalInserted > 0 ? "success" : "info",
+    `Prospección semanal: ${totalInserted} prospectos nuevos`,
+    `${summary} Revisalos en el CRM — la redacción del mensaje es asistida y el envío es siempre humano.`,
     {
       agent: AGENT,
       link: "/pipeline",

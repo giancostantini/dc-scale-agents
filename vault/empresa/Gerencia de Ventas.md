@@ -1,6 +1,6 @@
 ---
 type: gerencia
-updated: 2026-09-08
+updated: 2026-09-11
 ---
 
 # 📈 Gerencia de Ventas
@@ -12,7 +12,7 @@ IA activa desde 2026-09-08 (los socios dieron el go con el Prospector).
 
 | Agente | key técnico | Estado | Qué hace |
 |---|---|---|---|
-| Prospector de Llamados | `prospeccion` | 🟢 activo (lunes 07:30 UY) | Busca llamados laborales públicos de marketing (CM, redes, growth, paid media) en UY+Latam — empresa contratando marketing in-house = candidata a tercerizar. Score ≥4 entra a `/pipeline` como prospecto; todo lo demás queda en el reporte del run. [Config de búsqueda](../agents/prospeccion/busquedas.md) |
+| Prospector de Llamados | `prospeccion` | 🟢 activo (lunes 07:30 UY) | Una corrida por **campaña activa** del CRM: busca llamados laborales públicos de marketing (CM, redes, growth, paid media) — empresa contratando marketing in-house = candidata a tercerizar. Score ≥4 entra a `/pipeline` atado a su campaña; el resto queda en el reporte. Sin campañas, usa el ICP de fallback del [método](../agents/prospeccion/busquedas.md) |
 
 El rol "Redactor de Outreach" del plan original ya existe como herramienta del
 dashboard: el **botón de mensaje de cada card en `/pipeline`** redacta el
@@ -34,8 +34,10 @@ outreach (LinkedIn/email) con IA para ese lead puntual.
 - El estado del pipeline entra solo al [Gerente General](Gerente%20General.md)
   y al Gerente de Ventas vía el digest diario de la gerencia.
 - Leads de red propia (ej. comunidad AJE) se trabajan a mano, como siempre.
-- `prospect_campaigns` (panel "Campañas de prospección" del pipeline):
-  scaffolding viejo estilo Apollo, **dormido** — el Prospector no lo usa; si
-  algún día se conecta una API de contactos, se revive.
+- **Campañas de prospección** (panel del CRM): definen el ICP de cada
+  búsqueda (geografías, puestos, rubros, señales, exclusiones, tope). El
+  Prospector corre una vez por campaña activa; pausar una lo detiene de
+  verdad. Las métricas del panel se calculan de datos reales (mig 100) —
+  antes eran cuatro ceros fijos que nadie escribía.
 
 [Gerente General](Gerente%20General.md) · Dashboard: `/pipeline`

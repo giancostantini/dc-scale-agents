@@ -490,6 +490,24 @@ export interface Lead {
   costoMantenimiento?: number | null; // IA recurrente
   /** Quién refirió el lead (solo si source === 'referido') */
   referrerName?: string | null;
+
+  // ===== Prospección (mig 100) — trazabilidad y contacto =====
+  /** Campaña que lo encontró. null = manual, landing, Calendly o corrida
+   *  del agente sin campañas activas. */
+  campaignId?: string | null;
+  /** Fit 1-5 que le puso el agente (guía en busquedas.md). */
+  score?: number | null;
+  /** URL del aviso/señal que lo originó. */
+  sourceUrl?: string | null;
+  /** Dominio de la empresa — lo usa el enriquecimiento. */
+  companyDomain?: string | null;
+  /** Datos del decisor. Los llena el enriquecimiento o un humano a mano. */
+  contactEmail?: string | null;
+  contactRole?: string | null;
+  linkedinUrl?: string | null;
+  enrichedAt?: string | null;
+  /** Proveedor del enriquecimiento (ej. 'apollo'). null = a mano. */
+  enrichmentSource?: string | null;
 }
 
 // Seniority alineado con Apollo.io
@@ -508,7 +526,9 @@ export type CampaignCTA = "calendly" | "landing" | "custom";
 export interface ProspectCampaign {
   id: string;
   name: string;
-  status: "active" | "paused";
+  /** active = el agente la usa el lunes · paused = la ignora ·
+   *  archived = fuera de la lista (mig 100; antes "Archivar" borraba). */
+  status: "active" | "paused" | "archived";
 
   // Geografía (arrays para multi-selección)
   countries: string[];
