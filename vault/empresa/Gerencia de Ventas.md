@@ -12,7 +12,7 @@ IA activa desde 2026-09-08 (los socios dieron el go con el Prospector).
 
 | Agente | key técnico | Estado | Qué hace |
 |---|---|---|---|
-| Prospector de Llamados | `prospeccion` | 🟢 activo (lunes 07:30 UY) | Una corrida por **campaña activa** del CRM: busca llamados laborales públicos de marketing (CM, redes, growth, paid media) — empresa contratando marketing in-house = candidata a tercerizar. Score ≥4 entra a `/pipeline` atado a su campaña; el resto queda en el reporte. Sin campañas, usa el ICP de fallback del [método](../agents/prospeccion/busquedas.md) |
+| Prospector de Llamados | `prospeccion` | 🟢 activo (lunes 07:30 UY) | Una corrida por **campaña activa** del CRM. Busca señales de compra para **las dos verticales**: *growth* (buscan marketing in-house) y *dev* (buscan tecnología/datos, o el aviso describe un proceso manual automatizable). Clasifica cada hallazgo y lo carga con el tipo correcto; score ≥4 entra a `/pipeline` atado a su campaña. Sin campañas, usa el ICP de fallback del [método](../agents/prospeccion/busquedas.md) |
 
 El rol "Redactor de Outreach" del plan original existe como parte del sistema:
 después de cada corrida, la IA redacta el primer contacto de cada prospecto
