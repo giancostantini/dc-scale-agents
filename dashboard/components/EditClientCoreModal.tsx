@@ -455,21 +455,6 @@ export default function EditClientCoreModal({
                   style={inputStyle}
                 />
               </Field>
-              <Field label="Moneda de facturación">
-                <select
-                  value={feeCurrency}
-                  onChange={(e) =>
-                    setFeeCurrency(e.target.value as FinanceCurrency)
-                  }
-                  style={inputStyle}
-                >
-                  {FINANCE_CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c === "UYU" ? "$U · Pesos uruguayos" : "USD · Dólares"}
-                    </option>
-                  ))}
-                </select>
-              </Field>
             </Row>
             <Row>
               <Field label="¿Cliente en fase de lanzamiento?">
@@ -537,6 +522,25 @@ export default function EditClientCoreModal({
             </Row>
           </>
         )}
+
+        {/* Moneda de facturación — aplica a todos los clientes (GP y DEV).
+            Determina en qué moneda se cobra el fee y cómo se reporta en
+            facturación, dividendos y los reportes. */}
+        <Row>
+          <Field label="Moneda de facturación / pago del cliente">
+            <select
+              value={feeCurrency}
+              onChange={(e) => setFeeCurrency(e.target.value as FinanceCurrency)}
+              style={inputStyle}
+            >
+              {FINANCE_CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c === "UYU" ? "$U · Pesos uruguayos" : "USD · Dólares"}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Row>
 
         <Row>
           <Field label="Cuenta bancaria default para cobros">

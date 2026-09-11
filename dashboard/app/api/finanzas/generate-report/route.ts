@@ -174,7 +174,9 @@ export async function POST(req: NextRequest) {
   });
   const [clients, payments, expenses, schedules, manualRevs] =
     await Promise.all([
-      admin.from("clients").select("id, name, sector, type, fee, country"),
+      admin
+        .from("clients")
+        .select("id, name, sector, type, fee, fee_currency, country"),
       admin
         .from("payments")
         .select("client_id, month, status, amount_override, note")
@@ -183,7 +185,7 @@ export async function POST(req: NextRequest) {
       admin
         .from("expenses")
         .select(
-          "id, date, concept, category, assigned_to, amount, recurrence, recurrence_end_date, mkt_budget_client_id",
+          "id, date, concept, category, assigned_to, amount, currency, recurrence, recurrence_end_date, mkt_budget_client_id",
         )
         .gte("date", `${periodFrom}-01`)
         .lte("date", `${periodTo}-31`),
@@ -219,18 +221,33 @@ en español rioplatense, con voz directa y formato markdown limpio.
 REGLAS:
 - Empezás SIEMPRE con un H1 que es el título del reporte.
 - Usás tablas markdown para datos tabulares.
-- Cifras en USD por default. Formato US$ 1.500 (no $1,500).
 - Si una sección no se puede completar por falta de info, marcá
   "⚠ Falta info: [qué pregunta hay que responder]" en vez de inventar.
 - Calculá totales y subtotales explícitos.
 - Cerrá con un block "**Observaciones del agente**" con 2-3 insights
   relevantes (no obvios) sobre el reporte.
 
+MONEDAS (CRÍTICO — el negocio opera en DOS monedas):
+- Cada cliente factura en su moneda: campo "fee_currency" ("USD" o
+  "UYU"). Cada egreso tiene "currency" y cada ingreso manual "currency".
+- USD (dólares, US$) y UYU (pesos uruguayos, $U) son streams SEPARADOS:
+  NUNCA los sumes ni los conviertas entre sí. No existe un tipo de
+  cambio en este reporte.
+- Un cliente con fee_currency="UYU" que paga 40.000 se reporta como
+  "$U 40.000", NO como "US$ 40.000". Respetá SIEMPRE la moneda de cada
+  fila según su fee_currency / currency.
+- Estructurá cada reporte con secciones o columnas separadas por moneda:
+  primero el bloque en USD (US$) con sus subtotales/totales, después el
+  bloque en UYU ($U) con los suyos. Si una moneda no tiene datos en el
+  período, omití ese bloque.
+- Formato: US$ 1.500 para dólares; $U 40.000 para pesos. Nunca $1,500.
+
 PRECEDENCIA EN CÁLCULO DE FEES (importante):
 1. payment.amount_override (override puntual del mes)
 2. effectiveFeeForMonth via client_fee_schedules (tramo del calendario:
    start_month <= mes <= end_month o end_month=null)
-3. client.fee (contrato base como último fallback)`;
+3. client.fee (contrato base como último fallback)
+El fee resultante va SIEMPRE en la fee_currency del cliente.`;
 
   const userPrompt = `Generá el reporte "${report.title}".
 
