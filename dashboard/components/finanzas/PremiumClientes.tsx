@@ -51,6 +51,7 @@ import {
   getExpenses,
   getPayments,
   listFeeSchedules,
+  updateClientCore,
   updateClientFee,
   upsertFeeSchedule,
 } from "@/lib/storage";
@@ -61,11 +62,13 @@ import type {
   Client,
   ClientFeeSchedule,
   Expense,
+  FinanceCurrency,
   InvoicePayment,
 } from "@/lib/types";
+import { FINANCE_CURRENCIES } from "@/lib/types";
 import { Button } from "@/components/premium/Button";
 import { Modal } from "@/components/premium/Modal";
-import { Field, Input } from "@/components/premium/Field";
+import { Field, Input, Select } from "@/components/premium/Field";
 import NewClientModal from "@/components/NewClientModal";
 import EditClientDividendModal from "@/components/EditClientDividendModal";
 import EditClientCoreModal from "@/components/EditClientCoreModal";
@@ -82,12 +85,25 @@ const STATE_COLORS = {
   activos: "#1E3A8A",     // blue-900
   inactivos: "#3B82F6",    // blue-500
   morosos: "#BFDBFE",      // blue-200
+  desarrollo: "#8B5CF6",   // violet-500 (clientes DEV)
 };
 
 type PeriodMode = "this_year" | "last_year" | "last_12m" | "ytd" | "custom";
 
+/** Formatea un monto en la moneda dada (default USD). */
+function money(n: number, currency: FinanceCurrency = "USD") {
+  const sym = currency === "UYU" ? "$U" : "USD";
+  return `${sym} ${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+/** Moneda de facturación del cliente. */
+function curOf(c: { fee_currency?: string | null }): FinanceCurrency {
+  return c.fee_currency === "UYU" ? "UYU" : "USD";
+}
+
+/** Aggregados sin cliente puntual → USD (fallback). */
 function formatMoney(n: number) {
-  return `USD ${Math.round(n).toLocaleString("es-AR")}`;
+  return money(n, "USD");
 }
 
 export function PremiumClientes() {
@@ -111,7 +127,9 @@ export function PremiumClientes() {
   );
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "activo" | "inactivo" | "moroso">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "activo" | "inactivo" | "moroso" | "desarrollo"
+  >("all");
   const [page, setPage] = useState(0);
   const pageSize = 10;
   const [newClientModal, setNewClientModal] = useState(false);
@@ -197,7 +215,9 @@ export function PremiumClientes() {
   // simple: si el status es 'active', es activo (salvo que esté en
   // mora con 2+ facturas vencidas).
   function isClientActive(c: Client): boolean {
-    return c.status === "active";
+    // Activo o en onboarding cuentan como activos (el cliente ya existe
+    // y está en marcha). Los de desarrollo tienen su propio estado.
+    return c.status === "active" || c.status === "onboarding";
   }
 
   function isClientMoroso(c: Client): boolean {
@@ -218,16 +238,24 @@ export function PremiumClientes() {
   const classified = clients.map((c) => {
     const moroso = isClientMoroso(c);
     const active = !moroso && isClientActive(c);
-    return {
-      client: c,
-      state: active ? "activo" : moroso ? "moroso" : "inactivo",
-    };
+    // Empresas en desarrollo (status='dev') tienen su propio estado —
+    // no son "inactivas".
+    const state =
+      c.status === "dev"
+        ? "desarrollo"
+        : active
+          ? "activo"
+          : moroso
+            ? "moroso"
+            : "inactivo";
+    return { client: c, state };
   });
 
   const totalClients = clients.length;
   const activos = classified.filter((x) => x.state === "activo").length;
   const inactivos = classified.filter((x) => x.state === "inactivo").length;
   const morosos = classified.filter((x) => x.state === "moroso").length;
+  const desarrollo = classified.filter((x) => x.state === "desarrollo").length;
 
   // Nuevos clientes en el período actual
   const nuevosEnPeriodo = clients.filter((c) => {
@@ -358,6 +386,13 @@ export function PremiumClientes() {
       value: morosos,
       pct: totalClients > 0 ? (morosos / totalClients) * 100 : 0,
       color: STATE_COLORS.morosos,
+    },
+    {
+      key: "desarrollo",
+      name: "En desarrollo",
+      value: desarrollo,
+      pct: totalClients > 0 ? (desarrollo / totalClients) * 100 : 0,
+      color: STATE_COLORS.desarrollo,
     },
   ];
 
@@ -707,7 +742,7 @@ export function PremiumClientes() {
                     return (
                       <tr key={x.c.id} className="border-t border-rule-soft">
                         <td className="px-3 py-2 text-ink font-medium">{x.c.name}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-ink">{formatMoney(x.fact)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-ink">{money(x.fact, curOf(x.c))}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-ink-400">{pct.toFixed(1)}%</td>
                       </tr>
                     );
@@ -754,6 +789,7 @@ export function PremiumClientes() {
             >
               <option value="all">Filtros</option>
               <option value="activo">Activos</option>
+              <option value="desarrollo">En desarrollo</option>
               <option value="inactivo">Inactivos</option>
               <option value="moroso">Morosos</option>
             </select>
@@ -800,13 +836,13 @@ export function PremiumClientes() {
                       <StatePill state={row.classification} />
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">
-                      {formatMoney(row.finances.cobrado)}
+                      {money(row.finances.cobrado, curOf(row.c))}
                     </td>
                     <td
                       className="px-4 py-3 text-right tabular-nums text-ink-500"
                       title="Egresos asignados + funcionales por_cliente"
                     >
-                      {formatMoney(row.finances.costosAsociados)}
+                      {money(row.finances.costosAsociados, curOf(row.c))}
                     </td>
                     <td
                       className={`px-4 py-3 text-right tabular-nums font-semibold ${
@@ -817,7 +853,7 @@ export function PremiumClientes() {
                             : "text-ink"
                       }`}
                     >
-                      {formatMoney(row.finances.margenNeto)}
+                      {money(row.finances.margenNeto, curOf(row.c))}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
@@ -1040,14 +1076,14 @@ function AgreementViewModal({
           <div className="bg-paper-100/60 border border-rule rounded-premium-sm p-3">
             <div className="text-2xs text-ink-300 uppercase tracking-wider font-semibold">Fee base</div>
             <div className="text-lg font-semibold text-ink mt-1 tabular-nums">
-              {formatMoney(client.fee)}
+              {money(client.fee, curOf(client))}
             </div>
             <div className="text-2xs text-ink-300 mt-0.5">por mes</div>
           </div>
           <div className="bg-paper-100/60 border border-rule rounded-premium-sm p-3">
             <div className="text-2xs text-ink-300 uppercase tracking-wider font-semibold">Proyectado 12m</div>
             <div className="text-lg font-semibold text-ink mt-1 tabular-nums">
-              {formatMoney(totalProyectado)}
+              {money(totalProyectado, curOf(client))}
             </div>
             <div className="text-2xs text-ink-300 mt-0.5">próximos 12 meses</div>
           </div>
@@ -1080,7 +1116,7 @@ function AgreementViewModal({
                     <tr key={t.id} className="border-t border-rule-soft">
                       <td className="px-3 py-2 text-ink tabular-nums">{t.startMonth}</td>
                       <td className="px-3 py-2 text-ink-400 tabular-nums">{t.endMonth ?? "—"}</td>
-                      <td className="px-3 py-2 text-right text-ink tabular-nums">{formatMoney(t.amount)}</td>
+                      <td className="px-3 py-2 text-right text-ink tabular-nums">{money(t.amount, curOf(client))}</td>
                       <td className="px-3 py-2 text-ink-400 truncate max-w-xs">{t.notes ?? "—"}</td>
                     </tr>
                   ))}
@@ -1107,7 +1143,7 @@ function AgreementViewModal({
                 {months.map((m) => (
                   <tr key={m.mk} className="border-t border-rule-soft">
                     <td className="px-3 py-2 text-ink">{m.label}</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">{formatMoney(m.fee)}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">{money(m.fee, curOf(client))}</td>
                     <td className="px-3 py-2 text-ink-400 capitalize">{m.status}</td>
                   </tr>
                 ))}
@@ -1136,6 +1172,7 @@ function AgreementEditModal({
 }) {
   const [mode, setMode] = useState<"base" | "tramo">("base");
   const [baseFee, setBaseFee] = useState("");
+  const [currency, setCurrency] = useState<FinanceCurrency>("USD");
   const [tramoStart, setTramoStart] = useState(() => new Date().toISOString().slice(0, 7));
   const [tramoEnd, setTramoEnd] = useState("");
   const [tramoAmount, setTramoAmount] = useState("");
@@ -1145,6 +1182,7 @@ function AgreementEditModal({
   useEffect(() => {
     if (client) {
       setBaseFee(String(client.fee));
+      setCurrency(client.fee_currency === "UYU" ? "UYU" : "USD");
       setMode("base");
       setTramoStart(new Date().toISOString().slice(0, 7));
       setTramoEnd("");
@@ -1165,7 +1203,12 @@ function AgreementEditModal({
           toast.error("Importe inválido");
           return;
         }
+        // Guardamos el fee y, si cambió, la moneda de facturación del
+        // cliente (updateClientCore acepta un patch parcial).
         await updateClientFee(client.id, n);
+        if (currency !== (client.fee_currency ?? "USD")) {
+          await updateClientCore(client.id, { fee_currency: currency });
+        }
         toast.success("Fee base actualizado");
       } else {
         const n = Number(tramoAmount);
@@ -1181,7 +1224,7 @@ function AgreementEditModal({
           client.id,
           tramoStart,
           n,
-          "USD",
+          currency,
           tramoNotes.trim() || null,
           tramoEnd.trim() ? tramoEnd : null,
         );
@@ -1244,10 +1287,28 @@ function AgreementEditModal({
           </button>
         </div>
 
+        {/* Moneda de facturación — aplica al fee base y al tramo. Editable
+            para poder pasar un cliente de USD a pesos. */}
+        <Field
+          label="Moneda de facturación / pago"
+          hint="Cambiala si el cliente paga en pesos uruguayos."
+        >
+          <Select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as FinanceCurrency)}
+          >
+            {FINANCE_CURRENCIES.map((c) => (
+              <option key={c} value={c}>
+                {c === "UYU" ? "$U · Pesos uruguayos" : "USD · Dólares"}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
         {mode === "base" ? (
           <>
             <Field
-              label="Fee base mensual (USD)"
+              label={`Fee base mensual (${currency === "UYU" ? "$U" : "USD"})`}
               hint="Es el fallback que se usa cuando ningún tramo cubre el mes."
               required
             >
@@ -1283,7 +1344,7 @@ function AgreementEditModal({
                 />
               </Field>
             </div>
-            <Field label="Importe (USD)" required>
+            <Field label={`Importe (${currency === "UYU" ? "$U" : "USD"})`} required>
               <Input
                 type="number"
                 value={tramoAmount}
@@ -1377,6 +1438,10 @@ function StatePill({
     moroso: {
       label: "Moroso",
       classes: "bg-orange-50 text-orange-700",
+    },
+    desarrollo: {
+      label: "En desarrollo",
+      classes: "bg-violet-50 text-violet-700",
     },
   };
   const c = config[state] ?? config.inactivo;
