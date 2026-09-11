@@ -14,9 +14,21 @@ IA activa desde 2026-09-08 (los socios dieron el go con el Prospector).
 |---|---|---|---|
 | Prospector de Llamados | `prospeccion` | 🟢 activo (lunes 07:30 UY) | Una corrida por **campaña activa** del CRM: busca llamados laborales públicos de marketing (CM, redes, growth, paid media) — empresa contratando marketing in-house = candidata a tercerizar. Score ≥4 entra a `/pipeline` atado a su campaña; el resto queda en el reporte. Sin campañas, usa el ICP de fallback del [método](../agents/prospeccion/busquedas.md) |
 
-El rol "Redactor de Outreach" del plan original ya existe como herramienta del
-dashboard: el **botón de mensaje de cada card en `/pipeline`** redacta el
-outreach (LinkedIn/email) con IA para ese lead puntual.
+El rol "Redactor de Outreach" del plan original existe como parte del sistema:
+después de cada corrida, la IA redacta el primer contacto de cada prospecto
+nuevo y lo deja en la **cola de aprobación** (`/pipeline/mensajes`).
+
+## Cómo sale un mensaje (el gate humano, en lote)
+
+1. El Prospector carga prospectos con el ICP de la campaña.
+2. La IA redacta el primer contacto de cada uno → queda en **estado draft**.
+3. Un humano revisa, edita si quiere, y aprueba:
+   - **Email** → lo manda el sistema por el remitente de outbound (subdominio
+     separado: mandar frío desde el dominio del portal arriesga que los
+     clientes dejen de recibir sus accesos).
+   - **LinkedIn** → se copia y lo pega una persona. Automatizarlo viola los
+     términos de LinkedIn y arriesga la cuenta: **no se hace**.
+4. Descartar un mensaje es definitivo: no se vuelve a generar.
 
 ## Qué decide sola vs. gates (no negociables)
 

@@ -12,6 +12,9 @@ import type {
   ClientOnboarding,
   Lead,
   ProspectCampaign,
+  OutreachMessage,
+  OutreachChannelType,
+  OutreachStatus,
   CalEvent,
   Expense,
   InvoicePayment,
@@ -2878,4 +2881,136 @@ export async function updateIntegrationCredentials(
     .eq("client_id", clientId)
     .eq("key", key);
   if (error) throw new Error(`No pude guardar las credenciales: ${error.message}`);
+}
+
+// ==================== OUTREACH — cola de aprobación (mig 100) ====================
+
+interface OutreachRow {
+  id: string;
+  lead_id: string;
+  campaign_id: string | null;
+  channel: OutreachChannelType;
+  sequence: number;
+  subject: string | null;
+  body: string;
+  status: OutreachStatus;
+  to_email: string | null;
+  model: string | null;
+  created_at: string;
+  sent_at: string | null;
+  replied_at: string | null;
+  error: string | null;
+  leads?: { name: string; company: string } | null;
+  prospect_campaigns?: { name: string } | null;
+}
+
+function outreachFromRow(r: OutreachRow): OutreachMessage {
+  return {
+    id: r.id,
+    leadId: r.lead_id,
+    campaignId: r.campaign_id,
+    channel: r.channel,
+    sequence: r.sequence,
+    subject: r.subject,
+    body: r.body,
+    status: r.status,
+    toEmail: r.to_email,
+    model: r.model,
+    createdAt: r.created_at,
+    sentAt: r.sent_at,
+    repliedAt: r.replied_at,
+    error: r.error,
+    leadName: r.leads?.name,
+    leadCompany: r.leads?.company,
+    campaignName: r.prospect_campaigns?.name ?? null,
+  };
+}
+
+/**
+ * Mensajes de la cola con el lead y la campaña embebidos. Si la tabla
+ * todavía no existe (migración 100 sin correr), devuelve [] en vez de
+ * romper la página — la UI muestra el aviso.
+ */
+export async function getOutreachMessages(
+  filter: { status?: OutreachStatus | "pendientes" } = {},
+): Promise<OutreachMessage[]> {
+  const supabase = getSupabase();
+  let query = supabase
+    .from("outreach_messages")
+    .select(
+      "*, leads(name, company), prospect_campaigns(name)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (filter.status === "pendientes") {
+    query = query.in("status", ["draft", "approved", "failed"]);
+  } else if (filter.status) {
+    query = query.eq("status", filter.status);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn("[getOutreachMessages] ¿falta la migración 100?:", error.message);
+    return [];
+  }
+  return (data as unknown as OutreachRow[]).map(outreachFromRow);
+}
+
+/** Cuántos esperan decisión — para el badge del CRM. */
+export async function countPendingOutreach(): Promise<number> {
+  const supabase = getSupabase();
+  const { count, error } = await supabase
+    .from("outreach_messages")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["draft", "failed"]);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+/** Editar el texto antes de aprobar (queda como draft). */
+export async function updateOutreachBody(
+  id: string,
+  patch: { subject?: string | null; body?: string },
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("outreach_messages")
+    .update({ ...patch, error: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Descartar: no se borra (queda el registro) y el cron NO lo regenera. */
+export async function discardOutreachMessage(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("outreach_messages")
+    .update({ status: "discarded" })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** El prospecto contestó — alimenta la métrica "Respuestas" de la campaña. */
+export async function markOutreachReplied(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("outreach_messages")
+    .update({ replied_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Datos de contacto del prospecto — el email habilita el envío. */
+export async function updateLeadContact(
+  id: string,
+  patch: { contactEmail?: string | null; contactRole?: string | null; linkedinUrl?: string | null },
+): Promise<void> {
+  const supabase = getSupabase();
+  const row: Record<string, string | null> = {};
+  if (patch.contactEmail !== undefined) row.contact_email = patch.contactEmail;
+  if (patch.contactRole !== undefined) row.contact_role = patch.contactRole;
+  if (patch.linkedinUrl !== undefined) row.linkedin_url = patch.linkedinUrl;
+  const { error } = await supabase.from("leads").update(row).eq("id", id);
+  if (error) throw error;
 }

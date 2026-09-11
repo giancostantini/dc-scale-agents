@@ -1,0 +1,235 @@
+/* Cola de aprobación de outreach — /pipeline/mensajes */
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 28px 60px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand-dark);
+  font-weight: 700;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 300;
+  color: var(--deep-green);
+  margin: 6px 0 0;
+}
+
+.sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 8px 0 20px;
+  max-width: 70ch;
+}
+
+.notice {
+  background: var(--white);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--sand);
+  padding: 14px 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 0 16px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 16px;
+}
+
+.filter {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid rgba(10, 26, 12, 0.15);
+  background: transparent;
+  color: var(--deep-green);
+}
+
+.filterActive {
+  border-color: var(--deep-green);
+  background: var(--deep-green);
+  color: var(--off-white);
+}
+
+.bulkBar {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--hairline);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+.cardHead {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.lead {
+  flex: 1;
+  min-width: 0;
+}
+
+.leadName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--deep-green);
+}
+
+.leadMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.chip {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.chipLinkedin {
+  background: rgba(10, 102, 194, 0.12);
+  color: #0a66c2;
+}
+
+.chipEmail {
+  background: rgba(58, 139, 92, 0.14);
+  color: var(--green-ok);
+}
+
+.chipFailed {
+  background: rgba(176, 75, 58, 0.12);
+  color: var(--red-warn);
+}
+
+.chipSent {
+  background: var(--off-white);
+  color: var(--text-muted);
+}
+
+.subject {
+  width: 100%;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--deep-green);
+  border: 1px solid transparent;
+  background: var(--off-white);
+  padding: 6px 10px;
+  margin-bottom: 6px;
+}
+
+.subject:focus {
+  outline: none;
+  border-color: var(--sand);
+}
+
+.body {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  color: var(--deep-green);
+  border: 1px solid var(--hairline);
+  background: var(--off-white);
+  padding: 10px 12px;
+}
+
+.body:focus {
+  outline: none;
+  border-color: var(--deep-green);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--sand);
+  background: var(--off-white);
+  color: var(--deep-green);
+}
+
+.btnPrimary {
+  background: var(--deep-green);
+  border-color: var(--deep-green);
+  color: var(--off-white);
+}
+
+.btnGhost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.errorLine {
+  font-size: 11.5px;
+  color: var(--red-warn);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.empty {
+  background: var(--white);
+  border: 1px dashed var(--hairline);
+  padding: 40px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}

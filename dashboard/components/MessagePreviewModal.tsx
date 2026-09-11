@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { ProspectCampaign } from "@/lib/types";
+import { getLeads } from "@/lib/storage";
 import styles from "./NewClientModal.module.css";
 
 interface Props {
@@ -10,14 +11,14 @@ interface Props {
   onClose: () => void;
 }
 
-// Ejemplos sintéticos de nombres/empresas que matchean típicamente el ICP LATAM
-const EXAMPLE_PROSPECTS = [
-  { name: "Mariana Cabrera", company: "ShopLatam", sector: "eCommerce" },
-  { name: "Pablo Giménez", company: "TiendaPremium",  sector: "Retail" },
-  { name: "Julieta Morales", company: "AgroMax", sector: "AgroTech" },
-  { name: "Sebastián Rodríguez", company: "HealthPro Clínicas", sector: "Salud" },
-  { name: "Lucía Vázquez", company: "NutriLife", sector: "eCommerce / Salud" },
-];
+// Fallback SOLO para campañas que todavía no encontraron ningún prospecto.
+// Antes el modal siempre usaba uno de estos al azar, así que el copy se
+// probaba contra gente que no existe; ahora se prefiere un lead real.
+const EXAMPLE_PROSPECT = {
+  name: "Mariana Cabrera",
+  company: "ShopLatam",
+  sector: "eCommerce",
+};
 
 export default function MessagePreviewModal({
   open,
@@ -47,24 +48,45 @@ export default function MessagePreviewModal({
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Pre-fill cuando abre con ejemplo basado en el ICP
+  /** true = no hay leads reales de esta campaña y estamos con el ejemplo. */
+  const [usingExample, setUsingExample] = useState(false);
+
+  // Pre-fill con un prospecto REAL de la campaña; si todavía no encontró
+  // ninguno, cae al ejemplo y lo dice.
   useEffect(() => {
     if (!open || !campaign) return;
+    let cancelled = false;
 
-    // Tomar uno random de los ejemplos
-    const ex = EXAMPLE_PROSPECTS[
-      Math.floor(Math.random() * EXAMPLE_PROSPECTS.length)
-    ];
-    setLeadName(ex.name);
-    setLeadCompany(ex.company);
-    setLeadRole(campaign.roles[0] || "CEO");
-    setLeadSector(campaign.industries[0] || ex.sector);
-    setLeadNotes("");
     setMessage("");
     setSubject(undefined);
     setError("");
     setUsage(null);
     setCopied(false);
+    setLeadNotes("");
+
+    (async () => {
+      const leads = await getLeads().catch(() => []);
+      if (cancelled) return;
+      const real = leads.find((l) => l.campaignId === campaign.id);
+      if (real) {
+        setUsingExample(false);
+        setLeadName(real.name);
+        setLeadCompany(real.company);
+        setLeadRole(real.contactRole || campaign.roles[0] || "");
+        setLeadSector(real.sector || campaign.industries[0] || "");
+        setLeadNotes(real.note ?? "");
+      } else {
+        setUsingExample(true);
+        setLeadName(EXAMPLE_PROSPECT.name);
+        setLeadCompany(EXAMPLE_PROSPECT.company);
+        setLeadRole(campaign.roles[0] || "CEO");
+        setLeadSector(campaign.industries[0] || EXAMPLE_PROSPECT.sector);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, campaign]);
 
   if (!open || !campaign) return null;
@@ -155,8 +177,20 @@ export default function MessagePreviewModal({
         </div>
         <h2 className={styles.title}>{campaign.name}</h2>
         <p className={styles.sub}>
-          Simulá el mensaje que enviaría el agente a un prospecto que matchee
-          este ICP. Usá esto para iterar el tono antes de conectar Apollo.
+          {usingExample ? (
+            <>
+              Esta campaña todavía no encontró prospectos, así que el preview
+              usa un <strong>ejemplo inventado</strong> para que puedas ajustar
+              el tono. Los mensajes reales aparecen en{" "}
+              <strong>Mensajes por aprobar</strong>.
+            </>
+          ) : (
+            <>
+              Preview con un prospecto <strong>real</strong> de esta campaña.
+              Sirve para afinar el tono; los mensajes que se mandan se aprueban
+              en <strong>Mensajes por aprobar</strong>.
+            </>
+          )}
         </p>
 
         {/* Selector de canal */}

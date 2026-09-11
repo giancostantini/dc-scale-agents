@@ -106,7 +106,10 @@ Agentes (GitHub Secrets): `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (s
 `DASHBOARD_URL`+`DIGEST_CRON_SECRET` (mails), `GITHUB_TOKEN`/`GITHUB_REPO` (logistics→stock).
 Dashboard (Vercel): `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
 `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL*` (overrides), `GH_DISPATCH_TOKEN`+`GITHUB_OWNER/REPO`,
-`CRON_SECRET`, `META_ACCESS_TOKEN` (push campañas), `RESEND_API_KEY`, Microsoft Graph vars.
+`CRON_SECRET`, `META_ACCESS_TOKEN` (push campañas), `RESEND_TRANSACTIONAL_API_KEY` (mails del
+sistema), Microsoft Graph vars. Outbound frío (opcional, canal separado a propósito para no
+arriesgar el dominio de los mails a clientes): `RESEND_OUTBOUND_API_KEY` + `OUTBOUND_EMAIL_FROM`
++ `OUTBOUND_EMAIL_REPLY_TO`; sin ellas la cola de prospección deja copiar pero no enviar.
 Diagnóstico: `GET /api/diag/env`. **Nunca commitear .env.**
 
 ## Comandos
