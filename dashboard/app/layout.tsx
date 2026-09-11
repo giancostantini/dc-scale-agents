@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import ConsultantWidgetMount from "@/components/ConsultantWidgetMount";
+import DailyBriefMount from "@/components/DailyBriefMount";
 import { Toaster } from "@/components/premium/Toaster";
 
 // Fuentes oficiales de la marca
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body>
         {children}
         <ConsultantWidgetMount />
+        <DailyBriefMount />
         <Toaster />
       </body>
     </html>
