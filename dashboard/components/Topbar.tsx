@@ -104,7 +104,7 @@ export default function Topbar({
             className={styles.navlink}
             onClick={() => router.push("/pipeline")}
           >
-            <IPipeline size={15} /> Pipeline
+            <IPipeline size={15} /> CRM
           </button>
         )}
 
