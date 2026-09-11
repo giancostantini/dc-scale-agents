@@ -79,7 +79,52 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+}
+
+/* Menú de texto con subrayado (reemplaza la píldora .btn) */
+.navlink {
+  padding: 6px 2px 4px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--off-white);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid rgba(196, 168, 130, 0.35);
+  border-radius: 0;
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.navlink:hover {
+  color: var(--sand);
+  border-bottom-color: var(--sand);
+}
+
+/* Isotipos (calendario, campana): icono solo, sin borde */
+.iconBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--off-white);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.iconBtn:hover {
+  background: rgba(196, 168, 130, 0.12);
+  color: var(--sand);
 }
 
 .btn {
@@ -126,13 +171,102 @@
   letter-spacing: 0;
 }
 
+/* Badge de conteo sobre un isotipo (campana) */
+.iconBadge {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--red-warn);
+  color: var(--off-white);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 8px;
+  border: 1.5px solid var(--deep-green);
+  letter-spacing: 0;
+}
+
+.userWrap {
+  position: relative;
+}
+
 .user {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-left: 16px;
-  margin-left: 8px;
+  padding: 4px 6px 4px 16px;
+  margin-left: 2px;
+  border: none;
   border-left: 1px solid rgba(196, 168, 130, 0.15);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 0;
+  transition: opacity 0.15s;
+}
+
+.user:hover {
+  opacity: 0.85;
+}
+
+/* Menú desplegable del usuario (claro, sobre fondo verde) */
+.menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 210px;
+  background: var(--white);
+  border: 1px solid rgba(10, 26, 12, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 16px 44px rgba(10, 26, 12, 0.28);
+  padding: 6px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--deep-green);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+
+.menuItem:hover {
+  background: rgba(196, 168, 130, 0.16);
+}
+
+.menuItemDanger {
+  color: #b04b3a;
+}
+
+.menuItemDanger:hover {
+  background: rgba(176, 75, 58, 0.1);
+}
+
+.menuDivider {
+  height: 1px;
+  background: rgba(10, 26, 12, 0.08);
+  margin: 4px 6px;
 }
 
 .avatar {

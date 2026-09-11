@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useGlobalConsultantChat,
   type UIMessage,
@@ -68,6 +68,7 @@ function extractActiveClient(pathname: string | null): string | null {
 
 export default function ConsultantWidget() {
   const pathname = usePathname();
+  const router = useRouter();
   const activeClient = extractActiveClient(pathname);
 
   const [open, setOpen] = useState(false);
@@ -196,6 +197,17 @@ export default function ConsultantWidget() {
             aria-label="Nueva conversación"
           >
             <NewChatIcon />
+          </button>
+          {/* Pantalla completa: abre la oficina del Gerente (/gerente) con
+              el chat full-page + historial + estado de las gerencias. */}
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={() => router.push("/gerente")}
+            title="Ver en pantalla completa"
+            aria-label="Pantalla completa"
+          >
+            <ExpandIcon />
           </button>
           <button
             type="button"
@@ -364,6 +376,14 @@ function NewChatIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function ExpandIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
     </svg>
   );
 }

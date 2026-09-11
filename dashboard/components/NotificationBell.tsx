@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNotifications } from "@/lib/notifications";
 import NotificationDrawer from "./NotificationDrawer";
 import NotificationToast from "./NotificationToast";
+import { IBell } from "./icons/BrandIcons";
 import type { Notification } from "@/lib/types";
 import styles from "./Topbar.module.css";
 
@@ -20,11 +21,15 @@ export default function NotificationBell() {
     <>
       <button
         type="button"
-        className={styles.btn}
+        className={styles.iconBtn}
         onClick={() => setOpen(true)}
-        title="Notificaciones"
+        title="Alertas"
+        aria-label={unread > 0 ? `Alertas (${unread} sin leer)` : "Alertas"}
       >
-        Alertas <span className={styles.badge}>{unread}</span>
+        <IBell size={19} />
+        {unread > 0 && (
+          <span className={styles.iconBadge}>{unread > 9 ? "9+" : unread}</span>
+        )}
       </button>
 
       <NotificationDrawer
