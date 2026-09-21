@@ -74,4 +74,14 @@ el CRM.
   verdad. Las métricas del panel se calculan de datos reales (mig 100) —
   antes eran cuatro ceros fijos que nadie escribía.
 
+## Prospectos en evaluación (vertical automatización)
+
+Análisis de viabilidad internos, previos a la propuesta. Viven en
+`agency/prospectos/` y no en `clients/` a propósito: `client-bootstrap` saltea
+el scaffold si la carpeta del cliente ya existe.
+
+- [Distribuidora con 7 sucursales (Doria)](../agency/prospectos/distribuidora-doria-7-sucursales.md)
+  — dashboard tipo Mundipack + stock + venta cruzada + conciliación bancaria +
+  agente de WhatsApp que toma pedidos.
+
 [Gerente General](Gerente%20General.md) · Dashboard: `/pipeline`
