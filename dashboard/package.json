@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run lint:hooks && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:hooks": "eslint -c eslint.hooks.config.mjs --no-warn-ignored --quiet app components lib"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
