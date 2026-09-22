@@ -426,47 +426,48 @@ export default function PipelinePage() {
    *
    * Si el disparo falla, la campana IGUAL quedo creada — el mensaje lo dice
    * asi, no como un error que sugiera que se perdio.
+   *
+   * Funcion comun, NO useCallback: vive despues del `return null` de auth, y
+   * un hook ahi se llama en un render si y en otro no — React tira la pagina
+   * entera ("Rendered more hooks than during the previous render").
    */
-  const handleCampaignCreated = useCallback(
-    async (campaign: ProspectCampaign) => {
-      refresh();
-      setSearchBanner("Campaña creada. Lanzando la búsqueda…");
-      try {
-        const supabase = getSupabase();
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const res = await fetch("/api/prospeccion/run", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(session?.access_token
-              ? { authorization: `Bearer ${session.access_token}` }
-              : {}),
-          },
-          body: JSON.stringify({ campaignId: campaign.id }),
-        });
-        const data = (await res.json()) as {
-          queued?: boolean;
-          reason?: string;
-          error?: string;
-        };
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        setSearchBanner(
-          data.queued
-            ? "Campaña creada. El Prospector está buscando avisos — los prospectos aparecen en 2-4 minutos."
-            : `Campaña creada. ${data.reason ?? ""}`,
-        );
-      } catch (err) {
-        setSearchBanner(
-          `Campaña creada. No pude lanzar la búsqueda ahora (${
-            err instanceof Error ? err.message : "error"
-          }) — corre igual el lunes.`,
-        );
-      }
-    },
-    [refresh],
-  );
+  async function handleCampaignCreated(campaign: ProspectCampaign) {
+    refresh();
+    setSearchBanner("Campaña creada. Lanzando la búsqueda…");
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch("/api/prospeccion/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({ campaignId: campaign.id }),
+      });
+      const data = (await res.json()) as {
+        queued?: boolean;
+        reason?: string;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setSearchBanner(
+        data.queued
+          ? "Campaña creada. El Prospector está buscando avisos — los prospectos aparecen en 2-4 minutos."
+          : `Campaña creada. ${data.reason ?? ""}`,
+      );
+    } catch (err) {
+      setSearchBanner(
+        `Campaña creada. No pude lanzar la búsqueda ahora (${
+          err instanceof Error ? err.message : "error"
+        }) — corre igual el lunes.`,
+      );
+    }
+  }
 
   /** Pausar = el agente la ignora el lunes. Activar = vuelve a buscar. */
   async function toggleCampaign(cmp: ProspectCampaign) {
