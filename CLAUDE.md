@@ -121,7 +121,14 @@ node scripts/morning-briefing/index.js --brief /tmp/brief.json
 # Dashboard
 cd dashboard && npm run dev
 cd dashboard && npm run build   # SIEMPRE antes de commitear cambios del dashboard
+cd dashboard && npm run lint:hooks   # el candado de hooks solo (corre dentro de build)
 ```
+
+**Candado de hooks en el build:** Next 16 ya no lintea en `next build`, así que `npm run build`
+corre antes `lint:hooks` (`dashboard/eslint.hooks.config.mjs`): solo `react-hooks/rules-of-hooks`,
+ignorando los `eslint-disable` a propósito. Un hook mal ubicado (ej. después de un `return`
+temprano de auth) compilaba verde y tiraba la página en producción — así se cayó el CRM (#136).
+Si el candado frena: se arregla el hook, no se silencia.
 
 ## Principios
 
