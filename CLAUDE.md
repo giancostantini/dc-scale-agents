@@ -68,8 +68,11 @@ los briefs), n8n, Google Sheets como config, Blotato, Telegram como canal (vesti
 
 ## Human gates (no romperlos jamás)
 
-Fases: draft IA → director aprueba → mail al cliente. Contenido: batch IA → draft → aprobar →
-scheduled → published (publicación manual). Campañas Meta: spec IA → humano pushea
+Fases: draft IA → director aprueba → mail al cliente. Contenido (Calendario, mig 102): el
+asistente del calendario (determinístico, sin IA) carga pendientes SIN texto → la CM escribe
+descripción + foto (preparado) → sube a la red → marca subido; todo lo que ve el cliente lo
+escribe un humano y el portal no muestra pendientes. El batch IA viejo (vista Contenido, fuera
+del menú) mantiene draft → aprobar → scheduled → published. Campañas Meta: spec IA → humano pushea
 (`/api/meta/push-campaign`). Solicitudes: director asigna/responde. **Dinero: siempre humano**
 (finanzas sin IA ejecutora; el área Finanzas Autónoma — doc 16 — prepara/alerta/draftea, no ejecuta).
 
