@@ -22,250 +22,6 @@
 <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet">
 <script src="https://assets.calendly.com/assets/external/widget.js" async></script>
 
-<!--
-============================================================
-RESUMEN DE DECISIONES UX/UI · v7.1 (Soluciones al final + dark)
-============================================================
-A) SECCIÓN SOLUCIONES (movida al final, justo antes del footer)
-  - Ubicación: ... → FAQ → CTA final → Soluciones → Footer.
-    Era "stage entre dos lights" cuando estaba arriba; ahora
-    actúa como product showcase final antes del cierre.
-  - data-bg cambiado a #1E3A28 + class="dark". Razón: la
-    sección mide ~1150px de alto entre dos darks (cta-final
-    y footer). Si fuera light marfil, la interpolación
-    smoothstep generaba una franja muddy gris-verde en el
-    medio donde el texto ink-900 perdía contraste WCAG AA.
-    Con soluciones dark, el flujo va dark→dark→dark sin
-    transiciones turbias.
-  - Reglas section.dark.soluciones-section reescriben texto:
-    title → linen, bullets → on-dark, desc → on-dark-mid,
-    tabs activas → linen, eyebrow → sand. Los mocks blancos
-    pop más fuerte sobre dark — feel product showcase.
-  - Tabs y panels igual: 6 tabs, cross-fade 380ms, scroll-spy
-    mapea Soluciones a "Modelo".
-
-B) FOOTER (sin cambios desde v7)
-  - Newsletter + brand col + Firma + Contacto + copyright.
-
-============================================================
-RESUMEN DE DECISIONES UX/UI · v7 (Soluciones + Footer)
-============================================================
-A) SECCIÓN SOLUCIONES (entre caminos y casos)
-  - Tabs horizontales scrolleables: Paid Media · Contenido & UGC
-    · SEO · Email & CRM · Agentes IA · Analítica. Tab activa
-    con underline verde + texto ink-900; inactivas en muted.
-  - Showcase con cross-fade entre paneles (380ms cubic-bezier).
-    Cada panel: eyebrow sand + título + descripción + 3 bullets
-    + mock visual.
-  - Mock estilizado: card blanca con "browser bar" sand (3 dots
-    + URL-like label), métrica destacada en esmeralda gigante,
-    barras emerald/sand intercaladas o pills tags. Pattern de
-    rayas sutil sand de 5% como fondo.
-  - data-bg "#F5F2EC" (marfil) — fluye con casos/valores sin
-    cortes.
-  - Scroll-spy: la sección queda "owned" por el link Modelo.
-  - Mobile: tabs scroll horizontal, panel único visible con
-    fade-in CSS.
-
-B) FOOTER COMPLETO
-  - Bloque newsletter arriba (eyebrow sand + title con
-    'newsletter' en verde + sub + form pill-shaped con input
-    transparente y botón verde). Form UI funcional con
-    validación de email — al enviar muestra feedback verde.
-    Cuando exista endpoint backend lo conectamos en el handler.
-  - Divisoria sutil (border on-dark-line).
-  - Grid 1.7fr/1fr/1fr:
-    · Brand col: lockup + tagline + tag corto + socials
-      (LinkedIn + Instagram en círculos con borde, hover verde
-      con lift).
-    · Firma col: Modelo · Soluciones · Resultados · Socios · FAQ
-    · Contacto col: Agendar 30 min · emails · Privacidad
-  - Copyright centrado: © 2026 Dearmas Costantini · Business
-    Growth Partners · LATAM. Todos los derechos reservados.
-  - NO incluye "Apoyados por" / "Partner oficial" — confirmado.
-  - Mantiene data-bg="#0A1A0C" y data-tone="dark".
-
-============================================================
-RESUMEN DE DECISIONES UX/UI · v6 (Recorrido de color)
-============================================================
-FONDO QUE TRANSICIONA CON SCROLL (estilo torem.me)
-  - Capa fija .bg-canvas (z-index: -1, position: fixed). Las
-    secciones quedan transparentes; el color del fondo lo
-    pinta esta capa.
-  - Cada section/footer trae data-bg="#hex" (color destino) y
-    data-tone="dark|light" (informativo).
-  - JS lee data-bg y, en cada frame del rAF principal, interpola
-    rgb entre la section actual y la siguiente con SMOOTHSTEP,
-    usando como referencia el 45% del viewport. Sin cortes
-    bruscos; morphing continuo.
-  - Recorrido:
-      Hero            #0A1A0C  dark   (con blobs encima)
-      Nosotros        #0F1F12  dark
-      Statement       #1E3A28  dark
-      Caminos         #F5F2EC  light  ← primer reveal claro
-      Casos           #F5F2EC  light
-      Valores         #F5F2EC  light
-      Cupos           #E8E4DC  light  (lino)
-      Skin in game    #1E3A28  dark
-      Proceso         #1E3A28  dark
-      Modelo          #1E3A28  dark
-      Socios          #F5F2EC  light
-      FAQ             #F5F2EC  light
-      CTA final       #0A1A0C  dark
-      Footer          #0A1A0C  dark
-  - Nosotros / Proceso / Modelo ahora son class="dark" (antes
-    light). Esto hace que las reglas existentes section.dark
-    apliquen text light, .label en sand, .lead en on-dark-mid.
-    Cards interiores (step, model, etc.) conservan su propio
-    bg, así la jerarquía visual se mantiene.
-
-CONTRASTE DINÁMICO
-  - El texto se mantiene legible porque cada section declara
-    su propio color (linen on dark / ink-900 on light). El
-    smoothstep concentra la transición de fondo cerca del
-    borde entre secciones, donde no hay texto crítico.
-  - Acentos verde #C4A882 y dorado #C4A882 funcionan en ambos
-    fondos sin cambios — son los únicos colores que conviven
-    en toda la página.
-
-REDUCED MOTION
-  - Sin interpolación animada. Un IntersectionObserver
-    aparte hace SNAP del bg-canvas al color de la sección
-    más visible. Sin transición CSS — color fijo por section.
-  - Todo el resto (blobs, reveals, parallax, stagger) también
-    queda deshabilitado.
-
-PERFORMANCE
-  - Un solo rAF combina: scroll-direction + parallax + bg
-    interpolation. Cache de offsetTop por section, recomputado
-    en load + resize. transform en translate3d (GPU).
-
-============================================================
-RESUMEN DE DECISIONES UX/UI · v5 (Movimiento 100%)
-============================================================
-HERO BG ANIMADO
-  - 4 "blobs" radial-gradient (selva, pasto, esmeralda muy
-    tenue, noche oscuro) con blur 90px detrás del hero.
-    Cada uno con drift independiente (translate3d + scale +
-    opacity) en loop de 22s / 26s / 30s / 24s, ease-in-out
-    infinite alternate. Sutil pero vivo, texto legible.
-  - La grilla queda por encima de los blobs (z-index 1).
-
-REVEAL TOGGLEABLE (entra Y sale)
-  - IntersectionObserver con threshold 0.12 + rootMargin -8%
-    en el bottom. Al entrar al viewport agrega .visible,
-    al salir la quita: subiendo el scroll los elementos
-    se "des-revelan" y reaparecen al re-entrar.
-  - .reveal-stagger en grids (paths, cases, valores, cupo
-    slots, skin-explain, process, models, partners). Cada
-    hijo entra con delay incremental de 80ms (650ms transición).
-  - Translate inicial: 36px (stagger) / 28px (reveal solo).
-
-DIRECCIÓN DEL SCROLL
-  - body.scroll-down / .scroll-up actualizadas por rAF.
-    Bajando: elementos no-visibles parten desde abajo (+y).
-    Subiendo: parten desde arriba (-y). Threshold 2px evita
-    parpadeo en micro-movimientos.
-
-PARALLAX LIGADO A SCROLL (rAF, GPU)
-  - data-parallax="0.08…0.22" en hero-grid, statement-glow,
-    testimonial-glow, cta-final-glow.
-  - Transform calculado por rectángulo del elemento vs centro
-    del viewport — bounded y no acumulativo. Skip si fuera de
-    viewport para ganar frames. translate3d para forzar GPU.
-  - Un solo rAF combina scroll-direction + parallax → 60fps.
-
-REDUCED MOTION
-  - @media prefers-reduced-motion: reduce desactiva:
-    blobs, glows drift, hero stagger, scroll-progress
-    transition, reveals/reveal-stagger (todos !important
-    visibles inmediatamente), parallax (transform: none),
-    dots pulsantes y scroll-behavior smooth.
-
-============================================================
-RESUMEN DE DECISIONES UX/UI · v4 (Nav + movimiento, torem.me)
-============================================================
-NAV — reducida a 4 links + 1 pill + 1 CTA:
-  Modelo · Resultados · Socios · FAQ · [2 cupos pill] · Agendar
-  - "Modelo" absorbe Skin in the game + Modelo Comercial (caminos)
-  - "Socios" absorbe Nuestra firma (nosotros)
-  - "Resultados" = casos
-  - "Cupos" sale de la nav y queda como pill chico dorado al
-    lado del CTA, con dot verde pulsante (no es link primario)
-  - Mobile menu mirror del set reducido
-SCROLL — comportamiento torem.me-style:
-  - Nav sticky condensa a partir de 40px (padding + blur)
-  - Barra fina de progreso verde arriba (height 2px, glow sutil)
-  - Scroll-spy: el link de la sección visible se resalta
-    (linen + underline sand de 2px). Una sección puede ser
-    "owned" por múltiples nav links (ver LINK_OWNS en JS).
-  - scroll-behavior: smooth en anchors
-HERO — movimiento de entrada y respiración:
-  - Stagger de 6 elementos: pills → título → subtítulo → CTAs
-    → proof → stats. Cada uno: opacity 0→1, translateY 22px→0,
-    blur 6px→0. 720ms cubic-bezier(.2,.7,.15,1), stagger 120ms.
-  - Glows del hero "respiran" (translate + scale + opacity)
-    en loops largos (16s / 22s) en alternate. Premium, no
-    distractivo.
-REDUCED MOTION — @media prefers-reduced-motion: reduce
-  desactiva: stagger, drift de glows, transition de progress
-  bar, reveal-on-scroll, animaciones de dots pulsantes y
-  scroll-behavior smooth. Página queda estática y funcional.
-
-============================================================
-RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
-============================================================
-1. JERARQUÍA DE ACENTOS (verde NO reemplaza al dorado)
-   - Esmeralda #C4A882  → ACCIÓN / ENERGÍA.
-       • CTAs primarios (Agendar 30 min, btn-primary, cta-big)
-       • 1 palabra clave del hero ("crecimiento")
-       • Métricas destacadas (+180%, 3×, 60%, 2 cupos, cs-num)
-       • Slot disponible (cupos pulsantes)
-       • Status dots / pill de urgencia / banner sticky
-       • Hovers de links y FAQ activo
-       • Chat: avatar FD, send button, dot status, cursor stream
-   - Sand #C4A882 → OFICIO / CÁLIDO PREMIUM. Identidad de marca.
-       • Tagline "Business Growth Partners" bajo el logo (nav,
-         mobile menu, footer)
-       • Eyebrows / labels de sección (Casos de éxito, Los socios,
-         Antes de la reunión, Skin in the game, La pregunta,
-         Empezá por una conversación, Antes de agendar…)
-       • Pill secundaria del hero (Skin in the game check)
-       • Numeración tipográfica (01, 02, 03 de Valores, Proceso,
-         Modelo, Skin items, Cases meta)
-       • Bordes / líneas decorativas, divisores, subrayados
-       • Border-left de quotes (concept, partner, testimonial
-         strong, partner-quote)
-       • Tags de casos (Camino 01/02)
-       • Avatares de socios (FD, GC), partner-role, skills
-       • FAQ toggle cerrado / chat avatar GC
-       • H2 accents alternados (socio, negocio, reales, sociedad
-         activa, cobramos, cuentas, aparecer)
-   - Regla: nunca el mismo color para la misma cosa. Verde =
-     verbo de acción. Dorado = sustantivo de marca.
-
-2. VISUAL LANGUAGE
-   - Esquinas redondeadas 10–20px, sombras suaves, más aire.
-
-3. CONVERSION FLOW
-   - Hero con scope-pill (verde, urgencia) + meta-pill (dorado,
-     skin in the game).
-   - Hero stats con números en verde (métricas = acción probada).
-   - Banner sticky en verde (urgencia accionable).
-
-4. INTEGRACIONES
-   - Hooks intactos: openCalendly(), openCalendlyFromMenu(),
-     CALENDLY_URL, LEADS_ENDPOINT, CHAT_ENDPOINT.
-   - IDs preservados: prebookOverlay, prebookForm, chatWidget,
-     chatBubble, chatWindow, chatMessages, etc.
-
-5. ACCESIBILIDAD
-   - Esmeralda sobre verde profundo cumple AA.
-   - Sand sobre verde profundo / sobre marfil cumple AA en
-     tamaños de uppercase pesados (700, 0.2em+ tracking).
-   - Texto sobre botón esmeralda en #0A1A0C.
-============================================================
--->
 
 <style>
   :root {
@@ -344,19 +100,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     overflow-x: clip;
   }
 
-  /* ============ FONDO QUE TRANSICIONA CON EL SCROLL ============ */
-  /* Capa fija detrás del contenido. JS interpola el background-color
-     en rAF según la posición del scroll. Cada section trae data-bg
-     con el color destino. */
-  .bg-canvas {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    background-color: #0A1A0C;
-    pointer-events: none;
-    will-change: background-color;
-  }
-
   .amp {
     font-family: 'DM Sans', sans-serif;
     font-weight: 200;
@@ -367,64 +110,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   a { color: inherit; text-decoration: none; }
   button { font-family: inherit; cursor: pointer; border: none; background: none; }
   ::selection { background: var(--emerald); color: var(--ink-900); }
-
-  /* ============ AVAILABILITY BANNER (sticky top) ============ */
-  .availability-banner {
-    background: var(--ink-900);
-    color: var(--paper);
-    padding: 10px 48px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 14px;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    font-weight: 500;
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 101;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--on-dark-line);
-  }
-  .availability-banner .ab-dot {
-    width: 8px; height: 8px;
-    background: var(--cupo-alert);
-    border-radius: 50%;
-    box-shadow: 0 0 0 0 var(--cupo-alert-glow);
-    animation: redPulse 2s ease-in-out infinite;
-  }
-  .availability-banner strong { color: var(--emerald); font-weight: 700; }
-  .availability-banner .ab-cta {
-    color: var(--emerald);
-    font-weight: 700;
-    cursor: pointer;
-    border-bottom: 1px solid var(--emerald);
-    padding-bottom: 1px;
-    transition: color var(--tx-fast);
-  }
-  .availability-banner .ab-cta:hover { color: var(--paper); border-color: var(--paper); }
-  @keyframes emeraldPulse {
-    0%, 100% { box-shadow: 0 0 0 0 var(--emerald-glow); }
-    70%      { box-shadow: 0 0 0 10px rgba(196, 168, 130, 0); }
-  }
-  @keyframes redPulse {
-    0%, 100% { box-shadow: 0 0 0 0 var(--cupo-alert-glow); }
-    70%      { box-shadow: 0 0 0 10px rgba(229, 72, 77, 0); }
-  }
-
-  /* ============ SCROLL PROGRESS ============ */
-  .scroll-progress {
-    position: fixed;
-    top: 38px;
-    left: 0;
-    height: 2px;
-    width: 0%;
-    background: linear-gradient(90deg, var(--emerald) 0%, var(--emerald-hover) 100%);
-    z-index: 102;
-    transition: width 80ms linear;
-    box-shadow: 0 0 10px rgba(196, 168, 130, 0.55);
-    pointer-events: none;
-  }
 
   /* ============ NAV ============ */
   .nav {
@@ -446,297 +131,23 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     padding: 12px 48px;
     border-bottom: 1px solid var(--on-dark-line);
   }
-
-  .nav-brand {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--linen);
-    display: flex;
-    flex-direction: column;
-    line-height: 1.1;
-  }
-  .nav-brand .soft { font-weight: 300; opacity: 0.55; }
-  .nav-brand .tagline {
-    font-size: 8px;
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--sand);
-    margin-top: 5px;
-  }
-
-  .nav-links {
-    display: flex;
-    gap: 32px;
-    align-items: center;
-  }
-
-  .nav-links a {
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    color: rgba(232, 228, 220, 0.78);
-    transition: color var(--tx-fast);
-    white-space: nowrap;
-    position: relative;
-    padding: 6px 2px;
-  }
-  .nav-links a:hover { color: var(--emerald); }
-  .nav-links a.active { color: var(--linen); }
-  .nav-links a.active::after {
-    content: '';
-    position: absolute;
-    left: 0; right: 0; bottom: -2px;
-    height: 2px;
-    background: var(--sand);
-    border-radius: 1px;
-  }
-
-  .nav-cupos {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 13px;
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--sand) !important;
-    background: rgba(196, 168, 130, 0.1);
-    border: 1px solid rgba(196, 168, 130, 0.42);
-    border-radius: var(--r-pill);
-    transition: all var(--tx-fast);
-    white-space: nowrap;
-  }
-  .nav-cupos::after { display: none !important; }
-  .nav-cupos:hover { background: rgba(196, 168, 130, 0.2); border-color: var(--sand); color: var(--sand) !important; }
-  .nav-cupos .nc-dot {
-    width: 6px; height: 6px;
-    background: var(--emerald);
-    border-radius: 50%;
-    box-shadow: 0 0 8px var(--emerald-glow);
-    animation: emeraldPulse 2s ease-in-out infinite;
-  }
-  .nav-cupos strong { color: var(--linen); font-weight: 700; }
-
-  .nav-links a.nav-cta {
-    font-size: 13px;
-    letter-spacing: -0.005em;
-    color: var(--ink-900) !important;
-    background: var(--emerald);
-    padding: 11px 26px;
-    font-weight: 600;
-    transition: all var(--tx-fast);
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    border-radius: var(--r-pill);
-    box-shadow: var(--shadow-emerald);
-  }
-  .nav-cta:hover {
-    background: var(--emerald-hover);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-emerald-lg);
-    color: var(--ink-900) !important;
-  }
-  .nav-cta .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--ink-900);
-    animation: pulse 2s ease-in-out infinite;
-  }
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.4; transform: scale(0.85); }
   }
 
-  /* ============ BURGER + MOBILE MENU ============ */
-  .nav-burger {
-    display: none;
-    width: 44px;
-    height: 44px;
-    background: rgba(10, 26, 12, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--on-dark-line);
-    cursor: pointer;
-    padding: 0;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    border-radius: var(--r-sm);
-    transition: border-color var(--tx-fast), background var(--tx-fast);
-  }
-  .nav-burger:hover { border-color: var(--emerald); }
-  .nav-burger span {
-    display: block;
-    width: 18px;
-    height: 1.5px;
-    background: var(--linen);
-    transition: transform 0.3s, opacity 0.3s;
-    transform-origin: center;
-    border-radius: 1px;
-  }
-  .nav-burger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); background: var(--emerald); }
-  .nav-burger.open span:nth-child(2) { opacity: 0; }
-  .nav-burger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); background: var(--emerald); }
-
-  .mobile-menu {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: var(--ink-900);
-    color: var(--linen);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-    overflow-y: auto;
-  }
-  .mobile-menu.open { transform: translateX(0); }
-  .mobile-menu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 24px;
-    border-bottom: 1px solid var(--on-dark-line);
-    margin-bottom: 28px;
-  }
-  .mobile-menu-brand {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-    display: flex;
-    flex-direction: column;
-  }
-  .mobile-menu-brand .soft { font-weight: 300; opacity: 0.55; }
-  .mobile-menu-brand .tag {
-    font-size: 8px;
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--sand);
-    margin-top: 5px;
-  }
-  .mobile-menu-close {
-    width: 44px;
-    height: 44px;
-    background: transparent;
-    border: 1px solid var(--on-dark-line);
-    color: var(--linen);
-    font-size: 26px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-    border-radius: var(--r-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .mobile-menu-close:hover { border-color: var(--emerald); color: var(--emerald); }
-  .mobile-menu-links {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    flex: 1;
-  }
-  .mobile-menu-links a {
-    padding: 18px 4px;
-    font-size: 22px;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--linen);
-    border-bottom: 1px solid var(--on-dark-line);
-    transition: color var(--tx-fast), padding-left var(--tx-fast);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .mobile-menu-links a::before {
-    content: '';
-    width: 0; height: 2px;
-    background: var(--emerald);
-    transition: width var(--tx-fast);
-    border-radius: 1px;
-  }
-  .mobile-menu-links a:hover,
-  .mobile-menu-links a:active { color: var(--emerald); padding-left: 8px; }
-  .mobile-menu-links a:hover::before,
-  .mobile-menu-links a:active::before { width: 24px; }
-  .mobile-menu-footer {
-    padding-top: 28px;
-    border-top: 1px solid var(--on-dark-line);
-  }
-  .mobile-menu-meta {
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    color: var(--on-dark-soft);
-    text-align: center;
-  }
-  body.menu-open { overflow: hidden; }
-
-  /* ============ HERO ENTRANCE STAGGER ============ */
-  .hero-stagger > * {
-    opacity: 0;
-    transform: translateY(22px);
-    filter: blur(6px);
-    will-change: opacity, transform, filter;
-  }
-  .hero-stagger.go > * {
-    animation: heroIn 720ms cubic-bezier(0.2, 0.7, 0.15, 1) forwards;
-  }
-  .hero-stagger.go > *:nth-child(1) { animation-delay: 80ms; }
-  .hero-stagger.go > *:nth-child(2) { animation-delay: 200ms; }
-  .hero-stagger.go > *:nth-child(3) { animation-delay: 320ms; }
-  .hero-stagger.go > *:nth-child(4) { animation-delay: 440ms; }
-  .hero-stagger.go > *:nth-child(5) { animation-delay: 560ms; }
-  .hero-stagger.go > *:nth-child(6) { animation-delay: 680ms; }
-  @keyframes heroIn {
-    0%   { opacity: 0; transform: translateY(22px); filter: blur(6px); }
-    100% { opacity: 1; transform: translateY(0);    filter: blur(0); }
-  }
-
-  /* Sutil drift de los glows del hero — "respira" muy lento */
-  .hero-glow   { animation: glowDriftA 16s ease-in-out infinite alternate; }
-  .hero-glow-2 { animation: glowDriftB 22s ease-in-out infinite alternate; }
-  @keyframes glowDriftA {
-    from { transform: translate(0, 0) scale(1); opacity: 1; }
-    to   { transform: translate(-50px, 28px) scale(1.06); opacity: 0.78; }
-  }
-  @keyframes glowDriftB {
-    from { transform: translate(0, 0) scale(1); opacity: 1; }
-    to   { transform: translate(40px, -32px) scale(1.05); opacity: 0.7; }
-  }
-
   /* Respeta usuarios con motion reducido */
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto !important; }
-    .hero-stagger > * { opacity: 1; transform: none; filter: none; animation: none !important; }
-    .hero-glow, .hero-glow-2 { animation: none !important; }
-    .hero-bg-animated .blob { animation: none !important; }
-    .hero-bg-animated { animation: none !important; }
-    .hero-bg-sweep, .hero-bg-sweep-2 { animation: none !important; }
-    .hero-aurora, .hero-pulse, .hero-beam { animation: none !important; }
-    .hero-grid { animation: none !important; }
-    .scroll-progress { transition: none !important; }
-    .reveal, .reveal-stagger > * {
-      opacity: 1 !important;
-      transform: none !important;
-      transition: none !important;
-    }
     [data-parallax] { transform: none !important; }
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
-    .ab-dot, .sp-dot, .nc-dot, .chat-pulse-dot, .ch-dot, .slot.available, .btn-primary .dot { animation: none !important; }
+    .chat-pulse-dot,
+  .ch-dot,
+  .btn-primary .dot { animation: none !important; }
   }
 
   /* ============ HERO ============ */
@@ -748,409 +159,17 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     overflow: hidden;
   }
 
-  /* ============ HERO BG — capas animadas (estilo "video de fondo") ============
-     Orden de profundidad (back → front):
-       1. .hero-aurora          — washes radial-gradient suaves drifteando
-       2. .hero-bg-animated     — 6 blobs con paths curvos cerrados + hue cycle
-       3. .hero-bg-sweep        — conic gradient rotando horario
-       4. .hero-bg-sweep-2      — conic gradient rotando antihorario (counter)
-       5. .hero-grid            — grilla con drift diagonal continuo
-       6. .hero-glow / glow-2   — halos suaves respirando
-     Cada capa es independiente; combinadas crean profundidad real.
-     Filtros suaves de blur + opacidades bajas garantizan legibilidad. */
-
-  .hero-aurora {
-    position: absolute;
-    inset: -25%;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(ellipse 60% 45% at 22% 28%, rgba(196, 168, 130, 0.12) 0%, transparent 65%),
-      radial-gradient(ellipse 70% 55% at 78% 72%, rgba(196, 168, 130, 0.09) 0%, transparent 65%),
-      radial-gradient(ellipse 55% 80% at 50% 50%, rgba(46, 90, 55, 0.16) 0%, transparent 70%);
-    filter: blur(40px);
-    animation: heroAurora 14s ease-in-out infinite alternate;
-    will-change: transform;
-  }
-  @keyframes heroAurora {
-    0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    50%  { transform: translate3d(-130px, 100px, 0) scale(1.14) rotate(4deg); }
-    100% { transform: translate3d(110px, -90px, 0) scale(1.1) rotate(-4deg); }
-  }
-
-  .hero-grid {
-    position: absolute; inset: 0;
-    z-index: 1;
-    background-image:
-      linear-gradient(rgba(196, 168, 130, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(196, 168, 130, 0.04) 1px, transparent 1px);
-    background-size: 80px 80px;
-    pointer-events: none;
-    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-    will-change: transform, background-position;
-    animation: heroGridDrift 12s linear infinite;
-  }
-  @keyframes heroGridDrift {
-    from { background-position: 0 0; }
-    to   { background-position: 240px 240px; }
-  }
-
-  /* ============ HERO BG ANIMATED BLOBS ============ */
-  .hero-bg-animated {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 0;
-    /* Ciclo cromatico más vivo — 22s en vez de 70s. */
-    animation: heroHueShift 22s ease-in-out infinite alternate;
-  }
-  @keyframes heroHueShift {
-    0%   { filter: hue-rotate(0deg)   saturate(100%); }
-    50%  { filter: hue-rotate(-14deg) saturate(115%); }
-    100% { filter: hue-rotate(12deg)  saturate(92%); }
-  }
-
-  .hero-bg-animated .blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(78px);
-    will-change: transform, opacity, filter;
-    pointer-events: none;
-  }
-  /* COREOGRAFÍA — cada blob tiene una trayectoria/comportamiento distinto:
-     1: diagonal larga + rotación (5 stops)
-     2: barrido horizontal de izquierda a derecha
-     3: vertical ascendente + blur breathing
-     4: pulso en sitio con rotación (scale 0.85 → 1.3)
-     5: figure-8 (8 stops para curva suave)
-     6: órbita circular ascendente
-  */
-  .blob-1 {
-    width: 780px; height: 780px;
-    background: radial-gradient(circle, #1E3A28 0%, transparent 70%);
-    top: -18%; left: -12%;
-    opacity: 0.82;
-    animation: blobPath1 13s ease-in-out infinite;
-  }
-  .blob-2 {
-    width: 640px; height: 640px;
-    background: radial-gradient(circle, #2C5038 0%, transparent 70%);
-    top: 18%; right: -10%;
-    opacity: 0.7;
-    animation: blobPath2 15s ease-in-out infinite;
-  }
-  .blob-3 {
-    width: 560px; height: 560px;
-    background: radial-gradient(circle, rgba(196, 168, 130, 0.55) 0%, transparent 70%);
-    bottom: -22%; left: 28%;
-    opacity: 0.5;
-    animation: blobPath3 11s ease-in-out infinite;
-  }
-  .blob-4 {
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, #0F1F12 0%, transparent 65%);
-    top: 10%; right: 22%;
-    opacity: 0.78;
-    animation: blobPath4 14s ease-in-out infinite;
-  }
-  .blob-5 {
-    width: 520px; height: 520px;
-    background: radial-gradient(circle, rgba(196, 168, 130, 0.36) 0%, transparent 70%);
-    top: 35%; left: 12%;
-    opacity: 0.66;
-    animation: blobPath5 17s ease-in-out infinite;
-  }
-  .blob-6 {
-    width: 460px; height: 460px;
-    background: radial-gradient(circle, rgba(44, 80, 56, 0.78) 0%, transparent 70%);
-    bottom: 8%; right: 18%;
-    opacity: 0.7;
-    animation: blobPath6 16s ease-in-out infinite;
-  }
-
   /* 1 — Diagonal larga, 5 stops, rotación acumulada */
-  @keyframes blobPath1 {
-    0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    20%  { transform: translate3d(180px, 60px, 0) scale(1.12) rotate(18deg); }
-    40%  { transform: translate3d(320px, 200px, 0) scale(1.34) rotate(45deg); }
-    60%  { transform: translate3d(180px, 320px, 0) scale(1.24) rotate(80deg); }
-    80%  { transform: translate3d(40px, 240px, 0) scale(1.08) rotate(110deg); }
-    100% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-  }
+
   /* 2 — Barrido horizontal puro */
-  @keyframes blobPath2 {
-    0%   { transform: translate3d(0, 0, 0) scale(1); }
-    25%  { transform: translate3d(-200px, 30px, 0) scale(1.15); }
-    50%  { transform: translate3d(-380px, -20px, 0) scale(1.32); }
-    75%  { transform: translate3d(-200px, 40px, 0) scale(1.18); }
-    100% { transform: translate3d(0, 0, 0) scale(1); }
-  }
+
   /* 3 — Vertical + blur breathing + opacidad */
-  @keyframes blobPath3 {
-    0%   { transform: translate3d(0, 0, 0) scale(1);          opacity: 0.32; filter: blur(80px); }
-    25%  { transform: translate3d(30px, -130px, 0) scale(1.22); opacity: 0.6;  filter: blur(64px); }
-    50%  { transform: translate3d(-20px, -260px, 0) scale(1.46); opacity: 0.74; filter: blur(54px); }
-    75%  { transform: translate3d(20px, -160px, 0) scale(1.3);  opacity: 0.55; filter: blur(70px); }
-    100% { transform: translate3d(0, 0, 0) scale(1);          opacity: 0.32; filter: blur(80px); }
-  }
+
   /* 4 — Pulso fuerte en sitio (0.85 ↔ 1.3) con rotación y micro-translate */
-  @keyframes blobPath4 {
-    0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg);     opacity: 0.55; }
-    20%  { transform: translate3d(-60px, 40px, 0) scale(0.82) rotate(25deg); opacity: 0.7; }
-    40%  { transform: translate3d(30px, 80px, 0) scale(1.34) rotate(55deg);  opacity: 0.92; }
-    60%  { transform: translate3d(-40px, 40px, 0) scale(1.05) rotate(85deg); opacity: 0.6; }
-    80%  { transform: translate3d(40px, -50px, 0) scale(1.24) rotate(115deg); opacity: 0.78; }
-    100% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg);     opacity: 0.55; }
-  }
+
   /* 5 — Figure-8 (8 stops para curva suave) */
-  @keyframes blobPath5 {
-    0%    { transform: translate3d(0, 0, 0) scale(1); }
-    12.5% { transform: translate3d(100px, -70px, 0) scale(1.1); }
-    25%   { transform: translate3d(170px, 0, 0) scale(1.2); }
-    37.5% { transform: translate3d(100px, 70px, 0) scale(1.3); }
-    50%   { transform: translate3d(0, 0, 0) scale(1.36); }
-    62.5% { transform: translate3d(-100px, -70px, 0) scale(1.3); }
-    75%   { transform: translate3d(-170px, 0, 0) scale(1.2); }
-    87.5% { transform: translate3d(-100px, 70px, 0) scale(1.1); }
-    100%  { transform: translate3d(0, 0, 0) scale(1); }
-  }
+
   /* 6 — Órbita circular ascendente, rotación incorporada */
-  @keyframes blobPath6 {
-    0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-    25%  { transform: translate3d(120px, -90px, 0) scale(1.12) rotate(90deg); }
-    50%  { transform: translate3d(0, -180px, 0) scale(1.28) rotate(180deg); }
-    75%  { transform: translate3d(-120px, -90px, 0) scale(1.12) rotate(270deg); }
-    100% { transform: translate3d(0, 0, 0) scale(1) rotate(360deg); }
-  }
-
-  /* ============ HERO PULSE — halo central respirando ============ */
-  .hero-pulse {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 900px; height: 900px;
-    margin-top: -450px;
-    margin-left: -450px;
-    background: radial-gradient(circle, rgba(196, 168, 130, 0.1) 0%, transparent 60%);
-    border-radius: 50%;
-    filter: blur(60px);
-    pointer-events: none;
-    z-index: 0;
-    animation: heroPulse 8s ease-in-out infinite;
-    will-change: transform, opacity;
-  }
-  @keyframes heroPulse {
-    0%   { transform: scale(0.85) rotate(0deg);  opacity: 0.5; }
-    50%  { transform: scale(1.32) rotate(40deg); opacity: 1; }
-    100% { transform: scale(0.85) rotate(0deg);  opacity: 0.5; }
-  }
-
-  /* ============ HERO BEAM — light streak que cruza diagonal ============ */
-  .hero-beam {
-    position: absolute;
-    top: -15%; left: -50%;
-    width: 50%; height: 240%;
-    background: linear-gradient(110deg,
-      transparent 0%,
-      rgba(196, 168, 130, 0.07) 40%,
-      rgba(196, 168, 130, 0.05) 55%,
-      rgba(196, 168, 130, 0.04) 65%,
-      transparent 100%);
-    transform: rotate(15deg);
-    filter: blur(40px);
-    pointer-events: none;
-    z-index: 0;
-    animation: heroBeam 12s ease-in-out infinite;
-    will-change: transform, opacity;
-  }
-  @keyframes heroBeam {
-    0%   { transform: translateX(0) rotate(15deg);    opacity: 0; }
-    15%  { opacity: 0.7; }
-    50%  { transform: translateX(180%) rotate(15deg); opacity: 1; }
-    85%  { opacity: 0.5; }
-    100% { transform: translateX(360%) rotate(15deg); opacity: 0; }
-  }
-
-  /* Conic gradient rotando — horario */
-  .hero-bg-sweep {
-    position: absolute;
-    inset: -25%;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      conic-gradient(from 0deg at 50% 50%,
-        rgba(196, 168, 130, 0.07) 0deg,
-        transparent 70deg,
-        rgba(196, 168, 130, 0.06) 150deg,
-        transparent 220deg,
-        rgba(196, 168, 130, 0.05) 290deg,
-        transparent 360deg);
-    filter: blur(60px);
-    animation: heroSweep 14s linear infinite;
-    will-change: transform;
-    mix-blend-mode: screen;
-    opacity: 0.95;
-  }
-  @keyframes heroSweep {
-    from { transform: rotate(0deg)   scale(1.18); }
-    to   { transform: rotate(360deg) scale(1.18); }
-  }
-
-  /* Segundo conic counter-rotating — antihorario */
-  .hero-bg-sweep-2 {
-    position: absolute;
-    inset: -30%;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      conic-gradient(from 180deg at 50% 50%,
-        transparent 0deg,
-        rgba(196, 168, 130, 0.05) 80deg,
-        transparent 170deg,
-        rgba(196, 168, 130, 0.06) 260deg,
-        transparent 360deg);
-    filter: blur(80px);
-    animation: heroSweepReverse 18s linear infinite;
-    will-change: transform;
-    mix-blend-mode: screen;
-    opacity: 0.85;
-  }
-  @keyframes heroSweepReverse {
-    from { transform: rotate(360deg) scale(1.24); }
-    to   { transform: rotate(0deg)   scale(1.24); }
-  }
-
-  .hero-glow {
-    position: absolute;
-    top: 8%; right: -8%;
-    width: 820px; height: 820px;
-    background: radial-gradient(circle, rgba(196, 168, 130, 0.16) 0%, transparent 55%);
-    pointer-events: none;
-    z-index: 1;
-    will-change: transform, opacity;
-  }
-  .hero-glow-2 {
-    position: absolute;
-    bottom: -10%; left: -10%;
-    width: 700px; height: 700px;
-    background: radial-gradient(circle, rgba(196, 168, 130, 0.1) 0%, transparent 60%);
-    pointer-events: none;
-    z-index: 1;
-    will-change: transform, opacity;
-  }
-
-  .hero-mid { position: relative; z-index: 2; width: 100%; max-width: 1400px; }
-
-  .hero-pill-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 32px;
-  }
-
-  .scope-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 16px;
-    background: rgba(196, 168, 130, 0.08);
-    border: 1px solid rgba(196, 168, 130, 0.32);
-    color: var(--emerald);
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    border-radius: var(--r-pill);
-    transition: all var(--tx-fast);
-    cursor: pointer;
-  }
-  .scope-pill:hover {
-    background: rgba(196, 168, 130, 0.14);
-    border-color: var(--emerald);
-  }
-  .scope-pill .sp-dot {
-    width: 8px; height: 8px;
-    background: var(--cupo-alert);
-    border-radius: 50%;
-    box-shadow: 0 0 12px var(--cupo-alert-glow);
-    animation: redPulse 2s ease-in-out infinite;
-  }
-  .scope-pill strong { font-weight: 800; color: var(--linen); }
-
-  .hero-meta-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 16px;
-    background: rgba(232, 228, 220, 0.04);
-    border: 1px solid var(--on-dark-line);
-    color: var(--on-dark-mid);
-    font-size: 12px;
-    font-weight: 500;
-    border-radius: var(--r-pill);
-  }
-  .hero-meta-pill {
-    border-color: rgba(196, 168, 130, 0.36);
-    background: var(--sand-soft);
-    color: var(--sand);
-  }
-  .hero-meta-pill .check { color: var(--sand); font-weight: 700; }
-
-  .hero-title {
-    font-weight: 700;
-    letter-spacing: -0.045em;
-    line-height: 1;
-    font-size: clamp(44px, 7.2vw, 112px);
-    color: var(--linen);
-    max-width: 1200px;
-  }
-  .hero-title .accent {
-    color: var(--emerald);
-    font-weight: 700;
-    position: relative;
-    display: inline-block;
-  }
-  .hero-title .accent::after {
-    content: '';
-    position: absolute;
-    left: 0; right: 0; bottom: 0.05em;
-    height: 3px;
-    background: var(--emerald);
-    border-radius: 2px;
-    opacity: 0.35;
-  }
-
-  .hero-sub {
-    margin-top: 40px;
-    font-size: clamp(18px, 1.55vw, 22px);
-    font-weight: 400;
-    color: var(--on-dark-mid);
-    max-width: 820px;
-    line-height: 1.55;
-    letter-spacing: -0.005em;
-  }
-  .hero-sub strong { color: var(--linen); font-weight: 600; }
-  .hero-sub .sand-accent {
-    color: var(--sand);
-    font-weight: 600;
-    position: relative;
-    display: inline-block;
-  }
-  .hero-sub .sand-accent::after {
-    content: '';
-    position: absolute;
-    left: 0; right: 0; bottom: -2px;
-    height: 1px;
-    background: var(--sand);
-    opacity: 0.55;
-  }
-
-  .hero-ctas {
-    margin-top: 44px;
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
 
   /* ============ BUTTONS ============ */
   .btn {
@@ -1188,80 +207,10 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     animation: pulse 2s ease-in-out infinite;
   }
 
-  .btn-ghost {
-    background: transparent;
-    color: var(--linen);
-    border-color: var(--on-dark-line);
-  }
-  .btn-ghost:hover {
-    border-color: var(--sand);
-    color: var(--sand);
-    transform: translateY(-1px);
-  }
-
-  .btn-ghost-dark {
-    background: transparent;
-    color: var(--ink-900);
-    border-color: var(--ink-line-strong);
-  }
-  .btn-ghost-dark:hover {
-    border-color: var(--emerald);
-    color: var(--emerald);
-    transform: translateY(-1px);
-  }
-
   .btn-lg { padding: 20px 36px; font-size: 15px; }
-  .btn-sm { padding: 12px 20px; font-size: 13px; }
 
   .btn .arrow { transition: transform var(--tx-fast); display: inline-block; }
   .btn:hover .arrow { transform: translateX(4px); }
-
-  .hero-proof {
-    position: relative; z-index: 2;
-    margin-top: 28px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 13px;
-    color: var(--on-dark-soft);
-    letter-spacing: 0.005em;
-  }
-  .hero-proof .check {
-    color: var(--emerald);
-    font-weight: 700;
-  }
-
-  .hero-bottom {
-    position: relative; z-index: 2;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
-    padding-top: 48px;
-    border-top: 1px solid var(--on-dark-line);
-    margin-top: 88px;
-  }
-
-  .hero-stat {
-    padding: 4px 0;
-  }
-  .hero-stat .stat-num {
-    font-size: clamp(34px, 3.4vw, 52px);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--emerald);
-    line-height: 1;
-    margin-bottom: 10px;
-    font-feature-settings: "tnum";
-  }
-  .hero-stat .stat-num .small { font-size: 0.6em; color: var(--on-dark-mid); font-weight: 500; }
-  .hero-stat .stat-label {
-    font-size: 13px;
-    color: var(--on-dark-mid);
-    letter-spacing: 0;
-    line-height: 1.45;
-    font-weight: 400;
-  }
-  .hero-stat .stat-label strong { color: var(--linen); font-weight: 600; }
 
   /* ============ SECTIONS ============ */
   section {
@@ -1276,7 +225,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
      section va sobre fondo oscuro o claro. Los cards mantienen su
      propio bg. */
   section { background: transparent; }
-  section.dark, section.noche, section.selva { color: var(--linen); }
+  section.dark { color: var(--linen); }
   /* .linen-bg / .paper-bg quedan como no-ops por compatibilidad */
 
   .label {
@@ -1295,12 +244,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     width: 24px; height: 1px;
     background: var(--sand);
   }
-  section.dark .label,
-  section.noche .label,
-  section.selva .label { color: var(--sand); }
-  section.dark .label::before,
-  section.noche .label::before,
-  section.selva .label::before { background: var(--sand); }
+  section.dark .label { color: var(--sand); }
+  section.dark .label::before { background: var(--sand); }
 
   h2 {
     font-size: clamp(38px, 5vw, 72px);
@@ -1313,7 +258,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   h2 .accent { color: var(--emerald); }
   h1 .accent-sand,
   h2 .accent-sand,
-  .hero-title .accent-sand,
   .skin-headline .accent-sand,
   .statement-text .accent-sand {
     color: var(--sand);
@@ -1321,7 +265,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   }
   h1 .accent-sand::after,
   h2 .accent-sand::after,
-  .hero-title .accent-sand::after,
   .skin-headline .accent-sand::after,
   .statement-text .accent-sand::after {
     content: '';
@@ -1345,8 +288,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     color: var(--muted);
   }
   .lead strong { font-weight: 600; color: var(--ink-900); }
-  section.dark .lead, section.noche .lead, section.selva .lead { color: var(--on-dark-mid); }
-  section.dark .lead strong, section.noche .lead strong, section.selva .lead strong { color: var(--linen); }
+  section.dark .lead { color: var(--on-dark-mid); }
+  section.dark .lead strong { color: var(--linen); }
 
   /* ============ POSITIONING ============ */
   .concept {
@@ -1398,137 +341,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   }
   .path:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 
-  .path-01 {
-    background: var(--paper);
-    border: 1px solid var(--ink-line);
-  }
-  .path-02 {
-    background: var(--ink-700);
-    color: var(--linen);
-    border: 1px solid var(--ink-line);
-  }
-
-  .path-num {
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--sand-deep);
-    font-weight: 700;
-    margin-bottom: 28px;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .path-num::before {
-    content: '';
-    width: 22px; height: 1px; background: var(--sand);
-  }
-  .path-02 .path-num { color: var(--sand); }
-
-  .path-title {
-    font-size: clamp(32px, 3.2vw, 44px);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.03;
-    margin-bottom: 14px;
-  }
-
-  .path-sub {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 28px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-weight: 500;
-  }
-  .path-02 .path-sub { color: var(--on-dark-mid); }
-
-  .path-desc {
-    font-size: 16px;
-    line-height: 1.65;
-    font-weight: 400;
-    margin-bottom: 32px;
-    color: var(--ink-900);
-  }
-  .path-02 .path-desc { color: var(--on-dark); }
-
-  .path-lead {
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--sand-deep);
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-  .path-02 .path-lead { color: var(--sand); }
-
-  .path-leader {
-    font-size: 15px;
-    font-weight: 500;
-    margin-bottom: 24px;
-    letter-spacing: -0.01em;
-  }
-
-  .path-list {
-    list-style: none;
-    margin-top: auto;
-  }
-  .path-list li {
-    padding: 14px 0;
-    border-top: 1px solid var(--ink-line);
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .path-02 .path-list li { border-color: var(--on-dark-line); }
-  .path-list li::before {
-    content: '';
-    width: 6px; height: 6px;
-    background: var(--sand);
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .path-model {
-    margin-top: 28px;
-    padding: 22px 24px;
-    background: var(--emerald-soft);
-    border-left: 3px solid var(--emerald);
-    border-radius: var(--r-md);
-  }
-  .path-02 .path-model {
-    background: rgba(196, 168, 130, 0.1);
-  }
-  .path-model .pm-eyebrow {
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--emerald-hover);
-    font-weight: 700;
-    margin-bottom: 10px;
-  }
-  .path-02 .path-model .pm-eyebrow { color: var(--emerald); }
-  .path-model .pm-structure {
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    margin-bottom: 10px;
-    line-height: 1.4;
-  }
-  .path-model .pm-structure .highlight {
-    color: var(--emerald-hover);
-    font-weight: 700;
-  }
-  .path-02 .path-model .pm-structure .highlight { color: var(--emerald); }
-  .path-model .pm-pitch {
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--muted);
-    font-style: italic;
-  }
-  .path-02 .path-model .pm-pitch { color: var(--on-dark-mid); }
-
   /* ============ CASES ============ */
   .cases-intro-simple { display: block; margin-bottom: 56px; max-width: 920px; }
 
@@ -1575,10 +387,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     border-bottom-color: var(--on-dark-line);
   }
   .case-logo-wrap.has-logo { padding: 24px 32px; }
-  .case-logo-wrap.nda {
-    background: var(--ink-800);
-    color: var(--on-dark-soft);
-  }
   .case-logo-wrap img {
     max-width: 100%;
     max-height: 100%;
@@ -1598,13 +406,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     box-shadow: 0 1px 4px rgba(10, 26, 12, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.55);
     z-index: 2;
-  }
-  .case-logo-text {
-    font-size: 14px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    font-weight: 500;
-    color: var(--on-dark-soft);
   }
 
   .case-head {
@@ -1712,52 +513,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     border-top-color: var(--on-dark-line);
   }
   .case.dark-case .case-link:hover { color: var(--linen); }
-
-  /* ============ TESTIMONIAL ============ */
-  .testimonial {
-    margin-top: 56px;
-    padding: 56px 64px;
-    background: var(--ink-900);
-    color: var(--linen);
-    border-radius: var(--r-xl);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .testimonial::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 4px; height: 100%;
-    background: linear-gradient(180deg, var(--emerald) 0%, var(--sand) 100%);
-  }
-
-  .testimonial-glow {
-    position: absolute;
-    top: -30%; right: -10%;
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(196, 168, 130, 0.12) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  .testimonial-text {
-    font-size: clamp(22px, 2.1vw, 30px);
-    font-weight: 400;
-    line-height: 1.4;
-    letter-spacing: -0.02em;
-    max-width: 960px;
-    position: relative;
-  }
-
-  .testimonial-text strong { font-weight: 600; color: var(--sand); }
-
-  .testimonial-author {
-    margin-top: 32px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    position: relative;
-  }
 
   /* ============ VALORES ============ */
   .valores {
@@ -1903,37 +658,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     color: var(--ink-900);
     margin-bottom: 0;
     opacity: 0.85;
-  }
-
-  .partner-quote {
-    padding: 18px 22px;
-    background: var(--paper);
-    border-left: 3px solid var(--sand);
-    border-radius: var(--r-md);
-    font-size: 15px;
-    line-height: 1.55;
-    font-style: italic;
-    font-weight: 400;
-    color: var(--ink-900);
-    margin-bottom: 24px;
-  }
-
-  .partner-skills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: auto;
-  }
-
-  .skill {
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    padding: 6px 12px;
-    background: var(--paper);
-    color: var(--ink-900);
-    border: 1px solid var(--ink-line);
-    font-weight: 500;
-    border-radius: var(--r-pill);
   }
 
   /* ============ FAQ ============ */
@@ -2437,181 +1161,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     font-weight: 400;
   }
 
-  /* ============ CUPO SECTION ============ */
-  .cupo-section {
-    background: transparent;
-    padding: 120px 80px;
-  }
-  .cupo-intro {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 72px;
-    align-items: end;
-    margin-bottom: 56px;
-  }
-
-  .cupo-card {
-    background: var(--white);
-    border-radius: var(--r-xl);
-    padding: 40px;
-    border: 1px solid var(--ink-line);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .cupo-grid-slots {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 10px;
-    margin: 0 0 28px;
-  }
-  .slot {
-    aspect-ratio: 1;
-    background: var(--ink-900);
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform var(--tx), box-shadow var(--tx);
-    overflow: hidden;
-    cursor: default;
-    border-radius: var(--r-md);
-    border: 1px solid var(--ink-line);
-  }
-  .slot:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-  .slot.occupied { background: var(--ink-900); }
-  .slot.occupied.has-logo {
-    background: var(--paper);
-    padding: 14px;
-  }
-  .slot.occupied.nda { background: var(--ink-800); }
-  /* Cliente confidencial: ocupa cupo pero no figura (logo/nombre). */
-  .slot.occupied.confidential {
-    background: var(--ink-900);
-    flex-direction: column;
-    gap: 7px;
-  }
-  .slot.occupied.confidential .slot-lock {
-    width: 24px; height: 24px;
-    stroke: var(--sand); stroke-width: 1.8;
-    fill: none; opacity: 0.9;
-  }
-  .slot.occupied.confidential .slot-conf {
-    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--on-dark-soft); font-weight: 600;
-  }
-  .slot.available {
-    background: var(--emerald);
-    cursor: pointer;
-    box-shadow: 0 4px 14px rgba(196, 168, 130, 0.4);
-    animation: slotPulse 3s ease-in-out infinite;
-    border-color: var(--emerald);
-  }
-  .slot.available:hover { background: var(--emerald-hover); box-shadow: 0 8px 22px rgba(196, 168, 130, 0.55); }
-  @keyframes slotPulse {
-    0%, 100% { box-shadow: 0 4px 14px rgba(196, 168, 130, 0.4); }
-    50% { box-shadow: 0 4px 22px rgba(196, 168, 130, 0.65); }
-  }
-  .slot .slot-mark {
-    font-weight: 700;
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: var(--emerald);
-    text-align: center;
-    line-height: 1;
-  }
-  .slot.occupied.nda .slot-mark {
-    font-size: 12px;
-    letter-spacing: 0.18em;
-    font-weight: 700;
-    color: var(--on-dark-soft);
-  }
-  .slot.available .slot-mark {
-    color: var(--ink-900);
-    font-weight: 300;
-    font-size: 36px;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .slot img {
-    max-width: 70%;
-    max-height: 70%;
-    object-fit: contain;
-    display: block;
-  }
-
-  .slot[data-tooltip] { position: relative; }
-  .slot[data-tooltip]::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%) translateY(4px);
-    background: var(--ink-900);
-    color: var(--linen);
-    padding: 8px 14px;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity var(--tx-fast), transform var(--tx-fast);
-    z-index: 10;
-    font-weight: 500;
-    border-radius: var(--r-sm);
-  }
-  .slot[data-tooltip]:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  .cupo-legend {
-    display: flex;
-    gap: 28px;
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.02em;
-  }
-  .cupo-legend span {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .cupo-legend .key {
-    width: 14px; height: 14px;
-    display: inline-block;
-    border-radius: 4px;
-  }
-  .cupo-legend .key-active { background: var(--paper); border: 1px solid var(--ink-line); }
-  .cupo-legend .key-conf { background: var(--ink-900); }
-  .cupo-legend .key-open { background: var(--emerald); }
-
-  .cupo-summary {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 32px;
-    align-items: center;
-    padding: 32px 40px;
-    background: var(--ink-900);
-    color: var(--linen);
-    margin-top: 40px;
-    border-radius: var(--r-xl);
-    border-left: 4px solid var(--emerald);
-  }
-  .cupo-summary .cs-num {
-    font-size: 68px;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    color: var(--emerald);
-    font-feature-settings: "tnum";
-  }
-  .cupo-summary .cs-text {
-    font-size: 16px;
-    line-height: 1.55;
-    color: var(--on-dark);
-  }
-  .cupo-summary .cs-text strong { color: var(--emerald); font-weight: 700; }
-
   /* ============ INLINE CTA ============ */
   .inline-cta {
     margin-top: 64px;
@@ -2652,9 +1201,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     line-height: 1.3;
   }
   .inline-cta .btn { position: relative; }
-
-  section.tight-bottom { padding-bottom: 40px; }
-  section.tight-bottom + section { padding-top: 80px; }
 
   /* ============ STATEMENT (the question) ============ */
   .statement-section {
@@ -2716,70 +1262,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   }
   .statement-text .accent { color: var(--emerald); }
   .statement-btn { padding: 18px 36px; font-size: 14px; }
-
-  /* ============ CASES META (above cases) ============ */
-  .cases-meta {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    padding-top: 32px;
-    margin-top: 32px;
-    border-top: 1px solid var(--ink-line);
-  }
-  .cases-meta .cm-num {
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 200;
-    font-size: 40px;
-    color: var(--sand);
-    line-height: 1;
-    margin-bottom: 8px;
-  }
-  .cases-meta .cm-label {
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.02em;
-    line-height: 1.5;
-  }
-
-  /* ============ REVEAL (toggleable + dirección-aware) ============ */
-  .reveal {
-    opacity: 0;
-    transform: translate3d(0, 28px, 0);
-    transition:
-      opacity 700ms cubic-bezier(0.2, 0.7, 0.15, 1),
-      transform 700ms cubic-bezier(0.2, 0.7, 0.15, 1);
-    will-change: opacity, transform;
-  }
-  body.scroll-up .reveal:not(.visible) {
-    transform: translate3d(0, -28px, 0);
-  }
-  .reveal.visible { opacity: 1; transform: translate3d(0, 0, 0); }
-
-  /* Stagger entre hijos directos de un contenedor */
-  .has-reveal-motion .reveal-stagger > * {
-    opacity: 0;
-    transform: translate3d(0, 36px, 0);
-    transition:
-      opacity 650ms cubic-bezier(0.2, 0.7, 0.15, 1),
-      transform 650ms cubic-bezier(0.2, 0.7, 0.15, 1);
-    will-change: opacity, transform;
-  }
-  body.scroll-up .reveal-stagger:not(.visible) > * {
-    transform: translate3d(0, -36px, 0);
-  }
-  .has-reveal-motion .reveal-stagger.visible > *, .has-reveal-motion .reveal-stagger:focus-within > * { opacity: 1; transform: translate3d(0, 0, 0); }
-  .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0ms; }
-  .reveal-stagger.visible > *:nth-child(2) { transition-delay: 80ms; }
-  .reveal-stagger.visible > *:nth-child(3) { transition-delay: 160ms; }
-  .reveal-stagger.visible > *:nth-child(4) { transition-delay: 240ms; }
-  .reveal-stagger.visible > *:nth-child(5) { transition-delay: 320ms; }
-  .reveal-stagger.visible > *:nth-child(6) { transition-delay: 400ms; }
-  .reveal-stagger.visible > *:nth-child(7) { transition-delay: 480ms; }
-  .reveal-stagger.visible > *:nth-child(8) { transition-delay: 560ms; }
-  .reveal-stagger.visible > *:nth-child(9) { transition-delay: 640ms; }
-
-  /* Parallax targets — marcadores que JS controla */
-  [data-parallax] { will-change: transform; }
 
   /* ============ CHATBOT WIDGET ============ */
   .chat-widget {
@@ -3010,12 +1492,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     border-bottom-left-radius: 4px;
     align-self: flex-start;
     border: 1px solid var(--ink-line);
-  }
-  .chat-msg-user {
-    background: var(--ink-900);
-    color: var(--linen);
-    border-bottom-right-radius: 4px;
-    align-self: flex-end;
   }
   .chat-msg-typing {
     display: inline-flex;
@@ -3262,32 +1738,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   .pb-field input::placeholder,
   .pb-field textarea::placeholder { color: rgba(122, 138, 126, 0.7); }
 
-  .pb-consent {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin-top: 4px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: var(--muted);
-    cursor: pointer;
-    user-select: none;
-  }
-  .pb-consent input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    margin-top: 2px;
-    accent-color: var(--emerald);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .pb-consent a {
-    color: var(--emerald-hover);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-  .pb-consent a:hover { color: var(--ink-900); }
-
   .pb-submit {
     margin-top: 8px;
     width: 100%;
@@ -3308,42 +1758,14 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       word-wrap: break-word;
     }
 
-    .availability-banner { padding: 9px 18px; font-size: 11px; gap: 8px; }
-
     .nav { padding: 14px 18px; top: 36px; }
-    .nav-brand { font-size: 14px; }
-    .nav-brand .tagline { font-size: 7px; letter-spacing: 0.18em; }
-    .nav-links { display: none; }
-    .nav-burger { display: flex; }
 
     .hero { padding: 130px 24px 72px; }
-    .hero-pill-row { gap: 8px; }
-    .scope-pill, .hero-meta-pill { font-size: 11px; padding: 7px 13px; }
     section { padding: 72px 24px; }
     .cta-final { padding: 88px 24px; }
     .skin-section { padding: 80px 24px; }
-    .cupo-section { padding: 80px 24px; }
     .statement-section { padding: 64px 24px; }
     footer { padding: 56px 24px; }
-
-    .hero-title {
-      font-size: clamp(36px, 9vw, 56px) !important;
-      letter-spacing: -0.035em;
-      line-height: 1.04;
-    }
-    .hero-sub { font-size: 16px; margin-top: 28px; line-height: 1.6; }
-    .hero-ctas { margin-top: 32px; gap: 12px; flex-direction: column; align-items: stretch; }
-    .hero-ctas .btn { width: 100%; padding: 16px 24px; font-size: 13px; }
-    .hero-proof { margin-top: 22px; font-size: 12px; line-height: 1.55; }
-
-    .hero-bottom {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-      margin-top: 56px;
-      padding-top: 32px;
-    }
-    .hero-stat .stat-num { font-size: 28px; }
-    .hero-stat .stat-label { font-size: 12px; }
 
     h2 { font-size: clamp(30px, 7.5vw, 42px); margin-bottom: 28px; line-height: 1.08; }
     .lead { font-size: 17px; line-height: 1.55; }
@@ -3352,11 +1774,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     .concept { grid-template-columns: 1fr; gap: 24px; }
     .paths, .valores, .partners, .cases-grid { grid-template-columns: 1fr; gap: 16px; }
     .skin-explain { grid-template-columns: 1fr; gap: 14px; }
-    .cases-meta { grid-template-columns: 1fr; gap: 16px; }
 
     .path { padding: 36px 28px; min-height: auto; }
-    .path-title { font-size: clamp(28px, 7vw, 36px); }
-    .path-desc, .path-leader { font-size: 14px; }
 
     .foot-grid { grid-template-columns: 1fr; gap: 32px; padding: 36px 0 28px; }
     .foot-bottom { flex-direction: column; gap: 12px; padding-top: 24px; text-align: center; line-height: 1.5; }
@@ -3375,9 +1794,6 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     .case-head, .case-body { padding: 28px 24px; }
     .case-metric { font-size: clamp(40px, 11vw, 56px); }
 
-    .testimonial { padding: 36px 24px; margin-top: 40px; }
-    .testimonial-text { font-size: 18px; }
-
     .skin-headline { font-size: clamp(28px, 7.5vw, 40px); margin-bottom: 32px; }
     .skin-question { padding: 28px 22px; margin: 36px 0; border-radius: var(--r-lg); }
     .skin-question::before { font-size: 90px; top: -8px; left: 16px; }
@@ -3386,18 +1802,8 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     .skin-cta-row .btn { width: 100%; }
     .skin-explain-item { padding: 28px 24px; }
 
-    .cupo-intro { grid-template-columns: 1fr; gap: 22px; }
-    .cupo-card { padding: 28px 24px; border-radius: var(--r-lg); }
-    .cupo-grid-slots { grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .cupo-legend { flex-direction: column; gap: 10px; font-size: 11px; }
-    .cupo-summary { grid-template-columns: 1fr; text-align: center; gap: 16px; padding: 28px 24px; }
-    .cupo-summary .cs-num { font-size: 52px; }
-    .cupo-summary .cs-text { font-size: 14px; }
-    .cupo-summary .btn { width: 100%; }
-
     .partner { padding: 36px 28px; min-height: auto; }
     .partner-name { font-size: 24px; }
-    .partner-quote { padding: 16px 18px; font-size: 14px; }
 
     .valor { padding: 36px 28px; min-height: auto; }
     .valor-name { font-size: 22px; }
@@ -3435,48 +1841,30 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 
   /* Teléfonos medianos: 3 cupos por fila + mockup y cifras más compactas. */
   @media (max-width: 600px) {
-    .cupo-grid-slots { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .hero-bottom { gap: 18px; }
     .case-metric { font-size: clamp(38px, 13vw, 50px); }
   }
 
   /* Teléfonos chicos (≤430): 2 cupos por fila, mockup aún menor. */
   @media (max-width: 430px) {
-    .cupo-grid-slots { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .hero-bottom { grid-template-columns: repeat(2, 1fr); }
     .foot-social { width: 40px; height: 40px; }
   }
 
   @media (max-width: 380px) {
-    section, .hero, .skin-section, .cupo-section, .cta-final, footer { padding-left: 18px; padding-right: 18px; }
+    section,
+  .hero,
+  .skin-section,
+  .cta-final,
+  footer { padding-left: 18px; padding-right: 18px; }
     .nav { padding: 12px 14px; }
-    .nav-cta { padding: 9px 14px; font-size: 11px; }
-    .hero-title { font-size: clamp(28px, 8.5vw, 40px) !important; }
     h2 { font-size: clamp(26px, 7vw, 36px); }
     .skin-headline { font-size: clamp(24px, 7vw, 34px); }
     .skin-question-text { font-size: clamp(18px, 5.2vw, 22px); }
-    .cupo-grid-slots { grid-template-columns: repeat(2, 1fr); }
-  }
-
-  /* Hero overlays apagados — fondo plano oscuro (sin aurora/glow/sweep/blobs).
-     La grilla sutil se mantiene como única textura. */
-  .hero-aurora,
-  .hero-pulse,
-  .hero-beam,
-  .hero-glow,
-  .hero-glow-2,
-  .hero-bg-sweep,
-  .hero-bg-sweep-2,
-  .hero-bg-animated {
-    display: none !important;
   }
   /* V2 integration: legacy sections keep contrast throughout the scroll. */
   [data-bg="#0F1F12"] { background-color: #0f1f12; }
   [data-bg="#1E3A28"] { background-color: #1e3a28; }
   [data-bg="#F5F2EC"] { background-color: #f5f2ec; }
-  [data-bg="#E8E4DC"] { background-color: #e8e4dc; }
   [data-bg="#0A1A0C"] { background-color: #0a1a0c; }
-  section.reveal { opacity: 1 !important; transform: none !important; }
   :where([id]) { scroll-margin-top: 116px; }
   :focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   .faq-q:focus-visible { outline-offset: -5px; }
@@ -3634,7 +2022,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ POSITIONING ============ -->
-<section class="reveal dark" id="nosotros" data-bg="#0F1F12" data-tone="dark">
+<section class="dark" id="nosotros" data-bg="#0F1F12" data-tone="dark">
   <div class="concept">
     <div>
       <div class="label">Nuestra firma</div>
@@ -3652,7 +2040,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ STATEMENT QUESTION ============ -->
-<section class="statement-section reveal" data-bg="#1E3A28" data-tone="dark">
+<section class="statement-section" data-bg="#1E3A28" data-tone="dark">
   <div class="statement-grid"></div>
   <div class="statement-glow" data-parallax="0.18"></div>
   <div class="statement-inner">
@@ -3686,7 +2074,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ CASES ============ -->
-<section class="paper-bg reveal" id="casos" data-bg="#F5F2EC" data-tone="light">
+<section class="paper-bg" id="casos" data-bg="#F5F2EC" data-tone="light">
   <div class="cases-intro-simple">
     <div class="label">Casos de éxito</div>
     <h2>Resultados <span class="accent-sand">reales</span>.<br>Empresas reales.</h2>
@@ -3695,7 +2083,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
     </p>
   </div>
 
-  <div class="cases-grid reveal-stagger">
+  <div class="cases-grid">
     <!-- Caso 1: Glassy Waves -->
     <div class="case">
       <div class="case-logo-wrap has-logo">
@@ -3772,11 +2160,11 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ VALORES ============ -->
-<section class="linen-bg reveal" data-bg="#F5F2EC" data-tone="light">
+<section class="linen-bg" data-bg="#F5F2EC" data-tone="light">
   <div class="label">Valores</div>
   <h2>Tres pilares.<br>No <span class="accent">negociables</span>.</h2>
 
-  <div class="valores reveal-stagger">
+  <div class="valores">
     <div class="valor">
       <div class="valor-num">01</div>
       <div class="valor-name">Ejecución</div>
@@ -3796,7 +2184,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ SKIN IN THE GAME ============ -->
-<section class="skin-section reveal" id="skin" data-bg="#1E3A28" data-tone="dark">
+<section class="skin-section" id="skin" data-bg="#1E3A28" data-tone="dark">
   <div class="skin-inner">
     <div class="skin-eyebrow">Skin in the game</div>
     <h2 class="skin-headline">
@@ -3816,7 +2204,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
       Así funciona el riesgo compartido. Un fee estructural cubre al equipo que te dedicamos. El <strong style="color: var(--emerald); font-weight: 700;">success fee (2–4% de la facturación)</strong> se libera <strong>solo si tu negocio crece al menos 30%</strong>, objetivo que acordamos al cerrar el diagnóstico. Si no crecemos, no ganamos el upside. Simple.
     </p>
 
-    <div class="skin-explain reveal-stagger">
+    <div class="skin-explain">
       <div class="skin-explain-item">
         <div class="see-num">01</div>
         <div class="see-title">Riesgo compartido</div>
@@ -3847,14 +2235,14 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ PARTNERS ============ -->
-<section class="paper-bg reveal" id="socios" data-bg="#F5F2EC" data-tone="light">
+<section class="paper-bg" id="socios" data-bg="#F5F2EC" data-tone="light">
   <div class="label">Los socios</div>
   <h2>Dos fundadores.<br>En todas las <span class="accent-sand">cuentas</span>.</h2>
   <p class="lead" style="margin-bottom: 44px;">
     Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong>. El día a día operativo puede pasar con un ejecutivo de cuenta del equipo, pero los socios firman, deciden y están al tanto de cada movimiento crítico.
   </p>
 
-  <div class="partners reveal-stagger">
+  <div class="partners">
     <div class="partner">
       <div class="partner-header-row">
         <div class="partner-avatar"><img src="photos/federico.jpg" alt="Federico Dearmas"></div>
@@ -3900,7 +2288,7 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
 </section>
 
 <!-- ============ FAQ ============ -->
-<section class="linen-bg reveal" id="faq" data-bg="#F5F2EC" data-tone="light">
+<section class="linen-bg" id="faq" data-bg="#F5F2EC" data-tone="light">
   <div class="label">Antes de la reunión</div>
   <h2>Las dudas que<br>suelen <span class="accent-sand">aparecer</span>.</h2>
 
@@ -4242,156 +2630,9 @@ RESUMEN DE DECISIONES UX/UI · v3 (Verde + Dorado, rebalance)
   });
   form.addEventListener('input', event => event.target.setCustomValidity?.(''));
 
-  // ============ Motion preference ============
-  const legacyMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let REDUCED_MOTION = legacyMotion.matches;
-  legacyMotion.addEventListener('change', event => { REDUCED_MOTION = event.matches; onScrollMotion(); });
-
-  // Reveal once, as soon as content enters. Tall mobile grids stay readable.
-  const revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
-  const ioReveal = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) { e.target.classList.add('visible'); ioReveal.unobserve(e.target); }
-    });
-  }, {
-    threshold: 0,
-    rootMargin: '0px'
-  });
-  revealEls.forEach(r => ioReveal.observe(r));
-  document.documentElement.classList.add('has-reveal-motion');
-
-  // ============ Scroll direction + Parallax + BG canvas ============
-  // - Detectamos dirección (up/down) y la exponemos como body class.
-  // - Parallax: cada elemento con data-parallax="N" se traslada en Y.
-  // - BG canvas: cada section/footer con data-bg="#hex" aporta un color.
-  //   En cada frame interpolamos suavemente (smoothstep) entre el color
-  //   de la section actual y la siguiente según la posición del scroll.
-  //   Todo en un solo rAF → 60fps.
-  const parallaxEls = Array.from(document.querySelectorAll('[data-parallax]'));
-  const bgCanvas = document.getElementById('bgCanvas');
-  const bgStops = Array.from(document.querySelectorAll('[data-bg]'))
-    .map(el => ({ el, color: el.dataset.bg }));
-
-  // Pre-parse hex → rgb tuples
-  function hexToRgb(hex) {
-    let h = hex.replace('#', '').trim();
-    if (h.length === 3) h = h.split('').map(c => c + c).join('');
-    return [
-      parseInt(h.slice(0, 2), 16),
-      parseInt(h.slice(2, 4), 16),
-      parseInt(h.slice(4, 6), 16)
-    ];
-  }
-  function smoothstep(t) { return t * t * (3 - 2 * t); }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  bgStops.forEach(s => { s.rgb = hexToRgb(s.color); });
-
-  // Cache de offsetTop — se recalcula en resize / load
-  let bgStopsOffsets = [];
-  function recomputeBgOffsets() {
-    bgStopsOffsets = bgStops.map(s => s.el.offsetTop);
-  }
-  recomputeBgOffsets();
-  window.addEventListener('load', recomputeBgOffsets);
-
-  let lastScrollY = window.scrollY;
-  let scrollDirection = 'down';
-  let motionTicking = false;
-  const SCROLL_DIR_THRESHOLD = 2;
-
-  function updateBgColor(referenceY) {
-    if (!bgStops.length) return;
-    // Encontrar el bracket [i, i+1] donde cae referenceY
-    let i = bgStops.length - 1;
-    for (let k = 0; k < bgStops.length; k++) {
-      if (referenceY < bgStopsOffsets[k]) {
-        i = Math.max(0, k - 1);
-        break;
-      }
-    }
-    const cur = bgStops[i];
-    const next = bgStops[i + 1] || cur;
-    let t = 0;
-    if (next !== cur) {
-      const range = bgStopsOffsets[i + 1] - bgStopsOffsets[i];
-      t = range > 0 ? (referenceY - bgStopsOffsets[i]) / range : 0;
-      t = Math.max(0, Math.min(1, t));
-      t = smoothstep(t);
-    }
-    const r = Math.round(lerp(cur.rgb[0], next.rgb[0], t));
-    const g = Math.round(lerp(cur.rgb[1], next.rgb[1], t));
-    const b = Math.round(lerp(cur.rgb[2], next.rgb[2], t));
-    bgCanvas.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-  }
-
-  function applyMotion() {
-    motionTicking = false;
-    const y = window.scrollY;
-    const dy = y - lastScrollY;
-
-    if (Math.abs(dy) >= SCROLL_DIR_THRESHOLD) {
-      const nextDir = dy > 0 ? 'down' : 'up';
-      if (nextDir !== scrollDirection) {
-        scrollDirection = nextDir;
-        document.body.classList.toggle('scroll-down', scrollDirection === 'down');
-        document.body.classList.toggle('scroll-up', scrollDirection === 'up');
-      }
-    }
-    lastScrollY = y;
-
-    // Bg color interpolation — referencia anclada al 45% del viewport
-    const wh = window.innerHeight;
-    if (!REDUCED_MOTION) {
-      updateBgColor(y + wh * 0.45);
-    }
-
-    // Parallax (sólo si motion normal)
-    if (!REDUCED_MOTION) {
-      const halfWh = wh / 2;
-      for (let i = 0; i < parallaxEls.length; i++) {
-        const el = parallaxEls[i];
-        const factor = parseFloat(el.dataset.parallax) || 0;
-        if (!factor) continue;
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom < -400 || rect.top > wh + 400) continue;
-        const centerY = rect.top + rect.height / 2;
-        const distance = centerY - halfWh;
-        const offset = -distance * factor;
-        el.style.transform = `translate3d(0, ${offset.toFixed(2)}px, 0)`;
-      }
-    }
-  }
-
-  function onScrollMotion() {
-    if (!motionTicking) {
-      requestAnimationFrame(applyMotion);
-      motionTicking = true;
-    }
-  }
-  window.addEventListener('scroll', onScrollMotion, { passive: true });
-  window.addEventListener('resize', () => {
-    recomputeBgOffsets();
-    onScrollMotion();
-  }, { passive: true });
-  document.body.classList.add('scroll-down');
-  applyMotion();
-
-  // Reduced motion: snap a color por sección con IntersectionObserver
-  // (sin interpolación animada por scroll).
-  if (REDUCED_MOTION && bgStops.length) {
-    bgCanvas.style.backgroundColor = bgStops[0].color;
-    const bgSnap = new IntersectionObserver((entries) => {
-      // Tomar la entry con mayor intersectionRatio
-      let best = null;
-      entries.forEach(e => {
-        if (e.isIntersecting && (!best || e.intersectionRatio > best.intersectionRatio)) {
-          best = e;
-        }
-      });
-      if (best) bgCanvas.style.backgroundColor = best.target.dataset.bg;
-    }, { threshold: [0.3, 0.5, 0.7] });
-    bgStops.forEach(s => bgSnap.observe(s.el));
-  }
+  // El movimiento de la página (entradas, parallax suave, hero) vive en
+  // scripts/page-motion.js y scripts/hero-scroll.js. El fondo por sección
+  // lo pinta cada section con data-tone (styles/theme.css).
 
   // ============ FAQ toggle ============
   document.querySelectorAll('.faq-item').forEach((item, index) => {
