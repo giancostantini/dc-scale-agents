@@ -1,3 +1,5 @@
+import type { ContentPieceType } from "./types";
+
 /**
  * Distribución de días sugeridos según la frecuencia semanal de
  * publicación.
@@ -79,17 +81,17 @@ export const CONTENT_SLOTS: {
   color: string;
 }[] = [
   // Instagram
-  { key: "ig_feed",  network: "ig", networkLabel: "Instagram", format: "feed",  formatLabel: "Feed",   shortCode: "IG·F", color: NETWORK_COLORS.ig.solid },
-  { key: "ig_story", network: "ig", networkLabel: "Instagram", format: "story", formatLabel: "Story",  shortCode: "IG·S", color: NETWORK_COLORS.ig.solid },
+  { key: "ig_feed",  network: "ig", networkLabel: "Instagram", format: "feed",  formatLabel: "Posteo",   shortCode: "IG·F", color: NETWORK_COLORS.ig.solid },
+  { key: "ig_story", network: "ig", networkLabel: "Instagram", format: "story", formatLabel: "Historia",  shortCode: "IG·S", color: NETWORK_COLORS.ig.solid },
   { key: "ig_reel",  network: "ig", networkLabel: "Instagram", format: "reel",  formatLabel: "Reel",   shortCode: "IG·R", color: NETWORK_COLORS.ig.solid },
   // TikTok
   { key: "tt_video", network: "tt", networkLabel: "TikTok",    format: "video", formatLabel: "Video",  shortCode: "TT·V", color: NETWORK_COLORS.tt.solid },
-  { key: "tt_story", network: "tt", networkLabel: "TikTok",    format: "story", formatLabel: "Story",  shortCode: "TT·S", color: NETWORK_COLORS.tt.solid },
+  { key: "tt_story", network: "tt", networkLabel: "TikTok",    format: "story", formatLabel: "Historia",  shortCode: "TT·S", color: NETWORK_COLORS.tt.solid },
   // LinkedIn
-  { key: "in_feed",  network: "in", networkLabel: "LinkedIn",  format: "feed",  formatLabel: "Post",   shortCode: "IN·P", color: NETWORK_COLORS.in.solid },
+  { key: "in_feed",  network: "in", networkLabel: "LinkedIn",  format: "feed",  formatLabel: "Posteo",   shortCode: "IN·P", color: NETWORK_COLORS.in.solid },
   // Facebook
-  { key: "fb_feed",  network: "fb", networkLabel: "Facebook",  format: "feed",  formatLabel: "Post",   shortCode: "FB·P", color: NETWORK_COLORS.fb.solid },
-  { key: "fb_story", network: "fb", networkLabel: "Facebook",  format: "story", formatLabel: "Story",  shortCode: "FB·S", color: NETWORK_COLORS.fb.solid },
+  { key: "fb_feed",  network: "fb", networkLabel: "Facebook",  format: "feed",  formatLabel: "Posteo",   shortCode: "FB·P", color: NETWORK_COLORS.fb.solid },
+  { key: "fb_story", network: "fb", networkLabel: "Facebook",  format: "story", formatLabel: "Historia",  shortCode: "FB·S", color: NETWORK_COLORS.fb.solid },
   { key: "fb_reel",  network: "fb", networkLabel: "Facebook",  format: "reel",  formatLabel: "Reel",   shortCode: "FB·R", color: NETWORK_COLORS.fb.solid },
   // YouTube
   { key: "yt_video", network: "yt", networkLabel: "YouTube",   format: "video", formatLabel: "Video",  shortCode: "YT·V", color: NETWORK_COLORS.yt.solid },
@@ -127,7 +129,7 @@ export function normalizeFrequency(
  * - oferta: comercial / promo / CTA directo.
  * - engagement: conversacional / comunidad / behind-the-scenes.
  */
-export type ContentType = "valor" | "oferta" | "engagement";
+export type ContentType = ContentPieceType;
 
 export const CONTENT_TYPE_META: Record<
   ContentType,

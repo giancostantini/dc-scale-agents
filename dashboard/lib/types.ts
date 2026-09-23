@@ -21,8 +21,9 @@ export interface ClientKPIs {
   invested: string;
   revenue: string;
   conv: string;
-  /** Métricas detalladas por plataforma · cargadas manualmente desde
-   *  /paid-media hasta que tengamos OAuth con Meta/Google. */
+  /** Métricas detalladas por plataforma. Legacy: se cargaban a mano
+   *  desde /paid-media, que ya no existe (mig 102 — la pauta se mira en
+   *  Espor.ai y Looker Studio, links en el dashboard del cliente). */
   paid_media?: PaidMediaMetrics;
 }
 
@@ -853,7 +854,24 @@ export type ContentFormat =
   | "story"
   | "ugc"
   | "anuncio";
-export type ContentStatus = "draft" | "scheduled" | "published";
+/**
+ * Estado de una pieza (ver migración 102):
+ *   planned   → Pendiente: la cargó el asistente del calendario, nadie
+ *               la preparó todavía. El portal del cliente NO la ve.
+ *   draft     → pieza IA vieja del módulo Contenido, sin aprobar. El
+ *               calendario la trata igual que una pendiente.
+ *   scheduled → Preparada: tiene descripción (+ foto), lista para subir.
+ *   published → Subida a la red.
+ */
+export type ContentStatus = "planned" | "draft" | "scheduled" | "published";
+
+/**
+ * Intención de una pieza — valor, oferta o engagement. La asigna el
+ * asistente del calendario según el mix de la red
+ * (clients.content_mix). Persiste en content_posts.content_type
+ * (migración 102).
+ */
+export type ContentPieceType = "valor" | "oferta" | "engagement";
 
 /**
  * Clasificación editorial de una pieza de contenido. El catálogo de
@@ -1015,6 +1033,10 @@ export interface ContentPost {
    *  Vista feed. Solo tiene sentido con format="anuncio".
    *  Ver migración 081. */
   adsOnly?: boolean;
+  /** Intención de la pieza (migración 102). NULL en piezas viejas. */
+  contentType?: ContentPieceType | null;
+  /** Cuándo se marcó como subida en el calendario (migración 102). */
+  publishedAt?: string | null;
   status: ContentStatus;
   source: "ai" | "manual";
   createdAt: string;

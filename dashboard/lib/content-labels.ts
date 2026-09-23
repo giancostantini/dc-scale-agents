@@ -37,12 +37,14 @@ export const FORMAT_LABEL: Record<ContentFormat, string> = {
 };
 
 export const STATUS_LABEL: Record<ContentStatus, string> = {
+  planned: "Pendiente",
   draft: "Borrador",
   scheduled: "Aprobada",
   published: "Publicada",
 };
 
 export const STATUS_COLOR: Record<ContentStatus, string> = {
+  planned: "#9B8259",
   draft: "#9B8259",
   scheduled: "#2f7d4f",
   published: "#0A1A0C",
@@ -113,7 +115,9 @@ export function isoLocalDate(d: Date): string {
  * `p.networks?.length ? p.networks : [p.network]` que estaba repetido en
  * page.tsx, ContentFeedPreview y ContentCalendarView.
  */
-export function networksOf(post: ContentPost): ContentNetwork[] {
+export function networksOf(
+  post: Pick<ContentPost, "network" | "networks">,
+): ContentNetwork[] {
   return post.networks && post.networks.length > 0
     ? post.networks
     : [post.network];

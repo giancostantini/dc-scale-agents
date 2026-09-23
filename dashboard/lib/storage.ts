@@ -35,6 +35,7 @@ import type {
   ContentNetwork,
   ContentFormat,
   ContentStatus,
+  ContentPieceType,
   ClientContentClassification,
   FinanceCurrency,
 } from "./types";
@@ -649,9 +650,9 @@ export async function updateRoadmapMonthNote(
 
 /**
  * Actualiza solo el campo external_links de un cliente (merge sobre
- * el JSONB actual). Usado desde la UI de Analítica (Espor.ai / Looker
- * Studio URL) y Biblioteca (carpeta de OneDrive — el campo se llama
- * teams_folder_url en DB por razones históricas).
+ * el JSONB actual). Usado desde Configuración (Looker Studio / Espor.ai
+ * y Meta Business Suite) y Biblioteca (carpeta de OneDrive — el campo
+ * se llama teams_folder_url en DB por razones históricas).
  */
 export async function updateClientExternalLinks(
   clientId: string,
@@ -2566,6 +2567,9 @@ interface ContentRow {
   asset_url?: string | null;
   // Migración 081 — pieza exclusiva de Publicidad.
   ads_only?: boolean | null;
+  // Migración 102 — intención de la pieza + cuándo se marcó subida.
+  content_type?: ContentPieceType | null;
+  published_at?: string | null;
 }
 
 function contentFromRow(r: ContentRow): ContentPost {
@@ -2596,6 +2600,8 @@ function contentFromRow(r: ContentRow): ContentPost {
     imageUrl: r.image_url ?? null,
     assetUrl: r.asset_url ?? null,
     adsOnly: r.ads_only ?? false,
+    contentType: r.content_type ?? null,
+    publishedAt: r.published_at ?? null,
     status: r.status,
     source: r.source,
     createdAt: r.created_at,
@@ -2613,48 +2619,99 @@ export async function getContent(clientId: string): Promise<ContentPost[]> {
   return (data as ContentRow[]).map(contentFromRow);
 }
 
-export async function addContent(
-  data: Omit<ContentPost, "id" | "createdAt">,
-): Promise<ContentPost> {
+type NewContentInput = Omit<ContentPost, "id" | "createdAt">;
+
+/** Fila de insert de content_posts a partir de una pieza nueva. */
+function contentInsertRow(data: NewContentInput): Record<string, unknown> {
+  return {
+    client_id: data.clientId,
+    date: data.date,
+    time: data.time ?? null,
+    network: data.network,
+    // Si networks no viene populado, usamos [network] como default —
+    // mantiene compat con el campo singular en filas nuevas y refleja
+    // lo que hace el backfill de la migración 065 para legacy.
+    //
+    // Excepción: las piezas de solo publicidad no van a ninguna red,
+    // así que el array queda vacío a propósito. `network` igual se
+    // escribe con un relleno porque es NOT NULL, pero nadie lo lee:
+    // ads_only las excluye de toda vista que filtre por red.
+    networks: data.adsOnly
+      ? []
+      : data.networks && data.networks.length > 0
+        ? data.networks
+        : [data.network],
+    format: data.format,
+    brief: data.brief,
+    idea: data.idea ?? null,
+    copy: data.copy ?? null,
+    cta: data.cta ?? null,
+    influencer: data.influencer ?? null,
+    assigned_to: data.assignedTo ?? null,
+    classification: data.classification ?? null,
+    image_url: data.imageUrl ?? null,
+    asset_url: data.assetUrl ?? null,
+    ads_only: data.adsOnly ?? false,
+    // Columnas de la migración 102: solo se mandan si vienen, así los
+    // flujos viejos (módulo Contenido) no dependen de que esté corrida.
+    ...(data.contentType !== undefined ? { content_type: data.contentType } : {}),
+    ...(data.publishedAt !== undefined ? { published_at: data.publishedAt } : {}),
+    status: data.status,
+    source: data.source,
+  };
+}
+
+export async function addContent(data: NewContentInput): Promise<ContentPost> {
   const supabase = getSupabase();
   const { data: inserted, error } = await supabase
     .from("content_posts")
-    .insert({
-      client_id: data.clientId,
-      date: data.date,
-      time: data.time ?? null,
-      network: data.network,
-      // Si networks no viene populado, usamos [network] como default —
-      // mantiene compat con el campo singular en filas nuevas y refleja
-      // lo que hace el backfill de la migración 065 para legacy.
-      //
-      // Excepción: las piezas de solo publicidad no van a ninguna red,
-      // así que el array queda vacío a propósito. `network` igual se
-      // escribe con un relleno porque es NOT NULL, pero nadie lo lee:
-      // ads_only las excluye de toda vista que filtre por red.
-      networks: data.adsOnly
-        ? []
-        : data.networks && data.networks.length > 0
-          ? data.networks
-          : [data.network],
-      format: data.format,
-      brief: data.brief,
-      idea: data.idea ?? null,
-      copy: data.copy ?? null,
-      cta: data.cta ?? null,
-      influencer: data.influencer ?? null,
-      assigned_to: data.assignedTo ?? null,
-      classification: data.classification ?? null,
-      image_url: data.imageUrl ?? null,
-      asset_url: data.assetUrl ?? null,
-      ads_only: data.adsOnly ?? false,
-      status: data.status,
-      source: data.source,
-    })
+    .insert(contentInsertRow(data))
     .select()
     .single();
   if (error) throw error;
   return contentFromRow(inserted as ContentRow);
+}
+
+/**
+ * Inserta varias piezas en un solo request (el asistente del
+ * calendario carga el mes entero de una). Todo o nada: si una fila
+ * falla el CHECK, no entra ninguna.
+ */
+export async function addContentBatch(
+  rows: NewContentInput[],
+): Promise<ContentPost[]> {
+  if (rows.length === 0) return [];
+  const supabase = getSupabase();
+  const { data: inserted, error } = await supabase
+    .from("content_posts")
+    .insert(rows.map(contentInsertRow))
+    .select();
+  if (error) throw error;
+  return ((inserted as ContentRow[]) ?? []).map(contentFromRow);
+}
+
+/**
+ * Borra las piezas PENDIENTES (status='planned') de un cliente entre
+ * dos fechas inclusive. Es lo que usa el calendario para rehacer el
+ * plan cuando cambia la frecuencia: lo preparado y lo subido nunca se
+ * toca. Devuelve cuántas borró.
+ */
+export async function deletePlannedBetween(
+  clientId: string,
+  from: string,
+  to: string,
+): Promise<number> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("content_posts")
+    .delete()
+    .eq("client_id", clientId)
+    .eq("status", "planned")
+    .gte("date", from)
+    .lte("date", to)
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
 }
 
 /**
@@ -2687,6 +2744,10 @@ export interface UpdateContentInput {
   assetUrl?: string | null;
   /** Pieza exclusiva de Publicidad (migración 081). */
   adsOnly?: boolean;
+  /** Intención (migración 102). null para limpiar. */
+  contentType?: ContentPieceType | null;
+  /** Cuándo se marcó subida (migración 102). null al deshacer. */
+  publishedAt?: string | null;
   status?: ContentStatus;
 }
 
@@ -2720,6 +2781,8 @@ export async function updateContent(
   if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
   if (patch.assetUrl !== undefined) dbPatch.asset_url = patch.assetUrl;
   if (patch.adsOnly !== undefined) dbPatch.ads_only = patch.adsOnly;
+  if (patch.contentType !== undefined) dbPatch.content_type = patch.contentType;
+  if (patch.publishedAt !== undefined) dbPatch.published_at = patch.publishedAt;
   if (patch.status !== undefined) dbPatch.status = patch.status;
   const { data, error } = await supabase
     .from("content_posts")

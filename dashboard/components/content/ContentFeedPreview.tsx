@@ -57,8 +57,11 @@ const FORMAT_LABEL: Record<ContentFormat, string> = {
 };
 
 const STATUS_LABEL: Record<ContentStatus, string> = {
+  planned: "Pendiente",
   draft: "Borrador",
-  scheduled: "Aprobada",
+  // Desde la migración 102 "scheduled" es una pieza preparada por el
+  // equipo (descripción + foto), no aprobada por un director.
+  scheduled: "Programada",
   published: "Publicada",
 };
 
@@ -66,6 +69,7 @@ const STATUS_LABEL: Record<ContentStatus, string> = {
  *  scheduled=verde, published=azul claro — match con la convención
  *  del calendario/dashboard. */
 const STATUS_COLOR: Record<ContentStatus, string> = {
+  planned: "#9B8259",
   draft: "#9B8259",
   scheduled: "#2f7d4f",
   published: "#0A1A0C",

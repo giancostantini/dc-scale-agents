@@ -114,6 +114,9 @@ export async function GET(req: NextRequest) {
       .from("content_posts")
       .select("id, network, format, brief, date")
       .eq("client_id", clientId)
+      // Las pendientes (planned) son planificación interna: el cliente
+      // ve la pieza recién cuando el equipo la preparó (mig 102).
+      .neq("status", "planned")
       .gte("date", from)
       .lt("date", until)
       .order("date"),
