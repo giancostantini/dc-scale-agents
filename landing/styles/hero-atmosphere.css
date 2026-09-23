@@ -1,0 +1,107 @@
+/* A self-contained light scene. All artwork is decorative and static-first. */
+.hero-atmosphere {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+  background: var(--brand-forest);
+}
+.atmosphere-depth { position: absolute; inset: -6%; }
+.atmosphere-field {
+  position: absolute;
+  inset: -14%;
+  background:
+    radial-gradient(ellipse at 12% 28%, rgba(71,143,89,.8), transparent 45%),
+    radial-gradient(ellipse at 90% 66%, rgba(92,128,79,.68), transparent 42%),
+    radial-gradient(ellipse at 58% 100%, rgba(150,119,72,.5), transparent 48%),
+    #0b2317;
+}
+.atmosphere-light {
+  position: absolute;
+  inset: -12%;
+  background:
+    radial-gradient(ellipse 24% 50% at 80% 18%, rgba(197,168,120,.28), transparent 72%),
+    radial-gradient(ellipse 38% 32% at 12% 86%, rgba(103,181,124,.4), transparent 70%);
+}
+.atmosphere-ribbons { position: absolute; inset: -6%; }
+.atmosphere-art { display: block; width: 100%; height: 100%; overflow: visible; }
+.atmosphere-ribbon { transform-box: view-box; transform-origin: 50% 50%; }
+.atmosphere-bloom { opacity: .65; }
+.atmosphere-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 47% 64% at 50% 46%, rgba(4,15,9,.82) 10%, rgba(4,15,9,.5) 54%, transparent 100%),
+    linear-gradient(180deg, rgba(4,15,9,.5), transparent 24%, transparent 78%, var(--brand-forest));
+}
+
+/* The inner spans own the entrance; their parent owns the scroll transform. */
+.entry-hero .hero-line { overflow: clip; padding: .09em .08em; margin: -.09em -.08em; }
+.hero-line-inner { display: block; width: fit-content; max-width: 100%; margin-inline: auto; }
+.hero-line-accent .hero-line-inner {
+  color: var(--entry-sand);
+  background: linear-gradient(110deg, #c4a882 35%, #ffe6bd 49%, #c4a882 63%) 110% 50% / 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.entry-hero .entry-intro { color: #c4cec5; }
+.entry-hero .entry-actions:focus-within { opacity: 1 !important; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .is-scroll-scene .atmosphere-depth {
+    transform: translate3d(calc(var(--hero-pointer-x,0) * 20px), calc(var(--hero-pointer-y,0) * 14px - var(--hero-depth,0) * 55px), 0) scale(calc(1 + var(--hero-depth,0) * .28));
+    opacity: calc(1 - var(--hero-fade,0) * .75);
+  }
+  .is-scroll-scene .atmosphere-ribbons {
+    transform: translate3d(calc(var(--hero-pointer-x,0) * -38px), calc(var(--hero-pointer-y,0) * -24px + var(--hero-depth,0) * 76px), 0) rotate(calc(var(--hero-depth,0) * -6deg));
+  }
+  .atmosphere-field { animation: atmosphere-field-drift 12s ease-in-out -3s infinite alternate; }
+  .atmosphere-light { animation: atmosphere-light-drift 9s ease-in-out -2s infinite alternate; }
+  .atmosphere-ribbon-jade { animation: atmosphere-jade-flow 10s ease-in-out -4s infinite alternate; }
+  .atmosphere-ribbon-gold { animation: atmosphere-gold-flow 13s ease-in-out -7s infinite alternate; }
+  .atmosphere-ribbon-horizon { animation: atmosphere-horizon-flow 11s ease-in-out -3s infinite alternate; }
+  .hero-atmosphere * { animation-play-state: paused; }
+  .is-atmosphere-active .hero-atmosphere * { animation-play-state: running; }
+  .is-atmosphere-active :is(.atmosphere-depth,.atmosphere-field,.atmosphere-light,.atmosphere-ribbon) { will-change: transform; }
+  .is-atmosphere-active .atmosphere-ribbons { will-change: transform; }
+}
+
+@keyframes atmosphere-field-drift {
+  from { transform: translate3d(-4%,3%,0) scale(1.02) rotate(-6deg); }
+  to { transform: translate3d(7%,-5%,0) scale(1.16) rotate(8deg); }
+}
+@keyframes atmosphere-light-drift {
+  from { transform: translate3d(5%,-6%,0) rotate(-10deg); opacity: .6; }
+  to { transform: translate3d(-9%,8%,0) rotate(12deg); opacity: 1; }
+}
+@keyframes atmosphere-jade-flow {
+  from { transform: translate(-5%,6%) rotate(-10deg) scale(.94,1.08); }
+  to { transform: translate(6%,-8%) rotate(9deg) scale(1.12,.96); }
+}
+@keyframes atmosphere-gold-flow {
+  from { transform: translate(7%,-7%) rotate(8deg) scale(1.08,.96); }
+  to { transform: translate(-6%,7%) rotate(-10deg) scale(.94,1.1); }
+}
+@keyframes atmosphere-horizon-flow {
+  from { transform: translate(-5%,7%) rotate(3deg); opacity: .35; }
+  to { transform: translate(4%,-9%) rotate(-7deg); opacity: .75; }
+}
+
+@media (max-width: 599px) {
+  .atmosphere-depth { inset: -3% -12%; }
+  .atmosphere-ribbons { inset: -3% -8%; }
+  .atmosphere-bloom { opacity: .5; }
+  .atmosphere-ribbon-horizon .atmosphere-bloom { display: none; }
+  .atmosphere-shade {
+    background:
+      radial-gradient(ellipse 70% 54% at 50% 46%, rgba(4,15,9,.82) 12%, rgba(4,15,9,.44) 62%, transparent 100%),
+      linear-gradient(180deg, rgba(4,15,9,.5), transparent 24%, transparent 78%, var(--brand-forest));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-atmosphere * { animation: none !important; transform: none !important; will-change: auto !important; }
+  .hero-line-inner { opacity: 1 !important; transform: none !important; filter: none !important; }
+  .hero-line-accent .hero-line-inner { background: none; -webkit-text-fill-color: currentColor; }
+}

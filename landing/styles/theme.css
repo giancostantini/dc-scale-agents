@@ -1,0 +1,49 @@
+/* Shared landing identity. The hero's lighting remains artwork, not section colors. */
+:root {
+  --brand-forest: #091b11;
+  --brand-forest-rgb: 9, 27, 17;
+  --brand-tint: #eae7de;
+  --ink-900: var(--brand-forest);
+  --ink-800: var(--brand-forest);
+  --ink-700: var(--brand-forest);
+  --ink-600: var(--brand-forest);
+  --paper: #f5f2ec;
+  --linen: #e8e4dc;
+  --sand: #c4a882;
+  --sand-deep: #795c37;
+  --emerald: var(--sand);
+  --emerald-hover: #d6bb96;
+  --muted: #596158;
+  --ink-line: rgba(var(--brand-forest-rgb), .1);
+  --ink-line-strong: rgba(var(--brand-forest-rgb), .2);
+  --on-dark-mid: #c0c8bd;
+  --on-dark-soft: #adb8aa;
+  --site-gutter: 56px;
+  --site-max: 1560px;
+  --section-space: clamp(72px,7.5vw,120px);
+  --motion-ease: cubic-bezier(.16,1,.3,1);
+}
+body { background: var(--brand-forest); }
+main > section[data-tone="dark"], footer[data-tone="dark"] { background-color: var(--brand-forest); }
+main > section[data-tone="light"] { background-color: var(--paper); }
+main > section:not(.entry-hero):not(.entry-proof):not(.solutions-section), footer {
+  padding-inline: max(var(--site-gutter), calc((100% - var(--site-max)) / 2));
+}
+main > section:not(.entry-hero):not(.entry-proof):not(.solutions-section) { padding-block: var(--section-space); }
+main > section[data-tone="light"] :is(h2 .accent,h2 .accent-sand,.case-metric) { color: var(--brand-forest); }
+main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); }
+.label { letter-spacing: .1em; }
+.case, .valor, .partner, .faq-item { border-radius: var(--r-md); }
+.case.dark-case, .inline-cta { background-color: var(--brand-forest); }
+.case.dark-case .case-logo-wrap { background: var(--paper); }
+.btn-primary:hover, .cta-big:hover { background: var(--emerald-hover); color: var(--brand-forest); }
+.statement-grid, .cta-final::before { opacity: .45; }
+.statement-glow, .cta-final-glow { translate: 0 var(--ambient-y,0px); }
+.statement-glow { transform: translate(-50%,-50%); }
+.cta-final-glow { transform: translateX(-50%); }
+#casos { border-top: 1px solid var(--ink-line-strong); }
+.case-metric-text { font-size: clamp(36px,3.4vw,54px); }
+.inline-cta-text { min-width: 0; }
+@media (max-width:1199px) { :root { --site-gutter:36px; } }
+@media (max-width:599px) { :root { --site-gutter:20px; --section-space:64px; } }
+@media (max-width:359px) { :root { --site-gutter:18px; } }

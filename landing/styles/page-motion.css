@@ -1,0 +1,13 @@
+/* Elements enter individually, including cards below the fold of a mobile grid. */
+@media (prefers-reduced-motion: no-preference) {
+  .has-page-motion [data-enter] { opacity: 0; translate: 0 34px; transition: opacity 750ms var(--motion-ease), translate 900ms var(--motion-ease); transition-delay: var(--enter-delay,0ms); }
+  .has-page-motion [data-enter="heading"] { translate: 0 44px; clip-path: inset(0 0 100% 0); transition: opacity 700ms var(--motion-ease), translate 1000ms var(--motion-ease), clip-path 1000ms var(--motion-ease); }
+  .has-page-motion [data-enter].is-entered, .has-page-motion [data-enter]:focus-within { opacity: 1; translate: none; clip-path: inset(0 0 -10% 0); }
+  .has-page-motion [data-enter="card"]:not(.is-entered) { translate: 0 50px; }
+  .has-page-motion [data-enter="card"]:focus-within { translate: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-enter] { opacity: 1 !important; translate: none !important; clip-path: none !important; transition: none !important; }
+  .statement-glow, .cta-final-glow { translate: none; }
+}
+@media print { [data-enter] { opacity: 1 !important; translate: none !important; clip-path: none !important; } }
