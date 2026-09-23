@@ -346,7 +346,7 @@
 
   .cases-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 20px;
     margin-top: 16px;
   }
@@ -2119,7 +2119,7 @@
     </div>
 
     <!-- Caso 3: Pinturería Propios -->
-    <div class="case dark-case">
+    <div class="case">
       <div class="case-logo-wrap has-logo">
         <img src="logos/propios.png" alt="Pinturería Propios">
         <img class="case-flag" src="flags/uy.svg" alt="Uruguay" width="26" height="17">
@@ -2144,7 +2144,7 @@
     </div>
 
     <!-- Caso 4: Mundipack -->
-    <div class="case">
+    <div class="case dark-case">
       <div class="case-logo-wrap has-logo">
         <img src="logos/mundipack.png" alt="Mundipack UY">
         <img class="case-flag" src="flags/uy.svg" alt="Uruguay" width="26" height="17">
@@ -2262,8 +2262,8 @@
   </p>
 
   <!-- LinkedIn de la firma: card principal. URL en un solo lugar (href). -->
-  <a class="firm-card" href="https://www.linkedin.com/company/dearmas-costantini" target="_blank" rel="noopener">
-    <div class="firm-card-mark" aria-hidden="true">D<span>&amp;</span>C</div>
+  <a class="firm-card" href="https://www.linkedin.com/company/dearmas-costantini/" target="_blank" rel="noopener">
+    <div class="firm-card-mark" aria-hidden="true"><span class="firm-card-logo">D<span>&amp;</span>C</span></div>
     <div class="firm-card-body">
       <span class="firm-card-eyebrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.03-1.85-3.03-1.85 0-2.13 1.45-2.13 2.94v5.66H9.37V9h3.41v1.56h.04c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.47v6.27zM5.34 7.43a2.06 2.06 0 110-4.12 2.06 2.06 0 010 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"></path></svg> LinkedIn</span>
       <p class="firm-card-name">Dearmas <span>&amp;</span> Costantini</p>

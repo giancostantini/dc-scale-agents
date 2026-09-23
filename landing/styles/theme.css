@@ -126,3 +126,7 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
   #socios .partner { padding: 24px 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .firm-card, .firm-card::before, .firm-card-cta { transition: none; } }
+.firm-card-logo { display: inline-flex; align-items: baseline; white-space: nowrap; letter-spacing: -.02em; }
+.firm-card-logo > span { margin: 0 .04em; }
+/* Casos: cuatro cards verticales en una fila; 2 por fila en pantallas medianas. */
+@media (max-width: 1199px) and (min-width: 901px) { .cases-grid { grid-template-columns: 1fr 1fr !important; } }
