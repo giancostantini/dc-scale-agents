@@ -29,7 +29,15 @@ export const solutions = [
     audience: 'Empresas que buscan desarrollar su crecimiento digital.',
     challenge: 'Alinear adquisición, contenido y conversión con objetivos comerciales.',
     work: 'Estrategia, performance, contenido y análisis de canales según el alcance del proyecto.',
-    outcome: 'Medir el trabajo y ajustar las decisiones. Este espacio describe una capacidad, no un resultado de un cliente específico.',
-    media: { type: 'placeholder', src: null, alt: '', caption: 'La selección de material de Growth & Marketing se incorporará en una próxima etapa.', width: 1600, height: 1000 },
+    outcome: 'Medir el trabajo y ajustar las decisiones. Elegí una cuenta para verla.',
+    media: {
+      type: 'accounts',
+      caption: 'Algunas de las cuentas que manejamos hoy. Tocá una card o elegila en la lista para traerla al frente.',
+      accounts: [
+        { id: 'wiztrip', name: 'WizTrip', kind: 'Instagram', image: 'assets/growth/wiztrip.webp', alt: 'Perfil de Instagram de WizTrip: publicaciones de viajes con su identidad violeta y celeste', note: 'Agencia de viajes digital. Identidad, contenido y crecimiento en Instagram, conectado con la web y con Wizzo, su asistente de viajes.' },
+        { id: 'glassy', name: 'Glassy Waves', kind: 'Tienda online', image: 'assets/growth/glassy.webp', alt: 'Tienda online de Glassy Waves en el celular: banner New Arrivals y productos destacados', note: 'Marca de surf y lifestyle. Tienda online, lanzamientos de colección, promociones con bancos y campañas de performance.' },
+        { id: 'propios', name: 'Pinturería Propios', kind: 'Instagram', image: 'assets/growth/propios.webp', alt: 'Perfil de Instagram de Pinturería Propios: videos en el local y piezas de producto', note: 'Marca lanzada desde cero. Hoy recibe más de 50 conversaciones diarias por WhatsApp.' },
+      ],
+    },
   },
 ];

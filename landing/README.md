@@ -27,7 +27,8 @@ Abrir **http://localhost:8080**. Usar ese hostname y puerto para las integracion
 | `scripts/hero-scroll.js` | Entrada del título, scroll y profundidad, respuesta al cursor, pausa de efectos, estado del header y progreso de página |
 | `scripts/marquee.js` | Copia visual del grupo, pausa fuera de pantalla y preferencias de movimiento |
 | `scripts/showcase.js` | Render de tabs/paneles, teclado, demos (`media.demo`), imágenes y videos |
-| `scripts/page-motion.js` | ÚNICO sistema de movimiento fuera del hero: entradas `data-enter`, parallax suave de glows y la escena de producto (`data-reveal-scene`) |
+| `scripts/page-motion.js` | ÚNICO sistema de movimiento fuera del hero, atado al scroll en los dos sentidos: cada bloque aparece al entrar (`--e`) y se va al salir por arriba (`--x`); parallax de glows y escena de producto (`data-reveal-scene`) |
+| `scripts/growth-deck.js` + `styles/growth-deck.css` | Growth & Marketing: cuentas como teléfonos superpuestos, se elige cuál ver. Capturas en `assets/growth/` |
 | `scripts/mundipack-demo.js` + `content/mundipack-demo.js` | Demo de Mundipack: Dirección / Vendedores con visitas compartidas entre roles |
 | `scripts/brainbill-demo.js` + `content/brainbill-demo.js` | Demo de BrainBill: foto/PDF/XML → lectura → validación → catálogo → revisión humana → entrega |
 | **`content/solutions.js`** | **Datos del showcase: Mundipack, BrainBill y Growth & Marketing** |
@@ -40,6 +41,8 @@ Al bajar, la escena permanece fija durante 45svh adicionales: el fondo se expand
 Las animaciones de fondo se pausan cuando la escena sale de pantalla o la pestaña queda oculta. El controlador JS usa frames bajo demanda para scroll y para el breve asentamiento del cursor. Los títulos y bloques posteriores se revelan al entrar en pantalla; el header adquiere fondo translúcido y muestra el progreso de lectura.
 
 Con `prefers-reduced-motion: reduce`, el hero conserva una composición estática de luz, queda en flujo natural y muestra el contenido sin animación. Sin JavaScript, el fondo y el título también permanecen visibles. El marquee contiene cuatro marcas originales; la repetición se oculta de accesibilidad y desaparece con movimiento reducido. No tiene título ni botón de pausa; el movimiento se detiene al pasar el cursor y cuando sale de pantalla.
+
+Todos los CTA de reunión usan `.book-btn` (caras de los socios + flecha; `is-dark` sobre fondo claro, `is-lg` en el cierre). En Socios, la card grande es el LinkedIn de la firma y los fundadores van abajo, más chicos.
 
 Recorrido: **Hero → Logos → Nuestra firma → Soluciones (demos) → Casos → La pregunta → Valores → Skin in the game → Socios → FAQ → Agenda → Footer**. Los tonos alternan oscuro/claro. Soluciones va arriba a propósito: las demos son el producto estrella y se prueban antes de leer los casos.
 

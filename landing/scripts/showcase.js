@@ -1,6 +1,7 @@
 import { solutions } from '../content/solutions.js';
 import { createMundipackDemo } from './mundipack-demo.js';
 import { createBrainBillDemo } from './brainbill-demo.js';
+import { createGrowthDeck } from './growth-deck.js';
 
 const DEMOS = { mundipack: createMundipackDemo, brainbill: createBrainBillDemo };
 
@@ -56,7 +57,7 @@ export function initShowcase() {
     context.append(facts);
     info.append(context);
     const figure = element('figure', 'solution-figure');
-    if (solution.media.type === 'demo') figure.dataset.revealScene = '';
+    if (['demo', 'accounts'].includes(solution.media.type)) figure.dataset.revealScene = '';
     const stage = element('div', 'solution-media');
     const media = solution.media;
     const url = mediaUrl(media.src);
@@ -64,6 +65,10 @@ export function initShowcase() {
       panel.classList.add('solution-panel-interactive');
       stage.classList.add('solution-media-interactive');
       stage.append(DEMOS[media.demo]());
+    } else if (media.type === 'accounts') {
+      panel.classList.add('solution-panel-interactive');
+      stage.classList.add('solution-media-interactive');
+      stage.append(createGrowthDeck(media.accounts));
     } else if (media.type === 'upcoming') {
       stage.classList.add('solution-upcoming');
       stage.append(element('span', 'solution-preview-label', 'PRODUCTO PROPIO / EN DESARROLLO'), element('p', 'solution-preview-name', solution.name), element('p', 'solution-preview-copy', solution.title), element('span', 'solution-preview-note', solution.status));
