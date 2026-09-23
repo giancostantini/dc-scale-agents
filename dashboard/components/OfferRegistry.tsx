@@ -4,7 +4,7 @@
  * OfferRegistry — registro de ofertas de un cliente (activas + histórico).
  *
  * Read-only. Reusado por el portal del cliente (/portal/ofertas) y por el
- * dashboard interno del equipo (/cliente/[id]/ofertas). Lee client_requests
+ * dashboard interno del equipo (/cliente/[id]/solicitudes, pestaña "Registro de ofertas"). Lee client_requests
  * (type='oferta') vía RLS con listRequestsForClient, así que el mismo componente
  * sirve para ambos: el cliente ve las suyas, el equipo las del cliente asignado.
  *

@@ -732,7 +732,11 @@ function RequestRow({
                         </div>
                       )}
                       <Link
-                        href={`/cliente/${client.id}/contenido`}
+                        href={
+                          meta.post_id
+                            ? `/cliente/${client.id}/planificador?pieza=${meta.post_id}`
+                            : `/cliente/${client.id}/planificador`
+                        }
                         style={{
                           fontSize: 12,
                           fontWeight: 600,
@@ -741,7 +745,7 @@ function RequestRow({
                           textDecorationStyle: "dotted",
                         }}
                       >
-                        Abrir en Contenido →
+                        Abrir en el Calendario →
                       </Link>
                     </div>
                   </div>

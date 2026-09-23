@@ -23,17 +23,22 @@ export interface ClientMenuItem {
   directorOnly?: boolean;
 }
 
-/** Menús del sidebar para clientes Growth Partner. */
+/**
+ * Menús del sidebar para clientes Growth Partner.
+ *
+ * Salieron del menú (mig 102, dashboard simplificado): Estrategia
+ * (`fases` → botón en Biblioteca), Contenido (`contenido` → el trabajo
+ * vive en el Calendario; la página sigue viva por link directo), Ofertas
+ * (`ofertas` → pestaña dentro de Solicitudes), Paid Media y Analítica
+ * (`paid_media` / `analitica` → botones del Dashboard). Sus keys pueden
+ * seguir guardadas en visible_menus: ver MENU_ALIASES.
+ */
 export const CLIENT_MENUS_GP: ClientMenuItem[] = [
   { key: "dashboard",   segment: "",              label: "Dashboard" },
-  { key: "fases",       segment: "fases",          label: "Estrategia" },
   { key: "calendario",  segment: "planificador",   label: "Calendario" },
-  { key: "contenido",   segment: "contenido",      label: "Contenido" },
   { key: "tareas",      segment: "tareas",         label: "Tareas" },
-  { key: "solicitudes", segment: "solicitudes",    label: "Solicitudes" },
+  { key: "solicitudes", segment: "solicitudes",    label: "Solicitudes y ofertas" },
   { key: "producciones",segment: "campanas",       label: "Producciones" },
-  { key: "paid_media",  segment: "paid-media",     label: "Paid Media" },
-  { key: "analitica",   segment: "analitica",      label: "Analítica" },
   { key: "reporting",   segment: "reporting",      label: "Reporting" },
   { key: "talles",      segment: "talles",         label: "Talles faltantes" },
   { key: "biblioteca",  segment: "biblioteca",     label: "Biblioteca" },
@@ -54,6 +59,31 @@ export const CLIENT_MENUS_DEV: ClientMenuItem[] = [
   { key: "accesos",     segment: "accesos",     label: "Accesos" },
   { key: "configuracion", segment: "configuracion", label: "Configuración", directorOnly: true },
 ];
+
+/**
+ * Menús que se fusionaron en otro (mig 102): quien tenía permiso al
+ * viejo ve el nuevo. Las keys viejas siguen guardadas en visible_menus
+ * de asignaciones existentes; sin esto, un miembro con menús
+ * restringidos se quedaba sin su sección de trabajo.
+ *
+ * A propósito NO se aliasa nada hacia dashboard ni biblioteca (desde
+ * paid_media / analitica / fases): darían acceso a presupuestos o
+ * facturas que ese miembro antes no veía. Eso lo decide un director.
+ */
+export const MENU_ALIASES: Record<string, string> = {
+  contenido: "calendario",
+  ofertas: "solicitudes",
+};
+
+/** visible_menus con los alias resueltos (keys viejas + las nuevas). */
+export function expandVisibleMenus(keys: string[]): Set<string> {
+  const out = new Set(keys);
+  for (const k of keys) {
+    const alias = MENU_ALIASES[k];
+    if (alias) out.add(alias);
+  }
+  return out;
+}
 
 /**
  * Devuelve los menús que un miembro del equipo puede ver para un
@@ -80,7 +110,7 @@ export function filterClientMenus(opts: {
     return catalog.filter((m) => !m.directorOnly);
   }
   // Team con restricción → solo los listados (y nunca los directorOnly)
-  const allowed = new Set(opts.visibleMenus);
+  const allowed = expandVisibleMenus(opts.visibleMenus);
   return catalog.filter((m) => !m.directorOnly && allowed.has(m.key));
 }
 

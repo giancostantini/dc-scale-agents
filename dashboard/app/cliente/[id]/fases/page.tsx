@@ -138,12 +138,22 @@ export default function FasesPage({ params }: { params: Promise<{ id: string }> 
           <div className={ui.eyebrow}>Metodología · Fases del negocio</div>
           <h1>Recorrido del cliente</h1>
         </div>
-        <div
-          className={`${ui.phaseBadge} ${
-            client.status === "active" ? ui.phaseBadgeExec : ""
-          }`}
-        >
-          {client.phase}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* Estrategia ya no está en el menú (mig 102): se entra desde
+              Biblioteca, así que la vuelta es a Biblioteca. */}
+          <button
+            className={ui.btnGhost}
+            onClick={() => router.push(`/cliente/${id}/biblioteca`)}
+          >
+            ← Biblioteca
+          </button>
+          <div
+            className={`${ui.phaseBadge} ${
+              client.status === "active" ? ui.phaseBadgeExec : ""
+            }`}
+          >
+            {client.phase}
+          </div>
         </div>
       </div>
 

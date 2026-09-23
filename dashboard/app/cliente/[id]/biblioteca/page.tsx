@@ -170,6 +170,14 @@ export default function BibliotecaPage({
           <div className={ui.eyebrow}>Gestión · Biblioteca del cliente</div>
           <h1>Todo lo del cliente</h1>
         </div>
+        {/* Estrategia (las fases del negocio) salió del menú (mig 102) y
+            se abre desde acá. Misma regla que tenía el menú: solo para
+            marcas en lanzamiento; una marca operativa no la necesita. */}
+        {client.onboarding?.isBrandLaunch && (
+          <Link href={`/cliente/${id}/fases`} className={ui.btnGhost} style={{ fontWeight: 600, textDecoration: "none" }}>
+            Estrategia →
+          </Link>
+        )}
       </div>
 
       {/* Acceso directo a la carpeta de OneDrive (toda la docu viva
