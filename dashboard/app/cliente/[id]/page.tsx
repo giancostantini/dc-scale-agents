@@ -4,10 +4,12 @@ import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getClient,
+  getContent,
   getObjectives,
   getProdCampaigns,
   getTasks,
 } from "@/lib/storage";
+import { plannableSlots } from "@/lib/content-plan";
 import { listRequestsForClient } from "@/lib/requests";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { getDownloadUrl } from "@/lib/upload";
@@ -15,11 +17,14 @@ import type {
   Client,
   ClientObjectives,
   ClientRequest,
+  ContentPost,
   OnboardingFile,
   ProductionCampaign,
   DevTask,
 } from "@/lib/types";
 import WelcomeBanner from "@/components/WelcomeBanner";
+import ClientQuickLinks from "@/components/ClientQuickLinks";
+import UpcomingContentPanel from "@/components/UpcomingContentPanel";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ClienteDashboard({
@@ -33,6 +38,7 @@ export default function ClienteDashboard({
   const [campaigns, setCampaigns] = useState<ProductionCampaign[]>([]);
   const [tasks, setTasks] = useState<DevTask[]>([]);
   const [pendingRequests, setPendingRequests] = useState<ClientRequest[]>([]);
+  const [posts, setPosts] = useState<ContentPost[]>([]);
   const [isDirector, setIsDirector] = useState(false);
 
   useEffect(() => {
@@ -43,11 +49,13 @@ export default function ClienteDashboard({
       getTasks(id),
       getCurrentProfile(),
       listRequestsForClient(id),
-    ]).then(([c, o, p, t, profile, reqs]) => {
+      getContent(id),
+    ]).then(([c, o, p, t, profile, reqs, content]) => {
       setClient(c ?? null);
       setObjectives(o);
       setCampaigns(p);
       setTasks(t);
+      setPosts(content);
       setIsDirector(profile?.role === "director");
       // Solo solicitudes pendientes o en revisión — el equipo necesita
       // verlas; las que ya están done/rejected no aportan ruido.
@@ -68,6 +76,7 @@ export default function ClienteDashboard({
       objectives={objectives}
       campaigns={campaigns}
       tasks={tasks}
+      posts={posts}
       isDirector={isDirector}
       pendingRequests={pendingRequests}
     />
@@ -87,6 +96,7 @@ function GPDashboard({
   objectives,
   campaigns,
   tasks,
+  posts,
   isDirector,
   pendingRequests,
 }: {
@@ -94,6 +104,7 @@ function GPDashboard({
   objectives?: ClientObjectives;
   campaigns: ProductionCampaign[];
   tasks: DevTask[];
+  posts: ContentPost[];
   isDirector: boolean;
   pendingRequests: ClientRequest[];
 }) {
@@ -106,9 +117,9 @@ function GPDashboard({
     (t) => t.dueDate && t.dueDate < today,
   );
   // Las métricas de paid media y el presupuesto se sacaron del dashboard:
-  // el primero vive ahora en Espor.ai + Looker Studio (Analítica),
-  // el segundo en /campanas. Acá quedan: header, briefing,
-  // solicitudes y objetivos.
+  // la pauta se mira en Espor.ai + Looker Studio (accesos de abajo del
+  // banner) y las producciones en /campanas. Acá quedan: header,
+  // accesos, contenido para subir, tareas, solicitudes y objetivos.
   // campaigns sigue llegando como prop por compat (lo usa el resto del page).
   void campaigns;
 
@@ -141,11 +152,18 @@ function GPDashboard({
           personalizado por rol (director/team) y se entrega como mensaje
           is_briefing=true en la conversación pinned. */}
 
-      {/* Solicitudes del cliente pendientes — visibles directamente
-          en el dashboard para que el equipo no se las pierda. */}
-      <PendingRequestsPanel
+      {/* Accesos: Looker Studio, Espor.ai y programar publicidad
+          (reemplazan a las páginas Analítica y Paid Media). */}
+      <ClientQuickLinks client={client} isDirector={isDirector} />
+
+      {/* Lo que hay que subir: atrasado, hoy y próximos días. El
+          desglose de solicitudes ya no va acá — queda la card compacta
+          de abajo y su menú. */}
+      <UpcomingContentPanel
         clientId={client.id}
-        requests={pendingRequests}
+        posts={posts}
+        hasFrequency={plannableSlots(client.content_frequency).length > 0}
+        isDirector={isDirector}
       />
 
       {/* Card "Tareas pendientes" — solo aparece si hay tareas no done.
@@ -278,7 +296,7 @@ function GPDashboard({
               marginBottom: 6,
             }}
           >
-            Solicitudes del cliente
+            Solicitudes y ofertas del cliente
           </div>
           <div
             style={{
@@ -314,7 +332,7 @@ function GPDashboard({
             flexShrink: 0,
           }}
         >
-          Ver solicitudes →
+          Ver solicitudes y ofertas →
         </div>
       </button>
 
