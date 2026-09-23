@@ -6,6 +6,11 @@
   .has-page-motion [data-enter="card"]:not(.is-entered) { translate: 0 50px; }
   .has-page-motion [data-enter="card"]:focus-within { translate: none; }
 }
+/* Escena de producto (Soluciones): entra con el scroll y queda plana y nítida. */
+@media (prefers-reduced-motion: no-preference) and (min-width: 1000px) {
+  .has-page-motion [data-reveal-scene] { transform-origin: 50% 0; transform: perspective(1600px) translateY(calc((1 - var(--reveal, 1)) * 90px)) rotateX(calc((1 - var(--reveal, 1)) * 14deg)) scale(calc(.88 + var(--reveal, 1) * .12)); opacity: calc(.3 + var(--reveal, 1) * .7); will-change: transform, opacity; }
+  .has-page-motion [data-reveal-scene].is-revealed { transform: none; opacity: 1; will-change: auto; }
+}
 @media (prefers-reduced-motion: reduce) {
   [data-enter] { opacity: 1 !important; translate: none !important; clip-path: none !important; transition: none !important; }
   .statement-glow, .cta-final-glow { translate: none; }

@@ -28,16 +28,30 @@ export function initPageMotion() {
   const active = new Set();
   let frame = 0;
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  // Escenas de producto: el mockup entra con escala, inclinación y opacidad
+  // atadas al scroll (--reveal 0→1) y queda quieto y usable al terminar.
+  const reveals = () => [...document.querySelectorAll('[data-reveal-scene]')].filter(el => el.offsetParent);
+  function paintReveals() {
+    const wide = innerWidth >= 1000;
+    reveals().forEach(el => {
+      if (!wide) { el.style.removeProperty('--reveal'); el.classList.add('is-revealed'); return; }
+      const top = el.getBoundingClientRect().top;
+      const p = clamp((innerHeight - top) / (innerHeight * .8), 0, 1);
+      el.style.setProperty('--reveal', p.toFixed(3));
+      el.classList.toggle('is-revealed', p >= 1);
+    });
+  }
   function paint() {
     frame = 0;
     if (reduced.matches || document.hidden) return;
+    paintReveals();
     active.forEach(scene => {
       const distance = scene.start + scene.height / 2 - scrollY - innerHeight / 2;
       const amplitude = innerWidth < 600 ? 24 : 60;
       scene.glow?.style.setProperty('--ambient-y', `${clamp(-distance * .12, -amplitude, amplitude).toFixed(1)}px`);
     });
   }
-  function schedule() { if (!frame && active.size && !reduced.matches && !document.hidden) frame = requestAnimationFrame(paint); }
+  function schedule() { if (!frame && !reduced.matches && !document.hidden) frame = requestAnimationFrame(paint); }
   function measure() {
     scenes.forEach(scene => { const rect = scene.section.getBoundingClientRect(); scene.start = rect.top + scrollY; scene.height = rect.height; });
     schedule();
@@ -52,10 +66,12 @@ export function initPageMotion() {
       observer.disconnect();
       targets.forEach(target => target.classList.add('is-entered'));
       scenes.forEach(scene => scene.glow?.style.removeProperty('--ambient-y'));
+      reveals().forEach(el => { el.style.removeProperty('--reveal'); el.classList.add('is-revealed'); });
       cancelAnimationFrame(frame); frame = 0;
     } else measure();
   });
   window.addEventListener('scroll', schedule, { passive: true });
+  document.addEventListener('solution:shown', schedule);
   window.addEventListener('resize', measure, { passive: true });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { cancelAnimationFrame(frame); frame = 0; } else schedule();

@@ -1,5 +1,12 @@
 /* Shared landing identity. The hero's lighting remains artwork, not section colors. */
 :root {
+  /* Tokens compartidos que antes solo vivían en el <style> inline. */
+  --on-dark-line: rgba(232, 228, 220, 0.12);
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-pill: 999px;
+  --shadow-emerald: 0 8px 24px rgba(196, 168, 130, 0.22), 0 2px 6px rgba(196, 168, 130, 0.15);
+  --shadow-emerald-lg: 0 14px 40px rgba(196, 168, 130, 0.32);
   --brand-forest: #091b11;
   --brand-forest-rgb: 9, 27, 17;
   --brand-tint: #eae7de;
@@ -47,3 +54,7 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
 @media (max-width:1199px) { :root { --site-gutter:36px; } }
 @media (max-width:599px) { :root { --site-gutter:20px; --section-space:64px; } }
 @media (max-width:359px) { :root { --site-gutter:18px; } }
+
+/* Link a la demo desde la tarjeta de un caso. */
+.case-demo-link { display: inline-block; margin-top: 10px; font-weight: 600; color: inherit; text-decoration: underline; text-decoration-color: var(--sand); text-underline-offset: 4px; }
+.case-demo-link:hover { text-decoration-thickness: 2px; }

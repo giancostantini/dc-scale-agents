@@ -16,15 +16,21 @@ Abrir **http://localhost:8080**. Usar ese hostname y puerto para las integracion
 
 | Archivo | Responsabilidad |
 |---|---|
-| `index.html` | Navegación, hero, logos, casos de clientes, capacidades/showcase y secciones posteriores; FAQ, chat y agenda |
+| `index.html` | Navegación, hero, logos, secciones de contenido, FAQ, chat y agenda (con su CSS/JS inline de chat, FAQ y Calendly) |
+| `styles/theme.css` | Tokens compartidos (colores, radios, sombras), fondo por sección vía `data-tone`, gutters y ritmo |
 | `styles/entry-v2.css` | Tipografía y paleta de D&C, hero centrado, efectos de entrada, responsive, menú y marquee |
 | `styles/hero-atmosphere.css` | Capas de luz, bandas SVG animadas, máscaras del título y composición móvil del hero |
 | `styles/solutions.css` | Capacidades, tabs, paneles y medios del showcase |
+| `styles/mundipack-demo.css` / `styles/brainbill-demo.css` | Las dos demos interactivas (clases `mp-*` / `bb-*`) |
+| `styles/page-motion.css` | Entradas por elemento y la escena de producto de Soluciones |
 | `scripts/entry-v2.js` | Inicialización, menú, navegación, CTA y revelado de bloques al entrar en pantalla |
 | `scripts/hero-scroll.js` | Entrada del título, scroll y profundidad, respuesta al cursor, pausa de efectos, estado del header y progreso de página |
 | `scripts/marquee.js` | Copia visual del grupo, pausa fuera de pantalla y preferencias de movimiento |
-| `scripts/showcase.js` | Render de tabs/paneles, teclado, imágenes y videos |
-| **`content/solutions.js`** | **Datos del showcase: Mundipack, sistema interno DC y Growth & Marketing** |
+| `scripts/showcase.js` | Render de tabs/paneles, teclado, demos (`media.demo`), imágenes y videos |
+| `scripts/page-motion.js` | ÚNICO sistema de movimiento fuera del hero: entradas `data-enter`, parallax suave de glows y la escena de producto (`data-reveal-scene`) |
+| `scripts/mundipack-demo.js` + `content/mundipack-demo.js` | Demo de Mundipack: Dirección / Vendedores con visitas compartidas entre roles |
+| `scripts/brainbill-demo.js` + `content/brainbill-demo.js` | Demo de BrainBill: foto/PDF/XML → lectura → validación → catálogo → revisión humana → entrega |
+| **`content/solutions.js`** | **Datos del showcase: Mundipack, BrainBill y Growth & Marketing** |
 | `QA-V2.md` | Pruebas realizadas y pendientes externos de esta iteración |
 
 El hero ocupa la primera pantalla con ondas verdes y doradas en varias capas, dibujadas con SVG inline y degradados CSS. Las tres líneas del título entran escalonadas en aproximadamente 1,1 segundos; un barrido de luz recorre el acento dorado. La entrada se completa inmediatamente al scrollear o enfocar un control, y se omite al cargar una sección mediante un anchor.
@@ -35,7 +41,16 @@ Las animaciones de fondo se pausan cuando la escena sale de pantalla o la pesta�
 
 Con `prefers-reduced-motion: reduce`, el hero conserva una composición estática de luz, queda en flujo natural y muestra el contenido sin animación. Sin JavaScript, el fondo y el título también permanecen visibles. El marquee contiene cuatro marcas originales; la repetición se oculta de accesibilidad y desaparece con movimiento reducido. No tiene título ni botón de pausa; el movimiento se detiene al pasar el cursor y cuando sale de pantalla.
 
-Recorrido: **Hero → Logos → Nuestra firma → La pregunta → Casos de clientes → Soluciones (CRECER / ESCALAR + showcase) → Valores → Skin in the game → Socios → FAQ → Agenda → Footer**. Se retiraron el bloque de perspectivas, la sección de cupos y la card/CTA de política de referencias.
+Recorrido: **Hero → Logos → Nuestra firma → Soluciones (demos) → Casos → La pregunta → Valores → Skin in the game → Socios → FAQ → Agenda → Footer**. Los tonos alternan oscuro/claro. Soluciones va arriba a propósito: las demos son el producto estrella y se prueban antes de leer los casos.
+
+## Las demos interactivas
+
+Son recreaciones con **datos 100 % ficticios** (nombres, RUTs, productos, precios); nada se envía ni se guarda fuera de la visita. Cada una se elige en `content/solutions.js` con `media: { type: 'demo', demo: 'mundipack' | 'brainbill' }`.
+
+- **Mundipack**: dos roles. Dirección (dashboard, vendedores, clientes, productos, cobranzas, rutas) y Vendedores (hoy, ruta, cartera, oportunidades, lista de precios, presupuesto, progreso). "Ver como" cambia de vendedor. Las visitas son una sola fuente: lo que marca el vendedor aparece en Rutas de Dirección.
+- **BrainBill**: seis pasos. Elegís una factura (foto, PDF o XML del CFE), se lee (con IA o exacta desde el XML), se valida (aritmética, IVA, RUT, duplicados), se asocia al catálogo con precio sugerido (margen ajustable), una persona confirma (el producto dudoso y la advertencia del total bloquean hasta revisarlos) y se entrega al destino elegido.
+
+**Escena de producto**: en desktop (≥1000px) la demo visible entra acompañando el scroll (escala, inclinación y opacidad según `--reveal`) y queda plana y nítida al completarse. En mobile y con movimiento reducido no hay escena: se ve directo.
 
 ## Cargar assets reales del showcase
 
@@ -45,11 +60,6 @@ Crear estas carpetas al incorporar el primer archivo; todavía no contienen mate
 landing/
   assets/solutions/
     mundipack/
-      principal.webp
-      demo.mp4
-      poster.webp
-      subtitulos.es.vtt
-    sistema-dc/
       principal.webp
       demo.mp4
       poster.webp
@@ -113,7 +123,7 @@ media: {
 - `audience`, `challenge`, `work`, `outcome`: usuario, problema, construcción y utilidad. Distinguir objetivos de resultados obtenidos.
 - `media`: configuración anterior.
 
-Para agregar una solución, duplicar un objeto dentro de `solutions`, completar esos campos y crear `assets/solutions/<id>/`. El orden del array define tabs y paneles; IDs y controles de teclado se generan automáticamente. Actualizar también el resumen de `.showcase-fallback` en `index.html` para visitantes sin JavaScript. Los enlaces directos desde las capacidades se controlan con `data-show-solution="<id>"`.
+Para agregar una solución, duplicar un objeto dentro de `solutions`, completar esos campos y crear `assets/solutions/<id>/`. El orden del array define tabs y paneles; IDs y controles de teclado se generan automáticamente. Actualizar también el resumen de `.showcase-fallback` en `index.html` para visitantes sin JavaScript. 
 
 ### Logo original de Pinturería Propios
 
@@ -121,7 +131,7 @@ El actual `logos/propios.png` fue extraído del material existente del cliente. 
 
 ## Pendientes externos / siguiente entrega
 
-- Capturas o videos finales de Mundipack, sistema interno y Growth, con selección del medio principal, descripción y pie aprobado por solución. Posters/subtítulos si aplica.
+- Capturas o videos finales de Growth (Mundipack y BrainBill ya tienen demo interactiva), con selección del medio principal, descripción y pie aprobado por solución. Posters/subtítulos si aplica.
 - SVG/PNG original de Propios.
 - URL correcta de LinkedIn de la firma (la anterior devolvía 404); confirmar también los perfiles de los socios, que bloquean la verificación automatizada.
 - Chat: la API desplegada devuelve su mensaje de error técnico; revisar el error `[chat] stream error` en el backend. La UI de conversación y el acceso a agenda fueron probados.

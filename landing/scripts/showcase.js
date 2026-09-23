@@ -1,5 +1,8 @@
 import { solutions } from '../content/solutions.js';
 import { createMundipackDemo } from './mundipack-demo.js';
+import { createBrainBillDemo } from './brainbill-demo.js';
+
+const DEMOS = { mundipack: createMundipackDemo, brainbill: createBrainBillDemo };
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -53,16 +56,17 @@ export function initShowcase() {
     context.append(facts);
     info.append(context);
     const figure = element('figure', 'solution-figure');
+    if (solution.media.type === 'demo') figure.dataset.revealScene = '';
     const stage = element('div', 'solution-media');
     const media = solution.media;
     const url = mediaUrl(media.src);
-    if (media.type === 'demo') {
+    if (media.type === 'demo' && DEMOS[media.demo]) {
       panel.classList.add('solution-panel-interactive');
       stage.classList.add('solution-media-interactive');
-      stage.append(createMundipackDemo());
+      stage.append(DEMOS[media.demo]());
     } else if (media.type === 'upcoming') {
       stage.classList.add('solution-upcoming');
-      stage.append(element('span', 'solution-preview-label', 'PRODUCTO PROPIO / EN DESARROLLO'), element('p', 'solution-preview-name', solution.name), element('p', 'solution-preview-copy', 'Gestión de facturas con IA.'), element('span', 'solution-preview-note', 'El próximo capítulo. Estamos construyéndolo.'));
+      stage.append(element('span', 'solution-preview-label', 'PRODUCTO PROPIO / EN DESARROLLO'), element('p', 'solution-preview-name', solution.name), element('p', 'solution-preview-copy', solution.title), element('span', 'solution-preview-note', solution.status));
     } else if (url && media.type === 'image') {
       const image = element('img');
       image.src = url; image.alt = media.alt || solution.name;
@@ -105,6 +109,7 @@ export function initShowcase() {
       if (i !== index) view.querySelectorAll('video').forEach(video => video.pause());
     });
     if (focus) buttons[index].focus({ preventScroll: true });
+    document.dispatchEvent(new Event('solution:shown'));
     if (!reduced.matches && views[index].animate) panelAnimation = views[index].animate([{ opacity: .55, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 280, easing: 'ease-out' });
   }
   buttons.forEach((tab, index) => {
@@ -122,15 +127,4 @@ export function initShowcase() {
   root.replaceChildren(tabs, panels);
   select(0);
   reduced.addEventListener('change', () => panelAnimation?.cancel());
-  document.querySelectorAll('[data-show-solution]').forEach(link => {
-    link.addEventListener('click', event => {
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const index = solutions.findIndex(solution => solution.id === link.dataset.showSolution);
-      if (index < 0) return;
-      event.preventDefault();
-      select(index, true);
-      document.getElementById('showcase').scrollIntoView({ behavior: reduced.matches ? 'instant' : 'smooth', block: 'start' });
-      history.replaceState(null, '', '#showcase');
-    });
-  });
 }

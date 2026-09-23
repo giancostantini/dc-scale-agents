@@ -1,5 +1,15 @@
 # Landing · Pruebas de interfaz
 
+## Revisión 2026-09-23 · Demos interactivas (Mundipack + BrainBill)
+
+- **Bug corregido:** el script inline usaba `#bgCanvas`, que ya no existía; al cargar tiraba `TypeError` y dejaba muertos el FAQ, el chat y el newsletter. Confirmado en Chrome antes y después (el FAQ ahora abre).
+- Un solo sistema de movimiento (`page-motion.js` + `hero-scroll.js`): fuera el `.reveal` y el parallax viejos, que se pisaban. Poda de ~1300 líneas de CSS muerto con alturas de sección idénticas antes/después a 1440 y 390 px.
+- **Mundipack:** recorrido completo en los dos roles; "Ver como" cambia de vendedor; una visita marcada por Sofía aparece al instante en Rutas de Dirección ("Todo el equipo": 10 paradas y 10 pines); barras con alturas por mes y resaltado del período; ficha con historial y última compra; stock bajo; Progreso semanal.
+- **BrainBill:** recorrido completo con las tres facturas: lectura animada con campo resaltado en la factura, 7 validaciones con la advertencia del total en la foto, precio sugerido que cambia con el margen, confirmación bloqueada hasta elegir el producto dudoso y tildar la advertencia, entrega con cola → enviando → cargada y tiempo total. XML: chips "Firmado" (lectura sin IA).
+- **Escena de producto:** `--reveal` 0,06 → 0,26 → 0,66 → 1 al scrollear; al completarse la demo queda con `transform: none` (texto nítido). Probado forzando frames porque el panel de pruebas estaba oculto; conviene mirarla en un navegador real.
+- Sin desbordes horizontales a 320, 390 y 768 px con las dos demos en todos sus pasos (solo sobresalen los glows decorativos, recortados por su sección).
+- Pendiente: revisión visual en dispositivo físico y con movimiento reducido real del sistema operativo.
+
 ## Última revisión · Hero cinematográfico
 
 - Fondo SVG/CSS propio, con cinco animaciones independientes de luz y bandas verdes/doradas. Revisadas capturas de entrada, composición completa, movimiento autónomo y transición al scroll a 1440, 390 y 320 px.
