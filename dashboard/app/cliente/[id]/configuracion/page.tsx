@@ -539,11 +539,12 @@ export default function ConfiguracionPage({
         </div>
       </div>
 
-      {/* Los 3 paneles siguientes (Meta Business Suite, Clasificaciones
-          editoriales y Links de redes sociales) son específicos del
-          camino de Growth Partner — habilitan funcionalidades del menú
-          Contenido (Programar en MBS, color-code de chips, preview
-          feed con links reales). En clientes DEV no aplican: no hay
+      {/* Los paneles siguientes (Meta Business Suite, Analítica y
+          publicidad, Clasificaciones editoriales y Links de redes
+          sociales) son específicos del camino de Growth Partner —
+          habilitan el calendario de contenido, los accesos del
+          dashboard y la vista Contenido (Programar en MBS, links de
+          Looker/Espor.ai, color-code de chips, preview feed). En clientes DEV no aplican: no hay
           calendario de contenido ni feed preview, así que los ocultamos
           para no agregar ruido a su configuración. */}
       {client.type !== "dev" && (
@@ -564,6 +565,24 @@ export default function ConfiguracionPage({
                         ...(prev.external_links ?? {}),
                         meta_business_suite_url: url || undefined,
                       },
+                    }
+                  : prev,
+              )
+            }
+          />
+
+          {/* ============== ANALÍTICA Y PUBLICIDAD ==============
+              Links de Looker Studio y Espor.ai que abren los botones del
+              dashboard del cliente (antes vivían en Analítica y Paid
+              Media, que se eliminaron). */}
+          <AnalyticsLinksPanel
+            client={client}
+            onSaved={(links) =>
+              setClient((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      external_links: { ...(prev.external_links ?? {}), ...links },
                     }
                   : prev,
               )
@@ -1031,6 +1050,184 @@ const inputStyle: React.CSSProperties = {
 // Si el cliente no tiene URL configurada, el calendario cae al home
 // genérico de business.facebook.com.
 // ============================================================
+/**
+ * Links de Looker Studio y Espor.ai del cliente. Se abren desde los
+ * botones del dashboard del cliente (ClientQuickLinks). Antes se
+ * editaban en las páginas Analítica y Paid Media, que se eliminaron
+ * (mig 102). El ancla #links-analitica es a donde manda el "configurar"
+ * de esos botones cuando falta el link.
+ */
+function AnalyticsLinksPanel({
+  client,
+  onSaved,
+}: {
+  client: Client;
+  onSaved: (links: { looker_studio_url?: string; espor_ai_url?: string }) => void;
+}) {
+  const initialLooker = client.external_links?.looker_studio_url ?? "";
+  const initialEspor = client.external_links?.espor_ai_url ?? "";
+  const [looker, setLooker] = useState(initialLooker);
+  const [espor, setEspor] = useState(initialEspor);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // La página carga los datos async, así que el scroll nativo al ancla
+  // ya pasó cuando este panel aparece: lo hacemos a mano.
+  useEffect(() => {
+    if (window.location.hash === "#links-analitica") {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const dirty =
+    looker.trim() !== initialLooker.trim() || espor.trim() !== initialEspor.trim();
+
+  async function save() {
+    setError("");
+    setSaved(false);
+    const cleanLooker = looker.trim();
+    const cleanEspor = espor.trim();
+    for (const u of [cleanLooker, cleanEspor]) {
+      if (u && !/^https?:[/][/]/i.test(u)) {
+        setError("Los links tienen que empezar con http:// o https://");
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      await updateClientExternalLinks(client.id, {
+        looker_studio_url: cleanLooker || null,
+        espor_ai_url: cleanEspor || null,
+      });
+      onSaved({
+        looker_studio_url: cleanLooker || undefined,
+        espor_ai_url: cleanEspor || undefined,
+      });
+      setSaved(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const fields: {
+    label: string;
+    value: string;
+    set: (v: string) => void;
+    placeholder: string;
+    current: string;
+  }[] = [
+    {
+      label: "Looker Studio (métricas generales)",
+      value: looker,
+      set: setLooker,
+      placeholder: "https://lookerstudio.google.com/...",
+      current: initialLooker,
+    },
+    {
+      label: "Espor.ai (análisis de la pauta)",
+      value: espor,
+      set: setEspor,
+      placeholder: "https://app.espor.ai/...",
+      current: initialEspor,
+    },
+  ];
+
+  return (
+    <div
+      id="links-analitica"
+      ref={panelRef}
+      className={ui.panel}
+      style={{ marginBottom: 24, scrollMarginTop: 80 }}
+    >
+      <div className={ui.panelHead}>
+        <div>
+          <div className={ui.panelTitle}>Analítica y publicidad</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+            Links que abren los botones del dashboard del cliente. El botón
+            Programar publicidad usa el Ad Account de Meta Business Suite.
+          </p>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {fields.map((f) => (
+          <div key={f.label}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--sand-dark)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              {f.label}
+            </div>
+            <input
+              type="url"
+              placeholder={f.placeholder}
+              value={f.value}
+              onChange={(e) => {
+                f.set(e.target.value);
+                setSaved(false);
+              }}
+              disabled={saving}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: 6,
+                fontFamily: "inherit",
+                fontSize: 13,
+                background: "var(--white)",
+                color: "var(--deep-green)",
+                outline: "none",
+              }}
+            />
+            {f.current && (
+              <div style={{ marginTop: 6 }}>
+                <a
+                  href={f.current}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    textDecoration: "underline",
+                    textDecorationStyle: "dotted",
+                  }}
+                >
+                  Abrir en pestaña nueva ↗
+                </a>
+              </div>
+            )}
+          </div>
+        ))}
+        {error && (
+          <div style={{ fontSize: 12, color: "var(--red-warn)" }}>{error}</div>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
+          {saved && !dirty && (
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Guardado ✓</span>
+          )}
+          <button
+            className={ui.btnSolid}
+            onClick={save}
+            disabled={saving || !dirty}
+            style={{ opacity: saving || !dirty ? 0.5 : 1 }}
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MetaBusinessSuitePanel({
   client,
   onSaved,

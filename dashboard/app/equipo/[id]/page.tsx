@@ -24,6 +24,7 @@ import {
   CLIENT_MENUS_GP,
   CLIENT_MENUS_DEV,
   defaultVisibleMenus,
+  expandVisibleMenus,
 } from "@/lib/client-menus";
 import { getClients } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
@@ -284,8 +285,14 @@ export default function EquipoDetailPage({
     const everything = full
       .filter((m) => !m.directorOnly)
       .map((m) => m.key);
-    // Si visible_menus es null, default = todos (el usuario está viendo todos)
-    setEditMenusDraft(a.visible_menus ?? everything);
+    // Si visible_menus es null, default = todos (el usuario está viendo todos).
+    // Keys de menús que ya no existen se traducen a su reemplazo
+    // (MENU_ALIASES) y se descartan, así al guardar queda limpio.
+    setEditMenusDraft(
+      a.visible_menus
+        ? [...expandVisibleMenus(a.visible_menus)].filter((k) => everything.includes(k))
+        : everything,
+    );
     setEditMenusFor(a);
   }
 

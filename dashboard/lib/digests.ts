@@ -75,7 +75,9 @@ interface ClientDigestData {
     porAgente: Record<string, { total: number; error: number }>;
   };
   errores: string[];
-  contenido: { total: number; draft: number; scheduled: number; published: number };
+  /** planned = pendiente del calendario (mig 102); draft = pieza IA
+   *  vieja. Las dos son "por preparar". scheduled = preparada. */
+  contenido: { total: number; planned: number; draft: number; scheduled: number; published: number };
   pagos: { abiertos: number; late: number; meses: string[] };
   solicitudes: { abiertas: number; urgentes: number };
   eventosProximos: Array<{ date: string; title: string }>;
@@ -170,9 +172,10 @@ export async function buildClientDigest(client: ClientRowLite): Promise<ClientDi
   const runsTotal = runs?.length ?? 0;
   const runsError = (runs ?? []).filter((r) => r.status === "error").length;
 
-  const contenido = { total: 0, draft: 0, scheduled: 0, published: 0 };
+  const contenido = { total: 0, planned: 0, draft: 0, scheduled: 0, published: 0 };
   for (const p of posts ?? []) {
     contenido.total++;
+    if (p.status === "planned") contenido.planned++;
     if (p.status === "draft") contenido.draft++;
     if (p.status === "scheduled") contenido.scheduled++;
     if (p.status === "published") contenido.published++;
@@ -233,7 +236,7 @@ export async function buildClientDigest(client: ClientRowLite): Promise<ClientDi
     `- Runs 7d: ${runsTotal}${runsError > 0 ? ` (${runsError} con ERROR: ${errores.join(" | ")})` : " · sin errores"}`,
   );
   lines.push(
-    `- Contenido ${month}: ${contenido.total} piezas (${contenido.draft} draft / ${contenido.scheduled} programadas / ${contenido.published} publicadas)`,
+    `- Contenido ${month}: ${contenido.total} piezas (${contenido.planned + contenido.draft} por preparar / ${contenido.scheduled} preparadas / ${contenido.published} subidas)`,
   );
   lines.push(
     data.pagos.abiertos > 0
@@ -298,7 +301,7 @@ async function buildAreaDigest(
       const cyc = c.data.procesos.find((p) => p.process === "content_cycle");
       const cont = c.data.contenido;
       lines.push(
-        `- ${c.data.cliente.name}: ciclo en "${cyc?.step ?? "sin ciclo"}"${cyc?.gate ? ` (gate: ${cyc.gate})` : ""} · ${cont.total} piezas (${cont.draft}d/${cont.scheduled}s/${cont.published}p)`,
+        `- ${c.data.cliente.name}: ciclo en "${cyc?.step ?? "sin ciclo"}"${cyc?.gate ? ` (gate: ${cyc.gate})` : ""} · ${cont.total} piezas (${(cont.planned ?? 0) + cont.draft} por preparar / ${cont.scheduled} preparadas / ${cont.published} subidas)`,
       );
       if (cyc?.gate) severity = maxSeverity([severity, "warn"]);
     }

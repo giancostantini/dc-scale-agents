@@ -35,6 +35,7 @@ import {
   type ContentType,
 } from "@/lib/content-frequency";
 import { commercialDatesIndex } from "@/lib/commercial-dates";
+import { pieceShortLabel, slotKeysOf } from "@/lib/content-plan";
 
 const FONT_REG = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
@@ -499,14 +500,11 @@ export default function RoadmapPdf({
                   const weekday = weekdayLunFirst(cellDate);
                   const commercial = commercialIdx.get(key);
 
+                  // Slots ya cubiertos por una pieza guardada (todas sus
+                  // redes; un reel de TikTok cubre tt_video).
                   const slotsWithRealPost = new Set<string>();
                   for (const p of dayPosts) {
-                    let fmt: string;
-                    if (p.format === "story") fmt = "story";
-                    else if (p.format === "reel") fmt = "reel";
-                    else if (p.network === "tt") fmt = "video";
-                    else fmt = "feed";
-                    slotsWithRealPost.add(`${p.network}_${fmt}`);
+                    for (const k of slotKeysOf(p)) slotsWithRealPost.add(k);
                   }
                   const ghostSlots = CONTENT_SLOTS.filter((slot) => {
                     const days = suggestedBySlot.get(slot.key);
@@ -559,7 +557,12 @@ export default function RoadmapPdf({
                             color: NETWORK_COLOR_FG[p.network] ?? "#FFFFFF",
                           }}
                         >
-                          {p.time} {p.brief.slice(0, 16)}
+                          {/* Las pendientes del calendario no tienen
+                              descripción: se muestran por formato e
+                              intención ("Posteo · Oferta"). */}
+                          {p.brief
+                            ? `${p.time ? `${p.time} ` : ""}${p.brief.slice(0, 16)}`
+                            : pieceShortLabel(p)}
                         </Text>
                       ))}
                       {dayPosts.length > 2 && (

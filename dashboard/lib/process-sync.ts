@@ -133,7 +133,20 @@ async function deriveOnboarding(clientIds: string[]): Promise<DerivedInstance[]>
   return out;
 }
 
-/** Ciclo mensual de contenido: derivado de content_posts del mes. */
+/**
+ * Ciclo mensual de contenido: derivado de content_posts del mes.
+ *
+ * Desde la migración 102 el calendario carga las piezas del mes como
+ * pendientes (status planned) y el equipo las prepara y las sube, sin
+ * paso de aprobación. Steps:
+ *   calendario  → no hay nada cargado este mes (gate: cargarlo con el
+ *                 asistente del calendario).
+ *   produccion  → hay piezas por preparar o subir (planned + draft; los
+ *                 draft son piezas IA viejas y se preparan igual).
+ *   programado  → todo preparado, falta subir alguna.
+ *   publicado   → todo subido.
+ *   evaluado    → subido y con métricas.
+ */
 async function deriveContentCycle(clientIds: string[]): Promise<DerivedInstance[]> {
   const admin = getSupabaseAdmin();
   const month = currentMonthUY();
@@ -144,16 +157,27 @@ async function deriveContentCycle(clientIds: string[]): Promise<DerivedInstance[
     .gte("date", `${month}-01`)
     .lte("date", `${month}-31`);
 
-  const byClient = new Map<string, { total: number; draft: number; scheduled: number; published: number; withMetrics: number }>();
+  type Agg = {
+    total: number;
+    planned: number;
+    draft: number;
+    scheduled: number;
+    published: number;
+    withMetrics: number;
+  };
+  const empty = (): Agg => ({
+    total: 0,
+    planned: 0,
+    draft: 0,
+    scheduled: 0,
+    published: 0,
+    withMetrics: 0,
+  });
+  const byClient = new Map<string, Agg>();
   for (const p of posts ?? []) {
-    const agg = byClient.get(p.client_id) ?? {
-      total: 0,
-      draft: 0,
-      scheduled: 0,
-      published: 0,
-      withMetrics: 0,
-    };
+    const agg = byClient.get(p.client_id) ?? empty();
     agg.total++;
+    if (p.status === "planned") agg.planned++;
     if (p.status === "draft") agg.draft++;
     if (p.status === "scheduled") agg.scheduled++;
     if (p.status === "published") {
@@ -165,36 +189,24 @@ async function deriveContentCycle(clientIds: string[]): Promise<DerivedInstance[
 
   const out: DerivedInstance[] = [];
   for (const clientId of clientIds) {
-    const agg = byClient.get(clientId) ?? {
-      total: 0,
-      draft: 0,
-      scheduled: 0,
-      published: 0,
-      withMetrics: 0,
-    };
+    const agg = byClient.get(clientId) ?? empty();
     let step: string;
     let gate: string | null = null;
     let status: DerivedInstance["status"] = "active";
 
     if (agg.total === 0) {
       step = "calendario";
-      gate = "generar_calendario";
+      gate = "cargar_calendario";
       status = "waiting_gate";
-    } else if (agg.draft > 0) {
-      step = "aprobacion_piezas";
-      gate = "aprobar_piezas";
-      status = "waiting_gate";
+    } else if (agg.planned + agg.draft > 0) {
+      step = "produccion";
     } else if (agg.scheduled > 0) {
       step = "programado";
     } else if (agg.published > 0 && agg.withMetrics > 0) {
       step = "evaluado";
       status = "done";
-    } else if (agg.published > 0) {
-      step = "publicado";
     } else {
-      step = "calendario";
-      gate = "generar_calendario";
-      status = "waiting_gate";
+      step = "publicado";
     }
 
     out.push({

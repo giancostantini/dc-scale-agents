@@ -2,7 +2,10 @@
 
 /**
  * Portal · Agenda de publicaciones — vista READ-ONLY del cliente
- * sobre las ideas/posts cargados por el equipo en /cliente/[id]/contenido.
+ * sobre las piezas que prepara el equipo en el Calendario del cliente
+ * (o en la vista vieja /cliente/[id]/contenido). Las pendientes
+ * (status planned: cargadas por el asistente, sin descripción ni foto)
+ * no se muestran — el cliente ve cada pieza recién cuando está preparada.
  *
  * Lo que SÍ puede hacer el cliente:
  *   - Ver la tabla con los posts (código, red, formato, idea, fecha, estado).
@@ -64,12 +67,16 @@ const FORMAT_LABEL: Record<ContentFormat, string> = {
 };
 
 const STATUS_LABEL: Record<ContentStatus, string> = {
+  planned: "Pendiente",
   draft: "Borrador",
-  scheduled: "Aprobada",
+  // Desde la migración 102 "scheduled" es una pieza preparada por el
+  // equipo (descripción + foto), no aprobada por un director.
+  scheduled: "Programada",
   published: "Publicada",
 };
 
 const STATUS_COLOR: Record<ContentStatus, string> = {
+  planned: "#9B8259",
   draft: "#9B8259",
   scheduled: "#2f7d4f",
   published: "#0A1A0C",
@@ -148,7 +155,10 @@ export default function PortalAgendaPage() {
         ]);
         if (active) {
           setClient(c ?? null);
-          setPosts(pts);
+          // Las pendientes (status planned) son planificación interna
+          // del equipo: todavía no tienen descripción ni foto. El
+          // cliente ve cada pieza recién cuando está preparada.
+          setPosts(pts.filter((pt) => pt.status !== "planned"));
           setRequests(reqs);
         }
       }

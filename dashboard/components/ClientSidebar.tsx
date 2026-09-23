@@ -4,17 +4,14 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   IDashboard,
-  IFases,
   ICalendario,
   IProducciones,
-  IAnalitica,
   ITareas,
   IPlus,
   IBiblioteca,
   IObjetivos,
   INotas,
   IArrowLeft,
-  IContenido,
   IReporting,
   IConfiguracion,
   ISprints,
@@ -23,6 +20,7 @@ import {
 } from "./icons/BrandIcons";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { listAssignmentsForUser } from "@/lib/team";
+import { expandVisibleMenus } from "@/lib/client-menus";
 import type { Client } from "@/lib/types";
 import styles from "./ClientSidebar.module.css";
 
@@ -94,18 +92,14 @@ export default function ClientSidebar({
   const base = `/cliente/${client.id}`;
 
   // Menú UNIFICADO (sin split nav/gestión). Orden por flujo de uso:
-  // dashboard → estrategia → ejecución → análisis → soporte.
+  // dashboard → ejecución → soporte. Estrategia, Contenido, Ofertas,
+  // Paid Media y Analítica salieron del menú (ver lib/client-menus.ts).
   const navGP: NavItem[] = [
     { key: "dashboard",   href: base,                   icon: IDashboard,     label: "Dashboard" },
-    { key: "fases",       href: `${base}/fases`,         icon: IFases,         label: "Estrategia" },
     { key: "calendario",  href: `${base}/planificador`,  icon: ICalendario,    label: "Calendario" },
-    { key: "contenido",   href: `${base}/contenido`,     icon: IContenido,     label: "Contenido" },
     { key: "tareas",      href: `${base}/tareas`,        icon: ITareas,        label: "Tareas" },
-    { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes" },
-    { key: "ofertas",     href: `${base}/ofertas`,        icon: ISolicitudes,   label: "Ofertas" },
+    { key: "solicitudes", href: `${base}/solicitudes`,   icon: ISolicitudes,   label: "Solicitudes y ofertas" },
     { key: "producciones",href: `${base}/campanas`,      icon: IProducciones,  label: "Producciones" },
-    { key: "paid_media",  href: `${base}/paid-media`,    icon: IAnalitica,     label: "Paid Media" },
-    { key: "analitica",   href: `${base}/analitica`,     icon: IAnalitica,     label: "Analítica" },
     { key: "reporting",   href: `${base}/reporting`,     icon: IReporting,     label: "Reporting" },
     { key: "talles",      href: `${base}/talles`,        icon: IProducciones,  label: "Talles faltantes" },
     { key: "biblioteca",  href: `${base}/biblioteca`,    icon: IBiblioteca,    label: "Biblioteca" },
@@ -126,33 +120,23 @@ export default function ClientSidebar({
     { key: "configuracion", href: `${base}/configuracion`, icon: IConfiguracion, label: "Configuración", directorOnly: true },
   ];
 
-  // Para clientes GP que NO están en fase de lanzamiento, ocultamos
-  // el menu "Estrategia". Razón: estrategia/branding solo tiene
-  // sentido para marcas nuevas. Una marca operativa no la necesita.
-  // El director siempre puede ver Configuración para activarla más
-  // adelante si cambia el flag.
-  const isGpLaunch = client.type === "gp" && !!client.onboarding?.isBrandLaunch;
   // El apartado "Talles faltantes" (agente stock-web) es específico de
   // tiendas ecommerce Fenicio. Por ahora solo aplica a estos clientes; para
   // el resto se oculta del menú. Agregar el slug al sumar otra tienda Fenicio.
   const STOCK_WEB_CLIENTS = ["glassy-waves"];
-  const baseNav = (
-    client.type === "gp"
-      ? isGpLaunch
-        ? navGP
-        : navGP.filter((it) => it.key !== "fases")
-      : navDev
-  ).filter(
+  const baseNav = (client.type === "gp" ? navGP : navDev).filter(
     (it) => it.key !== "talles" || STOCK_WEB_CLIENTS.includes(client.id),
   );
   // Si el viewer es team y tiene visible_menus configurado, filtramos
-  // a los keys listados.  Director (visibleMenus=null) ve todo.
+  // a los keys listados (con los alias de menús fusionados: quien tenía
+  // "contenido" ve Calendario, quien tenía "ofertas" ve Solicitudes).
+  // Director (visibleMenus=null) ve todo.
   // Team sin restricción (visibleMenus=null) también ve todo.
   // Los items directorOnly siguen filtrándose dentro de renderItem.
   const nav =
     isDirector || !visibleMenus
       ? baseNav
-      : baseNav.filter((it) => visibleMenus.includes(it.key));
+      : baseNav.filter((it) => expandVisibleMenus(visibleMenus).has(it.key));
 
   function renderItem(it: NavItem) {
     if (it.directorOnly && !isDirector) return null;

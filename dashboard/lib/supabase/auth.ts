@@ -165,7 +165,8 @@ export function hasFinanzasAccess(
 }
 
 /**
- * Puede el viewer editar piezas en /cliente/[id]/contenido?
+ * Puede el viewer editar piezas (Calendario del cliente y la vista
+ * vieja /cliente/[id]/contenido)?
  *   - Director: siempre.
  *   - Team con permissions.content_admin === true: sí, en cualquier cliente.
  *   - Team SIN content_admin pero el cliente es GP (tipo "gp"): SÍ. El

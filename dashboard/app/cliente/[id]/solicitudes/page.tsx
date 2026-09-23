@@ -1,8 +1,21 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+/**
+ * Cliente · Solicitudes y ofertas.
+ *
+ * Para clientes growth son un solo menú (mig 102) con dos pestañas:
+ *   - Bandeja: el inbox de solicitudes (ofertas comerciales + acciones)
+ *     con su gestión de estado, asignación y respuesta.
+ *   - Registro de ofertas: las ofertas/paquetes que cargó el cliente,
+ *     activas + histórico (antes era /ofertas, que ahora redirige acá
+ *     con ?vista=ofertas).
+ * Los clientes dev ven solo la bandeja.
+ */
+
+import { Suspense, use, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getClient } from "@/lib/storage";
+import OfferRegistry from "@/components/OfferRegistry";
 import { getCurrentProfile, type Profile } from "@/lib/supabase/auth";
 import {
   listRequestsForClient,
@@ -26,13 +39,29 @@ const STATUS_OPTIONS: { value: ClientRequestStatus; label: string }[] = [
   { value: "rejected", label: "Rechazada" },
 ];
 
+type Vista = "bandeja" | "ofertas";
+
 export default function ClientSolicitudesPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // useSearchParams (?vista=ofertas) exige un Suspense boundary en
+  // páginas client de Next 16.
+  return (
+    <Suspense fallback={null}>
+      <ClientSolicitudes params={params} />
+    </Suspense>
+  );
+}
+
+function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [vista, setVista] = useState<Vista>(
+    searchParams.get("vista") === "ofertas" ? "ofertas" : "bandeja",
+  );
   const [client, setClient] = useState<Client | null>(null);
   const [me, setMe] = useState<Profile | null>(null);
   const [team, setTeam] = useState<Profile[]>([]);
@@ -65,6 +94,19 @@ export default function ClientSolicitudesPage({
 
   const isDirector = me.role === "director";
   const isTeam = me.role === "team";
+  // Solo los clientes growth tienen registro de ofertas.
+  const hasOffers = client.type === "gp";
+  const isTravel = /viaje|turismo|travel|tour/i.test(client.sector ?? "");
+  const showOffers = hasOffers && vista === "ofertas";
+
+  function switchVista(v: Vista) {
+    setVista(v);
+    // La pestaña queda en la URL para que un reload o un link la respeten.
+    router.replace(
+      `/cliente/${id}/solicitudes${v === "ofertas" ? "?vista=ofertas" : ""}`,
+      { scroll: false },
+    );
+  }
   // El director toma todas las decisiones (asignar, responder, status).
   // El team solo puede mover el status — pero solo de las solicitudes
   // que tiene asignadas (no puede cambiar status de tareas de otros).
@@ -141,10 +183,20 @@ export default function ClientSolicitudesPage({
     <>
       <div className={ui.head}>
         <div>
-          <div className={ui.eyebrow}>Solicitudes del cliente</div>
-          <h1>Inbox</h1>
+          <div className={ui.eyebrow}>
+            {hasOffers ? "Solicitudes y ofertas del cliente" : "Solicitudes del cliente"}
+          </div>
+          <h1>
+            {showOffers
+              ? isTravel
+                ? "Paquetes cargados"
+                : "Ofertas cargadas"
+              : "Inbox"}
+          </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
-            {requests.length} totales · {pending.length} pendientes de revisión
+            {showOffers
+              ? `Registro de ${isTravel ? "paquetes" : "ofertas"} que cargó el cliente — activas e histórico. El estado se gestiona en la Bandeja.`
+              : `${requests.length} totales · ${pending.length} pendientes de revisión`}
           </div>
         </div>
         <button
@@ -155,19 +207,45 @@ export default function ClientSolicitudesPage({
         </button>
       </div>
 
-      <RequestsGroup
-        title={`Ofertas comerciales (${ofertas.length})`}
-        empty="El cliente no cargó ofertas todavía."
-        reqs={ofertas}
-        renderRow={renderRow}
-      />
+      {hasOffers && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          {(
+            [
+              { v: "bandeja", label: `Bandeja (${pending.length} pendientes)` },
+              { v: "ofertas", label: isTravel ? "Registro de paquetes" : "Registro de ofertas" },
+            ] as { v: Vista; label: string }[]
+          ).map((t) => (
+            <button
+              key={t.v}
+              type="button"
+              onClick={() => switchVista(t.v)}
+              className={vista === t.v ? ui.btnSolid : ui.btnGhost}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <RequestsGroup
-        title={`Acciones (${acciones.length})`}
-        empty="El cliente no cargó acciones todavía."
-        reqs={acciones}
-        renderRow={renderRow}
-      />
+      {showOffers ? (
+        <OfferRegistry clientId={id} travel={isTravel} />
+      ) : (
+        <>
+          <RequestsGroup
+            title={`Ofertas comerciales (${ofertas.length})`}
+            empty="El cliente no cargó ofertas todavía."
+            reqs={ofertas}
+            renderRow={renderRow}
+          />
+
+          <RequestsGroup
+            title={`Acciones (${acciones.length})`}
+            empty="El cliente no cargó acciones todavía."
+            reqs={acciones}
+            renderRow={renderRow}
+          />
+        </>
+      )}
     </>
   );
 }
