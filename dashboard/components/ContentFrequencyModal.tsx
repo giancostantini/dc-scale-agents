@@ -3,13 +3,16 @@
 /**
  * Modal donde el director define:
  *  1. Frecuencia semanal de publicación por SLOT (red × formato).
- *     Ej: Instagram Feed 3x/sem, Instagram Story 7x/sem.
+ *     Ej: Instagram Posteo 3x/sem, Instagram Historia 7x/sem.
  *  2. Mix porcentual de tipos de contenido por RED:
  *     Valor / Oferta / Engagement → ej IG: 60/25/15.
  *
- * El roadmap consume ambos:
- *  - Los días "sugeridos" se calculan con la frecuencia.
- *  - El tipo (V/O/E) de cada posteo sugerido se calcula con el mix.
+ * El asistente creativo del calendario (lib/content-plan.ts) usa las
+ * dos cosas para cargar el mes: la frecuencia decide los días y el mix
+ * la intención de cada pieza.
+ *
+ * YouTube no aparece: content_posts no acepta esa red, así que el
+ * asistente no podría cargarla (ver slotToPiece).
  *
  * BACK-COMPAT con keys legacy (ig/tt/in/fb) — los normalizamos al leer.
  */
@@ -45,6 +48,9 @@ function defaultMix(): ContentTypeMix {
   return { valor: 60, oferta: 25, engagement: 15 };
 }
 
+/** Slots que el calendario puede cargar (todos menos YouTube). */
+const PLANNABLE_SLOTS = CONTENT_SLOTS.filter((s) => s.network !== "yt");
+
 export default function ContentFrequencyModal({
   open,
   clientId,
@@ -65,14 +71,14 @@ export default function ContentFrequencyModal({
       current as Record<string, number | undefined> | undefined,
     );
     const initial: Record<string, number> = {};
-    for (const slot of CONTENT_SLOTS) {
+    for (const slot of PLANNABLE_SLOTS) {
       initial[slot.key] = normalized[slot.key] ?? 0;
     }
     setFreq(initial);
 
     // Inicializar mix con default para las redes activas
     const initialMix = {} as Record<ContentNetworkKey, ContentTypeMix>;
-    const networks: ContentNetworkKey[] = ["ig", "tt", "in", "fb", "yt"];
+    const networks: ContentNetworkKey[] = ["ig", "tt", "in", "fb"];
     for (const n of networks) {
       initialMix[n] = currentMix?.[n] ?? defaultMix();
     }
@@ -93,7 +99,7 @@ export default function ContentFrequencyModal({
       string,
       { label: string; color: string; slots: typeof CONTENT_SLOTS }
     >();
-    for (const s of CONTENT_SLOTS) {
+    for (const s of PLANNABLE_SLOTS) {
       const g = groups.get(s.network) ?? {
         label: s.networkLabel,
         color: s.color,
@@ -131,7 +137,7 @@ export default function ContentFrequencyModal({
     setSaving(true);
     try {
       const cleanedFreq: ContentFrequency = {};
-      for (const slot of CONTENT_SLOTS) {
+      for (const slot of PLANNABLE_SLOTS) {
         if (freq[slot.key] > 0) {
           (cleanedFreq as Record<string, number>)[slot.key] = freq[slot.key];
         }
@@ -141,7 +147,7 @@ export default function ContentFrequencyModal({
       // normalizamos a 100 si los % no suman exacto (no rompe nada
       // estructural pero queda más prolijo).
       const activeNetworks = new Set<ContentNetworkKey>();
-      for (const slot of CONTENT_SLOTS) {
+      for (const slot of PLANNABLE_SLOTS) {
         if (freq[slot.key] > 0) activeNetworks.add(slot.network);
       }
       const cleanedMix: ContentMix = {};
@@ -207,7 +213,7 @@ export default function ContentFrequencyModal({
             marginBottom: 12,
           }}
         >
-          Roadmap · Frecuencia + mix de contenido
+          Calendario · Frecuencia + tipo de contenido
         </div>
         <h2
           style={{
@@ -230,9 +236,9 @@ export default function ContentFrequencyModal({
           ¿Cuántas veces por semana publica cada formato, y qué porcentaje
           es <strong style={{ color: "#2f7d4f" }}>valor</strong>,{" "}
           <strong style={{ color: "#b04b3a" }}>oferta</strong> o{" "}
-          <strong style={{ color: "#9b8259" }}>engagement</strong>? El
-          calendario etiqueta automáticamente cada posteo sugerido con el
-          tipo correspondiente.
+          <strong style={{ color: "#9b8259" }}>engagement</strong>? Con
+          esto el asistente creativo del calendario carga el mes: qué día
+          toca, en qué red, qué formato y de qué tipo.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

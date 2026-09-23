@@ -1,55 +1,84 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+/**
+ * Calendario del cliente — el centro del contenido de los clientes
+ * growth (migración 102).
+ *
+ * Flujo:
+ *   1. El director define la frecuencia y el mix (⚙ Frecuencia).
+ *   2. El asistente creativo carga el mes: en qué día hay contenido, en
+ *      qué red, de qué formato y con qué intención. No escribe texto
+ *      (lib/content-plan.ts — determinístico, sin IA).
+ *   3. La CM / el editor abren cada pieza, cargan la descripción y la
+ *      foto (→ Preparado) y la marcan como subida cuando la publican.
+ *
+ * El módulo Contenido (aprobación de piezas IA, feed, consultor) quedó
+ * fuera del menú pero sigue vivo por link directo — ver el link al pie.
+ */
+
+import {
+  Suspense,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   addContent,
+  addContentBatch,
   deleteContent,
+  deletePlannedBetween,
   getClient,
   getContent,
   getEventsByClient,
+  updateContent,
   updateRoadmapMonthNote,
 } from "@/lib/storage";
-import { getCurrentProfile } from "@/lib/supabase/auth";
 import {
-  CONTENT_SLOTS,
+  canEditContent,
+  getCurrentProfile,
+  type Profile,
+} from "@/lib/supabase/auth";
+import { uploadContentPreview } from "@/lib/upload";
+import {
   CONTENT_TYPE_META,
   NETWORK_COLORS,
-  distributeContentTypes,
-  normalizeFrequency,
-  suggestedWeekdays,
-  weekdayLunFirst,
   type ContentType,
 } from "@/lib/content-frequency";
+import {
+  PIECE_STATE_META,
+  addDaysIso,
+  formatWord,
+  isOverdue,
+  monthSummary,
+  pieceState,
+  pieceTitle,
+  planMonth,
+  plannableSlots,
+  type PlannedPiece,
+} from "@/lib/content-plan";
+import { isoLocalDate, networksOf } from "@/lib/content-labels";
 import { commercialDatesIndex } from "@/lib/commercial-dates";
 import NewEventModal from "@/components/NewEventModal";
+import ContentFrequencyModal from "@/components/ContentFrequencyModal";
 import type {
   CalEvent,
   Client,
   ContentFormat,
+  ContentFrequency,
+  ContentMix,
   ContentNetwork,
   ContentPost,
-  ContentStatus,
 } from "@/lib/types";
 import ui from "@/components/ClientUI.module.css";
 
 const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-/** Colores para los chips de posteo en el calendario — usamos los
- *  colores oficiales de cada red para que se diferencien a primera
- *  vista. (Centralizados en lib/content-frequency.ts). */
-const NETWORK_COLOR_BG: Record<ContentNetwork, string> = {
-  ig: NETWORK_COLORS.ig.solid,
-  tt: NETWORK_COLORS.tt.solid,
-  in: NETWORK_COLORS.in.solid,
-  fb: NETWORK_COLORS.fb.solid,
-};
-const NETWORK_COLOR_FG: Record<ContentNetwork, string> = {
-  ig: NETWORK_COLORS.ig.onSolid,
-  tt: NETWORK_COLORS.tt.onSolid,
-  in: NETWORK_COLORS.in.onSolid,
-  fb: NETWORK_COLORS.fb.onSolid,
-};
+/** Orden de getDay() (0 = domingo). */
+const WEEKDAYS_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 const NETWORK_LABEL: Record<ContentNetwork, string> = {
   ig: "Instagram",
@@ -57,6 +86,13 @@ const NETWORK_LABEL: Record<ContentNetwork, string> = {
   in: "LinkedIn",
   fb: "Facebook",
 };
+const NETWORK_SHORT: Record<ContentNetwork, string> = {
+  ig: "IG",
+  tt: "TT",
+  in: "IN",
+  fb: "FB",
+};
+const NETWORK_ORDER: ContentNetwork[] = ["ig", "tt", "in", "fb"];
 
 /** Colores para tipos de evento del calendario (multi-día). */
 const EVENT_TYPE_COLOR: Record<string, string> = {
@@ -76,24 +112,91 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   pauta: "Pauta",
 };
 
-export default function PlanificadorPage({ params }: { params: Promise<{ id: string }> }) {
+/** Formatos que se pueden agregar a mano desde el modal del día. */
+const ADDABLE_FORMATS: { value: ContentFormat; label: string }[] = [
+  { value: "post", label: "Posteo" },
+  { value: "story", label: "Historia" },
+  { value: "reel", label: "Reel / Video" },
+  { value: "carrusel", label: "Carrusel" },
+];
+
+const OVERDUE_COLOR = "var(--red-warn)";
+
+/** "Hoy", "Mañana", "Ayer" o "El jueves 24/9". */
+function dayPhrase(date: string, today: string): string {
+  if (date === today) return "Hoy";
+  if (date === addDaysIso(today, 1)) return "Mañana";
+  if (date === addDaysIso(today, -1)) return "Ayer";
+  const [y, m, d] = date.split("-").map(Number);
+  return `El ${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]} ${d}/${m}`;
+}
+
+/** Baja la primera letra para seguir una frase ("Hoy toca: posteo…"),
+ *  salvo siglas como UGC. */
+function lowerFirst(s: string): string {
+  if (s.length > 1 && s[1] !== s[1].toLowerCase()) return s;
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+/** "Hoy toca: posteo de oferta en Instagram". */
+function tocaPhrase(post: ContentPost, today: string): string {
+  const verb = post.date < today ? "tocaba" : "toca";
+  return `${dayPhrase(post.date, today)} ${verb}: ${lowerFirst(pieceTitle(post))}`;
+}
+
+function mainNetwork(post: ContentPost): ContentNetwork {
+  return networksOf(post)[0] ?? post.network;
+}
+
+function sortPieces(a: ContentPost, b: ContentPost): number {
+  const na = NETWORK_ORDER.indexOf(mainNetwork(a));
+  const nb = NETWORK_ORDER.indexOf(mainNetwork(b));
+  if (na !== nb) return na - nb;
+  return a.format.localeCompare(b.format);
+}
+
+function errorMessage(err: unknown): string {
+  const msg = (err as { message?: string } | null)?.message ?? String(err);
+  // Sin la migración 102, el CHECK de status rechaza 'planned' y las
+  // columnas content_type / published_at no existen.
+  return /status_check|content_type|published_at/i.test(msg)
+    ? `${msg}\n\n¿Está corrida la migración 102?`
+    : msg;
+}
+
+export default function PlanificadorPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  // useSearchParams (deep link ?pieza=<id> desde el dashboard) exige un
+  // Suspense boundary en páginas client de Next 16.
+  return (
+    <Suspense fallback={null}>
+      <Planificador params={params} />
+    </Suspense>
+  );
+}
+
+function Planificador({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const piezaParam = searchParams.get("pieza");
   const [posts, setPosts] = useState<ContentPost[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [client, setClient] = useState<Client | null>(null);
-  const [isDirector, setIsDirector] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const today = new Date();
+  const todayIso = isoLocalDate(today);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [modalDate, setModalDate] = useState<string | null>(null);
-  /**
-   * Modal de detalle de UNA publicación — se abre al tocar un chip
-   * de post en una celda del calendario. Solo muestra los datos del
-   * post y un botón "Programar" que linkea al Meta Business Suite del
-   * cliente cuando el post es IG/FB. El resto de la gestión de ideas
-   * (crear, editar, asignar) vive en /contenido.
-   */
-  const [postDetail, setPostDetail] = useState<ContentPost | null>(null);
+  /** Día abierto en el modal del día (YYYY-MM-DD). */
+  const [dayModal, setDayModal] = useState<string | null>(null);
+  /** Pieza abierta. Guardamos el id y no un snapshot: el modal siempre
+   *  muestra la versión fresca después de un refresh. */
+  const [pieceId, setPieceId] = useState<string | null>(null);
+  const [freqModal, setFreqModal] = useState(false);
+  const [planning, setPlanning] = useState(false);
   const [eventModalDate, setEventModalDate] = useState<string | null>(null);
   const [pdfModal, setPdfModal] = useState(false);
   const [pdfFromYear, setPdfFromYear] = useState(today.getFullYear());
@@ -107,55 +210,102 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
-    // Eventos: solo los de ESTE cliente. Antes traíamos TODOS y
-    // filtrábamos con un check permisivo (clientId === id ||
-    // clientId === undefined || clientId === null) — eso dejaba
-    // pasar eventos sin client_id (los "globales" del calendario
-    // del topbar) como si fueran del cliente. Ahora pegamos directo
-    // a getEventsByClient que filtra en DB.
+    // Eventos: solo los de ESTE cliente (getEventsByClient filtra en DB;
+    // los eventos globales del topbar no tienen client_id).
     getEventsByClient(id).then(setEvents);
   }, [id]);
 
   useEffect(() => refresh(), [refresh]);
 
+  // Deep link ?pieza=<id> (lo usa el aviso de contenidos del dashboard):
+  // posiciona el calendario en el mes de la pieza y la abre.
+  useEffect(() => {
+    if (!piezaParam) return;
+    let active = true;
+    getContent(id).then((all) => {
+      const target = all.find((p) => p.id === piezaParam);
+      if (!active || !target) return;
+      const [y, m] = target.date.split("-").map(Number);
+      setYear(y);
+      setMonth(m - 1);
+      setPieceId(target.id);
+    });
+    return () => {
+      active = false;
+    };
+  }, [id, piezaParam]);
+
   useEffect(() => {
     getClient(id).then((c) => setClient(c ?? null));
-    getCurrentProfile().then((p) => setIsDirector(p?.role === "director"));
+    getCurrentProfile().then((p) => setProfile(p ?? null));
   }, [id]);
 
-  // Map slot → días sugeridos (Lun-Dom).
-  // Soporta back-compat con keys legacy via normalizeFrequency.
-  const suggestedBySlot = useMemo(() => {
-    const normalized = normalizeFrequency(
-      client?.content_frequency as
-        | Record<string, number | undefined>
-        | undefined,
-    );
-    const map = new Map<string, Set<number>>();
-    for (const slot of CONTENT_SLOTS) {
-      const perWeek = normalized[slot.key] ?? 0;
-      if (perWeek > 0) map.set(slot.key, suggestedWeekdays(perWeek));
-    }
-    return map;
-  }, [client?.content_frequency]);
-
-  // Fechas comerciales del año visible (lookup O(1) por día).
-  const commercialIdx = useMemo(
-    () => commercialDatesIndex(year),
-    [year],
-  );
+  const isDirector = profile?.role === "director";
+  const canEdit = canEditContent(profile, client?.type);
 
   const firstOfMonth = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = (firstOfMonth.getDay() + 6) % 7;
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
-
-  // Key del mes visible (para roadmap_month_notes).
+  const isPastMonth =
+    year < today.getFullYear() ||
+    (year === today.getFullYear() && month < today.getMonth());
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const monthLabel = MONTHS_ES[month];
   const monthNote = client?.roadmap_month_notes?.[monthKey] ?? "";
+  const lastDayIso = `${monthKey}-${String(daysInMonth).padStart(2, "0")}`;
+  /** En el mes en curso el asistente carga desde hoy: no rellena días
+   *  que ya pasaron. */
+  const planFrom = isCurrentMonth ? todayIso : `${monthKey}-01`;
+
+  const monthPosts = useMemo(
+    () => posts.filter((p) => p.date.startsWith(`${monthKey}-`)),
+    [posts, monthKey],
+  );
+  const summary = monthSummary(monthPosts, todayIso);
+
+  // Frecuencia que el asistente puede cargar (YouTube no entra en
+  // content_posts).
+  const plannableFreq = useMemo(
+    () => plannableSlots(client?.content_frequency),
+    [client?.content_frequency],
+  );
+  const hasFrequency = plannableFreq.length > 0;
+
+  // Lo que el asistente cargaría si se aprieta el botón ahora. Es un
+  // cálculo chico (días del mes × slots), no hace falta memo.
+  const missing: PlannedPiece[] =
+    client && !isPastMonth
+      ? planMonth({
+          frequency: client.content_frequency,
+          mix: client.content_mix,
+          year,
+          month0: month,
+          fromDate: planFrom,
+          existing: posts,
+        })
+      : [];
+
+  // Fechas comerciales del año visible (lookup O(1) por día).
+  const commercialIdx = useMemo(() => commercialDatesIndex(year), [year]);
+
+  /** Eventos multi-día visibles en este mes, sin los auto-generados por
+   *  seed-from-strategy (marcados "[Auto-estrategia]" en notes). */
+  const visibleEvents = useMemo(() => {
+    const startOfMonthIso = `${monthKey}-01`;
+    const AUTO_MARKER = "[Auto-estrategia]";
+    return events.filter((ev) => {
+      const evEnd = ev.end_date ?? ev.date;
+      if (!(ev.date <= lastDayIso && evEnd >= startOfMonthIso)) return false;
+      if ((ev.notes ?? "").startsWith(AUTO_MARKER)) return false;
+      return true;
+    });
+  }, [events, monthKey, lastDayIso]);
+
+  const openPiece = pieceId ? posts.find((p) => p.id === pieceId) ?? null : null;
 
   function dayKey(d: number) {
-    return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return `${monthKey}-${String(d).padStart(2, "0")}`;
   }
 
   function prevMonth() {
@@ -167,80 +317,112 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     else setMonth(month + 1);
   }
 
-  /** Para un día del mes, calcula el "índice ordinal" del slot
-   *  sugerido en el mes y le asigna un tipo (V/O/E) según el mix
-   *  configurado para esa red. Ej: si en IG hay 8 sugeridos en el mes
-   *  con mix 60/25/15, el 1° y 2° son V, el 3° es O, el 4° y 5° son V, etc.
-   *
-   *  Devuelve un Map<dayKey, Map<slotKey, ContentType>>.
-   */
-  const slotTypesByDay = useMemo(() => {
-    if (!client?.content_mix && !client?.content_frequency) {
-      return new Map<string, Map<string, ContentType>>();
-    }
+  function toNewPiece(p: PlannedPiece): Omit<ContentPost, "id" | "createdAt"> {
+    return {
+      clientId: id,
+      date: p.date,
+      time: null,
+      network: p.network,
+      networks: [p.network],
+      format: p.format,
+      brief: "",
+      contentType: p.contentType,
+      status: "planned",
+      source: "manual",
+    };
+  }
 
-    // Para cada slot: lista de [day, ordinalIndex] del slot en este mes.
-    const slotOrdinals = new Map<string, { day: number; key: string }[]>();
-    for (let d = 1; d <= daysInMonth; d++) {
-      const cellDate = new Date(year, month, d);
-      const weekday = weekdayLunFirst(cellDate);
-      for (const slot of CONTENT_SLOTS) {
-        const days = suggestedBySlot.get(slot.key);
-        if (!days || !days.has(weekday)) continue;
-        const list = slotOrdinals.get(slot.key) ?? [];
-        list.push({ day: d, key: dayKey(d) });
-        slotOrdinals.set(slot.key, list);
+  /**
+   * Asistente creativo: carga lo que falta del mes visible.
+   *  - Normal: solo agrega (nunca borra).
+   *  - redo: borra antes los PENDIENTES desde planFrom (lo preparado y
+   *    lo subido no se toca) y vuelve a cargar — se usa al cambiar la
+   *    frecuencia.
+   */
+  async function loadMonth(opts?: {
+    frequency?: ContentFrequency;
+    mix?: ContentMix;
+    redo?: boolean;
+  }) {
+    if (!client || planning || isPastMonth) return;
+    setPlanning(true);
+    try {
+      let existing = posts;
+      if (opts?.redo) {
+        await deletePlannedBetween(id, planFrom, lastDayIso);
+        existing = posts.filter(
+          (p) =>
+            !(p.status === "planned" && p.date >= planFrom && p.date <= lastDayIso),
+        );
+      }
+      const plan = planMonth({
+        frequency: opts?.frequency ?? client.content_frequency,
+        mix: opts?.mix ?? client.content_mix,
+        year,
+        month0: month,
+        fromDate: planFrom,
+        existing,
+      });
+      if (plan.length > 0) await addContentBatch(plan.map(toNewPiece));
+      refresh();
+      if (plan.length === 0 && !opts?.redo) {
+        alert(`${monthLabel} ya está cargado: según la frecuencia no falta ningún contenido.`);
+      }
+    } catch (err) {
+      alert(`No se pudo cargar ${monthLabel.toLowerCase()}:\n${errorMessage(err)}`);
+      refresh();
+    } finally {
+      setPlanning(false);
+    }
+  }
+
+  /** Al guardar la frecuencia: si el mes visible ya tenía pendientes,
+   *  ofrecer rehacerlos; si estaba vacío, ofrecer cargarlo. */
+  function onFrequencySaved(freq: ContentFrequency, mix: ContentMix) {
+    setClient((prev) =>
+      prev ? { ...prev, content_frequency: freq, content_mix: mix } : prev,
+    );
+    if (isPastMonth) return;
+    const label = monthLabel.toLowerCase();
+    const pendingAhead = monthPosts.some(
+      (p) => p.status === "planned" && p.date >= planFrom,
+    );
+    if (pendingAhead) {
+      const desde = isCurrentMonth ? " desde hoy" : "";
+      if (
+        confirm(
+          `¿Rehacer los contenidos pendientes de ${label}${desde} con la frecuencia nueva?\n\nLos preparados y los subidos no se tocan.`,
+        )
+      ) {
+        void loadMonth({ frequency: freq, mix, redo: true });
+      }
+    } else if (monthPosts.length === 0) {
+      if (confirm(`¿Cargar ${label} con esta frecuencia?`)) {
+        void loadMonth({ frequency: freq, mix });
       }
     }
+  }
 
-    // Para cada slot, distribuir tipos según el mix de su red.
-    const out = new Map<string, Map<string, ContentType>>();
-    for (const [slotKey, ordinals] of slotOrdinals.entries()) {
-      const slot = CONTENT_SLOTS.find((s) => s.key === slotKey);
-      if (!slot) continue;
-      const networkMix = client?.content_mix?.[slot.network];
-      const types = distributeContentTypes(networkMix, ordinals.length);
-      ordinals.forEach((o, i) => {
-        const inner = out.get(o.key) ?? new Map<string, ContentType>();
-        inner.set(slotKey, types[i]);
-        out.set(o.key, inner);
-      });
-    }
-    return out;
-  }, [
-    client?.content_mix,
-    client?.content_frequency,
-    suggestedBySlot,
-    year,
-    month,
-    daysInMonth,
-  ]);
-
-  /** Eventos multi-día visibles en este mes (intersección con el mes
-   *  visible). Cada evento puede empezar antes y terminar después del
-   *  mes — lo recortamos al rango visible y devolvemos las "bandas"
-   *  que tienen que renderizarse.
-   *
-   *  Filtramos los eventos auto-generados por seed-from-strategy
-   *  (marcados con "[Auto-estrategia]" en notes). En "Eventos y
-   *  producciones del mes" solo queremos lo que el director agendó
-   *  manualmente — los auto-eventos siguen visibles en las celdas
-   *  diarias del calendario pero no inflan la lista del header. */
-  const visibleEvents = useMemo(() => {
-    const startOfMonthIso = dayKey(1);
-    const endOfMonthIso = dayKey(daysInMonth);
-    const AUTO_MARKER = "[Auto-estrategia]";
-    return events.filter((ev) => {
-      const evStart = ev.date;
-      const evEnd = ev.end_date ?? ev.date;
-      // intersección con el mes
-      if (!(evStart <= endOfMonthIso && evEnd >= startOfMonthIso)) return false;
-      // descartar eventos auto-generados — solo manuales
-      if ((ev.notes ?? "").startsWith(AUTO_MARKER)) return false;
-      return true;
+  async function addManualPiece(input: {
+    date: string;
+    network: ContentNetwork;
+    format: ContentFormat;
+    contentType: ContentType;
+  }) {
+    await addContent({
+      clientId: id,
+      date: input.date,
+      time: null,
+      network: input.network,
+      networks: [input.network],
+      format: input.format,
+      brief: "",
+      contentType: input.contentType,
+      status: "planned",
+      source: "manual",
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, year, month]);
+    refresh();
+  }
 
   /**
    * Descarga el PDF del roadmap para el rango pdfFromYear/Month →
@@ -252,7 +434,6 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     if (pdfBusy || !client) return;
     setPdfBusy(true);
     try {
-      // Validar rango: from <= to
       const fromIdx = pdfFromYear * 12 + pdfFromMonth;
       const toIdx = pdfToYear * 12 + pdfToMonth;
       if (toIdx < fromIdx) {
@@ -261,13 +442,8 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         return;
       }
       const months: { year: number; month0: number }[] = [];
-      let cur = fromIdx;
-      while (cur <= toIdx) {
-        months.push({
-          year: Math.floor(cur / 12),
-          month0: cur % 12,
-        });
-        cur++;
+      for (let cur = fromIdx; cur <= toIdx; cur++) {
+        months.push({ year: Math.floor(cur / 12), month0: cur % 12 });
       }
       if (months.length > 24) {
         alert(
@@ -349,39 +525,149 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
     <>
       <div className={ui.head}>
         <div>
-          <div className={ui.eyebrow}>Calendario · Acciones del cliente</div>
-          <h1>Calendario de acciones</h1>
+          <div className={ui.eyebrow}>Calendario · Contenido del cliente</div>
+          <h1>Calendario</h1>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {isDirector && (
+            <button
+              className={ui.btnGhost}
+              onClick={() => setFreqModal(true)}
+              style={{ fontWeight: 600 }}
+            >
+              ⚙ Frecuencia
+            </button>
+          )}
           <button
             className={ui.btnGhost}
             onClick={() => setPdfModal(true)}
             style={{ fontWeight: 600 }}
           >
-            ↓ Descargar PDF
+            ↓ PDF
           </button>
           <button
             className={ui.btnGhost}
-            onClick={() =>
-              setEventModalDate(new Date().toISOString().slice(0, 10))
-            }
+            onClick={() => setEventModalDate(todayIso)}
             style={{ fontWeight: 600 }}
           >
-            + Nuevo evento / producción
+            + Evento / producción
           </button>
-          {/* Frecuencia + mix, Asistente Creativo y Poblar desde
-              estrategia se manejan desde /contenido — acá el calendario
-              queda enfocado solo en visualizar el roadmap, agendar
-              eventos manuales y descargar el PDF. */}
         </div>
       </div>
 
-      {/* Leyenda de slots configurados (red × formato) + tipos V/O/E */}
-      {suggestedBySlot.size > 0 && (
+      {/* Asistente creativo + resumen del mes. */}
+      <div
+        className={ui.panel}
+        style={{
+          display: "flex",
+          gap: 20,
+          alignItems: "center",
+          flexWrap: "wrap",
+          borderLeft: `3px solid ${
+            summary.atrasados > 0 ? OVERDUE_COLOR : "var(--sand)"
+          }`,
+        }}
+      >
+        <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 6,
+            }}
+          >
+            ✨ Asistente creativo
+          </div>
+          <div style={{ fontSize: 14, color: "var(--deep-green)", lineHeight: 1.5 }}>
+            {!hasFrequency ? (
+              isDirector ? (
+                <>
+                  Definí la frecuencia (cuántas veces por semana va cada
+                  formato y de qué tipo) y el asistente carga el mes solo.
+                </>
+              ) : (
+                <>
+                  Todavía no hay frecuencia configurada. Pedile a un
+                  director que la cargue para que el asistente arme el mes.
+                </>
+              )
+            ) : isPastMonth ? (
+              <>Mes cerrado — queda como registro de lo que se subió.</>
+            ) : missing.length > 0 ? (
+              <>
+                {monthPosts.length === 0
+                  ? `${monthLabel} todavía no está cargado: `
+                  : "Según la frecuencia faltan "}
+                <strong>
+                  {missing.length} contenido{missing.length === 1 ? "" : "s"}
+                </strong>
+                {monthPosts.length === 0 ? " para cargar." : ` en ${monthLabel.toLowerCase()}.`}
+              </>
+            ) : (
+              <>{monthLabel} está cargado según la frecuencia.</>
+            )}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {!hasFrequency && isDirector && (
+            <button className={ui.btnSolid} onClick={() => setFreqModal(true)}>
+              ⚙ Configurar frecuencia
+            </button>
+          )}
+          {hasFrequency && !isPastMonth && missing.length > 0 && canEdit && (
+            <button
+              className={ui.btnSolid}
+              onClick={() => void loadMonth()}
+              disabled={planning}
+            >
+              {planning ? "Cargando…" : `✨ Cargar ${monthLabel.toLowerCase()}`}
+            </button>
+          )}
+        </div>
+        {summary.total > 0 && (
+          <div
+            style={{
+              flexBasis: "100%",
+              display: "flex",
+              gap: 14,
+              flexWrap: "wrap",
+              fontSize: 12,
+              color: "var(--text-muted)",
+              paddingTop: 12,
+              borderTop: "1px solid rgba(10,26,12,0.06)",
+            }}
+          >
+            <span>
+              <strong style={{ color: "var(--deep-green)" }}>{summary.total}</strong>{" "}
+              contenido{summary.total === 1 ? "" : "s"} en {monthLabel.toLowerCase()}
+            </span>
+            <span style={{ color: PIECE_STATE_META.subido.color }}>
+              ✓ <strong>{summary.subidos}</strong> subido{summary.subidos === 1 ? "" : "s"}
+            </span>
+            <span style={{ color: PIECE_STATE_META.preparado.color }}>
+              ● <strong>{summary.preparados}</strong> preparado{summary.preparados === 1 ? "" : "s"}
+            </span>
+            <span style={{ color: PIECE_STATE_META.pendiente.color }}>
+              ○ <strong>{summary.pendientes}</strong> pendiente{summary.pendientes === 1 ? "" : "s"}
+            </span>
+            {summary.atrasados > 0 && (
+              <span style={{ color: OVERDUE_COLOR, fontWeight: 600 }}>
+                ⚠ {summary.atrasados} atrasado{summary.atrasados === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Leyenda: frecuencia configurada, tipos y estados. */}
+      {hasFrequency && (
         <div
           style={{
             display: "flex",
-            gap: 10,
+            gap: 12,
             flexWrap: "wrap",
             marginBottom: 16,
             padding: "10px 14px",
@@ -389,105 +675,47 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
             fontSize: 11,
             borderRadius: "var(--r-md)",
             alignItems: "center",
+            color: "var(--deep-green)",
           }}
         >
-          <span
-            style={{
-              fontSize: 9,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "var(--sand-dark)",
-              fontWeight: 700,
-              marginRight: 4,
-            }}
-          >
-            Redes
-          </span>
-          {CONTENT_SLOTS.filter((s) => suggestedBySlot.has(s.key)).map(
-            (slot) => {
-              const days = suggestedBySlot.get(slot.key)!;
-              return (
-                <span
-                  key={slot.key}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    color: "var(--deep-green)",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      background: slot.color,
-                      display: "inline-block",
-                      borderRadius: 2,
-                    }}
-                  />
-                  <strong>
-                    {slot.networkLabel} {slot.formatLabel}
-                  </strong>
-                  <span style={{ color: "var(--text-muted)" }}>
-                    {days.size}x/sem
-                  </span>
-                </span>
-              );
-            },
-          )}
-          <span style={{ flex: 1 }} />
-          <span
-            style={{
-              fontSize: 9,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "var(--sand-dark)",
-              fontWeight: 700,
-              marginRight: 4,
-            }}
-          >
-            Tipo
-          </span>
-          {(["valor", "oferta", "engagement"] as ContentType[]).map((t) => {
-            const meta = CONTENT_TYPE_META[t];
-            return (
+          <LegendTitle>Frecuencia</LegendTitle>
+          {plannableFreq.map(({ slot, perWeek }) => (
+            <span key={slot.key} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
               <span
-                key={t}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  color: "var(--deep-green)",
-                  fontWeight: 600,
+                  width: 8,
+                  height: 8,
+                  background: slot.color,
+                  display: "inline-block",
+                  borderRadius: 2,
                 }}
-              >
-                <span
-                  style={{
-                    width: 14,
-                    height: 14,
-                    background: meta.color,
-                    color: "#fff",
-                    fontSize: 8.5,
-                    fontWeight: 700,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 3,
-                  }}
-                >
-                  {meta.short}
-                </span>
-                {meta.label}
-              </span>
-            );
-          })}
+              />
+              <strong>
+                {slot.networkLabel} {slot.formatLabel.toLowerCase()}
+              </strong>
+              <span style={{ color: "var(--text-muted)" }}>{perWeek}/sem</span>
+            </span>
+          ))}
+          <span style={{ flex: 1 }} />
+          <LegendTitle>Tipo</LegendTitle>
+          {(["valor", "oferta", "engagement"] as ContentType[]).map((t) => (
+            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
+              <TypeBadge type={t} />
+              {CONTENT_TYPE_META[t].label}
+            </span>
+          ))}
+          <LegendTitle>Estado</LegendTitle>
+          <span style={{ color: "var(--text-muted)" }}>
+            punteado = pendiente · lleno = preparado · ✓ = subido ·{" "}
+            <span style={{ color: OVERDUE_COLOR }}>rojo = atrasado</span>
+          </span>
         </div>
       )}
 
       {/* Calendar */}
       <div className={ui.panel}>
         <div className={ui.panelHead}>
-          <div className={ui.panelTitle}>{MONTHS_ES[month]} {year}</div>
+          <div className={ui.panelTitle}>{monthLabel} {year}</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={prevMonth} className={ui.btnGhost} style={{ padding: "4px 10px" }}>‹</button>
             <button onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); }} className={ui.btnGhost} style={{ padding: "4px 12px" }}>Hoy</button>
@@ -495,8 +723,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        {/* Bandas de eventos multi-día arriba del calendario, agrupadas
-            por tipo para ahorrar espacio. */}
+        {/* Bandas de eventos multi-día arriba del calendario. */}
         {visibleEvents.length > 0 && (
           <div
             style={{
@@ -508,36 +735,13 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               marginBottom: 8,
             }}
           >
-            <div
-              style={{
-                fontSize: 9,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-              }}
-            >
-              Eventos y producciones del mes
-            </div>
+            <LegendTitle>Eventos y producciones del mes</LegendTitle>
             {visibleEvents.map((ev) => {
-              const startD = Math.max(
-                1,
-                new Date(ev.date).getMonth() === month &&
-                  new Date(ev.date).getFullYear() === year
-                  ? new Date(ev.date).getDate()
-                  : 1,
-              );
               const endIso = ev.end_date ?? ev.date;
-              const endD = Math.min(
-                daysInMonth,
-                new Date(endIso).getMonth() === month &&
-                  new Date(endIso).getFullYear() === year
-                  ? new Date(endIso).getDate()
-                  : daysInMonth,
-              );
+              const startD = ev.date.startsWith(`${monthKey}-`) ? Number(ev.date.slice(8, 10)) : 1;
+              const endD = endIso.startsWith(`${monthKey}-`) ? Number(endIso.slice(8, 10)) : daysInMonth;
               const days = endD - startD + 1;
-              const color =
-                EVENT_TYPE_COLOR[ev.type] ?? EVENT_TYPE_COLOR.contenido;
+              const color = EVENT_TYPE_COLOR[ev.type] ?? EVENT_TYPE_COLOR.contenido;
               return (
                 <div
                   key={ev.id}
@@ -583,55 +787,31 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: "rgba(10,26,12,0.08)", border: "1px solid rgba(10,26,12,0.08)" }}>
           {Array.from({ length: startOffset }).map((_, i) => (
-            <div key={`m${i}`} style={{ background: "var(--ivory)", minHeight: 90 }} />
+            <div key={`m${i}`} style={{ background: "var(--ivory)", minHeight: 96 }} />
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const key = dayKey(d);
-            const dayPosts = posts.filter((p) => p.date === key);
-            const isToday = isCurrentMonth && d === today.getDate();
+            const dayPosts = monthPosts.filter((p) => p.date === key).sort(sortPieces);
+            const isToday = key === todayIso;
             const commercial = commercialIdx.get(key);
-
-            const cellDate = new Date(year, month, d);
-            const weekday = weekdayLunFirst(cellDate);
-
-            const slotsWithRealPost = new Set<string>();
-            for (const p of dayPosts) {
-              let fmt: string;
-              if (p.format === "story") fmt = "story";
-              else if (p.format === "reel") fmt = "reel";
-              else if (p.network === "tt") fmt = "video";
-              else fmt = "feed";
-              slotsWithRealPost.add(`${p.network}_${fmt}`);
-            }
-            const suggestedSlots = CONTENT_SLOTS.filter((slot) => {
-              const days = suggestedBySlot.get(slot.key);
-              if (!days || !days.has(weekday)) return false;
-              return !slotsWithRealPost.has(slot.key);
-            });
-            const typesForDay = slotTypesByDay.get(key);
-
-            // Eventos multi-día que cubren este día — chip-banda
-            // chiquito al fondo de la celda.
-            const dayEvents = events.filter((ev) => {
-              const evStart = ev.date;
-              const evEnd = ev.end_date ?? ev.date;
-              return evStart <= key && evEnd >= key;
-            });
+            const dayEvents = events.filter(
+              (ev) => ev.date <= key && (ev.end_date ?? ev.date) >= key,
+            );
 
             return (
               <div
                 key={d}
-                onClick={() => setModalDate(key)}
+                onClick={() => setDayModal(key)}
                 style={{
                   background: isToday ? "var(--off-white)" : "var(--white)",
-                  minHeight: 90,
-                  padding: "6px 8px",
+                  minHeight: 96,
+                  padding: "6px 6px 12px",
                   cursor: "pointer",
                   position: "relative",
+                  minWidth: 0,
                 }}
               >
-                {/* Header de la celda: día + flag de fecha comercial */}
                 <div
                   style={{
                     display: "flex",
@@ -644,9 +824,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                     style={{
                       fontSize: 13,
                       fontWeight: isToday ? 700 : 500,
-                      color: isToday
-                        ? "var(--sand-dark)"
-                        : "var(--deep-green)",
+                      color: isToday ? "var(--sand-dark)" : "var(--deep-green)",
                     }}
                   >
                     {d}
@@ -678,96 +856,18 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                   )}
                 </div>
 
-                {/* Posts reales — chip sólido con info. Click abre
-                    el modal de detalle de publicación con un único
-                    botón "Programar" (→ Meta Business Suite). El
-                    stopPropagation evita abrir también el DayModal
-                    que está en la celda padre. */}
-                {dayPosts.slice(0, 2).map((p) => (
-                  <span
+                {dayPosts.slice(0, 3).map((p) => (
+                  <PieceChip
                     key={p.id}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      setPostDetail(p);
-                    }}
-                    title="Ver y programar esta publicación"
-                    style={{
-                      display: "block",
-                      fontSize: 10,
-                      padding: "2px 6px",
-                      marginTop: 4,
-                      background: NETWORK_COLOR_BG[p.network],
-                      color: NETWORK_COLOR_FG[p.network],
-                      fontWeight: 500,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      borderRadius: 2,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {p.time} {p.brief.slice(0, 14)}
-                  </span>
+                    post={p}
+                    todayIso={todayIso}
+                    onOpen={() => setPieceId(p.id)}
+                  />
                 ))}
-                {dayPosts.length > 2 && (
+                {dayPosts.length > 3 && (
                   <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 2, display: "block" }}>
-                    +{dayPosts.length - 2}
+                    +{dayPosts.length - 3} más
                   </span>
-                )}
-
-                {/* Días sugeridos — chips ghost por SLOT con tag V/O/E
-                    superpuesto si hay mix configurado. */}
-                {suggestedSlots.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 3,
-                      marginTop: 4,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {suggestedSlots.map((slot) => {
-                      const type = typesForDay?.get(slot.key);
-                      const typeMeta = type
-                        ? CONTENT_TYPE_META[type]
-                        : null;
-                      return (
-                        <span
-                          key={slot.key}
-                          title={`${slot.networkLabel} ${slot.formatLabel}${typeMeta ? ` · ${typeMeta.label}` : ""}`}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 2,
-                            fontSize: 8.5,
-                            padding: "1px 4px",
-                            background: "transparent",
-                            color: slot.color,
-                            border: `1px dashed ${slot.color}`,
-                            fontWeight: 600,
-                            letterSpacing: "0.03em",
-                            borderRadius: 2,
-                          }}
-                        >
-                          {slot.shortCode}
-                          {typeMeta && (
-                            <span
-                              style={{
-                                fontSize: 7,
-                                background: typeMeta.color,
-                                color: "#fff",
-                                padding: "0 3px",
-                                fontWeight: 700,
-                                borderRadius: 2,
-                              }}
-                            >
-                              {typeMeta.short}
-                            </span>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
                 )}
 
                 {/* Pie de celda: bandas de eventos multi-día que la cubren */}
@@ -784,8 +884,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                     }}
                   >
                     {dayEvents.slice(0, 2).map((ev) => {
-                      const color =
-                        EVENT_TYPE_COLOR[ev.type] ?? EVENT_TYPE_COLOR.contenido;
+                      const color = EVENT_TYPE_COLOR[ev.type] ?? EVENT_TYPE_COLOR.contenido;
                       const isStart = ev.date === key;
                       const isEnd = (ev.end_date ?? ev.date) === key;
                       return (
@@ -833,26 +932,9 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: 9,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              Estrategia del mes
-            </div>
-            <h3
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--deep-green)",
-              }}
-            >
-              {MONTHS_ES[month]} {year}
+            <LegendTitle>Estrategia del mes</LegendTitle>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--deep-green)", marginTop: 4 }}>
+              {monthLabel} {year}
             </h3>
           </div>
           {isDirector && !monthNoteEditing && (
@@ -875,28 +957,9 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               onChange={(e) => setMonthNoteDraft(e.target.value)}
               placeholder="Ej: En mayo arrancamos el batch de awareness frío con Reels. Foco en hook de los primeros 3s. Pauta inicial US$ 800/mes en IG+FB. Black Friday capturamos demanda con campaña dedicada de retargeting…"
               rows={10}
-              style={{
-                width: "100%",
-                padding: 14,
-                border: "1px solid rgba(10,26,12,0.15)",
-                background: "var(--white)",
-                color: "var(--deep-green)",
-                fontFamily: "inherit",
-                fontSize: 13,
-                lineHeight: 1.6,
-                resize: "vertical",
-                borderRadius: "var(--r-md)",
-                outline: "none",
-              }}
+              style={{ ...inputS, padding: 14, lineHeight: 1.6, resize: "vertical" }}
             />
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                justifyContent: "flex-end",
-                marginTop: 12,
-              }}
-            >
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
               <button
                 onClick={() => setMonthNoteEditing(false)}
                 disabled={savingNote}
@@ -904,24 +967,13 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               >
                 Cancelar
               </button>
-              <button
-                onClick={saveMonthNote}
-                disabled={savingNote}
-                className={ui.btnSolid}
-              >
+              <button onClick={saveMonthNote} disabled={savingNote} className={ui.btnSolid}>
                 {savingNote ? "Guardando…" : "Guardar"}
               </button>
             </div>
           </>
         ) : monthNote ? (
-          <div
-            style={{
-              fontSize: 14,
-              color: "var(--deep-green)",
-              lineHeight: 1.7,
-              whiteSpace: "pre-wrap",
-            }}
-          >
+          <div style={{ fontSize: 14, color: "var(--deep-green)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
             {monthNote}
           </div>
         ) : (
@@ -943,25 +995,56 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         )}
       </div>
 
-      {modalDate && (
-        <ContentDayModal
-          clientId={id}
-          date={modalDate}
-          posts={posts.filter((p) => p.date === modalDate)}
-          onClose={() => setModalDate(null)}
-          onChange={refresh}
+      {/* La vista vieja de Contenido (aprobación de piezas IA, feed,
+          consultor de ideas) salió del menú pero sigue viva. */}
+      <div style={{ marginTop: 18, textAlign: "right", fontSize: 11 }}>
+        <Link
+          href={`/cliente/${id}/contenido`}
+          style={{ color: "var(--text-muted)", textDecoration: "underline", textDecorationStyle: "dotted" }}
+        >
+          Herramientas anteriores (Contenido) →
+        </Link>
+      </div>
+
+      {dayModal && (
+        <DayModal
+          date={dayModal}
+          todayIso={todayIso}
+          pieces={piecesOfDay(posts, dayModal)}
+          canEdit={canEdit}
+          onClose={() => setDayModal(null)}
+          onOpenPiece={(pid) => {
+            setDayModal(null);
+            setPieceId(pid);
+          }}
+          onAdd={(input) => addManualPiece({ date: dayModal, ...input })}
           onOpenEvent={(d) => {
-            setModalDate(null);
+            setDayModal(null);
             setEventModalDate(d);
           }}
         />
       )}
 
-      {postDetail && (
-        <PostDetailModal
-          post={postDetail}
+      {openPiece && (
+        <PieceModal
+          key={openPiece.id}
+          post={openPiece}
+          todayIso={todayIso}
+          canEdit={canEdit}
           metaBusinessSuiteUrl={client?.external_links?.meta_business_suite_url ?? null}
-          onClose={() => setPostDetail(null)}
+          onClose={() => setPieceId(null)}
+          onChanged={refresh}
+        />
+      )}
+
+      {client && (
+        <ContentFrequencyModal
+          open={freqModal}
+          clientId={id}
+          current={client.content_frequency}
+          currentMix={client.content_mix}
+          onClose={() => setFreqModal(false)}
+          onSaved={onFrequencySaved}
         />
       )}
 
@@ -976,68 +1059,20 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
         }}
       />
 
-      {/* Frecuencia + mix, Asistente Creativo y "Poblar desde
-          estrategia" se manejan desde /contenido — los modales y la
-          lógica de seed quedaron fuera del calendario para no duplicar
-          entrypoints. */}
-
       {/* Modal de descarga PDF: rango de meses */}
       {pdfModal && (
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget && !pdfBusy) setPdfModal(false);
           }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(10,26,12,0.6)",
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 40,
-            backdropFilter: "blur(4px)",
-          }}
+          style={overlayS}
         >
-          <div
-            style={{
-              background: "var(--white)",
-              maxWidth: 520,
-              width: "100%",
-              padding: 36,
-              borderRadius: "var(--r-lg)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.25em",
-                textTransform: "uppercase",
-                color: "var(--sand-dark)",
-                fontWeight: 600,
-                marginBottom: 12,
-              }}
-            >
-              Calendario · Descarga PDF
-            </div>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                marginBottom: 8,
-              }}
-            >
+          <div style={{ background: "var(--white)", maxWidth: 520, width: "100%", padding: 36, borderRadius: "var(--r-lg)" }}>
+            <div style={eyebrowS}>Calendario · Descarga PDF</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 8 }}>
               Elegí el rango de meses
             </h2>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text-muted)",
-                marginBottom: 20,
-                lineHeight: 1.5,
-              }}
-            >
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
               Cada mes va a salir con un calendario A4 horizontal + una página
               con la estrategia escrita de ese mes (si está cargada). Máximo 24 meses.
             </p>
@@ -1053,9 +1088,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                     style={selectStyle}
                   >
                     {MONTHS_ES.map((m, i) => (
-                      <option key={i} value={i}>
-                        {m}
-                      </option>
+                      <option key={i} value={i}>{m}</option>
                     ))}
                   </select>
                   <input
@@ -1079,9 +1112,7 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
                     style={selectStyle}
                   >
                     {MONTHS_ES.map((m, i) => (
-                      <option key={i} value={i}>
-                        {m}
-                      </option>
+                      <option key={i} value={i}>{m}</option>
                     ))}
                   </select>
                   <input
@@ -1117,21 +1148,11 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
               })()}
             </div>
 
-            <div
-              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
-            >
-              <button
-                onClick={() => setPdfModal(false)}
-                disabled={pdfBusy}
-                className={ui.btnGhost}
-              >
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => setPdfModal(false)} disabled={pdfBusy} className={ui.btnGhost}>
                 Cancelar
               </button>
-              <button
-                onClick={downloadRoadmapPdf}
-                disabled={pdfBusy}
-                className={ui.btnSolid}
-              >
+              <button onClick={downloadRoadmapPdf} disabled={pdfBusy} className={ui.btnSolid}>
                 {pdfBusy ? "Generando…" : "↓ Descargar PDF"}
               </button>
             </div>
@@ -1142,95 +1163,291 @@ export default function PlanificadorPage({ params }: { params: Promise<{ id: str
   );
 }
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid rgba(10,26,12,0.15)",
-  background: "var(--white)",
-  color: "var(--deep-green)",
-  fontSize: 13,
-  fontFamily: "inherit",
-  outline: "none",
-  borderRadius: "var(--r-md)",
-};
+/** Piezas de un día, ordenadas por red. */
+function piecesOfDay(posts: ContentPost[], date: string): ContentPost[] {
+  return posts.filter((p) => p.date === date).sort(sortPieces);
+}
 
-const pdfLabelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 10,
-  letterSpacing: "0.18em",
-  textTransform: "uppercase",
-  color: "var(--sand-dark)",
-  fontWeight: 700,
-  marginBottom: 6,
-};
+// ==================== PIEZAS ====================
 
-function ContentDayModal({
-  clientId, date, posts, onClose, onChange, onOpenEvent,
+function TypeBadge({ type }: { type: ContentType }) {
+  const meta = CONTENT_TYPE_META[type];
+  return (
+    <span
+      title={meta.label}
+      style={{
+        width: 13,
+        height: 13,
+        flexShrink: 0,
+        background: meta.color,
+        color: "#fff",
+        fontSize: 8,
+        fontWeight: 700,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 3,
+      }}
+    >
+      {meta.short}
+    </span>
+  );
+}
+
+function LegendTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        fontSize: 9,
+        letterSpacing: "0.2em",
+        textTransform: "uppercase",
+        color: "var(--sand-dark)",
+        fontWeight: 700,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Chip de una pieza en la celda del calendario. Color = red. Estado:
+ * pendiente = borde punteado · preparado = relleno suave · subido =
+ * relleno sólido con ✓ · atrasado = borde rojo.
+ */
+function PieceChip({
+  post,
+  todayIso,
+  onOpen,
 }: {
-  clientId: string; date: string; posts: ContentPost[];
-  onClose: () => void; onChange: () => void;
+  post: ContentPost;
+  todayIso: string;
+  onOpen: () => void;
+}) {
+  const net = mainNetwork(post);
+  const colors = NETWORK_COLORS[net];
+  const state = pieceState(post);
+  const overdue = isOverdue(post, todayIso);
+  const border = overdue
+    ? `1px solid ${OVERDUE_COLOR}`
+    : state === "pendiente"
+      ? `1px dashed ${colors.solid}`
+      : `1px solid ${colors.solid}`;
+  const background =
+    state === "subido" ? colors.solid : state === "preparado" ? colors.soft : "var(--white)";
+  const color = state === "subido" ? colors.onSolid : "var(--deep-green)";
+  return (
+    <button
+      type="button"
+      onClick={(ev) => {
+        // No abrir también el modal del día (la celda padre).
+        ev.stopPropagation();
+        onOpen();
+      }}
+      title={`${pieceTitle(post)} · ${PIECE_STATE_META[state].label}${overdue ? " · atrasado" : ""}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        width: "100%",
+        marginTop: 4,
+        padding: "2px 5px",
+        fontSize: 10,
+        fontFamily: "inherit",
+        textAlign: "left",
+        background,
+        color,
+        border,
+        borderRadius: 3,
+        cursor: "pointer",
+        minWidth: 0,
+      }}
+    >
+      <span style={{ fontWeight: 700, flexShrink: 0 }}>
+        {state === "subido" ? "✓" : NETWORK_SHORT[net]}
+      </span>
+      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>
+        {state === "subido" ? `${NETWORK_SHORT[net]} ` : ""}
+        {formatWord(net, post.format)}
+      </span>
+      {post.contentType && <TypeBadge type={post.contentType} />}
+    </button>
+  );
+}
+
+/** Modal del día: qué toca + agregar una pieza a mano + eventos. */
+function DayModal({
+  date,
+  todayIso,
+  pieces,
+  canEdit,
+  onClose,
+  onOpenPiece,
+  onAdd,
+  onOpenEvent,
+}: {
+  date: string;
+  todayIso: string;
+  pieces: ContentPost[];
+  canEdit: boolean;
+  onClose: () => void;
+  onOpenPiece: (id: string) => void;
+  onAdd: (input: {
+    network: ContentNetwork;
+    format: ContentFormat;
+    contentType: ContentType;
+  }) => Promise<void>;
   onOpenEvent: (date: string) => void;
 }) {
-  const [mode, setMode] = useState<"agent" | "upload">("agent");
+  const [adding, setAdding] = useState(false);
   const [network, setNetwork] = useState<ContentNetwork>("ig");
-  const [format, setFormat] = useState<ContentFormat>("reel");
-  const [brief, setBrief] = useState("");
-  const [time, setTime] = useState("19:30");
+  const [format, setFormat] = useState<ContentFormat>("post");
+  const [contentType, setContentType] = useState<ContentType>("valor");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const verb = date < todayIso ? "tocaba" : "toca";
 
-  async function save(status: ContentStatus) {
-    if (!brief.trim()) return;
-    await addContent({
-      clientId,
-      date,
-      time,
-      network,
-      // Multi-red (mig 065): el ContentDayModal solo deja elegir UNA
-      // red, pero el campo `networks` es obligatorio en el tipo, así
-      // que lo poblamos con la única elegida.
-      networks: [network],
-      format,
-      brief: brief.trim(),
-      status,
-      source: mode === "agent" ? "ai" : "manual",
-    });
-    setBrief("");
-    onChange();
-  }
-
-  async function remove(id: string) {
-    if (!confirm("¿Eliminar este post?")) return;
-    await deleteContent(id);
-    onChange();
+  async function add() {
+    setBusy(true);
+    setError(null);
+    try {
+      await onAdd({ network, format, contentType });
+      setAdding(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(10,26,12,0.6)",
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 40,
-        backdropFilter: "blur(4px)",
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div style={{ background: "var(--white)", maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 48, position: "relative", borderRadius: "var(--r-lg)" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, fontSize: 20, width: 32, height: 32, background: "transparent", border: "none", cursor: "pointer" }}>×</button>
-
-        <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--sand-dark)", fontWeight: 600, marginBottom: 12 }}>
-          Contenido · {date}
-        </div>
-        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.025em", marginBottom: 8 }}>
-          {posts.length === 0 ? "Agregar contenido" : `${posts.length} post${posts.length === 1 ? "" : "s"} ese día`}
+    <div style={overlayS} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={modalS(560)}>
+        <button onClick={onClose} style={closeBtnS} aria-label="Cerrar">×</button>
+        <div style={eyebrowS}>Contenido · {date}</div>
+        <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 18 }}>
+          {pieces.length === 0
+            ? `${dayPhrase(date, todayIso)} no hay contenido cargado`
+            : `${dayPhrase(date, todayIso)} ${verb}`}
         </h2>
+
+        {pieces.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {pieces.map((p) => {
+              const state = pieceState(p);
+              const overdue = isOverdue(p, todayIso);
+              const net = mainNetwork(p);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onOpenPiece(p.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    background: "var(--white)",
+                    border: `1px solid ${overdue ? OVERDUE_COLOR : "rgba(10,26,12,0.1)"}`,
+                    borderLeft: `4px solid ${NETWORK_COLORS[net].solid}`,
+                    borderRadius: "var(--r-md)",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    textAlign: "left",
+                  }}
+                >
+                  {p.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.imageUrl}
+                      alt=""
+                      style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4, flexShrink: 0 }}
+                    />
+                  ) : null}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--deep-green)" }}>
+                      {pieceTitle(p)}
+                    </div>
+                    {p.brief && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--text-muted)",
+                          marginTop: 2,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {p.brief}
+                      </div>
+                    )}
+                  </div>
+                  <StatePill state={state} overdue={overdue} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {canEdit &&
+          (adding ? (
+            <div
+              style={{
+                padding: 16,
+                background: "var(--off-white)",
+                borderRadius: "var(--r-md)",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={labelS}>Red</label>
+                  <select value={network} onChange={(e) => setNetwork(e.target.value as ContentNetwork)} style={inputS}>
+                    {NETWORK_ORDER.map((n) => (
+                      <option key={n} value={n}>{NETWORK_LABEL[n]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelS}>Formato</label>
+                  <select value={format} onChange={(e) => setFormat(e.target.value as ContentFormat)} style={inputS}>
+                    {ADDABLE_FORMATS.map((f) => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelS}>Tipo</label>
+                  <select value={contentType} onChange={(e) => setContentType(e.target.value as ContentType)} style={inputS}>
+                    {(["valor", "oferta", "engagement"] as ContentType[]).map((t) => (
+                      <option key={t} value={t}>{CONTENT_TYPE_META[t].label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {error && <div style={errorS}>{error}</div>}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setAdding(false)} className={ui.btnGhost} disabled={busy}>
+                  Cancelar
+                </button>
+                <button onClick={add} className={ui.btnSolid} disabled={busy}>
+                  {busy ? "Agregando…" : "Agregar"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              className={ui.btnGhost}
+              style={{ width: "100%", marginBottom: 16, fontWeight: 600 }}
+            >
+              + Agregar contenido este día
+            </button>
+          ))}
 
         <div
           style={{
-            marginTop: 8,
-            marginBottom: 24,
             padding: "10px 14px",
             background: "var(--ivory)",
             borderLeft: "3px solid var(--sand)",
@@ -1262,125 +1479,398 @@ function ContentDayModal({
               borderRadius: "var(--r-md)",
             }}
           >
-            + Producción / Evento →
-          </button>
-        </div>
-
-        {/* Posts existentes */}
-        {posts.length > 0 && (
-          <div style={{ marginBottom: 24, borderTop: "1px solid rgba(10,26,12,0.08)", paddingTop: 20 }}>
-            {posts.map((p) => (
-              <div key={p.id} style={{ padding: "12px 0", borderBottom: "1px solid rgba(10,26,12,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ padding: "2px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: NETWORK_COLOR_BG[p.network], color: NETWORK_COLOR_FG[p.network], fontWeight: 600, borderRadius: "var(--r-pill)" }}>
-                      {NETWORK_LABEL[p.network]} · {p.format}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.time}</span>
-                    <span className={`${ui.pill} ${p.status === "published" ? ui.pillGreen : p.status === "scheduled" ? ui.pillYellow : ui.pillGrey}`}>
-                      {p.status === "published" ? "Publicado" : p.status === "scheduled" ? "Programado" : "Borrador"}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 13 }}>{p.brief}</div>
-                </div>
-                <button onClick={() => remove(p.id)} style={{ color: "var(--red-warn)", fontSize: 16, background: "transparent", border: "none", cursor: "pointer" }}>×</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Mode selector */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-          <button
-            onClick={() => setMode("agent")}
-            style={{
-              padding: 20,
-              border: `2px solid ${mode === "agent" ? "var(--sand)" : "rgba(10,26,12,0.1)"}`,
-              background: mode === "agent" ? "var(--off-white)" : "var(--white)",
-              cursor: "pointer",
-              textAlign: "left",
-              fontFamily: "inherit",
-              borderRadius: "var(--r-md)",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            <div style={{ fontSize: 20, marginBottom: 8, color: "var(--sand-dark)" }}>⚡</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Agente Creativo</div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              Generalo con IA desde el branding del cliente.
-            </div>
-          </button>
-          <button
-            onClick={() => setMode("upload")}
-            style={{
-              padding: 20,
-              border: `2px solid ${mode === "upload" ? "var(--sand)" : "rgba(10,26,12,0.1)"}`,
-              background: mode === "upload" ? "var(--off-white)" : "var(--white)",
-              cursor: "pointer",
-              textAlign: "left",
-              fontFamily: "inherit",
-              borderRadius: "var(--r-md)",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            <div style={{ fontSize: 20, marginBottom: 8, color: "var(--sand-dark)" }}>▲</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Subir manualmente</div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              Cargá la pieza terminada.
-            </div>
-          </button>
-        </div>
-
-        {/* Form */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={labelS}>Red</label>
-            <select value={network} onChange={(e) => setNetwork(e.target.value as ContentNetwork)} style={inputS}>
-              <option value="ig">Instagram</option>
-              <option value="tt">TikTok</option>
-              <option value="in">LinkedIn</option>
-              <option value="fb">Facebook</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelS}>Formato</label>
-            <select value={format} onChange={(e) => setFormat(e.target.value as ContentFormat)} style={inputS}>
-              <option value="reel">Reel / Video</option>
-              <option value="carrusel">Carrusel</option>
-              <option value="post">Imagen única</option>
-              <option value="story">Story</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelS}>Briefing / copy</label>
-          <textarea
-            value={brief}
-            onChange={(e) => setBrief(e.target.value)}
-            rows={3}
-            placeholder="Ej: Post sobre la nueva colección primavera — tono cercano, CTA para reservar."
-            style={{ ...inputS, resize: "vertical" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 24 }}>
-          <label style={labelS}>Horario</label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inputS} />
-        </div>
-
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={() => save("draft")} className={ui.btnGhost} disabled={!brief.trim()}>
-            Guardar borrador
-          </button>
-          <button onClick={() => save("scheduled")} className={ui.btnSolid} disabled={!brief.trim()}>
-            Programar →
+            + Evento →
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+function StatePill({ state, overdue }: { state: "pendiente" | "preparado" | "subido"; overdue: boolean }) {
+  const meta = PIECE_STATE_META[state];
+  const color = overdue ? OVERDUE_COLOR : meta.color;
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        padding: "3px 9px",
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        color,
+        border: `1px solid ${color}`,
+        borderRadius: "var(--r-pill)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {state === "subido" ? "✓ " : ""}
+      {meta.label}
+      {overdue ? " · atrasado" : ""}
+    </span>
+  );
+}
+
+/**
+ * Modal de una pieza: "Hoy toca: posteo de oferta en Instagram".
+ * La persona que la sube carga la descripción (qué se va a subir) y la
+ * foto; con descripción queda Preparado. "Marcar como subido" la cierra.
+ */
+function PieceModal({
+  post,
+  todayIso,
+  canEdit,
+  metaBusinessSuiteUrl,
+  onClose,
+  onChanged,
+}: {
+  post: ContentPost;
+  todayIso: string;
+  canEdit: boolean;
+  metaBusinessSuiteUrl: string | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [description, setDescription] = useState(post.brief ?? "");
+  const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl ?? null);
+  const [moveDate, setMoveDate] = useState(post.date);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const state = pieceState(post);
+  const overdue = isOverdue(post, todayIso);
+  const nets = networksOf(post);
+  const isMeta = nets.some((n) => n === "ig" || n === "fb");
+  // Fallback universal si el cliente no tiene URL de Meta Business
+  // Suite configurada (se carga en Configuración).
+  const programUrl = isMeta
+    ? metaBusinessSuiteUrl?.trim() || "https://business.facebook.com/latest/home"
+    : null;
+  const desc = description.trim();
+
+  async function run(kind: string, fn: () => Promise<unknown>, close = true) {
+    setBusy(kind);
+    setError(null);
+    try {
+      await fn();
+      onChanged();
+      if (close) onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const save = () =>
+    run("save", () =>
+      updateContent(post.id, {
+        brief: desc,
+        status: post.status === "published" ? "published" : desc ? "scheduled" : "planned",
+      }),
+    );
+
+  const markUploaded = () =>
+    run("publish", () =>
+      updateContent(post.id, {
+        brief: desc,
+        status: "published",
+        publishedAt: new Date().toISOString(),
+      }),
+    );
+
+  const undoUploaded = () =>
+    run("undo", () =>
+      updateContent(post.id, {
+        status: desc ? "scheduled" : "planned",
+        publishedAt: null,
+      }),
+    );
+
+  async function handleFile(file: File) {
+    setBusy("upload");
+    setError(null);
+    try {
+      // Bucket público content-post-previews (migración 069): la URL
+      // carga directo en <img src>.
+      const up = await uploadContentPreview(file, post.clientId);
+      if (!up.url) throw new Error("El upload no devolvió una URL pública.");
+      await updateContent(post.id, { imageUrl: up.url });
+      setImageUrl(up.url);
+      onChanged();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const removeImage = () =>
+    run(
+      "remove-image",
+      async () => {
+        await updateContent(post.id, { imageUrl: null });
+        setImageUrl(null);
+      },
+      false,
+    );
+
+  const move = () => run("move", () => updateContent(post.id, { date: moveDate }));
+
+  function remove() {
+    if (!confirm("¿Quitar este contenido del calendario?")) return;
+    void run("delete", () => deleteContent(post.id));
+  }
+
+  return (
+    <div style={overlayS} onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div style={modalS(560)}>
+        <button onClick={onClose} style={closeBtnS} aria-label="Cerrar">×</button>
+        <div style={eyebrowS}>Contenido · {post.date}</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.3, marginBottom: 12 }}>
+          {tocaPhrase(post, todayIso)}
+        </h2>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
+          <StatePill state={state} overdue={overdue} />
+          {post.status === "published" && post.publishedAt && (
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Subido el {new Date(post.publishedAt).toLocaleDateString("es-UY")}
+            </span>
+          )}
+        </div>
+
+        <label style={labelS}>¿Qué se va a subir?</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={!canEdit || !!busy}
+          rows={4}
+          placeholder="Ej: foto del producto nuevo con el precio de lanzamiento y la frase de la campaña."
+          style={{ ...inputS, resize: "vertical", lineHeight: 1.5, marginBottom: 16 }}
+        />
+
+        <label style={labelS}>Foto</label>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt="Foto de la pieza"
+              style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "var(--r-md)", border: "1px solid rgba(10,26,12,0.1)" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: "var(--r-md)",
+                background: "var(--off-white)",
+                border: "1px dashed rgba(10,26,12,0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                color: "var(--text-muted)",
+              }}
+            >
+              Sin foto
+            </div>
+          )}
+          {canEdit && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label className={ui.btnGhost} style={{ cursor: busy ? "default" : "pointer", textAlign: "center" }}>
+                {busy === "upload" ? "Subiendo…" : imageUrl ? "Cambiar foto" : "Adjuntar foto"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={!!busy}
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void handleFile(f);
+                  }}
+                />
+              </label>
+              {imageUrl && (
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  disabled={!!busy}
+                  style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
+                >
+                  Quitar foto
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {error && <div style={errorS}>{error}</div>}
+
+        {canEdit && (
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+            {programUrl && (
+              <a
+                href={programUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={ui.btnGhost}
+                style={{ textDecoration: "none" }}
+                title={
+                  metaBusinessSuiteUrl
+                    ? "Abrir el planner del cliente en Meta Business Suite"
+                    : "URL de Meta Business Suite del cliente sin configurar — abre el home genérico. Se carga en Configuración."
+                }
+              >
+                Meta Business Suite ↗
+              </a>
+            )}
+            {state === "subido" ? (
+              <button onClick={undoUploaded} className={ui.btnGhost} disabled={!!busy}>
+                {busy === "undo" ? "…" : "Deshacer subido"}
+              </button>
+            ) : (
+              <>
+                <button onClick={save} className={ui.btnGhost} disabled={!!busy}>
+                  {busy === "save" ? "Guardando…" : desc ? "Guardar · preparado" : "Guardar"}
+                </button>
+                <button onClick={markUploaded} className={ui.btnSolid} disabled={!!busy}>
+                  {busy === "publish" ? "…" : "✓ Marcar como subido"}
+                </button>
+              </>
+            )}
+            {state === "subido" && desc !== (post.brief ?? "").trim() && (
+              <button onClick={save} className={ui.btnSolid} disabled={!!busy}>
+                {busy === "save" ? "Guardando…" : "Guardar descripción"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {canEdit && (
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              paddingTop: 14,
+              borderTop: "1px solid rgba(10,26,12,0.08)",
+              fontSize: 12,
+            }}
+          >
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ color: "var(--text-muted)" }}>Mover al</span>
+              <input
+                type="date"
+                value={moveDate}
+                onChange={(e) => setMoveDate(e.target.value)}
+                disabled={!!busy}
+                style={{ ...inputS, width: "auto", padding: "5px 8px", fontSize: 12 }}
+              />
+              {moveDate && moveDate !== post.date && (
+                <button onClick={move} className={ui.btnGhost} disabled={!!busy} style={{ padding: "5px 10px" }}>
+                  Mover
+                </button>
+              )}
+            </div>
+            <button
+              onClick={remove}
+              disabled={!!busy}
+              style={{ background: "transparent", border: "none", color: OVERDUE_COLOR, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Quitar este contenido
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== ESTILOS ====================
+
+const overlayS: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(10,26,12,0.6)",
+  zIndex: 100,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 24,
+  backdropFilter: "blur(4px)",
+};
+
+function modalS(maxWidth: number): React.CSSProperties {
+  return {
+    background: "var(--white)",
+    maxWidth,
+    width: "100%",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    padding: 36,
+    position: "relative",
+    borderRadius: "var(--r-lg)",
+    boxShadow: "var(--shadow-md)",
+  };
+}
+
+const closeBtnS: React.CSSProperties = {
+  position: "absolute",
+  top: 16,
+  right: 16,
+  fontSize: 20,
+  width: 32,
+  height: 32,
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  color: "var(--text-muted)",
+};
+
+const eyebrowS: React.CSSProperties = {
+  fontSize: 10,
+  letterSpacing: "0.25em",
+  textTransform: "uppercase",
+  color: "var(--sand-dark)",
+  fontWeight: 600,
+  marginBottom: 10,
+};
+
+const errorS: React.CSSProperties = {
+  fontSize: 12,
+  color: OVERDUE_COLOR,
+  background: "rgba(185,28,28,0.06)",
+  padding: "8px 10px",
+  borderRadius: "var(--r-md)",
+  marginBottom: 12,
+  whiteSpace: "pre-wrap",
+};
+
+const selectStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  border: "1px solid rgba(10,26,12,0.15)",
+  background: "var(--white)",
+  color: "var(--deep-green)",
+  fontSize: 13,
+  fontFamily: "inherit",
+  outline: "none",
+  borderRadius: "var(--r-md)",
+};
+
+const pdfLabelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 10,
+  letterSpacing: "0.18em",
+  textTransform: "uppercase",
+  color: "var(--sand-dark)",
+  fontWeight: 700,
+  marginBottom: 6,
+};
 
 const labelS: React.CSSProperties = {
   display: "block",
@@ -1403,192 +1893,3 @@ const inputS: React.CSSProperties = {
   outline: "none",
   borderRadius: "var(--r-md)",
 };
-
-// ============================================================
-// PostDetailModal — mini-modal que aparece al tocar un chip de post
-// en una celda del calendario. Solo muestra info del post + un único
-// botón "Programar". Si el post es IG o FB y el cliente tiene URL de
-// Meta Business Suite configurada, el botón abre ese URL en una nueva
-// pestaña. Para TikTok y LinkedIn el botón está deshabilitado con un
-// tooltip que indica que la programación se hace manualmente en la
-// plataforma correspondiente.
-// ============================================================
-function PostDetailModal({
-  post,
-  metaBusinessSuiteUrl,
-  onClose,
-}: {
-  post: ContentPost;
-  metaBusinessSuiteUrl: string | null;
-  onClose: () => void;
-}) {
-  // Soporta IG y FB para el deeplink a Meta Business Suite.
-  const isMetaNetwork = post.network === "ig" || post.network === "fb";
-  // Fallback universal si el cliente no tiene URL custom seteada.
-  const FALLBACK_URL = "https://business.facebook.com/latest/home";
-  const programUrl = isMetaNetwork
-    ? metaBusinessSuiteUrl?.trim() || FALLBACK_URL
-    : null;
-
-  const statusLabel =
-    post.status === "published"
-      ? "Publicado"
-      : post.status === "scheduled"
-        ? "Programado"
-        : "Borrador";
-  const statusPillClass =
-    post.status === "published"
-      ? ui.pillGreen
-      : post.status === "scheduled"
-        ? ui.pillYellow
-        : ui.pillGrey;
-
-  return (
-    <div
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(10,26,12,0.6)",
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 40,
-        backdropFilter: "blur(4px)",
-      }}
-    >
-      <div
-        style={{
-          background: "var(--white)",
-          maxWidth: 480,
-          width: "100%",
-          padding: 36,
-          borderRadius: "var(--r-lg)",
-          position: "relative",
-          boxShadow: "var(--shadow-md)",
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            fontSize: 18,
-            width: 32,
-            height: 32,
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--text-muted)",
-          }}
-        >
-          ×
-        </button>
-
-        <div
-          style={{
-            fontSize: 10,
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-            color: "var(--sand-dark)",
-            fontWeight: 600,
-            marginBottom: 12,
-          }}
-        >
-          Publicación · {post.date}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "center",
-            marginBottom: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              padding: "3px 10px",
-              fontSize: 10,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              background: NETWORK_COLOR_BG[post.network],
-              color: NETWORK_COLOR_FG[post.network],
-              fontWeight: 600,
-              borderRadius: "var(--r-pill)",
-            }}
-          >
-            {NETWORK_LABEL[post.network]} · {post.format}
-          </span>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {post.time}
-          </span>
-          <span className={`${ui.pill} ${statusPillClass}`}>
-            {statusLabel}
-          </span>
-        </div>
-
-        <div
-          style={{
-            fontSize: 13,
-            color: "var(--deep-green)",
-            lineHeight: 1.55,
-            marginBottom: 24,
-            padding: 14,
-            background: "var(--off-white)",
-            borderRadius: "var(--r-md)",
-            whiteSpace: "pre-wrap",
-            maxHeight: 220,
-            overflowY: "auto",
-          }}
-        >
-          {post.brief || (
-            <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
-              Sin brief cargado. La idea / copy completos viven en el menú
-              <strong> Contenido</strong>.
-            </span>
-          )}
-        </div>
-
-        {/* Único botón disponible: Programar. IG/FB → Meta Business
-            Suite. Otras redes → deshabilitado con tooltip. */}
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          {programUrl ? (
-            <a
-              href={programUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
-              className={ui.btnSolid}
-              style={{
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-              title={
-                metaBusinessSuiteUrl
-                  ? "Abrir el planner del cliente en Meta Business Suite"
-                  : "URL de Meta Business Suite del cliente sin configurar — abriendo el home genérico. Configurala en /configuracion del cliente."
-              }
-            >
-              Programar en Meta Business Suite ↗
-            </a>
-          ) : (
-            <button
-              disabled
-              className={ui.btnGhost}
-              title={`Programá manualmente desde la app de ${NETWORK_LABEL[post.network]}. El planner de Meta Business Suite solo cubre IG y FB.`}
-              style={{ opacity: 0.55, cursor: "not-allowed" }}
-            >
-              Programar (manual en {NETWORK_LABEL[post.network]})
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
