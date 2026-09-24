@@ -130,3 +130,37 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
 .firm-card-logo > span { margin: 0 .04em; }
 /* Casos: cuatro cards verticales en una fila; 2 por fila en pantallas medianas. */
 @media (max-width: 1199px) and (min-width: 901px) { .cases-grid { grid-template-columns: 1fr 1fr !important; } }
+
+/* ============ Mobile: zonas táctiles y legibilidad ============
+   Objetivo: todo lo que se toca mide al menos 44px de alto y ningún
+   texto de lectura queda por debajo de 11px. */
+@media (max-width: 599px) {
+  .foot-list a, .foot-bottom a { display: inline-flex; align-items: center; min-height: 44px; }
+  .foot-list li { margin: 0; }
+  .case-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .case-demo-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; }
+  .solution-context summary { min-height: 44px; display: flex; align-items: center; }
+  .entry-brand-caption, .entry-eyebrow, .case-tag, .statement-eyebrow, .foot-brand-tagline, .label, .skin-eyebrow { font-size: 11px !important; }
+  /* Demos: botones y textos un punto más grandes en el celular. */
+  .mp-button { min-height: 40px; font-size: 12px; }
+  .mp-demo small, .mp-demo .mp-eyebrow, .mp-card-title, .mp-card-title > span, .mp-stat > span, .mp-window-bar, .mp-window-badge, .mp-demo label, .mp-tag { font-size: 11px; }
+  .mp-customer strong { font-size: 13px; }
+  .mp-demo p { font-size: 13px; }
+  .mp-demo input, .mp-demo select { font-size: 16px; min-height: 44px; } /* 16px evita el zoom automático de iOS al enfocar */
+  .bb-demo input, .bb-demo select, .bb-pick select { font-size: 16px; min-height: 44px; }
+  .bb-step > span, .bb-step > button { min-height: 40px; }
+  .gd-chip { min-height: 52px; }
+}
+@media (max-width: 599px) {
+  /* Formularios de agenda y chat: 16px para que iOS no haga zoom al tocar. */
+  .pb-field input, .pb-field textarea, .chat-input, .fnw-form input { font-size: 16px !important; }
+}
+@media (max-width: 599px) {
+  /* Más especificidad que mundipack-demo.css / brainbill-demo.css, que cargan después. */
+  html .mp-demo .mp-button { min-height: 40px; font-size: 12px; }
+  html .mp-demo small, html .mp-demo label, html .mp-demo .mp-window-badge, html .mp-demo .mp-card-title, html .mp-demo .mp-card-title > span, html .mp-demo .mp-card-title strong { font-size: 11px; }
+  html .bb-demo .bb-eyebrow, html .bb-demo .bb-badge, html .bb-demo .bb-choice em, .foot-label { font-size: 11px; }
+}
+@media (max-width: 599px) {
+  html .mp-demo .mp-window-bar, html .mp-demo .mp-stat > span, html .mp-demo .mp-assistant-toggle { font-size: 11px !important; }
+}
