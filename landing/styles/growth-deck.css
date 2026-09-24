@@ -1,0 +1,34 @@
+/* Growth & Marketing: cuentas como teléfonos superpuestos en abanico. */
+.gd { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 48px; align-items: center; padding: 28px 0 12px; }
+.gd-stage { position: relative; height: 600px; display: grid; place-items: center; perspective: 1400px; }
+.gd-card { position: absolute; width: 272px; padding: 0; border: 0; background: none; cursor: pointer; z-index: calc(10 - var(--depth, 0));
+  transform: translateX(calc(var(--offset, 0) * 150px)) translateZ(calc(var(--depth, 0) * -120px)) rotateY(calc(var(--offset, 0) * -14deg)) rotateZ(calc(var(--offset, 0) * 3deg)) scale(calc(1 - var(--depth, 0) * .1));
+  filter: brightness(calc(1 - var(--depth, 0) * .28)) saturate(calc(1 - var(--depth, 0) * .2));
+  transition: transform 700ms cubic-bezier(.2,.7,.15,1), filter 500ms ease; }
+.gd-card.is-active { cursor: default; }
+.gd-card:not(.is-active):hover { filter: brightness(calc(1.08 - var(--depth, 0) * .28)); }
+.gd-card:focus-visible { outline: 2px solid var(--entry-forest, #091b11); outline-offset: 6px; border-radius: 40px; }
+.gd-phone { position: relative; display: block; aspect-ratio: 9 / 18.6; border-radius: 38px; padding: 10px; background: #0b0f12; box-shadow: 0 30px 70px #091b1140, 0 4px 14px #091b1122, inset 0 0 0 1.5px #2a3036; overflow: hidden; }
+.gd-phone img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 29px; background: #111; }
+.gd-notch { position: absolute; top: 18px; left: 50%; width: 76px; height: 20px; margin-left: -38px; border-radius: 20px; background: #000; z-index: 1; }
+.gd-picker { display: grid; gap: 8px; margin-bottom: 26px; }
+.gd-chip { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 18px; border: 1px solid var(--ink-line-strong); border-radius: 12px; background: transparent; text-align: left; color: var(--entry-forest); transition: background 200ms ease, border-color 200ms ease; }
+.gd-chip strong { font-size: 15px; font-weight: 600; }
+.gd-chip small { font-size: 12px; color: var(--muted); }
+.gd-chip:hover { background: var(--brand-tint); }
+.gd-chip[aria-selected="true"] { background: var(--entry-forest); border-color: var(--entry-forest); color: var(--paper); }
+.gd-chip[aria-selected="true"] small { color: var(--sand); }
+.gd-kind { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.gd-name { font-size: 28px; font-weight: 600; letter-spacing: -.035em; margin: 6px 0 10px; }
+.gd-note { font-size: 15px; line-height: 1.65; color: var(--muted); max-width: 420px; }
+@media (max-width: 999px) {
+  .gd { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .gd-stage { height: 520px; }
+  .gd-card { width: 232px; transform: translateX(calc(var(--offset, 0) * 96px)) translateZ(calc(var(--depth, 0) * -110px)) rotateY(calc(var(--offset, 0) * -14deg)) scale(calc(1 - var(--depth, 0) * .12)); }
+}
+@media (max-width: 599px) {
+  .gd-stage { height: 450px; }
+  .gd-card { width: 200px; transform: translateX(calc(var(--offset, 0) * 62px)) translateZ(calc(var(--depth, 0) * -100px)) scale(calc(1 - var(--depth, 0) * .14)); }
+  .gd-name { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .gd-card { transition: none; } }

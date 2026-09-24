@@ -1,0 +1,132 @@
+/* Shared landing identity. The hero's lighting remains artwork, not section colors. */
+:root {
+  /* Tokens compartidos que antes solo vivían en el <style> inline. */
+  --on-dark-line: rgba(232, 228, 220, 0.12);
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-pill: 999px;
+  --shadow-emerald: 0 8px 24px rgba(196, 168, 130, 0.22), 0 2px 6px rgba(196, 168, 130, 0.15);
+  --shadow-emerald-lg: 0 14px 40px rgba(196, 168, 130, 0.32);
+  --brand-forest: #091b11;
+  --brand-forest-rgb: 9, 27, 17;
+  --brand-tint: #eae7de;
+  --ink-900: var(--brand-forest);
+  --ink-800: var(--brand-forest);
+  --ink-700: var(--brand-forest);
+  --ink-600: var(--brand-forest);
+  --paper: #f5f2ec;
+  --linen: #e8e4dc;
+  --sand: #c4a882;
+  --sand-deep: #795c37;
+  --emerald: var(--sand);
+  --emerald-hover: #d6bb96;
+  --muted: #596158;
+  --ink-line: rgba(var(--brand-forest-rgb), .1);
+  --ink-line-strong: rgba(var(--brand-forest-rgb), .2);
+  --on-dark-mid: #c0c8bd;
+  --on-dark-soft: #adb8aa;
+  --site-gutter: 56px;
+  --site-max: 1560px;
+  --section-space: clamp(72px,7.5vw,120px);
+  --motion-ease: cubic-bezier(.16,1,.3,1);
+}
+body { background: var(--brand-forest); }
+main > section[data-tone="dark"], footer[data-tone="dark"] { background-color: var(--brand-forest); }
+main > section[data-tone="light"] { background-color: var(--paper); }
+main > section:not(.entry-hero):not(.entry-proof):not(.solutions-section), footer {
+  padding-inline: max(var(--site-gutter), calc((100% - var(--site-max)) / 2));
+}
+main > section:not(.entry-hero):not(.entry-proof):not(.solutions-section) { padding-block: var(--section-space); }
+main > section[data-tone="light"] :is(h2 .accent,h2 .accent-sand,.case-metric) { color: var(--brand-forest); }
+main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); }
+.label { letter-spacing: .1em; }
+.case, .valor, .partner, .faq-item { border-radius: var(--r-md); }
+.case.dark-case, .inline-cta { background-color: var(--brand-forest); }
+.case.dark-case .case-logo-wrap { background: var(--paper); }
+.btn-primary:hover, .cta-big:hover { background: var(--emerald-hover); color: var(--brand-forest); }
+.statement-grid, .cta-final::before { opacity: .45; }
+.statement-glow, .cta-final-glow { translate: 0 var(--ambient-y,0px); }
+.statement-glow { transform: translate(-50%,-50%); }
+.cta-final-glow { transform: translateX(-50%); }
+#casos { border-top: 1px solid var(--ink-line-strong); }
+.case-metric-text { font-size: clamp(36px,3.4vw,54px); }
+.inline-cta-text { min-width: 0; }
+@media (max-width:1199px) { :root { --site-gutter:36px; } }
+@media (max-width:599px) { :root { --site-gutter:20px; --section-space:64px; } }
+@media (max-width:359px) { :root { --site-gutter:18px; } }
+
+/* Link a la demo desde la tarjeta de un caso. */
+.case-demo-link { display: inline-block; margin-top: 10px; font-weight: 600; color: inherit; text-decoration: underline; text-decoration-color: var(--sand); text-underline-offset: 4px; }
+.case-demo-link:hover { text-decoration-thickness: 2px; }
+
+/* ============ Botón de agenda con los socios ============
+   Un solo diseño para todos los CTA de reunión: caras de los dos socios,
+   texto en dos niveles y flecha en círculo que avanza al pasar el mouse. */
+.book-btn { display: inline-flex; align-items: center; gap: 14px; max-width: 100%; min-height: 64px; padding: 8px 8px 8px 10px; border: 0; border-radius: 999px; background: var(--sand); color: var(--brand-forest); text-align: left; text-decoration: none; cursor: pointer; font: inherit; box-shadow: 0 10px 30px rgba(196, 168, 130, .28), inset 0 0 0 1px rgba(255, 255, 255, .25); transition: transform 320ms cubic-bezier(.2,.7,.15,1), box-shadow 320ms ease, background 220ms ease; }
+.book-btn:hover { transform: translateY(-2px); background: #cfb592; box-shadow: 0 16px 40px rgba(196, 168, 130, .4), inset 0 0 0 1px rgba(255, 255, 255, .3); }
+.book-btn:active { transform: translateY(0) scale(.99); }
+.book-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.book-faces { display: inline-flex; flex-shrink: 0; }
+.book-faces img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--sand); transition: transform 320ms cubic-bezier(.2,.7,.15,1); }
+.book-faces img + img { margin-left: -14px; }
+.book-btn:hover .book-faces img + img { transform: translateX(6px); }
+.book-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 6px; }
+.book-text strong { font-size: 15px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+.book-text small { font-size: 12px; font-weight: 500; opacity: .72; line-height: 1.3; }
+.book-arrow { width: 48px; height: 48px; margin-left: auto; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--brand-forest); color: var(--sand); transition: transform 320ms cubic-bezier(.2,.7,.15,1); }
+.book-arrow svg { transition: transform 320ms cubic-bezier(.2,.7,.15,1); }
+.book-btn:hover .book-arrow svg { transform: translateX(3px); }
+/* Sobre fondos claros: invertido. */
+.book-btn.is-dark { background: var(--brand-forest); color: var(--paper); box-shadow: 0 12px 32px rgba(9, 27, 17, .22); }
+.book-btn.is-dark:hover { background: #12291b; box-shadow: 0 18px 44px rgba(9, 27, 17, .3); }
+.book-btn.is-dark .book-faces img { border-color: var(--brand-forest); }
+.book-btn.is-dark .book-arrow { background: var(--sand); color: var(--brand-forest); }
+.book-btn.is-lg { min-height: 76px; padding: 10px 10px 10px 12px; gap: 18px; }
+.book-btn.is-lg .book-faces img { width: 54px; height: 54px; }
+.book-btn.is-lg .book-text strong { font-size: 18px; }
+.book-btn.is-lg .book-arrow { width: 58px; height: 58px; }
+@media (max-width: 599px) {
+  .book-btn, .book-btn.is-lg { width: 100%; min-height: 62px; gap: 10px; }
+  .book-faces img, .book-btn.is-lg .book-faces img { width: 38px; height: 38px; }
+  .book-text strong, .book-btn.is-lg .book-text strong { font-size: 14px; }
+  .book-text small { font-size: 11px; }
+  .book-arrow, .book-btn.is-lg .book-arrow { width: 44px; height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .book-btn, .book-btn *, .book-btn:hover { transition: none; transform: none; } }
+
+/* ============ Socios: card grande de la firma + fundadores compactos ============ */
+.firm-card { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 36px; padding: 44px 48px; margin-bottom: 44px; border-radius: 24px; background: var(--brand-forest); color: var(--paper); text-decoration: none; overflow: hidden; isolation: isolate; box-shadow: 0 30px 80px rgba(9, 27, 17, .22); transition: transform 400ms cubic-bezier(.2,.7,.15,1), box-shadow 400ms ease; }
+.firm-card::before { content: ''; position: absolute; inset: -40% -10% auto auto; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(196, 168, 130, .28), transparent 65%); z-index: -1; transition: transform 700ms cubic-bezier(.2,.7,.15,1); }
+.firm-card:hover { transform: translateY(-4px); box-shadow: 0 40px 90px rgba(9, 27, 17, .3); }
+.firm-card:hover::before { transform: translate(-40px, 30px); }
+.firm-card:focus-visible { outline: 2px solid var(--brand-forest); outline-offset: 6px; }
+.firm-card-mark { width: 116px; height: 116px; border-radius: 28px; display: grid; place-items: center; background: #0f261a; border: 1px solid rgba(196, 168, 130, .35); font-size: 38px; font-weight: 700; letter-spacing: -.04em; }
+.firm-card-mark span, .firm-card-name span { font-family: 'DM Sans', sans-serif; font-weight: 200; color: var(--sand); }
+.firm-card-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--sand); font-weight: 600; }
+.firm-card-name { font-size: clamp(30px, 3.4vw, 48px); font-weight: 700; letter-spacing: -.04em; line-height: 1.05; margin: 12px 0 10px; }
+.firm-card-copy { font-size: 16px; line-height: 1.6; color: rgba(245, 242, 236, .72); max-width: 560px; margin: 0; }
+.firm-card-cta { display: inline-flex; align-items: center; gap: 12px; padding: 16px 22px; border-radius: 999px; background: var(--sand); color: var(--brand-forest); font-weight: 700; font-size: 14px; white-space: nowrap; transition: transform 320ms cubic-bezier(.2,.7,.15,1); }
+.firm-card:hover .firm-card-cta { transform: translateX(4px); }
+.partners-label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--sand-deep, #9b8259); margin-bottom: 16px; }
+/* Fundadores: más chicos que la card de la firma. */
+#socios .partner { padding: 30px 32px; min-height: 0; }
+#socios .partner-avatar { width: 56px; height: 56px; }
+#socios .partner-header-row { margin-bottom: 16px; }
+#socios .partner-name { font-size: 22px; }
+#socios .partner-role { font-size: 11px; margin-bottom: 14px; }
+#socios .partner-bio { font-size: 14px; }
+@media (max-width: 999px) {
+  .firm-card { grid-template-columns: auto 1fr; gap: 24px; padding: 34px 32px; }
+  .firm-card-cta { grid-column: 1 / -1; justify-self: start; }
+}
+@media (max-width: 599px) {
+  .firm-card { grid-template-columns: 1fr; gap: 18px; padding: 28px 22px; border-radius: 20px; }
+  .firm-card-mark { width: 76px; height: 76px; border-radius: 20px; font-size: 26px; }
+  .firm-card-cta { width: 100%; justify-content: center; }
+  #socios .partner { padding: 24px 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .firm-card, .firm-card::before, .firm-card-cta { transition: none; } }
+.firm-card-logo { display: inline-flex; align-items: baseline; white-space: nowrap; letter-spacing: -.02em; }
+.firm-card-logo > span { margin: 0 .04em; }
+/* Casos: cuatro cards verticales en una fila; 2 por fila en pantallas medianas. */
+@media (max-width: 1199px) and (min-width: 901px) { .cases-grid { grid-template-columns: 1fr 1fr !important; } }

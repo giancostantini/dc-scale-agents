@@ -1,0 +1,38 @@
+/* Movimiento atado al scroll en los dos sentidos (ver scripts/page-motion.js).
+   --e: cuánto entró el bloque (0 abajo, 1 en su lugar).
+   --x: cuánto salió por arriba (0 en su lugar, 1 afuera).
+   Sin valor, ambas dejan el bloque visible: sin JS / pestaña oculta / impresión. */
+@media (prefers-reduced-motion: no-preference) {
+  .has-page-motion [data-enter] {
+    opacity: calc(var(--e, 1) * (1 - var(--x, 0) * .9));
+    translate: 0 calc((1 - var(--e, 1)) * 56px - var(--x, 0) * 44px);
+    scale: calc(1 - var(--x, 0) * .05);
+    transform-origin: 50% 100%;
+  }
+  .has-page-motion [data-enter="heading"] {
+    translate: 0 calc((1 - var(--e, 1)) * 70px - var(--x, 0) * 60px);
+    clip-path: inset(0 0 calc((1 - var(--e, 1)) * 100%) 0);
+    scale: calc(1 - var(--x, 0) * .07);
+  }
+  .has-page-motion [data-enter="card"] {
+    translate: 0 calc((1 - var(--e, 1)) * 90px - var(--x, 0) * 50px);
+    scale: calc(.94 + var(--e, 1) * .06 - var(--x, 0) * .05);
+  }
+  .has-page-motion [data-enter]:focus-within { opacity: 1; translate: none; scale: none; clip-path: none; }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 599px) {
+  .has-page-motion [data-enter], .has-page-motion [data-enter="card"], .has-page-motion [data-enter="heading"] {
+    translate: 0 calc((1 - var(--e, 1)) * 36px - var(--x, 0) * 28px);
+  }
+}
+
+/* Escena de producto (Soluciones): entra con el scroll y queda plana y nítida. */
+@media (prefers-reduced-motion: no-preference) and (min-width: 1000px) {
+  .has-page-motion [data-reveal-scene] { transform-origin: 50% 0; transform: perspective(1600px) translateY(calc((1 - var(--reveal, 1)) * 90px)) rotateX(calc((1 - var(--reveal, 1)) * 14deg)) scale(calc(.88 + var(--reveal, 1) * .12)); opacity: calc(.3 + var(--reveal, 1) * .7); will-change: transform, opacity; }
+  .has-page-motion [data-reveal-scene].is-revealed { transform: none; opacity: 1; will-change: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-enter] { opacity: 1 !important; translate: none !important; scale: none !important; clip-path: none !important; }
+  .statement-glow, .cta-final-glow { translate: none; }
+}
+@media print { [data-enter] { opacity: 1 !important; translate: none !important; scale: none !important; clip-path: none !important; } }
