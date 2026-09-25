@@ -30,6 +30,7 @@ import {
   type ContentType,
 } from "./content-frequency";
 import { NETWORK_LABEL, isoLocalDate, networksOf } from "./content-labels";
+import { commercialDatesForYear } from "./commercial-dates";
 
 // ==================== SLOTS ↔ PIEZAS ====================
 
@@ -198,7 +199,67 @@ export function planMonth(opts: {
       });
     });
   }
+
+  // ===== Fechas importantes (Día de la Madre, San Valentín, etc.) =====
+  // Nos aseguramos de que las fechas comerciales de alta importancia del
+  // mes tengan al menos una pieza — aunque caigan en fin de semana o en
+  // un día que la frecuencia no cubriría. Si ese día ya tiene una pieza
+  // (existente o recién planeada), no agregamos otra.
+  const mainSlot = pickMainSlot(freq);
+  if (mainSlot) {
+    // Días que ya tienen alguna pieza este mes (existentes + planeadas).
+    const datesWithPiece = new Set<string>();
+    for (const p of opts.existing) {
+      if (p.date.startsWith(monthPrefix)) datesWithPiece.add(p.date);
+    }
+    for (const p of out) datesWithPiece.add(p.date);
+
+    const keyDates = commercialDatesForYear(opts.year).filter(
+      (d) =>
+        d.importance === "alta" &&
+        d.date.startsWith(monthPrefix) &&
+        d.date >= opts.fromDate &&
+        !datesWithPiece.has(d.date),
+    );
+    for (const d of keyDates) {
+      // Las fechas comerciales/estacionales son oportunidad de venta →
+      // pieza de oferta; las culturales/patrias → contenido de valor.
+      const contentType: ContentType =
+        d.kind === "comercial" || d.kind === "estacional" ? "oferta" : "valor";
+      out.push({
+        date: d.date,
+        network: mainSlot.network,
+        format: mainSlot.format,
+        contentType,
+      });
+      datesWithPiece.add(d.date);
+    }
+  }
+
   return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Elige el slot "principal" del cliente para las piezas de fechas
+ * importantes: el plannable con mayor frecuencia semanal (desempata por
+ * el orden de CONTENT_SLOTS). null si el cliente no tiene ningún slot
+ * cargable.
+ */
+function pickMainSlot(
+  freq: Record<string, number>,
+): { network: ContentNetwork; format: ContentFormat } | null {
+  let bestKey: string | null = null;
+  let bestPerWeek = 0;
+  for (const slot of CONTENT_SLOTS) {
+    const perWeek = freq[slot.key] ?? 0;
+    if (perWeek <= 0) continue;
+    if (slotToPiece(slot.key) === null) continue; // YouTube no entra
+    if (perWeek > bestPerWeek) {
+      bestPerWeek = perWeek;
+      bestKey = slot.key;
+    }
+  }
+  return bestKey ? slotToPiece(bestKey) : null;
 }
 
 // ==================== ESTADOS Y TEXTOS ====================

@@ -1,35 +1,36 @@
 import type { ContentPieceType } from "./types";
 
 /**
+ * Prioridad de días por ENGAGEMENT (mayor → menor). Convención Lun-first
+ * (0=Lun … 6=Dom). Se eligen los primeros N días de esta lista según la
+ * frecuencia, así los posteos caen primero en los días más fuertes —
+ * incluyendo fin de semana, que para marcas de consumo suele rendir muy
+ * bien. NO se publica "solo entre semana": sábado y domingo entran desde
+ * 3 posteos/semana.
+ *
+ * Orden: Mié · Sáb · Jue · Dom · Vie · Mar · Lun. (Referencia general de
+ * engagement en IG/TikTok/FB para consumo; se puede afinar por cliente
+ * más adelante.)
+ */
+export const ENGAGEMENT_PRIORITY: number[] = [2, 5, 3, 6, 4, 1, 0];
+
+/**
  * Distribución de días sugeridos según la frecuencia semanal de
- * publicación.
+ * publicación. Convención de días: 0=Lun … 6=Dom (Lun-first).
  *
- * Convención de días: 0=Lun, 1=Mar, 2=Mié, 3=Jue, 4=Vie, 5=Sáb, 6=Dom
- * (Lun-first, igual que el calendario del planificador).
- *
- * Estrategia: spread "natural" — distribuir uniforme respetando que
- * los días "más fuertes" para engagement son entre semana (Lun-Vie),
- * y Sáb-Dom solo entran cuando la frecuencia es alta.
- *
+ * Elige los `perWeek` días de mayor engagement (ENGAGEMENT_PRIORITY),
+ * incluyendo sábados y domingos. Ejemplos:
  * - 1/sem: Mié
- * - 2/sem: Mar, Jue
- * - 3/sem: Lun, Mié, Vie
- * - 4/sem: Lun, Mar, Jue, Vie
- * - 5/sem: Lun-Vie
- * - 6/sem: Lun-Sáb
- * - 7/sem: Lun-Dom
+ * - 2/sem: Mié, Sáb
+ * - 3/sem: Mié, Sáb, Jue
+ * - 4/sem: Mié, Sáb, Jue, Dom
+ * - 5/sem: + Vie
+ * - 6/sem: + Mar
+ * - 7/sem: todos
  */
 export function suggestedWeekdays(perWeek: number): Set<number> {
-  const map: Record<number, number[]> = {
-    1: [2],                     // Mié
-    2: [1, 3],                  // Mar, Jue
-    3: [0, 2, 4],               // Lun, Mié, Vie
-    4: [0, 1, 3, 4],            // Lun, Mar, Jue, Vie
-    5: [0, 1, 2, 3, 4],         // Lun-Vie
-    6: [0, 1, 2, 3, 4, 5],      // Lun-Sáb
-    7: [0, 1, 2, 3, 4, 5, 6],   // Lun-Dom
-  };
-  return new Set(map[perWeek] ?? []);
+  const n = Math.max(0, Math.min(7, Math.round(perWeek)));
+  return new Set(ENGAGEMENT_PRIORITY.slice(0, n));
 }
 
 /**
