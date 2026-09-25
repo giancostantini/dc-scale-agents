@@ -17,13 +17,22 @@ import {
   addTask,
   getTasks,
   updateTaskStatus,
+  updateTaskProgress,
+  updateTaskAttachments,
   deleteTask,
   getClient,
 } from "@/lib/storage";
 import { listProfiles } from "@/lib/team";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { getSupabase } from "@/lib/supabase/client";
-import type { Client, DevTask, TaskPriority, TaskStatus } from "@/lib/types";
+import { uploadTaskAttachment } from "@/lib/upload";
+import type {
+  Client,
+  DevTask,
+  TaskAttachment,
+  TaskPriority,
+  TaskStatus,
+} from "@/lib/types";
 import type { Profile } from "@/lib/supabase/auth";
 import ui from "@/components/ClientUI.module.css";
 
@@ -74,9 +83,14 @@ export default function TareasClientePage({
   const [priority, setPriority] = useState<TaskPriority>("media");
   const [dueDate, setDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+  // Adjunto solicitado en la tarea nueva.
+  const [attachmentRequested, setAttachmentRequested] = useState(false);
+  const [attachmentNote, setAttachmentNote] = useState("");
 
   // Filtro
   const [filter, setFilter] = useState<"all" | TaskStatus>("all");
+  // Tarea con subida de adjunto en curso.
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     getTasks(id).then(setTasks);
@@ -105,6 +119,8 @@ export default function TareasClientePage({
     setAssigneeId("");
     setPriority("media");
     setDueDate("");
+    setAttachmentRequested(false);
+    setAttachmentNote("");
     setShowForm(false);
   }
 
@@ -139,6 +155,10 @@ export default function TareasClientePage({
         estimatedHours: undefined,
         startDate: undefined,
         dueDate: dueDate || undefined,
+        progress: status === "done" ? 100 : 0,
+        attachmentRequested,
+        attachmentNote: attachmentRequested ? attachmentNote.trim() || null : null,
+        attachments: [],
       });
 
       // Si la tarea quedó asignada al cliente, mandamos una notif al
@@ -201,6 +221,60 @@ export default function TareasClientePage({
   async function changeStatus(t: DevTask, newStatus: TaskStatus) {
     await updateTaskStatus(t.id, newStatus);
     refresh();
+  }
+
+  async function changeProgress(t: DevTask, value: number) {
+    // Update optimista para que la barra no "salte" mientras arrastran.
+    setTasks((prev) =>
+      prev.map((x) => (x.id === t.id ? { ...x, progress: value } : x)),
+    );
+    try {
+      await updateTaskProgress(t.id, value, t.status);
+      refresh();
+    } catch (err) {
+      alert(`No se pudo actualizar el avance: ${(err as Error).message}`);
+      refresh();
+    }
+  }
+
+  async function onUploadAttachment(t: DevTask, file: File | null) {
+    if (!file) return;
+    // 10 MB tope razonable para PDF/foto de tarea.
+    if (file.size > 10 * 1024 * 1024) {
+      alert("El archivo supera los 10 MB.");
+      return;
+    }
+    setUploadingId(t.id);
+    try {
+      const up = await uploadTaskAttachment(file, id);
+      const next: TaskAttachment[] = [
+        ...(t.attachments ?? []),
+        {
+          name: up.name,
+          url: up.url ?? "",
+          type: up.type,
+          size: up.size,
+          uploadedAt: new Date().toISOString(),
+        },
+      ];
+      await updateTaskAttachments(t.id, next);
+      refresh();
+    } catch (err) {
+      alert(`No se pudo subir el archivo: ${(err as Error).message}`);
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
+  async function removeAttachment(t: DevTask, index: number) {
+    if (!confirm("¿Quitar este archivo de la tarea?")) return;
+    const next = (t.attachments ?? []).filter((_, i) => i !== index);
+    try {
+      await updateTaskAttachments(t.id, next);
+      refresh();
+    } catch (err) {
+      alert(`No se pudo quitar: ${(err as Error).message}`);
+    }
   }
 
   async function remove(t: DevTask) {
@@ -346,6 +420,38 @@ export default function TareasClientePage({
               />
             </div>
           </div>
+
+          {/* Pedir archivo adjunto: si se activa, el asignado ve el pedido
+              en la tarea y sube el PDF o la foto. */}
+          <div style={{ marginBottom: 14 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+                color: "var(--deep-green)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={attachmentRequested}
+                onChange={(e) => setAttachmentRequested(e.target.checked)}
+                style={{ width: 16, height: 16 }}
+              />
+              Pedir un archivo adjunto (PDF o foto)
+            </label>
+            {attachmentRequested && (
+              <input
+                value={attachmentNote}
+                onChange={(e) => setAttachmentNote(e.target.value)}
+                placeholder="¿Qué archivo? Ej: subí el PDF firmado / foto del local terminado"
+                style={{ ...inputS, marginTop: 8 }}
+              />
+            )}
+          </div>
+
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button onClick={resetForm} className={ui.btnGhost} disabled={saving}>
               Cancelar
@@ -539,15 +645,192 @@ export default function TareasClientePage({
                     )}
                   </div>
                 </div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    height: 3,
-                    background: STATUS_COLOR[t.status],
-                    width: t.status === "done" ? "100%" : t.status === "active" ? "60%" : "20%",
-                    borderRadius: 2,
-                  }}
-                />
+                {/* Barra de progreso real (0-100). El asignado / director
+                    la ajusta con el slider. */}
+                <div style={{ marginTop: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 5,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color: "var(--text-muted)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Progreso
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: STATUS_COLOR[t.status],
+                        tabSize: 2,
+                      }}
+                    >
+                      {t.progress ?? 0}%
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      background: "rgba(10,26,12,0.08)",
+                      borderRadius: 4,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${t.progress ?? 0}%`,
+                        background: STATUS_COLOR[t.status],
+                        borderRadius: 4,
+                        transition: "width 0.2s",
+                      }}
+                    />
+                  </div>
+                  {canManage && t.status !== "done" && (
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={t.progress ?? 0}
+                      onChange={(e) =>
+                        changeProgress(t, parseInt(e.target.value, 10))
+                      }
+                      style={{ width: "100%", marginTop: 6, cursor: "pointer" }}
+                      title="Ajustar avance"
+                    />
+                  )}
+                </div>
+
+                {/* Adjuntos: si la tarea pide un archivo, el asignado sube
+                    el PDF o la foto. Los subidos se listan como links. */}
+                {(t.attachmentRequested ||
+                  (t.attachments && t.attachments.length > 0)) && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: "10px 12px",
+                      background: "var(--off-white)",
+                      borderRadius: "var(--r-md)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--sand-dark)",
+                        fontWeight: 700,
+                        marginBottom: 6,
+                      }}
+                    >
+                      📎 Archivo{" "}
+                      {t.attachmentRequested ? "solicitado" : "adjunto"}
+                    </div>
+                    {t.attachmentRequested && t.attachmentNote && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--deep-green)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        {t.attachmentNote}
+                      </div>
+                    )}
+                    {t.attachments && t.attachments.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          marginBottom: canManage ? 8 : 0,
+                        }}
+                      >
+                        {t.attachments.map((a, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              fontSize: 12,
+                            }}
+                          >
+                            <a
+                              href={a.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "var(--deep-green)",
+                                textDecoration: "underline",
+                                flex: 1,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {(a.type ?? "").startsWith("image/") ? "🖼" : "📄"}{" "}
+                              {a.name}
+                            </a>
+                            {canManage && (
+                              <button
+                                onClick={() => removeAttachment(t, i)}
+                                style={{ ...mini, color: "var(--red-warn)" }}
+                                title="Quitar"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {canManage && (
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "var(--deep-green)",
+                          border: "1px solid rgba(10,26,12,0.15)",
+                          borderRadius: "var(--r-sm)",
+                          padding: "6px 12px",
+                          cursor: uploadingId === t.id ? "default" : "pointer",
+                          background: "var(--white)",
+                        }}
+                      >
+                        {uploadingId === t.id
+                          ? "Subiendo…"
+                          : t.attachments && t.attachments.length > 0
+                            ? "+ Subir otro"
+                            : "+ Adjuntar PDF o foto"}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          hidden
+                          disabled={uploadingId === t.id}
+                          onChange={(e) => {
+                            onUploadAttachment(t, e.target.files?.[0] ?? null);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
             ))
         )}

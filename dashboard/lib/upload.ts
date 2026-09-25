@@ -62,6 +62,22 @@ export async function uploadContentPreview(
   return uploadToBucket(file, folder, CONTENT_PREVIEWS_BUCKET);
 }
 
+/**
+ * Sube un adjunto de tarea (PDF o foto) al bucket público de previews,
+ * bajo la carpeta task-attachments/<clientId>. Público → el URL sirve
+ * para `<img src>` (fotos) y para link de descarga (PDF).
+ */
+export async function uploadTaskAttachment(
+  file: File,
+  clientId: string,
+): Promise<UploadedFile> {
+  return uploadToBucket(
+    file,
+    `task-attachments/${clientId}`,
+    CONTENT_PREVIEWS_BUCKET,
+  );
+}
+
 /** Helper común: sanitiza nombre + sube + devuelve UploadedFile con
  *  publicUrl. Si el bucket es privado el publicUrl existe pero un
  *  `<img src>` no lo carga; usalo solo para descargas con auth. */

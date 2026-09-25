@@ -22,6 +22,7 @@ import type {
   ClientObjectives,
   ClientNote,
   DevTask,
+  TaskAttachment,
   ProductionCampaign,
   ContentPost,
   RoutingRule,
@@ -2353,6 +2354,10 @@ interface TaskRow {
   start_date: string | null;
   due_date: string | null;
   created_at: string;
+  progress?: number | null;
+  attachment_requested?: boolean | null;
+  attachment_note?: string | null;
+  attachments?: TaskAttachment[] | null;
 }
 
 function taskFromRow(r: TaskRow): DevTask {
@@ -2370,6 +2375,10 @@ function taskFromRow(r: TaskRow): DevTask {
     startDate: r.start_date ?? undefined,
     dueDate: r.due_date ?? undefined,
     createdAt: r.created_at,
+    progress: r.progress ?? 0,
+    attachmentRequested: r.attachment_requested ?? false,
+    attachmentNote: r.attachment_note ?? null,
+    attachments: Array.isArray(r.attachments) ? r.attachments : [],
   };
 }
 
@@ -2412,6 +2421,10 @@ export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<
       estimated_hours: data.estimatedHours ?? null,
       start_date: data.startDate ?? null,
       due_date: data.dueDate ?? null,
+      progress: data.progress ?? 0,
+      attachment_requested: data.attachmentRequested ?? false,
+      attachment_note: data.attachmentNote ?? null,
+      attachments: data.attachments ?? [],
     })
     .select()
     .single();
@@ -2446,7 +2459,40 @@ export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<
 
 export async function updateTaskStatus(id: string, status: TaskStatus): Promise<void> {
   const supabase = getSupabase();
-  await supabase.from("dev_tasks").update({ status }).eq("id", id);
+  // Al completar, el avance queda en 100 (coherencia barra/estado).
+  const patch: Record<string, unknown> =
+    status === "done" ? { status, progress: 100 } : { status };
+  const { error } = await supabase.from("dev_tasks").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/** Actualiza el avance (0-100) de una tarea. Si llega a 100 la marca
+ *  'done'; si estaba 'done' y baja, vuelve a 'active'. */
+export async function updateTaskProgress(
+  id: string,
+  progress: number,
+  currentStatus?: TaskStatus,
+): Promise<void> {
+  const supabase = getSupabase();
+  const clamped = Math.max(0, Math.min(100, Math.round(progress)));
+  const patch: Record<string, unknown> = { progress: clamped };
+  if (clamped === 100) patch.status = "done";
+  else if (currentStatus === "done") patch.status = "active";
+  const { error } = await supabase.from("dev_tasks").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/** Reemplaza la lista de adjuntos de una tarea. */
+export async function updateTaskAttachments(
+  id: string,
+  attachments: TaskAttachment[],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("dev_tasks")
+    .update({ attachments })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export async function deleteTask(id: string): Promise<void> {

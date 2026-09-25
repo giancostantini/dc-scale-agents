@@ -804,6 +804,15 @@ export interface ClientNote {
 export type TaskStatus = "pending" | "active" | "done";
 export type TaskPriority = "baja" | "media" | "alta" | "critica";
 
+/** Archivo adjunto subido en una tarea (PDF o foto). */
+export interface TaskAttachment {
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
+  uploadedAt?: string;
+}
+
 export interface DevTask {
   id: string;
   clientId: string;
@@ -818,6 +827,14 @@ export interface DevTask {
   startDate?: string;
   dueDate?: string;
   createdAt: string;
+  /** Avance 0-100 (migración 103). done → 100. */
+  progress?: number;
+  /** La tarea pide un archivo adjunto (migración 103). */
+  attachmentRequested?: boolean;
+  /** Qué archivo se pide. */
+  attachmentNote?: string | null;
+  /** Archivos subidos por el asignado. */
+  attachments?: TaskAttachment[];
 }
 
 // ==================== CAMPAÑAS DE PRODUCCIÓN (CLIENTE) ====================
