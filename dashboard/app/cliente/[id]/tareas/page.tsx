@@ -91,6 +91,9 @@ export default function TareasClientePage({
   const [filter, setFilter] = useState<"all" | TaskStatus>("all");
   // Tarea con subida de adjunto en curso.
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  // Tarea abierta en el modal de detalle (id; el objeto se deriva fresco
+  // de `tasks` para reflejar cambios tras refresh).
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     getTasks(id).then(setTasks);
@@ -291,6 +294,10 @@ export default function TareasClientePage({
     done: tasks.filter((t) => t.status === "done").length,
   };
   const completionPct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+  // Tarea abierta en el modal (derivada fresca de `tasks`).
+  const detailTask = detailId
+    ? tasks.find((t) => t.id === detailId) ?? null
+    : null;
 
   return (
     <>
@@ -532,13 +539,21 @@ export default function TareasClientePage({
               if (b.dueDate) return 1;
               return 0;
             })
-            .map((t) => (
+            .map((t) => {
+              const attachCount = t.attachments?.length ?? 0;
+              const overdue =
+                !!t.dueDate &&
+                t.dueDate < new Date().toISOString().slice(0, 10) &&
+                t.status !== "done";
+              return (
               <div
                 key={t.id}
+                onClick={() => setDetailId(t.id)}
                 style={{
-                  padding: "16px 0",
+                  padding: "14px 0",
                   borderBottom: "1px solid rgba(10,26,12,0.06)",
                   opacity: t.status === "done" ? 0.6 : 1,
+                  cursor: "pointer",
                 }}
               >
                 <div
@@ -546,47 +561,92 @@ export default function TareasClientePage({
                     display: "grid",
                     gridTemplateColumns: "auto 2fr 1.5fr 1fr 1fr 0.8fr",
                     gap: 12,
-                    alignItems: "baseline",
+                    alignItems: "center",
                   }}
                 >
-                  {/* Checkbox de cumplimiento */}
+                  {/* Checkbox de cumplimiento — no abre el detalle. */}
                   <input
                     type="checkbox"
                     checked={t.status === "done"}
+                    onClick={(e) => e.stopPropagation()}
                     onChange={() =>
-                      changeStatus(
-                        t,
-                        t.status === "done" ? "active" : "done",
-                      )
+                      changeStatus(t, t.status === "done" ? "active" : "done")
                     }
                     disabled={!canManage}
                     style={{ width: 16, height: 16 }}
                     title="Marcar como completada"
                   />
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <strong
                       style={{
                         fontSize: 14,
-                        textDecoration: t.status === "done" ? "line-through" : "none",
+                        textDecoration:
+                          t.status === "done" ? "line-through" : "none",
                       }}
                     >
                       {t.title}
                     </strong>
-                    {t.description && (
+                    {/* Meta compacta: avance + adjunto. El desglose completo
+                        va en el modal (click en la fila). */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 6,
+                      }}
+                    >
                       <div
                         style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 4,
-                          lineHeight: 1.5,
+                          flex: 1,
+                          maxWidth: 160,
+                          height: 6,
+                          background: "rgba(10,26,12,0.08)",
+                          borderRadius: 3,
+                          overflow: "hidden",
                         }}
                       >
-                        {t.description}
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${t.progress ?? 0}%`,
+                            background: STATUS_COLOR[t.status],
+                            borderRadius: 3,
+                          }}
+                        />
                       </div>
-                    )}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: STATUS_COLOR[t.status],
+                        }}
+                      >
+                        {t.progress ?? 0}%
+                      </span>
+                      {t.attachmentRequested && attachCount === 0 && (
+                        <span style={{ fontSize: 11, color: "#b04b3a" }}>
+                          📎 falta archivo
+                        </span>
+                      )}
+                      {attachCount > 0 && (
+                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                          📎 {attachCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12 }}>
-                    <strong>{t.assignee}</strong>
+                  <div style={{ fontSize: 12, minWidth: 0 }}>
+                    <strong
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        display: "block",
+                      }}
+                    >
+                      {t.assignee}
+                    </strong>
                   </div>
                   <div>
                     <span
@@ -605,35 +665,33 @@ export default function TareasClientePage({
                     {t.dueDate ? (
                       <>
                         ⏰ {t.dueDate}
-                        {t.dueDate < new Date().toISOString().slice(0, 10) &&
-                          t.status !== "done" && (
-                            <span
-                              style={{
-                                color: "#b04b3a",
-                                fontWeight: 700,
-                                marginLeft: 6,
-                              }}
-                            >
-                              VENCIDA
-                            </span>
-                          )}
+                        {overdue && (
+                          <span
+                            style={{
+                              color: "#b04b3a",
+                              fontWeight: 700,
+                              marginLeft: 6,
+                            }}
+                          >
+                            VENCIDA
+                          </span>
+                        )}
                       </>
                     ) : (
                       "—"
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    {/* Marcar en curso: director o team. Eliminar: solo director
-                        (acción destructiva). */}
-                    {canManage && t.status !== "active" && (
-                      <button
-                        onClick={() => changeStatus(t, "active")}
-                        style={mini}
-                        title="Marcar en curso"
-                      >
-                        ▶
-                      </button>
-                    )}
+                  <div
+                    style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => setDetailId(t.id)}
+                      style={mini}
+                      title="Ver detalle"
+                    >
+                      ⤢
+                    </button>
                     {isDirector && (
                       <button
                         onClick={() => remove(t)}
@@ -645,196 +703,351 @@ export default function TareasClientePage({
                     )}
                   </div>
                 </div>
-                {/* Barra de progreso real (0-100). El asignado / director
-                    la ajusta con el slider. */}
-                <div style={{ marginTop: 12 }}>
+              </div>
+              );
+            })
+        )}
+      </div>
+
+      {/* Modal de detalle — desglose completo de la tarea. */}
+      {detailTask && (
+        <div
+          onClick={() => setDetailId(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,26,12,0.5)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--white)",
+              borderRadius: "var(--r-lg)",
+              padding: 28,
+              width: "100%",
+              maxWidth: 560,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 24px 64px rgba(10,26,12,0.32)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 12,
+                marginBottom: 6,
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: "var(--deep-green)",
+                  margin: 0,
+                  letterSpacing: "-0.01em",
+                  textDecoration:
+                    detailTask.status === "done" ? "line-through" : "none",
+                }}
+              >
+                {detailTask.title}
+              </h2>
+              <button
+                onClick={() => setDetailId(null)}
+                style={{ ...mini, fontSize: 18 }}
+                title="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Chips: estado / prioridad / responsable / deadline */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 16,
+                fontSize: 12,
+              }}
+            >
+              <span
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  background: STATUS_COLOR[detailTask.status],
+                  color: "#fff",
+                  fontWeight: 700,
+                }}
+              >
+                {STATUS_LABEL[detailTask.status]}
+              </span>
+              <span
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  border: `1px solid ${PRIORITY_COLOR[detailTask.priority]}`,
+                  color: PRIORITY_COLOR[detailTask.priority],
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  fontSize: 10,
+                }}
+              >
+                {detailTask.priority}
+              </span>
+              <span style={{ padding: "3px 10px", color: "var(--text-muted)" }}>
+                👤 {detailTask.assignee}
+              </span>
+              {detailTask.dueDate && (
+                <span style={{ padding: "3px 10px", color: "var(--text-muted)" }}>
+                  ⏰ {detailTask.dueDate}
+                </span>
+              )}
+            </div>
+
+            {detailTask.description && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--deep-green)",
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                  marginBottom: 20,
+                  paddingBottom: 16,
+                  borderBottom: "1px solid rgba(10,26,12,0.08)",
+                }}
+              >
+                {detailTask.description}
+              </div>
+            )}
+
+            {/* Progreso */}
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Progreso
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: STATUS_COLOR[detailTask.status],
+                  }}
+                >
+                  {detailTask.progress ?? 0}%
+                </span>
+              </div>
+              <div
+                style={{
+                  height: 10,
+                  background: "rgba(10,26,12,0.08)",
+                  borderRadius: 5,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${detailTask.progress ?? 0}%`,
+                    background: STATUS_COLOR[detailTask.status],
+                    borderRadius: 5,
+                    transition: "width 0.2s",
+                  }}
+                />
+              </div>
+              {canManage && (
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={detailTask.progress ?? 0}
+                  onChange={(e) =>
+                    changeProgress(detailTask, parseInt(e.target.value, 10))
+                  }
+                  style={{ width: "100%", marginTop: 8, cursor: "pointer" }}
+                  title="Ajustar avance"
+                />
+              )}
+            </div>
+
+            {/* Adjuntos */}
+            {(detailTask.attachmentRequested ||
+              (detailTask.attachments && detailTask.attachments.length > 0)) && (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  background: "var(--off-white)",
+                  borderRadius: "var(--r-md)",
+                  marginBottom: 20,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "var(--sand-dark)",
+                    fontWeight: 700,
+                    marginBottom: 6,
+                  }}
+                >
+                  📎 Archivo{" "}
+                  {detailTask.attachmentRequested ? "solicitado" : "adjunto"}
+                </div>
+                {detailTask.attachmentRequested && detailTask.attachmentNote && (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--deep-green)",
+                      marginBottom: 10,
+                    }}
+                  >
+                    {detailTask.attachmentNote}
+                  </div>
+                )}
+                {detailTask.attachments && detailTask.attachments.length > 0 && (
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 5,
+                      flexDirection: "column",
+                      gap: 6,
+                      marginBottom: canManage ? 10 : 0,
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: "0.1em",
-                        textTransform: "uppercase",
-                        color: "var(--text-muted)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Progreso
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: STATUS_COLOR[t.status],
-                        tabSize: 2,
-                      }}
-                    >
-                      {t.progress ?? 0}%
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      height: 8,
-                      background: "rgba(10,26,12,0.08)",
-                      borderRadius: 4,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${t.progress ?? 0}%`,
-                        background: STATUS_COLOR[t.status],
-                        borderRadius: 4,
-                        transition: "width 0.2s",
-                      }}
-                    />
-                  </div>
-                  {canManage && t.status !== "done" && (
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={5}
-                      value={t.progress ?? 0}
-                      onChange={(e) =>
-                        changeProgress(t, parseInt(e.target.value, 10))
-                      }
-                      style={{ width: "100%", marginTop: 6, cursor: "pointer" }}
-                      title="Ajustar avance"
-                    />
-                  )}
-                </div>
-
-                {/* Adjuntos: si la tarea pide un archivo, el asignado sube
-                    el PDF o la foto. Los subidos se listan como links. */}
-                {(t.attachmentRequested ||
-                  (t.attachments && t.attachments.length > 0)) && (
-                  <div
-                    style={{
-                      marginTop: 12,
-                      padding: "10px 12px",
-                      background: "var(--off-white)",
-                      borderRadius: "var(--r-md)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
-                        color: "var(--sand-dark)",
-                        fontWeight: 700,
-                        marginBottom: 6,
-                      }}
-                    >
-                      📎 Archivo{" "}
-                      {t.attachmentRequested ? "solicitado" : "adjunto"}
-                    </div>
-                    {t.attachmentRequested && t.attachmentNote && (
+                    {detailTask.attachments.map((a, i) => (
                       <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--deep-green)",
-                          marginBottom: 8,
-                        }}
-                      >
-                        {t.attachmentNote}
-                      </div>
-                    )}
-                    {t.attachments && t.attachments.length > 0 && (
-                      <div
+                        key={i}
                         style={{
                           display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                          marginBottom: canManage ? 8 : 0,
-                        }}
-                      >
-                        {t.attachments.map((a, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              fontSize: 12,
-                            }}
-                          >
-                            <a
-                              href={a.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: "var(--deep-green)",
-                                textDecoration: "underline",
-                                flex: 1,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {(a.type ?? "").startsWith("image/") ? "🖼" : "📄"}{" "}
-                              {a.name}
-                            </a>
-                            {canManage && (
-                              <button
-                                onClick={() => removeAttachment(t, i)}
-                                style={{ ...mini, color: "var(--red-warn)" }}
-                                title="Quitar"
-                              >
-                                ×
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {canManage && (
-                      <label
-                        style={{
-                          display: "inline-flex",
                           alignItems: "center",
-                          gap: 6,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--deep-green)",
-                          border: "1px solid rgba(10,26,12,0.15)",
-                          borderRadius: "var(--r-sm)",
-                          padding: "6px 12px",
-                          cursor: uploadingId === t.id ? "default" : "pointer",
-                          background: "var(--white)",
+                          gap: 8,
+                          fontSize: 13,
                         }}
                       >
-                        {uploadingId === t.id
-                          ? "Subiendo…"
-                          : t.attachments && t.attachments.length > 0
-                            ? "+ Subir otro"
-                            : "+ Adjuntar PDF o foto"}
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          hidden
-                          disabled={uploadingId === t.id}
-                          onChange={(e) => {
-                            onUploadAttachment(t, e.target.files?.[0] ?? null);
-                            e.target.value = "";
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "var(--deep-green)",
+                            textDecoration: "underline",
+                            flex: 1,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
-                        />
-                      </label>
-                    )}
+                        >
+                          {(a.type ?? "").startsWith("image/") ? "🖼" : "📄"}{" "}
+                          {a.name}
+                        </a>
+                        {canManage && (
+                          <button
+                            onClick={() => removeAttachment(detailTask, i)}
+                            style={{ ...mini, color: "var(--red-warn)" }}
+                            title="Quitar"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
+                {canManage && (
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--deep-green)",
+                      border: "1px solid rgba(10,26,12,0.15)",
+                      borderRadius: "var(--r-sm)",
+                      padding: "8px 14px",
+                      cursor: uploadingId === detailTask.id ? "default" : "pointer",
+                      background: "var(--white)",
+                    }}
+                  >
+                    {uploadingId === detailTask.id
+                      ? "Subiendo…"
+                      : detailTask.attachments && detailTask.attachments.length > 0
+                        ? "+ Subir otro"
+                        : "+ Adjuntar PDF o foto"}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      hidden
+                      disabled={uploadingId === detailTask.id}
+                      onChange={(e) => {
+                        onUploadAttachment(detailTask, e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
               </div>
-            ))
-        )}
-      </div>
+            )}
+
+            {/* Acciones */}
+            {canManage && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  justifyContent: "flex-end",
+                }}
+              >
+                {detailTask.status !== "active" && detailTask.status !== "done" && (
+                  <button
+                    onClick={() => changeStatus(detailTask, "active")}
+                    className={ui.btnGhost}
+                  >
+                    ▶ Marcar en curso
+                  </button>
+                )}
+                <button
+                  onClick={() =>
+                    changeStatus(
+                      detailTask,
+                      detailTask.status === "done" ? "active" : "done",
+                    )
+                  }
+                  className={ui.btnSolid}
+                >
+                  {detailTask.status === "done"
+                    ? "Reabrir"
+                    : "✓ Marcar completada"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
