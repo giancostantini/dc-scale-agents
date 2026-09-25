@@ -249,9 +249,10 @@ export default function TareasClientePage({
 
   async function onUploadAttachment(t: DevTask, file: File | null) {
     if (!file) return;
-    // 10 MB tope razonable para PDF/foto de tarea.
-    if (file.size > 10 * 1024 * 1024) {
-      alert("El archivo supera los 10 MB.");
+    // Tope alto (1 GB) — que puedan subir cualquier PDF/foto/video sin
+    // cortarse. El límite real lo pone el bucket de Storage.
+    if (file.size > 1024 * 1024 * 1024) {
+      alert("El archivo supera 1 GB.");
       return;
     }
     setUploadingId(t.id);
@@ -1028,10 +1029,9 @@ export default function TareasClientePage({
                       ? "Subiendo…"
                       : detailTask.attachments && detailTask.attachments.length > 0
                         ? "+ Subir otro"
-                        : "+ Adjuntar PDF o foto"}
+                        : "+ Adjuntar archivo"}
                     <input
                       type="file"
-                      accept="image/*,application/pdf"
                       hidden
                       disabled={uploadingId === detailTask.id}
                       onChange={(e) => {
