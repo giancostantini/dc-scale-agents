@@ -1329,6 +1329,20 @@ export async function addEvent(data: Omit<CalEvent, "id">): Promise<CalEvent> {
   return eventFromRow(inserted as EventRow);
 }
 
+/**
+ * Fire-and-forget: avisa por mail + campana a la gente del equipo incluida en
+ * un evento (POST /api/notify, kind event_shared). El server filtra a los
+ * internos y excluye a quien lo cargó. No bloquea ni rompe el guardado.
+ */
+export function notifyEventShared(eventId: string, emails: string[], updated: boolean): void {
+  if (emails.length === 0) return;
+  fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind: "event_shared", eventId, emails, updated }),
+  }).catch((err) => console.warn("[notifyEventShared] falló:", err));
+}
+
 export async function deleteEvent(id: string): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("cal_events").delete().eq("id", id);

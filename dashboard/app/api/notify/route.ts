@@ -9,6 +9,9 @@
  *   · addAssignment → notify('client_assigned', { clientId, userId, role })
  *   · setPaymentStatus(paid) → notify('payment_received', { clientId, month })
  *   · approveContent → notify('content_approved', { contentId })
+ *   · addEvent/updateEvent → notify('event_shared', { eventId, emails, updated })
+ *     → mail + campana a los participantes INTERNOS (director/team), menos
+ *       quien lo cargó. A externos no les escribimos desde el dashboard.
  *
  * Para cada tipo:
  *   1. Resuelve el destinatario.
@@ -27,6 +30,7 @@ import {
   emailClientAssigned,
   emailClientTaskAssigned,
   emailPaymentReceived,
+  emailEventShared,
 } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +40,8 @@ type NotifKind =
   | "client_task_assigned"
   | "client_assigned"
   | "payment_received"
-  | "content_approved";
+  | "content_approved"
+  | "event_shared";
 
 interface NotifBody {
   kind: NotifKind;
@@ -49,7 +54,19 @@ interface NotifBody {
   roleInClient?: string;
   /** payment_received */
   month?: string;
+  /** event_shared */
+  eventId?: string;
+  emails?: string[];
+  updated?: boolean;
 }
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  reunion: "Reunión",
+  reporte: "Reporte",
+  dev: "Dev",
+  contenido: "Contenido",
+  pauta: "Pauta",
+};
 
 export async function POST(req: NextRequest) {
   // Disparar notifs/mails es acción de equipo (lo llaman mutaciones del
@@ -287,6 +304,102 @@ export async function POST(req: NextRequest) {
           ),
       );
       return Response.json({ ok: true, sent: targets.length });
+    }
+
+    if (body.kind === "event_shared") {
+      const { eventId } = body;
+      const emails = [
+        ...new Set(
+          (body.emails ?? [])
+            .map((e) => String(e).trim().toLowerCase())
+            .filter((e) => e.includes("@")),
+        ),
+      ];
+      if (!eventId) return Response.json({ error: "Falta eventId" }, { status: 400 });
+      if (emails.length === 0) return Response.json({ ok: true, sent: 0 });
+
+      const { data: ev } = await admin
+        .from("cal_events")
+        .select("title, type, date, end_date, time, duration, client_id, client_label, meet_link, notes")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (!ev) return Response.json({ ok: true, skipped: "no-event" });
+      const e = ev as {
+        title: string;
+        type: string;
+        date: string;
+        end_date: string | null;
+        time: string | null;
+        duration: number | null;
+        client_id: string | null;
+        client_label: string | null;
+        meet_link: string | null;
+        notes: string | null;
+      };
+
+      // Solo gente del equipo, y nunca quien cargó el evento.
+      const { data: people } = await admin
+        .from("profiles")
+        .select("id, email, name, role")
+        .in("role", ["director", "team"]);
+      const targets = ((people ?? []) as Array<{
+        id: string;
+        email: string | null;
+        name: string | null;
+      }>).filter(
+        (p) => p.email && emails.includes(p.email.toLowerCase()) && p.id !== access.userId,
+      );
+      if (targets.length === 0) return Response.json({ ok: true, sent: 0 });
+
+      const { data: author } = await admin
+        .from("profiles")
+        .select("name")
+        .eq("id", access.userId)
+        .maybeSingle();
+      const byName = (author as { name?: string } | null)?.name ?? "Alguien del equipo";
+      const clientName = e.client_id ? e.client_label : null;
+      const typeLabel = EVENT_TYPE_LABELS[e.type] ?? e.type;
+      const title = body.updated ? "Cambió un evento en el que estás" : "Te sumaron a un evento";
+
+      // Campana: una notificación personal por destinatario.
+      await admin.from("notifications").insert(
+        targets.map((t) => ({
+          client: e.client_id,
+          to_user_id: t.id,
+          agent: "calendario",
+          level: "info",
+          title,
+          body: `${e.title} · ${e.date}${e.time ? ` ${e.time}` : ""} — ${byName}`,
+          link: "/calendario",
+          read: false,
+          email_sent: true,
+        })),
+      );
+
+      const sent = await Promise.allSettled(
+        targets.map((t) =>
+          emailEventShared({
+            to: t.email!,
+            name: t.name ?? t.email!,
+            byName,
+            title: e.title,
+            typeLabel,
+            date: e.date,
+            endDate: e.end_date,
+            time: e.time,
+            duration: e.duration,
+            clientName,
+            meetLink: e.meet_link,
+            notes: e.notes,
+            updated: body.updated === true,
+          }),
+        ),
+      );
+      return Response.json({
+        ok: true,
+        sent: sent.filter((r) => r.status === "fulfilled").length,
+        failed: sent.filter((r) => r.status === "rejected").length,
+      });
     }
 
     return Response.json({ error: `Kind no implementado: ${body.kind}` }, { status: 400 });

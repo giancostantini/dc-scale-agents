@@ -11,7 +11,8 @@
  *
  * Estados:
  *  - not_connected: muestra CTA "Conectar Outlook"
- *  - connected:     muestra email + última sync + botón Desconectar
+ *  - connected:     muestra email + última sync + vigencia de la suscripción
+ *                   + "Sincronizar ahora" (reconcilia con Outlook) + Desconectar
  *  - error:         muestra mensaje (último error de Microsoft) + Reintentar
  *
  * Flow:
@@ -131,6 +132,53 @@ export default function OutlookConnectionCard({ returnTo }: Props) {
     }
   }, [returnTo]);
 
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+
+  // Renueva la suscripción si hace falta y compara el calendario con Outlook
+  // (mismo endpoint que el cron, en modo usuario).
+  const handleSyncNow = useCallback(async () => {
+    setWorking(true);
+    setError(null);
+    setSyncMsg(null);
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Tu sesión expiró. Refrescá la página.");
+        return;
+      }
+      const res = await fetch("/api/calendar/outlook/subscribe", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        synced?: number;
+        removed?: number;
+      };
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo sincronizar.");
+      } else {
+        setSyncMsg(
+          `Sincronizado: ${data.synced ?? 0} eventos al día` +
+            (data.removed ? `, ${data.removed} quitados` : "") +
+            ".",
+        );
+      }
+      await fetchStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error de red.");
+    } finally {
+      setWorking(false);
+    }
+  }, [fetchStatus]);
+
   const handleDisconnect = useCallback(async () => {
     if (!confirm("¿Desconectar tu Outlook? Los eventos ya sincronizados quedan visibles.")) {
       return;
@@ -221,6 +269,14 @@ export default function OutlookConnectionCard({ returnTo }: Props) {
         </div>
         <button
           type="button"
+          className={styles.syncBtn}
+          onClick={handleSyncNow}
+          disabled={working}
+        >
+          {working ? "Sincronizando…" : "Sincronizar ahora"}
+        </button>
+        <button
+          type="button"
           className={styles.disconnectBtn}
           onClick={handleDisconnect}
           disabled={working}
@@ -238,6 +294,21 @@ export default function OutlookConnectionCard({ returnTo }: Props) {
             Esperando primera sincronización…
           </span>
         )}
+        {status.subscriptionExpiresAt && (
+          <span className={styles.metaItem}>
+            {new Date(status.subscriptionExpiresAt).getTime() > Date.now()
+              ? `Avisos de Outlook activos hasta ${new Date(
+                  status.subscriptionExpiresAt,
+                ).toLocaleString("es-AR", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}`
+              : "Avisos de Outlook vencidos: tocá Sincronizar ahora"}
+          </span>
+        )}
+        {syncMsg && <span className={styles.metaItem}>{syncMsg}</span>}
         {status.lastError && (
           <span className={`${styles.metaItem} ${styles.metaError}`}>
             ⚠ {status.lastError}

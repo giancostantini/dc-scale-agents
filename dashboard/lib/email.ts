@@ -510,6 +510,78 @@ export async function emailTaskAssigned(input: {
   });
 }
 
+/** Te sumaron como participante de un evento del calendario. */
+export async function emailEventShared(input: {
+  to: string;
+  name: string;
+  byName: string;
+  title: string;
+  typeLabel: string;
+  date: string;
+  endDate?: string | null;
+  time?: string | null;
+  duration?: number | null;
+  clientName?: string | null;
+  meetLink?: string | null;
+  notes?: string | null;
+  updated?: boolean;
+}): Promise<{ id: string }> {
+  const when = formatEventWhen(input.date, input.endDate, input.time);
+  const meta: string[] = [`<strong>Cuándo:</strong> ${escapeHtml(when)}`];
+  if (input.duration && !input.endDate) meta.push(`<strong>Duración:</strong> ${input.duration} min`);
+  meta.push(`<strong>Tipo:</strong> ${escapeHtml(input.typeLabel)}`);
+  if (input.clientName) meta.push(`<strong>Cliente:</strong> ${escapeHtml(input.clientName)}`);
+  const heading = input.updated ? "Cambió un evento en el que estás" : "Te sumaron a un evento";
+  const lead = input.updated
+    ? `${escapeHtml(input.byName)} cambió la fecha u hora de este evento del calendario:`
+    : `${escapeHtml(input.byName)} te agregó a este evento del calendario:`;
+  const html = baseLayout(
+    `
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
+        ${heading}
+      </h1>
+      <p style="margin:0 0 16px;font-size:14px;">
+        Hola ${escapeHtml(input.name.split(" ")[0])}, ${lead}
+      </p>
+      <div style="padding:16px;background:#f5f1e9;border-left:3px solid #c4a882;margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">
+          ${escapeHtml(input.title)}
+        </div>
+        <div style="font-size:12px;color:#5a5a5a;line-height:1.7;">${meta.join("<br>")}</div>
+        ${
+          input.meetLink
+            ? `<div style="font-size:12px;margin-top:10px;"><a href="${escapeHtml(input.meetLink)}" style="color:#0a1a0c;">Link de la reunión</a></div>`
+            : ""
+        }
+        ${
+          input.notes
+            ? `<div style="font-size:13px;color:#5a5a5a;white-space:pre-wrap;margin-top:10px;">${escapeHtml(input.notes)}</div>`
+            : ""
+        }
+      </div>
+    `,
+    `${PORTAL_URL}/calendario`,
+    "Ver en el calendario",
+  );
+  return sendEmail({
+    to: input.to,
+    subject: `${input.updated ? "Cambió" : "Te sumaron a"}: ${input.title} · ${when}`,
+    html,
+  });
+}
+
+function formatEventWhen(date: string, endDate?: string | null, time?: string | null): string {
+  const fmt = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString("es-AR", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "America/Montevideo",
+    });
+  if (endDate && endDate !== date) return `${fmt(date)} al ${fmt(endDate)}`;
+  return time ? `${fmt(date)}, ${time}` : fmt(date);
+}
+
 /** Te asignaron como funcional de un cliente. */
 export async function emailClientAssigned(input: {
   assigneeEmail: string;

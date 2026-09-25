@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addEvent, updateEvent } from "@/lib/storage";
+import { addEvent, updateEvent, notifyEventShared } from "@/lib/storage";
 import { getClients } from "@/lib/storage";
+import { listProfiles } from "@/lib/team";
+import type { Profile } from "@/lib/supabase/auth";
 import type { EventType, Client, CalEvent } from "@/lib/types";
 import styles from "./NewClientModal.module.css";
 
@@ -46,6 +48,7 @@ export default function NewEventModal({
   const [participants, setParticipants] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [team, setTeam] = useState<Profile[]>([]);
 
   const isEditMode = !!editEvent;
   // El selector de cliente solo aparece cuando NO se pasó initialClientId
@@ -61,6 +64,10 @@ export default function NewEventModal({
       if (!initialClientId) {
         getClients().then(setClients);
       }
+      // Equipo interno para sumarlo con un toque (y que le llegue el mail).
+      listProfiles().then((list) =>
+        setTeam(list.filter((p) => (p.role === "director" || p.role === "team") && p.email)),
+      );
       if (editEvent) {
         // Modo edición: pre-cargar todo del evento existente
         setTitle(editEvent.title);
@@ -116,6 +123,7 @@ export default function NewEventModal({
             ? "Interno"
             : editEvent?.clientLabel || "Sin cliente");
 
+      const nowEmails = parseEmails(participants);
       if (isEditMode && editEvent) {
         await updateEvent(editEvent.id, {
           title: title.trim(),
@@ -129,8 +137,20 @@ export default function NewEventModal({
           participants: participants.trim() || undefined,
           notes: notes.trim() || undefined,
         });
+        // Aviso: si cambió cuándo es, a todos; si no, solo a los que se sumaron.
+        const whenChanged =
+          date !== editEvent.date ||
+          time !== editEvent.time ||
+          effectiveEndDate !== (editEvent.end_date ?? null);
+        if (whenChanged) {
+          notifyEventShared(editEvent.id, nowEmails, true);
+        } else {
+          const before = new Set(parseEmails(editEvent.participants ?? ""));
+          const added = nowEmails.filter((e) => !before.has(e));
+          if (added.length > 0) notifyEventShared(editEvent.id, added, false);
+        }
       } else {
-        await addEvent({
+        const created = await addEvent({
           title: title.trim(),
           type,
           date,
@@ -142,6 +162,7 @@ export default function NewEventModal({
           participants: participants.trim() || undefined,
           notes: notes.trim() || undefined,
         });
+        notifyEventShared(created.id, nowEmails, false);
       }
 
       onClose();
@@ -327,11 +348,48 @@ export default function NewEventModal({
 
         <div className={styles.field}>
           <label>Participantes</label>
+          {team.length > 0 && (
+            <div
+              style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}
+              aria-label="Sumar a alguien del equipo"
+            >
+              {team.map((p) => {
+                const on = parseEmails(participants).includes(p.email.toLowerCase());
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setParticipants(toggleEmail(participants, p.email))}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      fontFamily: "inherit",
+                      borderRadius: "var(--r-pill)",
+                      cursor: "pointer",
+                      border: on
+                        ? "1px solid var(--deep-green)"
+                        : "1px solid rgba(10,26,12,0.15)",
+                      background: on ? "var(--deep-green)" : "transparent",
+                      color: on ? "var(--off-white)" : "var(--deep-green)",
+                    }}
+                  >
+                    {on ? "✓ " : "+ "}
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <input
             placeholder="emails separados por coma"
             value={participants}
             onChange={(e) => setParticipants(e.target.value)}
           />
+          <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
+            A las personas del equipo que sumes les llega un mail y un aviso en la campana.
+          </div>
         </div>
 
         <div className={styles.field}>
@@ -373,4 +431,28 @@ export default function NewEventModal({
       </div>
     </div>
   );
+}
+
+/** Emails válidos del campo Participantes (separados por coma, ; o espacio). */
+function parseEmails(raw: string): string[] {
+  return [
+    ...new Set(
+      raw
+        .split(/[,;\s]+/)
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.includes("@")),
+    ),
+  ];
+}
+
+/** Agrega o saca un email del texto de participantes, respetando el resto. */
+function toggleEmail(raw: string, email: string): string {
+  const target = email.toLowerCase();
+  const parts = raw
+    .split(/[,;]+/)
+    .map((e) => e.trim())
+    .filter(Boolean);
+  const has = parts.some((e) => e.toLowerCase() === target);
+  const next = has ? parts.filter((e) => e.toLowerCase() !== target) : [...parts, email];
+  return next.join(", ");
 }

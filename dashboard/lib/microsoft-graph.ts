@@ -231,6 +231,52 @@ export interface OutlookEvent {
   organizer?: { emailAddress: { address: string; name?: string } };
   onlineMeeting?: { joinUrl?: string };
   webLink?: string;
+  /** singleInstance | occurrence | exception | seriesMaster */
+  type?: string;
+}
+
+const EVENT_SELECT =
+  "id,subject,bodyPreview,start,end,isCancelled,attendees,organizer,onlineMeeting,webLink,type";
+
+/**
+ * GET /me/calendarView entre dos instantes (ISO). Devuelve cada ocurrencia de
+ * los eventos recurrentes como evento propio (no el seriesMaster), con
+ * start/end en la timezone local. Pagina con @odata.nextLink.
+ */
+export async function listCalendarView(
+  accessToken: string,
+  startIso: string,
+  endIso: string,
+): Promise<OutlookEvent[]> {
+  const params = new URLSearchParams({
+    startDateTime: startIso,
+    endDateTime: endIso,
+    $select: EVENT_SELECT,
+    $top: "100",
+  });
+  let next: string | null = `${GRAPH_BASE}/me/calendarView?${params.toString()}`;
+  const events: OutlookEvent[] = [];
+  let pages = 0;
+  while (next && pages < 20) {
+    pages++;
+    const res: Response = await fetch(next, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Prefer: `outlook.timezone="${CALENDAR_TIMEZONE}"`,
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Graph calendarView failed (${res.status}): ${body}`);
+    }
+    const data = (await res.json()) as {
+      value?: OutlookEvent[];
+      "@odata.nextLink"?: string;
+    };
+    events.push(...(data.value ?? []));
+    next = data["@odata.nextLink"] ?? null;
+  }
+  return events;
 }
 
 /**
