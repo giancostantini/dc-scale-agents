@@ -5,6 +5,9 @@
  * histórico). El cliente carga desde acá (mismo modal que Solicitudes) y ve el
  * registro completo. El equipo ve el mismo registro del lado interno
  * (/cliente/[id]/ofertas).
+ *
+ * Las activas se pueden editar (mismo modal, precargado). Al guardar, el
+ * endpoint marca "editado" y le avisa al equipo.
  */
 
 import { useEffect, useState } from "react";
@@ -18,7 +21,7 @@ import { getClient } from "@/lib/storage";
 import PortalHeader from "@/components/PortalHeader";
 import NewRequestModal from "@/components/NewRequestModal";
 import OfferRegistry from "@/components/OfferRegistry";
-import type { Client } from "@/lib/types";
+import type { Client, ClientRequest } from "@/lib/types";
 import portalStyles from "../portal.module.css";
 import styles from "../solicitudes/solicitudes.module.css";
 
@@ -28,6 +31,7 @@ export default function PortalOfertasPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<ClientRequest | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
@@ -86,7 +90,10 @@ export default function PortalOfertasPage() {
           <div className={styles.headActions}>
             <button
               className={styles.btnSolid}
-              onClick={() => setModalOpen(true)}
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
             >
               {isTravel ? "+ Cargar paquete" : "+ Cargar oferta"}
             </button>
@@ -98,6 +105,10 @@ export default function PortalOfertasPage() {
             key={reloadTick}
             clientId={profile.client_id}
             travel={isTravel}
+            onEdit={(offer) => {
+              setEditing(offer);
+              setModalOpen(true);
+            }}
           />
         )}
       </main>
@@ -107,7 +118,11 @@ export default function PortalOfertasPage() {
         type="oferta"
         clientId={profile.client_id ?? ""}
         packageForm={isTravel}
-        onClose={() => setModalOpen(false)}
+        initial={editing}
+        onClose={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
         onCreated={() => setReloadTick((t) => t + 1)}
       />
     </>

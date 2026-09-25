@@ -3,7 +3,7 @@
 /**
  * OfferRegistry — registro de ofertas de un cliente (activas + histórico).
  *
- * Read-only. Reusado por el portal del cliente (/portal/ofertas) y por el
+ * Reusado por el portal del cliente (/portal/ofertas) y por el
  * dashboard interno del equipo (/cliente/[id]/solicitudes, pestaña "Registro de ofertas"). Lee client_requests
  * (type='oferta') vía RLS con listRequestsForClient, así que el mismo componente
  * sirve para ambos: el cliente ve las suyas, el equipo las del cliente asignado.
@@ -11,6 +11,10 @@
  * Muestra las ACTIVAS arriba y el HISTÓRICO (completadas / cerradas) abajo, sin
  * colapsar — es un registro. Renderiza los campos de paquete (destino, precio,
  * tier, disponibilidad) + los bullets de detalle.
+ *
+ * Edición: solo si el caller pasa `onEdit` (el portal del cliente) y solo en las
+ * activas. Si la oferta se editó, las dos vistas muestran "Paquete editado · fecha"
+ * (metadata.editedAt, lo escribe PATCH /api/portal/requests/[id]).
  */
 
 import { useEffect, useState } from "react";
@@ -30,9 +34,12 @@ const ACTIVE_STATUSES: ClientRequestStatus[] = [
 export default function OfferRegistry({
   clientId,
   travel,
+  onEdit,
 }: {
   clientId: string;
   travel?: boolean;
+  /** Si viene, las ofertas activas muestran "Editar". */
+  onEdit?: (offer: ClientRequest) => void;
 }) {
   const [offers, setOffers] = useState<ClientRequest[] | null>(null);
 
@@ -64,11 +71,14 @@ export default function OfferRegistry({
         title={`Activas · ${activos.length}`}
         empty={`No hay ${word}s activas ahora.`}
         offers={activos}
+        word={word}
+        onEdit={onEdit}
       />
       <RegistrySection
         title={`Histórico · ${cerrados.length}`}
         empty={`Todavía no hay ${word}s en el histórico.`}
         offers={cerrados}
+        word={word}
         muted
       />
     </div>
@@ -79,12 +89,16 @@ function RegistrySection({
   title,
   empty,
   offers,
+  word,
   muted,
+  onEdit,
 }: {
   title: string;
   empty: string;
   offers: ClientRequest[];
+  word: string;
   muted?: boolean;
+  onEdit?: (offer: ClientRequest) => void;
 }) {
   return (
     <section>
@@ -124,7 +138,7 @@ function RegistrySection({
           }}
         >
           {offers.map((o) => (
-            <OfferCard key={o.id} offer={o} />
+            <OfferCard key={o.id} offer={o} word={word} onEdit={onEdit} />
           ))}
         </div>
       )}
@@ -132,8 +146,17 @@ function RegistrySection({
   );
 }
 
-function OfferCard({ offer }: { offer: ClientRequest }) {
+function OfferCard({
+  offer,
+  word,
+  onEdit,
+}: {
+  offer: ClientRequest;
+  word: string;
+  onEdit?: (offer: ClientRequest) => void;
+}) {
   const m = offer.metadata as Record<string, unknown>;
+  const editedAt = typeof m.editedAt === "string" ? new Date(m.editedAt) : null;
   const items: { label: string; value: string }[] = [];
   if (m.destino) items.push({ label: "Destino", value: String(m.destino) });
   if (m.precio != null)
@@ -190,7 +213,57 @@ function OfferCard({ offer }: { offer: ClientRequest }) {
               year: "numeric",
             })}
           </div>
+          {editedAt && !Number.isNaN(editedAt.getTime()) && (
+            <div
+              style={{
+                display: "inline-block",
+                marginTop: 6,
+                padding: "2px 8px",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--sand-dark)",
+                background: "rgba(196,168,130,0.16)",
+                borderRadius: "var(--r-pill)",
+              }}
+            >
+              {word === "paquete" ? "Paquete editado" : "Oferta editada"} ·{" "}
+              {editedAt.toLocaleString("es-AR", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+          )}
         </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(offer)}
+              style={{
+                padding: "5px 12px",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                color: "var(--deep-green)",
+                background: "transparent",
+                border: "1px solid rgba(10,26,12,0.2)",
+                borderRadius: "var(--r-pill)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Editar
+            </button>
+          )}
         <span
           style={{
             padding: "3px 10px",
@@ -206,6 +279,7 @@ function OfferCard({ offer }: { offer: ClientRequest }) {
         >
           {requestStatusLabel(offer.status)}
         </span>
+        </div>
       </div>
 
       {offer.description && (

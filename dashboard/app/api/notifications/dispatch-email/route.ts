@@ -31,6 +31,8 @@ import {
 
 interface DispatchBody {
   requestId?: string;
+  /** Con requestId: la solicitud se editó (PATCH /api/portal/requests/[id]), no es nueva. */
+  updated?: boolean;
   phase?: "diagnostico" | "estrategia" | "setup" | "lanzamiento";
   clientId?: string;
   notifId?: number;
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest) {
               urgency: request.urgency,
               requestId: request.id,
               clientId: request.client_id,
+              updated: body.updated === true,
             });
             await admin
               .from("notifications")

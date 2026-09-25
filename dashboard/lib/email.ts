@@ -225,9 +225,17 @@ export async function emailNewRequestToTeam(input: {
   urgency: "baja" | "media" | "alta";
   requestId: string;
   clientId: string;
+  /** true = el cliente editó una solicitud que ya existía (no es nueva). */
+  updated?: boolean;
 }): Promise<{ id: string } | null> {
   if (input.teamEmails.length === 0) return null;
   const typeLabel = input.requestType === "oferta" ? "oferta" : "acción";
+  const heading = input.updated
+    ? `${input.clientName} actualizó una ${typeLabel}`
+    : `Nueva ${typeLabel} de ${input.clientName}`;
+  const lead = input.updated
+    ? `El cliente editó una ${typeLabel} que ya había cargado en su portal. Revisá los cambios.`
+    : `El cliente cargó una nueva ${typeLabel} en su portal.`;
   const urgencyLabel = {
     alta: "🔴 Alta",
     media: "🟡 Media",
@@ -237,10 +245,10 @@ export async function emailNewRequestToTeam(input: {
   const html = baseLayout(
     `
       <h1 style="font-size:24px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">
-        Nueva ${typeLabel} de ${escapeHtml(input.clientName)}
+        ${escapeHtml(heading)}
       </h1>
       <p style="margin:0 0 20px;color:#5a5a5a;font-size:14px;">
-        El cliente cargó una nueva ${typeLabel} en su portal.
+        ${lead}
       </p>
       <div style="background:#f5f1e9;padding:20px;border-left:3px solid #c4a882;margin:20px 0;">
         <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#8b7355;font-weight:600;margin-bottom:8px;">
@@ -256,7 +264,7 @@ export async function emailNewRequestToTeam(input: {
 
   return sendEmail({
     to: input.teamEmails,
-    subject: `Nueva ${typeLabel} de ${input.clientName}: ${input.requestTitle}`,
+    subject: `${heading}: ${input.requestTitle}`,
     html,
   });
 }

@@ -229,50 +229,8 @@
 
 /* ============ Sidebar block como link (próximas reuniones) ============ */
 
-.sidebarLink {
-  display: block;
-  text-decoration: none;
-  cursor: pointer;
-}
-
 /* Header con label + flecha "ver calendario". El label dentro del link
    no necesita el margin-bottom del .sidebarLabel base, lo neutralizamos. */
-.sidebarLinkHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.sidebarLinkHead .sidebarLabel {
-  margin-bottom: 0;
-}
-
-.sidebarLinkArrow {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--sand-dark);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 180ms ease-out, transform 180ms ease-out;
-  white-space: nowrap;
-}
-
-.sidebarLink:hover .sidebarLinkArrow {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.eventEmpty {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  font-style: italic;
-}
-
 /* ============ KPIs compactos (sidebar) ============ */
 
 .compactKpiGrid {
@@ -354,48 +312,6 @@
 
 /* ============ Eventos compactos (sidebar) ============ */
 
-.eventList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.eventCompact {
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(10, 26, 12, 0.05);
-}
-
-.eventCompact:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.eventCompact:first-child {
-  padding-top: 0;
-}
-
-.eventDate {
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--sand-dark);
-  margin-bottom: 4px;
-}
-
-.eventTime {
-  font-weight: 400;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-
-.eventTitle {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--deep-green);
-  line-height: 1.4;
-}
-
 /* ============ Pago compacto (sidebar) ============ */
 
 .paymentCompact {
@@ -418,7 +334,46 @@
   letter-spacing: 0.04em;
 }
 
-/* ============ CTA Solicitudes (sidebar) — glass deep ============ */
+/* ============ CTAs del sidebar (Agenda + Solicitud) — glass deep ============ */
+
+/* Las dos CTAs van lado a lado arriba del sidebar. */
+.ctaPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ctaPair .requestCta {
+  padding: 16px 16px 14px;
+  gap: 8px;
+}
+
+.ctaPair .requestCtaEyebrow {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.ctaPair .requestCtaTitle {
+  font-size: 14px;
+}
+
+.ctaPair .requestCtaBody {
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.ctaPair .requestCtaArrow {
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 420px) {
+  .ctaPair {
+    grid-template-columns: 1fr;
+  }
+}
 
 .requestCta {
   background: linear-gradient(

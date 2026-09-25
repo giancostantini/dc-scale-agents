@@ -87,6 +87,46 @@ export async function createRequest(
   return data as ClientRequest;
 }
 
+export interface PortalOfferEdit {
+  title: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  urgency?: ClientRequestUrgency;
+}
+
+/**
+ * El cliente edita una oferta/paquete activo desde el portal. Va por
+ * PATCH /api/portal/requests/[id] (service role + validaciones) porque la RLS
+ * no le deja hacer UPDATE directo. El endpoint marca metadata.editedAt y avisa
+ * al equipo.
+ */
+export async function updateRequestFromPortal(
+  id: string,
+  input: PortalOfferEdit,
+): Promise<ClientRequest> {
+  const {
+    data: { session },
+  } = await getSupabase().auth.getSession();
+  if (!session) throw new Error("Tu sesión expiró. Volvé a entrar.");
+
+  const res = await fetch(`/api/portal/requests/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(input),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    request?: ClientRequest;
+    error?: string;
+  };
+  if (!res.ok || !data.request) {
+    throw new Error(data.error ?? "No se pudieron guardar los cambios.");
+  }
+  return data.request;
+}
+
 export interface UpdateRequestInput {
   status?: ClientRequestStatus;
   response?: string | null;
