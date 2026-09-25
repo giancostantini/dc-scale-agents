@@ -71,6 +71,7 @@ import type {
 import ContentFeedPreview from "@/components/content/ContentFeedPreview";
 import ContentTeamHero from "@/components/content/ContentTeamHero";
 import ContentConsultantPanel from "@/components/ContentConsultantPanel";
+import ContentFrequencyModal from "@/components/ContentFrequencyModal";
 import {
   DEFAULT_CONTENT_CLASSIFICATIONS,
   classificationsFor,
@@ -403,6 +404,10 @@ export default function ContenidoPage({
   // Modal de "nueva idea manual"
   const [showNewIdea, setShowNewIdea] = useState(false);
   const [savingNewIdea, setSavingNewIdea] = useState(false);
+  // Modal de frecuencia + mix de contenido (director) — define cuántas
+  // piezas por semana y su mix V/O/E, que alimenta el auto-armado del
+  // Calendario de acciones.
+  const [showFreqModal, setShowFreqModal] = useState(false);
   // Multi-select para acciones en bloque sobre la tabla. Set<post.id>.
   // El bar de acciones bulk solo aparece cuando hay al menos 1 elegido.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -959,6 +964,30 @@ export default function ContenidoPage({
             por cliente vía external_links.content_gpt_url. Queda a la derecha,
             a la altura del título (ui.head es flex con space-between). */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Frecuencia + mix: define cuántas piezas por semana y su mix
+              V/O/E. El Calendario de acciones lo consume para sugerir
+              posteos automáticamente. Solo director. */}
+          {isDirector && (
+            <button
+              type="button"
+              onClick={() => setShowFreqModal(true)}
+              title="Definir frecuencia semanal y mix de contenido — se asigna solo al calendario"
+              style={{
+                padding: "9px 16px",
+                fontSize: 12,
+                fontWeight: 600,
+                background: "transparent",
+                border: "1px solid var(--sand-dark)",
+                color: "var(--sand-dark)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                borderRadius: "var(--r-sm)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Frecuencia
+            </button>
+          )}
           {client?.external_links?.content_gpt_url ? (
             <>
               <a
@@ -2177,6 +2206,21 @@ export default function ContenidoPage({
       </div>
 
       {/* ============== MODAL NUEVA IDEA MANUAL ============== */}
+      {/* Modal de frecuencia + mix (director). Al guardar, refrescamos el
+          cliente para que el calendario recompute las sugerencias. */}
+      <ContentFrequencyModal
+        open={showFreqModal}
+        clientId={id}
+        current={client?.content_frequency}
+        currentMix={client?.content_mix}
+        onClose={() => setShowFreqModal(false)}
+        onSaved={(newFreq, newMix) => {
+          setClient((c) =>
+            c ? { ...c, content_frequency: newFreq, content_mix: newMix } : c,
+          );
+        }}
+      />
+
       {showNewIdea && (
         <NewIdeaModal
           saving={savingNewIdea}
