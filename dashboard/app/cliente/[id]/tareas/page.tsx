@@ -19,6 +19,7 @@ import {
   updateTaskStatus,
   updateTaskProgress,
   updateTaskAttachments,
+  updateTaskResponses,
   deleteTask,
   getClient,
 } from "@/lib/storage";
@@ -30,6 +31,7 @@ import type {
   Client,
   DevTask,
   TaskAttachment,
+  TaskResponse,
   TaskPriority,
   TaskStatus,
 } from "@/lib/types";
@@ -94,6 +96,10 @@ export default function TareasClientePage({
   // Tarea abierta en el modal de detalle (id; el objeto se deriva fresco
   // de `tasks` para reflejar cambios tras refresh).
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Usuario actual (para firmar las respuestas) + borrador de respuesta.
+  const [me, setMe] = useState<Profile | null>(null);
+  const [responseDraft, setResponseDraft] = useState("");
+  const [sendingResponse, setSendingResponse] = useState(false);
 
   const refresh = useCallback(() => {
     getTasks(id).then(setTasks);
@@ -111,6 +117,7 @@ export default function TareasClientePage({
     });
     getClient(id).then((c) => setClient(c ?? null));
     getCurrentProfile().then((p) => {
+      setMe(p ?? null);
       setIsDirector(p?.role === "director");
       setCanManage(p?.role === "director" || p?.role === "team");
     });
@@ -277,6 +284,30 @@ export default function TareasClientePage({
       refresh();
     } catch (err) {
       alert(`No se pudo quitar: ${(err as Error).message}`);
+    }
+  }
+
+  async function sendResponse(t: DevTask) {
+    const text = responseDraft.trim();
+    if (!text || sendingResponse) return;
+    setSendingResponse(true);
+    try {
+      const next: TaskResponse[] = [
+        ...(t.responses ?? []),
+        {
+          authorId: me?.id ?? null,
+          authorName: me?.name ?? "—",
+          text,
+          at: new Date().toISOString(),
+        },
+      ];
+      await updateTaskResponses(t.id, next);
+      setResponseDraft("");
+      refresh();
+    } catch (err) {
+      alert(`No se pudo enviar la respuesta: ${(err as Error).message}`);
+    } finally {
+      setSendingResponse(false);
     }
   }
 
@@ -712,7 +743,7 @@ export default function TareasClientePage({
       {/* Modal de detalle — desglose completo de la tarea. */}
       {detailTask && (
         <div
-          onClick={() => setDetailId(null)}
+          onClick={() => { setDetailId(null); setResponseDraft(""); }}
           style={{
             position: "fixed",
             inset: 0,
@@ -760,7 +791,7 @@ export default function TareasClientePage({
                 {detailTask.title}
               </h2>
               <button
-                onClick={() => setDetailId(null)}
+                onClick={() => { setDetailId(null); setResponseDraft(""); }}
                 style={{ ...mini, fontSize: 18 }}
                 title="Cerrar"
               >
@@ -1013,6 +1044,115 @@ export default function TareasClientePage({
               </div>
             )}
 
+            {/* Respuestas / notas — la persona asignada explica avances o
+                agrega un link. */}
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 10,
+                }}
+              >
+                Respuestas / notas
+              </div>
+
+              {detailTask.responses && detailTask.responses.length > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  {detailTask.responses.map((r, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        padding: "10px 12px",
+                        background: "var(--off-white)",
+                        borderRadius: "var(--r-md)",
+                        borderLeft: "3px solid var(--sand-dark)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <strong style={{ fontSize: 12, color: "var(--deep-green)" }}>
+                          {r.authorName}
+                        </strong>
+                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                          {shortDateTime(r.at)}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "var(--deep-green)",
+                          lineHeight: 1.5,
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {renderWithLinks(r.text)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    fontStyle: "italic",
+                    marginBottom: 12,
+                  }}
+                >
+                  Sin respuestas todavía.
+                </div>
+              )}
+
+              {canManage && (
+                <div>
+                  <textarea
+                    value={responseDraft}
+                    onChange={(e) => setResponseDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                        e.preventDefault();
+                        void sendResponse(detailTask);
+                      }
+                    }}
+                    placeholder="Explicá un avance o pegá un link (ej: https://…). Cmd/Ctrl+Enter para enviar."
+                    rows={2}
+                    disabled={sendingResponse}
+                    style={{ ...inputS, padding: 10, lineHeight: 1.5, resize: "vertical" }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                    <button
+                      onClick={() => void sendResponse(detailTask)}
+                      disabled={sendingResponse || !responseDraft.trim()}
+                      className={ui.btnGhost}
+                      style={{
+                        fontWeight: 600,
+                        opacity: sendingResponse || !responseDraft.trim() ? 0.5 : 1,
+                      }}
+                    >
+                      {sendingResponse ? "Enviando…" : "Enviar respuesta"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Acciones */}
             {canManage && (
               <div
@@ -1050,6 +1190,38 @@ export default function TareasClientePage({
       )}
     </>
   );
+}
+
+/** Renderiza texto convirtiendo URLs en links clickeables. */
+function renderWithLinks(text: string): React.ReactNode {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "var(--deep-green)", textDecoration: "underline", wordBreak: "break-all" }}
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
+/** dd/mm hh:mm de un ISO. */
+function shortDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function StatCard({

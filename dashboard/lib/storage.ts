@@ -23,6 +23,7 @@ import type {
   ClientNote,
   DevTask,
   TaskAttachment,
+  TaskResponse,
   ProductionCampaign,
   ContentPost,
   RoutingRule,
@@ -2358,6 +2359,7 @@ interface TaskRow {
   attachment_requested?: boolean | null;
   attachment_note?: string | null;
   attachments?: TaskAttachment[] | null;
+  responses?: TaskResponse[] | null;
 }
 
 function taskFromRow(r: TaskRow): DevTask {
@@ -2379,6 +2381,7 @@ function taskFromRow(r: TaskRow): DevTask {
     attachmentRequested: r.attachment_requested ?? false,
     attachmentNote: r.attachment_note ?? null,
     attachments: Array.isArray(r.attachments) ? r.attachments : [],
+    responses: Array.isArray(r.responses) ? r.responses : [],
   };
 }
 
@@ -2425,6 +2428,7 @@ export async function addTask(data: Omit<DevTask, "id" | "createdAt">): Promise<
       attachment_requested: data.attachmentRequested ?? false,
       attachment_note: data.attachmentNote ?? null,
       attachments: data.attachments ?? [],
+      responses: data.responses ?? [],
     })
     .select()
     .single();
@@ -2491,6 +2495,19 @@ export async function updateTaskAttachments(
   const { error } = await supabase
     .from("dev_tasks")
     .update({ attachments })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Reemplaza la lista de respuestas/notas de una tarea. */
+export async function updateTaskResponses(
+  id: string,
+  responses: TaskResponse[],
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("dev_tasks")
+    .update({ responses })
     .eq("id", id);
   if (error) throw error;
 }

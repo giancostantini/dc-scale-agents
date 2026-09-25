@@ -813,6 +813,14 @@ export interface TaskAttachment {
   uploadedAt?: string;
 }
 
+/** Respuesta / nota que deja el asignado (o el equipo) en una tarea. */
+export interface TaskResponse {
+  authorId?: string | null;
+  authorName: string;
+  text: string;
+  at: string; // ISO
+}
+
 export interface DevTask {
   id: string;
   clientId: string;
@@ -835,6 +843,8 @@ export interface DevTask {
   attachmentNote?: string | null;
   /** Archivos subidos por el asignado. */
   attachments?: TaskAttachment[];
+  /** Respuestas/notas dejadas en la tarea (migración 104). */
+  responses?: TaskResponse[];
 }
 
 // ==================== CAMPAÑAS DE PRODUCCIÓN (CLIENTE) ====================
