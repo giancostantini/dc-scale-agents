@@ -6,7 +6,8 @@
  * a qué user pertenece, obtenemos su access_token (con auto-refresh),
  * y fetcheamos el evento.
  *
- * Persistencia en cal_events:
+ * Persistencia en cal_events (vía upsertOutlookEvent de lib/outlook-sync.ts,
+ * compartido con la reconciliación periódica):
  *   - owner_user_id = el user dueño de la subscription
  *   - external_id   = eventId de Microsoft (UNIQUE → upsert idempotente)
  *   - client_id     = se setea si:
@@ -22,6 +23,7 @@
 import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fetchEvent, getUserAccessToken } from "@/lib/microsoft-graph";
+import { reconcileOutlookUser, upsertOutlookEvent } from "@/lib/outlook-sync";
 import { safeEqual } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
@@ -150,83 +152,18 @@ async function processNotification(
     return { ok: true, reason: "deleted/cancelled" };
   }
 
-  // 4. Resolver client_id según rol del user
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role, client_id")
-    .eq("id", userId)
-    .maybeSingle();
-
-  let resolvedClientId: string | null = null;
-  // client_label es NOT NULL en cal_events — sin valor el INSERT falla en
-  // silencio. Resolvemos el nombre del cliente si matchea; si no, "Personal".
-  let resolvedClientLabel = "Personal";
-  if (profile?.role === "client" && profile.client_id) {
-    resolvedClientId = profile.client_id;
-    const { data: ownClient } = await admin
-      .from("clients")
-      .select("name")
-      .eq("id", profile.client_id)
-      .maybeSingle();
-    resolvedClientLabel = ownClient?.name ?? profile.client_id;
-  } else {
-    // team/director — match por attendees
-    const attendeeEmails = (event.attendees ?? [])
-      .map((a) => a.emailAddress.address?.toLowerCase())
-      .filter((e): e is string => Boolean(e));
-    if (attendeeEmails.length > 0) {
-      const { data: matched } = await admin
-        .from("clients")
-        .select("id, name")
-        .in("contact_email", attendeeEmails)
-        .limit(1);
-      const m = matched?.[0];
-      if (m) {
-        resolvedClientId = m.id;
-        resolvedClientLabel = m.name;
-      }
-    }
+  // 4. Serie recurrente: el webhook trae el seriesMaster (una sola fila con la
+  //    primera fecha). Las ocurrencias las carga la reconciliación, una por día.
+  if (event.type === "seriesMaster") {
+    await reconcileOutlookUser(admin, userId);
+    return { ok: true, reason: "serie recurrente → reconciliado" };
   }
 
-  // 5. Guardar el evento.
-  // El índice único de external_id es PARCIAL (WHERE external_id IS NOT NULL) y
-  // Postgres NO lo matchea con `ON CONFLICT (external_id)` sin el predicado, así
-  // que el upsert fallaba y NINGÚN evento se guardaba (silencioso). Resolvemos
-  // el conflicto en código: buscar por external_id → update | insert.
-  if (!event.start?.dateTime) {
-    await recordSyncError(admin, userId, `evento sin start.dateTime (${event.id})`);
-    return { ok: false, reason: "evento sin start.dateTime" };
-  }
-  const startDate = event.start.dateTime.slice(0, 10);
-  const startTime = event.start.dateTime.slice(11, 16);
-
-  const row = {
-    owner_user_id: userId,
-    client_id: resolvedClientId,
-    client_label: resolvedClientLabel,
-    title: event.subject || "(sin título)",
-    date: startDate,
-    time: startTime,
-    type: "reunion",
-    meet_link: event.onlineMeeting?.joinUrl ?? event.webLink ?? null,
-    synced: true,
-    external_id: event.id,
-    source: "outlook",
-  };
-
-  const { data: existing } = await admin
-    .from("cal_events")
-    .select("id")
-    .eq("external_id", event.id)
-    .maybeSingle();
-
-  const writeErr = existing
-    ? (await admin.from("cal_events").update(row).eq("id", existing.id)).error
-    : (await admin.from("cal_events").insert(row)).error;
-
+  // 5. Guardar el evento (misma lógica que la reconciliación).
+  const writeErr = await upsertOutlookEvent(admin, userId, event);
   if (writeErr) {
-    await recordSyncError(admin, userId, `guardar evento: ${writeErr.message}`);
-    return { ok: false, reason: `write failed: ${writeErr.message}` };
+    await recordSyncError(admin, userId, writeErr);
+    return { ok: false, reason: writeErr };
   }
 
   await admin

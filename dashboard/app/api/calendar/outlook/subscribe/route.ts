@@ -12,6 +12,12 @@
  *
  * Idempotente. Si Microsoft devuelve 404 al renovar (la subscription
  * caducó del lado MS), creamos una nueva.
+ *
+ * Además de renovar, en los dos modos RECONCILIA: trae el calendarView de la
+ * ventana y deja cal_events igual a Outlook (lib/outlook-sync.ts). Así un
+ * aviso perdido del webhook se recupera en el próximo cron (cada 6 h) o con
+ * el botón "Sincronizar ahora", y "Última sync" refleja la última vez que de
+ * verdad se comparó con Outlook.
  */
 
 import { NextRequest } from "next/server";
@@ -22,8 +28,11 @@ import {
   getUserAccessToken,
   renewSubscription,
 } from "@/lib/microsoft-graph";
+import { reconcileOutlookUser, type ReconcileResult } from "@/lib/outlook-sync";
 
 export const dynamic = "force-dynamic";
+// La reconciliación recorre el calendarView de cada conexión: más que el default.
+export const maxDuration = 120;
 
 // Renovar si la subscription expira en menos de este tiempo
 const RENEW_THRESHOLD_MS = 36 * 60 * 60 * 1000; // 36h
@@ -61,11 +70,14 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: error.message }, { status: 500 });
     }
 
-    const results: Array<{ user_id: string; mode: string; ok: boolean; error?: string }> = [];
+    const results: Array<
+      { user_id: string; mode: string; ok: boolean; error?: string } & Partial<ReconcileResult>
+    > = [];
     for (const conn of (conns ?? []) as ConnRow[]) {
       try {
         const mode = await processOne(admin, conn);
-        results.push({ user_id: conn.user_id, mode, ok: true });
+        const sync = await reconcileOutlookUser(admin, conn.user_id);
+        results.push({ user_id: conn.user_id, mode, ok: true, ...sync });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "unknown";
         await admin
@@ -107,7 +119,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const mode = await processOne(admin, conn as ConnRow);
-    return Response.json({ mode, ok: true });
+    const sync = await reconcileOutlookUser(admin, user.id);
+    return Response.json({ mode, ok: true, ...sync });
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "subscribe failed" },

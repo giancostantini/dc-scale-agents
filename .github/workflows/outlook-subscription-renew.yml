@@ -1,10 +1,12 @@
 name: Outlook Subscription Renew
 
 # Las subscriptions de Microsoft Graph para events tienen TTL máximo de
-# ~3 días (4230 minutos). Este cron corre todos los días a las 10:00 UTC
-# (7am UY) y le pega al endpoint /api/calendar/outlook/subscribe que:
+# ~3 días (4230 minutos). Este cron corre cada 6 horas y le pega al endpoint
+# /api/calendar/outlook/subscribe que, por cada conexión:
 #   - Renueva la subscription activa si todavía está viva.
 #   - Crea una nueva si la subscription expiró (404 al renovar).
+#   - Reconcilia: trae el calendarView (−7 / +60 días) y deja cal_events
+#     igual a Outlook. Recupera los avisos del webhook que se hayan perdido.
 #
 # El endpoint usa el header x-cron-secret como auth alterno (no requiere
 # sesión de director).
@@ -13,7 +15,7 @@ name: Outlook Subscription Renew
 
 on:
   schedule:
-    - cron: '0 10 * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -50,4 +52,5 @@ jobs:
             echo "$response" | jq -r '.results[]? | select(.ok == false) | "  - \(.user_id): \(.error // "?")"' >&2
             exit 1
           fi
+          echo "$response" | jq -r '.results[]? | "  - \(.user_id): \(.mode) · \(.synced // 0) eventos al día, \(.removed // 0) quitados"'
           echo "OK: $processed conexión(es) procesadas, sin errores"

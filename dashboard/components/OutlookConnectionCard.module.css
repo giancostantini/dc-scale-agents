@@ -191,6 +191,41 @@
   cursor: not-allowed;
 }
 
+.syncBtn {
+  margin-left: auto;
+  align-self: center;
+  padding: 7px 12px;
+  background: rgba(176, 75, 58, 0.08);
+  border: 1px solid rgba(176, 75, 58, 0.3);
+  color: var(--red-warn);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 180ms ease-out,
+    border-color 180ms ease-out;
+  flex-shrink: 0;
+}
+/* "Sincronizar ahora": misma forma que Desconectar, en verde neutro. */
+.syncBtn {
+  color: var(--deep-green);
+  border-color: rgba(10, 26, 12, 0.18);
+  background: transparent;
+}
+.syncBtn + .disconnectBtn {
+  margin-left: 8px;
+}
+.syncBtn:hover:not(:disabled) {
+  border-color: var(--deep-green);
+}
+.syncBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .disconnectBtn {
   margin-left: auto;
   align-self: center;
