@@ -31,6 +31,7 @@ import {
   addContentBatch,
   deleteContent,
   deletePlannedBetween,
+  deleteProgrammedBetween,
   getClient,
   getContent,
   getEventsByClient,
@@ -376,6 +377,43 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
     }
   }
 
+  /**
+   * "Limpiar mes" (solo director): borra el contenido PROGRAMADO del mes
+   * visible — pendientes y preparados. Lo ya subido se conserva.
+   */
+  async function cleanMonth() {
+    if (!client || planning || !isDirector) return;
+    const programmed = monthPosts.filter((p) => p.status !== "published");
+    if (programmed.length === 0) {
+      alert(
+        `No hay contenido programado en ${monthLabel.toLowerCase()} para limpiar.`,
+      );
+      return;
+    }
+    const publishedCount = monthPosts.length - programmed.length;
+    const ok = confirm(
+      `¿Limpiar ${monthLabel} ${year}?\n\n` +
+        `Se van a borrar ${programmed.length} pieza(s) programada(s) (pendientes y preparadas).` +
+        (publishedCount > 0
+          ? `\nLo ya subido (${publishedCount}) se conserva.`
+          : "") +
+        `\n\nEsta acción no se puede deshacer.`,
+    );
+    if (!ok) return;
+    setPlanning(true);
+    try {
+      await deleteProgrammedBetween(id, `${monthKey}-01`, lastDayIso);
+      refresh();
+    } catch (err) {
+      alert(
+        `No se pudo limpiar ${monthLabel.toLowerCase()}:\n${errorMessage(err)}`,
+      );
+      refresh();
+    } finally {
+      setPlanning(false);
+    }
+  }
+
   /** Al guardar la frecuencia: si el mes visible ya tenía pendientes,
    *  ofrecer rehacerlos; si estaba vacío, ofrecer cargarlo. */
   function onFrequencySaved(freq: ContentFrequency, mix: ContentMix) {
@@ -552,6 +590,24 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
           >
             + Evento / producción
           </button>
+          {/* Limpiar mes: borra lo programado (no subido) del mes visible.
+              Solo director. */}
+          {isDirector && (
+            <button
+              className={ui.btnGhost}
+              onClick={cleanMonth}
+              disabled={planning}
+              title="Borrar el contenido programado (pendiente y preparado) de este mes"
+              style={{
+                fontWeight: 600,
+                color: OVERDUE_COLOR,
+                borderColor: "rgba(176,75,58,0.35)",
+                opacity: planning ? 0.5 : 1,
+              }}
+            >
+              Limpiar mes
+            </button>
+          )}
         </div>
       </div>
 

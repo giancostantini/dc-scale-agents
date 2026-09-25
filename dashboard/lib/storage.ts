@@ -2715,6 +2715,30 @@ export async function deletePlannedBetween(
 }
 
 /**
+ * "Limpiar mes": borra todo el contenido PROGRAMADO (no publicado) de un
+ * cliente en un rango de fechas — pendientes (planned), borradores IA
+ * (draft) y preparados (scheduled). Lo YA SUBIDO (published) se conserva
+ * como historial. Devuelve cuántas piezas se borraron.
+ */
+export async function deleteProgrammedBetween(
+  clientId: string,
+  from: string,
+  to: string,
+): Promise<number> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("content_posts")
+    .delete()
+    .eq("client_id", clientId)
+    .neq("status", "published")
+    .gte("date", from)
+    .lte("date", to)
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/**
  * Actualiza campos editables de una pieza (idea, copy, cta, fecha,
  * formato, red, influencer, assigned_to, brief). Solo se mandan los
  * campos definidos en el patch.
