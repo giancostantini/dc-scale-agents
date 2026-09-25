@@ -43,6 +43,7 @@ import {
   getCurrentProfile,
   type Profile,
 } from "@/lib/supabase/auth";
+import { getSupabase } from "@/lib/supabase/client";
 import { uploadContentPreview } from "@/lib/upload";
 import {
   CONTENT_TYPE_META,
@@ -208,6 +209,10 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
   const [monthNoteEditing, setMonthNoteEditing] = useState(false);
   const [monthNoteDraft, setMonthNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  // Agente creativo dentro del editor de estrategia (solo director).
+  const [agentPrompt, setAgentPrompt] = useState("");
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
@@ -556,6 +561,61 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
       alert(`No se pudo guardar la nota:\n${e.message}`);
     } finally {
       setSavingNote(false);
+    }
+  }
+
+  /**
+   * Agente creativo: redacta/mejora la estrategia del mes según el pedido
+   * del director. El resultado se vuelca en el textarea (editable antes de
+   * guardar). No guarda solo — el director revisa y aprieta Guardar.
+   */
+  async function askStrategyAgent() {
+    if (agentBusy || !isDirector) return;
+    const instruction = agentPrompt.trim();
+    if (!instruction) {
+      setAgentError("Escribí qué querés que arme el agente.");
+      return;
+    }
+    setAgentBusy(true);
+    setAgentError(null);
+    try {
+      const {
+        data: { session },
+      } = await getSupabase().auth.getSession();
+      if (!session) {
+        setAgentError("Tu sesión expiró. Volvé a iniciar sesión.");
+        return;
+      }
+      const res = await fetch(`/api/clients/${id}/strategy-assistant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          instruction,
+          current: monthNoteDraft,
+          month: `${monthLabel} ${year}`,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        text?: string;
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok || !data.text) {
+        setAgentError(
+          [data.error, data.detail].filter(Boolean).join(" — ") ||
+            "El agente no pudo responder.",
+        );
+        return;
+      }
+      setMonthNoteDraft(data.text);
+      setAgentPrompt("");
+    } catch (err) {
+      setAgentError((err as Error).message);
+    } finally {
+      setAgentBusy(false);
     }
   }
 
@@ -1008,6 +1068,71 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
 
         {monthNoteEditing ? (
           <>
+            {/* Agente creativo: ayuda a armar/mejorar el texto. Solo el
+                director ve el editor, así que esto también. */}
+            <div
+              style={{
+                background: "var(--off-white)",
+                border: "1px solid rgba(10,26,12,0.08)",
+                borderRadius: "var(--r-md)",
+                padding: 12,
+                marginBottom: 14,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 8,
+                }}
+              >
+                ✨ Agente creativo
+              </div>
+              <textarea
+                value={agentPrompt}
+                onChange={(e) => setAgentPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    void askStrategyAgent();
+                  }
+                }}
+                placeholder={
+                  monthNoteDraft.trim()
+                    ? "Pedile que mejore o reescriba lo de abajo. Ej: hacela más agresiva en oferta, sumá Día de la Madre…"
+                    : "Contale el foco del mes y armá la estrategia. Ej: mes de lanzamiento de la línea nueva, presupuesto US$1000, prioridad Reels…"
+                }
+                rows={2}
+                disabled={agentBusy}
+                style={{ ...inputS, padding: 10, lineHeight: 1.5, resize: "vertical" }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 8,
+                }}
+              >
+                <span style={{ fontSize: 11, color: agentError ? OVERDUE_COLOR : "var(--text-muted)" }}>
+                  {agentError
+                    ? agentError
+                    : "Redacta sobre el texto actual. Revisalo y guardá vos."}
+                </span>
+                <button
+                  onClick={() => void askStrategyAgent()}
+                  disabled={agentBusy || !agentPrompt.trim()}
+                  className={ui.btnGhost}
+                  style={{ fontWeight: 600, whiteSpace: "nowrap", opacity: agentBusy || !agentPrompt.trim() ? 0.5 : 1 }}
+                >
+                  {agentBusy ? "Redactando…" : monthNoteDraft.trim() ? "Mejorar con el agente" : "Redactar con el agente"}
+                </button>
+              </div>
+            </div>
             <textarea
               value={monthNoteDraft}
               onChange={(e) => setMonthNoteDraft(e.target.value)}
