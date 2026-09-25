@@ -1,27 +1,19 @@
 "use client";
 
 /**
- * Portal · Agenda de publicaciones — vista READ-ONLY del cliente
- * sobre las piezas que prepara el equipo en el Calendario del cliente
- * (o en la vista vieja /cliente/[id]/contenido). Las pendientes
- * (status planned: cargadas por el asistente, sin descripción ni foto)
- * no se muestran — el cliente ve cada pieza recién cuando está preparada.
+ * Portal · Agenda de publicaciones — el cliente ve el MISMO calendario de
+ * contenido que usa el equipo (/cliente/[id]/planificador, migración 102):
+ * la grilla del mes con una chip por pieza (color = red, relleno =
+ * preparado, ✓ = subido, badge de tipo), fechas comerciales y eventos.
+ * La grilla es el componente compartido ContentMonthGrid.
  *
- * Lo que SÍ puede hacer el cliente:
- *   - Ver la tabla con los posts (código, red, formato, idea, fecha, estado).
- *   - Ver el feed simulado (grilla 3-col tipo perfil IG).
- *   - Agregar una "recomendación" por post — eso crea una entrada en
- *     client_requests con type='recomendacion' y metadata.post_id, que
- *     el director ve en el menú "Solicitudes" del dashboard GP.
+ * Solo lectura. El cliente ve las piezas preparadas y subidas: las
+ * pendientes (planned, sin descripción ni foto) y los borradores IA viejos
+ * (draft) son trabajo interno — todo lo que ve lo escribió una persona.
  *
- * Lo que NO puede:
- *   - Editar ningún campo del post.
- *   - Cambiar status/aprobación.
- *   - Crear/borrar posts.
- *
- * Esta página es paralela a /cliente/[id]/contenido pero mucho más
- * simple: sin filtros sofisticados, sin asistente IA, sin upload de
- * imagen — solo lectura y feedback.
+ * Lo que SÍ puede hacer: abrir una pieza (descripción + foto) y dejar una
+ * "recomendación" → client_requests type='recomendacion' con
+ * metadata.post_id, que el equipo ve en Solicitudes.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -31,103 +23,69 @@ import {
   hasSession,
   type Profile,
 } from "@/lib/supabase/auth";
-import { getClient, getContent } from "@/lib/storage";
+import { getClient, getContent, getEventsByClient } from "@/lib/storage";
 import { createRequest, listRequestsForClient } from "@/lib/requests";
 import PortalHeader from "@/components/PortalHeader";
-import { NETWORK_COLORS } from "@/lib/content-frequency";
-import {
-  classificationsFor,
-  classificationMetaById,
-} from "@/lib/types";
-import ContentFeedPreview from "@/components/content/ContentFeedPreview";
-import type {
-  Client,
-  ClientRequest,
-  ContentFormat,
-  ContentNetwork,
-  ContentPost,
-  ContentStatus,
-} from "@/lib/types";
+import ContentMonthGrid, {
+  LegendTitle,
+  StatePill,
+  TypeBadge,
+} from "@/components/content/ContentMonthGrid";
+import { CONTENT_TYPE_META, type ContentType } from "@/lib/content-frequency";
+import { PIECE_STATE_META, pieceState, pieceTitle } from "@/lib/content-plan";
+import { isoLocalDate } from "@/lib/content-labels";
+import type { CalEvent, Client, ClientRequest, ContentPost } from "@/lib/types";
 import portalStyles from "../portal.module.css";
 
-const NETWORK_LABEL: Record<ContentNetwork, string> = {
-  ig: "Instagram",
-  tt: "TikTok",
-  in: "LinkedIn",
-  fb: "Facebook",
-};
-
-const FORMAT_LABEL: Record<ContentFormat, string> = {
-  reel: "Reel",
-  post: "Post",
-  carrusel: "Carrusel",
-  story: "Story",
-  ugc: "UGC",
-  anuncio: "Anuncio",
-};
-
-const STATUS_LABEL: Record<ContentStatus, string> = {
-  planned: "Pendiente",
-  draft: "Borrador",
-  // Desde la migración 102 "scheduled" es una pieza preparada por el
-  // equipo (descripción + foto), no aprobada por un director.
-  scheduled: "Programada",
-  published: "Publicada",
-};
-
-const STATUS_COLOR: Record<ContentStatus, string> = {
-  planned: "#9B8259",
-  draft: "#9B8259",
-  scheduled: "#2f7d4f",
-  published: "#0A1A0C",
-};
-
-const MONTHS_ES = [
-  "Ene",
-  "Feb",
-  "Mar",
-  "Abr",
-  "May",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dic",
-];
-
-function formatShortDate(iso: string): string {
-  if (!iso || iso.length < 10) return iso;
-  const y = Number(iso.slice(0, 4));
-  const m = Number(iso.slice(5, 7)) - 1;
-  const d = Number(iso.slice(8, 10));
-  if (Number.isNaN(m) || Number.isNaN(d)) return iso;
-  const now = new Date().getFullYear();
-  return y === now
-    ? `${d} ${MONTHS_ES[m]}`
-    : `${d} ${MONTHS_ES[m]} ${y}`;
-}
+const MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const WEEKDAYS_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 function codeOf(post: ContentPost): string {
   if (post.code != null) return `C-${String(post.code).padStart(4, "0")}`;
   return `C-${post.id.slice(0, 4).toUpperCase()}`;
 }
 
+/** "Jueves 24/9". */
+function longDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const wd = WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()];
+  return `${wd.charAt(0).toUpperCase()}${wd.slice(1)} ${d}/${m}`;
+}
+
+const panelS: React.CSSProperties = {
+  background: "var(--white)",
+  border: "1px solid rgba(10,26,12,0.08)",
+  borderRadius: "var(--r-lg)",
+  padding: 20,
+  marginBottom: 16,
+};
+
+const navBtnS: React.CSSProperties = {
+  padding: "5px 12px",
+  fontSize: 12,
+  fontWeight: 600,
+  fontFamily: "inherit",
+  color: "var(--deep-green)",
+  background: "transparent",
+  border: "1px solid rgba(10,26,12,0.15)",
+  borderRadius: "var(--r-sm)",
+  cursor: "pointer",
+};
+
 export default function PortalAgendaPage() {
   const router = useRouter();
+  const today = new Date();
+  const todayIso = isoLocalDate(today);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [posts, setPosts] = useState<ContentPost[]>([]);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [requests, setRequests] = useState<ClientRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"table" | "feed">("table");
-  const [feedNetwork, setFeedNetwork] = useState<ContentNetwork>("ig");
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [openPiece, setOpenPiece] = useState<ContentPost | null>(null);
   const [recoModal, setRecoModal] = useState<ContentPost | null>(null);
-  // Tile detail vivía dentro de PortalAgendaFeed (state local). Ahora
-  // que reusamos <ContentFeedPreview>, lo subimos al nivel de página
-  // para poder renderizar TileDetailModal afuera del componente común.
-  const [tileDetail, setTileDetail] = useState<ContentPost | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -148,17 +106,17 @@ export default function PortalAgendaPage() {
       }
       setProfile(p);
       if (p.client_id) {
-        const [c, pts, reqs] = await Promise.all([
+        const [c, pts, evs, reqs] = await Promise.all([
           getClient(p.client_id),
           getContent(p.client_id),
+          getEventsByClient(p.client_id).catch(() => [] as CalEvent[]),
           listRequestsForClient(p.client_id),
         ]);
         if (active) {
           setClient(c ?? null);
-          // Las pendientes (status planned) son planificación interna
-          // del equipo: todavía no tienen descripción ni foto. El
-          // cliente ve cada pieza recién cuando está preparada.
-          setPosts(pts.filter((pt) => pt.status !== "planned"));
+          // Solo lo que ya preparó una persona: preparado o subido.
+          setPosts(pts.filter((pt) => pt.status === "scheduled" || pt.status === "published"));
+          setEvents(evs);
           setRequests(reqs);
         }
       }
@@ -169,9 +127,7 @@ export default function PortalAgendaPage() {
     };
   }, [router]);
 
-  // Mapa post_id → cantidad de recomendaciones ya cargadas. Lo usamos
-  // para mostrar un badge "X recomendaciones" en cada fila y evitar
-  // que el cliente cargue duplicados sin saberlo.
+  // post_id → cantidad de recomendaciones ya enviadas (evita duplicados).
   const recoCountByPost = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of requests) {
@@ -183,17 +139,27 @@ export default function PortalAgendaPage() {
     return map;
   }, [requests]);
 
-  // Sort newest first para que lo más reciente esté arriba en la tabla.
-  const sortedPosts = useMemo(
-    () =>
-      [...posts].sort((a, b) => {
-        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-        return (b.time ?? "").localeCompare(a.time ?? "");
-      }),
-    [posts],
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const monthPosts = useMemo(
+    () => posts.filter((p) => p.date.startsWith(`${monthKey}-`)),
+    [posts, monthKey],
   );
+  const subidos = monthPosts.filter((p) => p.status === "published").length;
+  const preparados = monthPosts.length - subidos;
+  const monthLabel = MONTHS_ES[month];
 
-  const classifications = classificationsFor(client);
+  function prevMonth() {
+    if (month === 0) {
+      setMonth(11);
+      setYear(year - 1);
+    } else setMonth(month - 1);
+  }
+  function nextMonth() {
+    if (month === 11) {
+      setMonth(0);
+      setYear(year + 1);
+    } else setMonth(month + 1);
+  }
 
   async function handleSubmitReco(text: string) {
     if (!recoModal || !client) return;
@@ -214,8 +180,6 @@ export default function PortalAgendaPage() {
         },
         urgency: "media",
       });
-      // Refresh la lista para que el badge se actualice y mostrar
-      // confirmación.
       if (profile?.client_id) {
         const fresh = await listRequestsForClient(profile.client_id);
         setRequests(fresh);
@@ -243,108 +207,107 @@ export default function PortalAgendaPage() {
       <main className={portalStyles.wrap}>
         <section className={portalStyles.heroBlock}>
           <div className={portalStyles.heroLeft}>
-            <div className={portalStyles.heroEyebrow}>Solo lectura</div>
-            <h1 className={portalStyles.heroTitle}>
-              Agenda de publicaciones
-            </h1>
+            <div className={portalStyles.heroEyebrow}>Calendario de contenido</div>
+            <h1 className={portalStyles.heroTitle}>Agenda de publicaciones</h1>
             <p className={portalStyles.heroSub}>
-              Acá ves lo que el equipo tiene planeado publicar. Vos no
-              podés editar las piezas, pero sí{" "}
-              <strong>agregar una recomendación</strong> a cualquier idea
-              — nos llega como solicitud y te respondemos por el portal.
+              El mismo calendario con el que trabaja el equipo: qué se sube
+              cada día y en qué red. Tocá una pieza para verla y, si querés,{" "}
+              <strong>dejar una recomendación</strong>; te respondemos por el
+              portal.
             </p>
           </div>
         </section>
 
-        {/* Toggle Tabla / Feed */}
+        {/* Resumen del mes + leyenda */}
         <div
           style={{
+            ...panelS,
             display: "flex",
-            gap: 0,
-            marginBottom: 18,
-            background: "var(--off-white)",
-            padding: 4,
-            borderRadius: 8,
-            width: "fit-content",
-            border: "1px solid rgba(10,26,12,0.08)",
+            gap: 14,
+            flexWrap: "wrap",
+            alignItems: "center",
+            fontSize: 12,
+            borderLeft: "3px solid var(--sand)",
           }}
         >
-          {(["table", "feed"] as const).map((mode) => {
-            const active = viewMode === mode;
-            const label = mode === "table" ? "▤ Tabla" : "▦ Vista feed";
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setViewMode(mode)}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  background: active ? "var(--white)" : "transparent",
-                  color: active ? "var(--deep-green)" : "var(--text-muted)",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  boxShadow: active
-                    ? "0 1px 3px rgba(0,0,0,0.08)"
-                    : "none",
-                  transition: "all 0.12s",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+          <span style={{ color: "var(--text-muted)" }}>
+            <strong style={{ color: "var(--deep-green)" }}>{monthPosts.length}</strong>{" "}
+            contenido{monthPosts.length === 1 ? "" : "s"} en {monthLabel.toLowerCase()}
+          </span>
+          <span style={{ color: PIECE_STATE_META.subido.color }}>
+            ✓ <strong>{subidos}</strong> subido{subidos === 1 ? "" : "s"}
+          </span>
+          <span style={{ color: PIECE_STATE_META.preparado.color }}>
+            ● <strong>{preparados}</strong> preparado{preparados === 1 ? "" : "s"}
+          </span>
+          <span style={{ flex: 1 }} />
+          <LegendTitle>Tipo</LegendTitle>
+          {(["valor", "oferta", "engagement"] as ContentType[]).map((t) => (
+            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: "var(--deep-green)" }}>
+              <TypeBadge type={t} />
+              {CONTENT_TYPE_META[t].label}
+            </span>
+          ))}
+          <LegendTitle>Estado</LegendTitle>
+          <span style={{ color: "var(--text-muted)" }}>lleno = preparado · ✓ = subido</span>
         </div>
 
-        {posts.length === 0 ? (
+        {/* Calendario */}
+        <div style={panelS}>
           <div
             style={{
-              padding: 40,
-              textAlign: "center",
-              color: "var(--text-muted)",
-              fontSize: 13,
-              fontStyle: "italic",
-              background: "var(--white)",
-              borderRadius: "var(--r-lg)",
-              border: "1px solid rgba(10,26,12,0.08)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 8,
             }}
           >
-            El equipo todavía no cargó publicaciones para vos.
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--deep-green)" }}>
+              {monthLabel} {year}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={prevMonth} style={navBtnS} aria-label="Mes anterior">‹</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMonth(today.getMonth());
+                  setYear(today.getFullYear());
+                }}
+                style={navBtnS}
+              >
+                Hoy
+              </button>
+              <button type="button" onClick={nextMonth} style={navBtnS} aria-label="Mes siguiente">›</button>
+            </div>
           </div>
-        ) : viewMode === "table" ? (
-          <PortalAgendaTable
-            posts={sortedPosts}
-            classifications={classifications}
-            recoCountByPost={recoCountByPost}
-            onAddReco={(p) => setRecoModal(p)}
+
+          <ContentMonthGrid
+            year={year}
+            month={month}
+            posts={posts}
+            events={events}
+            todayIso={todayIso}
+            markOverdue={false}
+            onOpenPiece={setOpenPiece}
           />
-        ) : (
-          <ContentFeedPreview
-            posts={sortedPosts}
-            network={feedNetwork}
-            onNetworkChange={setFeedNetwork}
-            clientName={client?.name ?? ""}
-            clientLogoUrl={client?.logo_url ?? null}
-            clientSocialLinks={client?.social_links ?? null}
-            classifications={classifications}
-            badgeByPostId={recoCountByPost}
-            onTileClick={setTileDetail}
-          />
-        )}
+
+          {monthPosts.length === 0 && (
+            <div style={{ marginTop: 14, fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>
+              Todavía no hay publicaciones preparadas para {monthLabel.toLowerCase()}.
+            </div>
+          )}
+        </div>
       </main>
 
-      {tileDetail && (
-        <TileDetailModal
-          post={tileDetail}
-          existingCount={recoCountByPost.get(tileDetail.id) ?? 0}
-          onClose={() => setTileDetail(null)}
+      {openPiece && (
+        <PieceDetailModal
+          post={openPiece}
+          existingCount={recoCountByPost.get(openPiece.id) ?? 0}
+          onClose={() => setOpenPiece(null)}
           onAddReco={() => {
-            const p = tileDetail;
-            setTileDetail(null);
+            const p = openPiece;
+            setOpenPiece(null);
             setRecoModal(p);
           }}
         />
@@ -362,227 +325,9 @@ export default function PortalAgendaPage() {
   );
 }
 
-// ============================================================
-// PortalAgendaTable — versión read-only de la tabla de /contenido.
-// Sin filtros por columna, sin editar inline, sin botones de aprobar.
-// Solo info + badge de "X recomendaciones" + botón "+ Recomendación".
-// ============================================================
-function PortalAgendaTable({
-  posts,
-  classifications,
-  recoCountByPost,
-  onAddReco,
-}: {
-  posts: ContentPost[];
-  classifications: ReturnType<typeof classificationsFor>;
-  recoCountByPost: Map<string, number>;
-  onAddReco: (p: ContentPost) => void;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--white)",
-        border: "1px solid rgba(10,26,12,0.08)",
-        borderRadius: "var(--r-lg)",
-        overflow: "hidden",
-        overflowX: "auto",
-      }}
-    >
-      <table
-        style={{
-          width: "100%",
-          fontSize: 13,
-          borderCollapse: "collapse",
-        }}
-      >
-        <thead>
-          <tr
-            style={{
-              background: "var(--off-white)",
-              borderBottom: "1px solid rgba(10,26,12,0.1)",
-            }}
-          >
-            <th style={th}>Código</th>
-            <th style={th}>Red</th>
-            <th style={th}>Formato</th>
-            <th style={{ ...th, minWidth: 260 }}>Idea</th>
-            <th style={th}>Fecha</th>
-            <th style={th}>Estado</th>
-            <th style={{ ...th, textAlign: "right" }}>Recomendación</th>
-          </tr>
-        </thead>
-        <tbody>
-          {posts.map((p) => {
-            const networks =
-              p.networks && p.networks.length > 0
-                ? p.networks
-                : [p.network];
-            const classMeta = classificationMetaById(
-              classifications,
-              p.classification,
-            );
-            const recoCount = recoCountByPost.get(p.id) ?? 0;
-            return (
-              <tr
-                key={p.id}
-                style={{
-                  borderBottom: "1px solid rgba(10,26,12,0.05)",
-                }}
-              >
-                <td
-                  style={{
-                    ...td,
-                    fontFamily: "monospace",
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {codeOf(p)}
-                </td>
-                <td style={td}>
-                  <div
-                    style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
-                  >
-                    {networks.map((n) => (
-                      <span
-                        key={n}
-                        style={{
-                          display: "inline-block",
-                          padding: "3px 8px",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: "0.06em",
-                          textTransform: "uppercase",
-                          background:
-                            NETWORK_COLORS[n]?.solid ?? "#0A1A0C",
-                          color: "#fff",
-                          borderRadius: "var(--r-pill)",
-                        }}
-                      >
-                        {NETWORK_LABEL[n] ?? n}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td style={{ ...td, textTransform: "capitalize" }}>
-                  {FORMAT_LABEL[p.format] ?? p.format}
-                </td>
-                <td style={td}>
-                  <div
-                    style={{
-                      maxWidth: 420,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      lineHeight: 1.4,
-                      color: p.idea
-                        ? "var(--deep-green)"
-                        : "var(--text-muted)",
-                      fontStyle: p.idea ? "normal" : "italic",
-                    }}
-                  >
-                    {p.idea ?? p.brief?.slice(0, 100) ?? "(sin idea)"}
-                  </div>
-                  {classMeta && (
-                    <div style={{ marginTop: 4 }}>
-                      <span
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 800,
-                          letterSpacing: "0.06em",
-                          padding: "2px 6px",
-                          background: classMeta.color,
-                          color: "#fff",
-                          borderRadius: 3,
-                        }}
-                      >
-                        {classMeta.label}
-                      </span>
-                    </div>
-                  )}
-                </td>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  <div style={{ fontWeight: 600 }}>
-                    {formatShortDate(p.date)}
-                  </div>
-                  {p.time && (
-                    <div
-                      style={{ fontSize: 10, color: "var(--text-muted)" }}
-                    >
-                      {p.time}
-                    </div>
-                  )}
-                </td>
-                <td style={td}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "2px 8px",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      background:
-                        p.status === "scheduled"
-                          ? "rgba(47,125,79,0.12)"
-                          : p.status === "published"
-                            ? "rgba(10,26,12,0.08)"
-                            : "rgba(155,130,89,0.15)",
-                      color: STATUS_COLOR[p.status],
-                      borderRadius: "var(--r-pill)",
-                    }}
-                  >
-                    {STATUS_LABEL[p.status]}
-                  </span>
-                </td>
-                <td style={{ ...td, textAlign: "right" }}>
-                  {recoCount > 0 && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: "var(--text-muted)",
-                        marginRight: 8,
-                      }}
-                    >
-                      {recoCount}{" "}
-                      {recoCount === 1 ? "enviada" : "enviadas"}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onAddReco(p)}
-                    style={{
-                      padding: "5px 12px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      background: "var(--deep-green)",
-                      color: "var(--off-white)",
-                      border: "none",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    + Recomendar
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-
-// Modal mostrando el detalle de un post (read-only) cuando el cliente
-// toca un tile de la grilla. Botón CTA para abrir el modal de
-// recomendación.
-function TileDetailModal({
+// Detalle de una pieza, solo lectura: lo que el equipo cargó (descripción +
+// foto) y el botón para dejar una recomendación.
+function PieceDetailModal({
   post,
   existingCount,
   onClose,
@@ -593,6 +338,8 @@ function TileDetailModal({
   onClose: () => void;
   onAddReco: () => void;
 }) {
+  const state = pieceState(post);
+  const text = (post.brief ?? "").trim() || (post.copy ?? "").trim();
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -609,6 +356,8 @@ function TileDetailModal({
       }}
     >
       <div
+        role="dialog"
+        aria-label="Detalle de la publicación"
         style={{
           background: "var(--white)",
           maxWidth: 480,
@@ -622,6 +371,7 @@ function TileDetailModal({
       >
         <button
           onClick={onClose}
+          aria-label="Cerrar"
           style={{
             position: "absolute",
             top: 14,
@@ -638,20 +388,6 @@ function TileDetailModal({
           ×
         </button>
 
-        {post.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={post.imageUrl}
-            alt={post.idea ?? ""}
-            style={{
-              width: "100%",
-              maxHeight: 280,
-              objectFit: "cover",
-              borderRadius: "var(--r-sm)",
-              marginBottom: 14,
-            }}
-          />
-        )}
         <div
           style={{
             fontSize: 10,
@@ -662,57 +398,58 @@ function TileDetailModal({
             marginBottom: 6,
           }}
         >
-          {codeOf(post)} · {NETWORK_LABEL[post.network]} ·{" "}
-          {FORMAT_LABEL[post.format]}
+          {longDate(post.date)}
+          {post.time ? ` · ${post.time}` : ""}
         </div>
         <h2
           style={{
             fontSize: 20,
             fontWeight: 700,
-            marginBottom: 12,
+            marginBottom: 10,
             color: "var(--deep-green)",
+            lineHeight: 1.3,
           }}
         >
-          {post.idea || "Sin idea cargada"}
+          {pieceTitle(post)}
         </h2>
-        <div
-          style={{
-            fontSize: 12,
-            color: "var(--text-muted)",
-            marginBottom: 14,
-          }}
-        >
-          {formatShortDate(post.date)}
-          {post.time ? ` · ${post.time}` : ""}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+          <StatePill state={state} overdue={false} />
+          {post.status === "published" && post.publishedAt && (
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Subido el {new Date(post.publishedAt).toLocaleDateString("es-UY")}
+            </span>
+          )}
         </div>
 
-        {post.copy && (
-          <div style={{ marginBottom: 14 }}>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                color: "var(--sand-dark)",
-                marginBottom: 4,
-              }}
-            >
-              Copy
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--deep-green)",
-                lineHeight: 1.55,
-                whiteSpace: "pre-wrap",
-                padding: 12,
-                background: "var(--off-white)",
-                borderRadius: "var(--r-sm)",
-              }}
-            >
-              {post.copy}
-            </div>
+        {post.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.imageUrl}
+            alt="Foto de la publicación"
+            style={{
+              width: "100%",
+              maxHeight: 320,
+              objectFit: "cover",
+              borderRadius: "var(--r-sm)",
+              marginBottom: 14,
+            }}
+          />
+        )}
+
+        {text && (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--deep-green)",
+              lineHeight: 1.55,
+              whiteSpace: "pre-wrap",
+              padding: 12,
+              background: "var(--off-white)",
+              borderRadius: "var(--r-sm)",
+              marginBottom: 14,
+            }}
+          >
+            {text}
           </div>
         )}
 
@@ -974,20 +711,3 @@ function RecommendationModal({
     </div>
   );
 }
-
-const th: React.CSSProperties = {
-  padding: "10px 14px",
-  textAlign: "left",
-  fontSize: 10,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: "var(--text-muted)",
-  fontWeight: 700,
-};
-
-const td: React.CSSProperties = {
-  padding: "12px 14px",
-  fontSize: 13,
-  color: "var(--deep-green)",
-  verticalAlign: "top",
-};
