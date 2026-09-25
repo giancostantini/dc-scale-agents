@@ -40,7 +40,7 @@ export interface PortalHeaderProps {
 
 /**
  * Header unificado del portal del cliente. Muestra:
- *   - Logo del cliente (si existe) + Lockup D&C
+ *   - Logo del cliente (si existe) + monograma D&C
  *   - Eyebrow contextual centrado
  *   - PaymentCTA (semáforo del pago mensual) · Alertas · Perfil · Salir
  *
@@ -63,7 +63,7 @@ export default function PortalHeader({
   const pathname = usePathname() ?? "";
 
   return (
-    <header className={styles.header}>
+    <header className={`${styles.header} ${showBack ? styles.headerBack : ""}`}>
       <div className={styles.headerLeft}>
         {logoUrl && (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -86,7 +86,7 @@ export default function PortalHeader({
             color: "inherit",
           }}
         >
-          <Lockup size="md" />
+          <Lockup size="md" variant="monogram" className={styles.brandMark} />
         </Link>
 
         {/* Nav del portal — botones principales que el cliente usa
@@ -94,40 +94,15 @@ export default function PortalHeader({
             etc.) viven como cards en el home; acá ponemos los menús
             navegables. */}
         {!showBack && (
-          <nav
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              marginLeft: 20,
-              paddingLeft: 20,
-              borderLeft: "1px solid rgba(232,228,220,0.18)",
-            }}
-          >
+          <nav className={styles.nav} aria-label="Secciones del portal">
             {NAV_ITEMS.map((item) => {
               const active = pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  style={{
-                    padding: "8px 14px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    letterSpacing: "0.04em",
-                    color: active
-                      ? "var(--off-white)"
-                      : "rgba(232,228,220,0.65)",
-                    background: active
-                      ? "rgba(196,168,130,0.18)"
-                      : "transparent",
-                    border: active
-                      ? "1px solid rgba(196,168,130,0.5)"
-                      : "1px solid transparent",
-                    borderRadius: 4,
-                    textDecoration: "none",
-                    transition: "all 0.12s",
-                  }}
+                  className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
+                  aria-current={active ? "page" : undefined}
                 >
                   {item.label}
                 </Link>
@@ -137,9 +112,13 @@ export default function PortalHeader({
         )}
       </div>
 
-      <div className={styles.headerCenter}>
-        {eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}
-      </div>
+      {/* Con el menú visible el eyebrow sobra (el saludo ya dice de quién es
+          el portal) y en anchos medios se pisaba con los links. */}
+      {showBack && (
+        <div className={styles.headerCenter}>
+          {eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}
+        </div>
+      )}
 
       <div className={styles.headerRight}>
         {showBack ? (

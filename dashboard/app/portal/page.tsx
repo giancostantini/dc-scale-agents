@@ -9,7 +9,7 @@ import {
   signOut,
   type Profile,
 } from "@/lib/supabase/auth";
-import { getClient, getEventsByClient } from "@/lib/storage";
+import { getClient } from "@/lib/storage";
 import { listPhaseReports } from "@/lib/phases";
 import { getSupabase } from "@/lib/supabase/client";
 import { getDownloadUrl } from "@/lib/upload";
@@ -25,7 +25,6 @@ import LookerStudioCard from "@/components/LookerStudioCard";
 import TeamCard from "@/components/TeamCard";
 import SectorTrendsCard from "@/components/SectorTrendsCard";
 import type {
-  CalEvent,
   Client,
   OnboardingFile,
   PhaseReport,
@@ -53,7 +52,6 @@ export default function PortalPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [reports, setReports] = useState<PhaseReport[]>([]);
-  const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
@@ -155,15 +153,12 @@ export default function PortalPage() {
         setShowTour(true);
       }
 
-      const [c, ev, rs] = await Promise.all([
+      const [c, rs] = await Promise.all([
         getClient(p.client_id),
-        // Filtramos en DB con getEventsByClient → solo los eventos del cliente.
-        getEventsByClient(p.client_id),
         listPhaseReports(p.client_id),
       ]);
 
       setClient(c ?? null);
-      setEvents(ev);
       // Reportes: TODOS los estados — el PhaseRoadmap (en /portal/documentos)
       // necesita ver approved/draft/review/pending para pintar la barra.
       setReports(rs);
@@ -199,9 +194,6 @@ export default function PortalPage() {
   if (!client || !profile) return null;
 
   const monthIso = new Date().toISOString().slice(0, 7);
-  const upcomingEvents = events
-    .filter((e) => new Date(e.date + "T" + (e.time || "00:00")) >= new Date())
-    .slice(0, 3);
 
   return (
     <>
@@ -267,12 +259,41 @@ export default function PortalPage() {
           </div>
 
           <aside className={styles.sidebar}>
-            {/* Dashboard de métricas externo — Looker Studio. Los KPIs en
-                vivo y la evolución viven allá; el portal solo redirige. */}
-            {/* El link del Looker puede estar en la columna clients.looker_studio_url
-                (migración 027) o en external_links.looker_studio_url — que es donde
-                lo guarda la pantalla interna de Analítica. Aceptamos ambos para que
-                cargarlo desde el dashboard se refleje en el portal. */}
+            {/* CTAs principales, lado a lado arriba de todo.
+                Agenda: el cliente ve lo que el equipo planeó subir y puede
+                agregar recomendaciones por pieza (no edita); llegan al menú
+                "Solicitudes" del dashboard. Solicitud: ofertas o pedidos libres. */}
+            <div className={styles.ctaPair}>
+              <Link href="/portal/agenda" className={styles.requestCta}>
+                <div className={styles.requestCtaEyebrow}>
+                  Agenda de publicaciones
+                </div>
+                <div className={styles.requestCtaTitle}>
+                  Mirá lo que se viene en tus redes
+                </div>
+                <div className={styles.requestCtaBody}>
+                  Lo que el equipo planeó subir. Podés dejar recomendaciones.
+                </div>
+                <div className={styles.requestCtaArrow}>Ver agenda →</div>
+              </Link>
+
+              <Link href="/portal/solicitudes" className={styles.requestCta}>
+                <div className={styles.requestCtaEyebrow}>Cargar solicitud</div>
+                <div className={styles.requestCtaTitle}>
+                  ¿Tenés una promo o idea?
+                </div>
+                <div className={styles.requestCtaBody}>
+                  Cargá ofertas o pedidos y el equipo los toma desde acá.
+                </div>
+                <div className={styles.requestCtaArrow}>+ Nueva solicitud →</div>
+              </Link>
+            </div>
+
+            {/* Dashboard de métricas externo — Looker Studio. El link puede
+                estar en clients.looker_studio_url (migración 027) o en
+                external_links.looker_studio_url (pantalla interna de
+                Analítica). Aceptamos ambos. Las reuniones ya no tienen card
+                propia: se ven en /portal/calendario. */}
             <LookerStudioCard
               url={
                 client.looker_studio_url ??
@@ -281,82 +302,14 @@ export default function PortalPage() {
               }
             />
 
-            {/* (Objetivos: sacados del portal por pedido — irrelevantes para el cliente.) */}
-
-            {/* Próximas reuniones — toda la card linkea al calendario */}
-            <Link
-              href="/portal/calendario"
-              className={`${styles.sidebarBlock} ${styles.sidebarLink}`}
-            >
-              <div className={styles.sidebarLinkHead}>
-                <span className={styles.sidebarLabel}>Próximas reuniones</span>
-                <span className={styles.sidebarLinkArrow}>Ver calendario →</span>
-              </div>
-              {upcomingEvents.length > 0 ? (
-                <div className={styles.eventList}>
-                  {upcomingEvents.map((e) => (
-                    <div key={e.id} className={styles.eventCompact}>
-                      <div className={styles.eventDate}>
-                        {new Date(e.date).toLocaleDateString("es-AR", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
-                        {e.time && (
-                          <span className={styles.eventTime}> · {e.time}</span>
-                        )}
-                      </div>
-                      <div className={styles.eventTitle}>{e.title}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.eventEmpty}>
-                  Sin reuniones próximas. Conectá tu Outlook desde el
-                  calendario para verlas acá.
-                </div>
-              )}
-            </Link>
-
             {/* Tu equipo D&C — account leads asignados + contacto directo */}
             <TeamCard />
 
             {/* Tendencias del sector — teaser que linkea a /portal/tendencias */}
             <SectorTrendsCard />
 
-            {/* Estado de pago: ahora vive en el PortalHeader como CTA con
+            {/* Estado de pago: vive en el PortalHeader como CTA con
                 semáforo (verde / ámbar / rojo según fecha del mes). */}
-
-            {/* CTA Agenda de publicaciones — el cliente ve lo que el
-                equipo planeó subir y puede agregar recomendaciones por
-                pieza (no edita). Las recomendaciones llegan al menú
-                "Solicitudes" del dashboard GP. */}
-            <Link href="/portal/agenda" className={styles.requestCta}>
-              <div className={styles.requestCtaEyebrow}>
-                Agenda de publicaciones
-              </div>
-              <div className={styles.requestCtaTitle}>
-                Mirá lo que se viene en tus redes
-              </div>
-              <div className={styles.requestCtaBody}>
-                Tabla y vista feed con las publicaciones que el equipo
-                planeó. Podés agregar recomendaciones — te respondemos
-                por el portal.
-              </div>
-              <div className={styles.requestCtaArrow}>Ver agenda →</div>
-            </Link>
-
-            {/* CTA Solicitudes — generar nueva oferta o acción */}
-            <Link href="/portal/solicitudes" className={styles.requestCta}>
-              <div className={styles.requestCtaEyebrow}>Cargar solicitud</div>
-              <div className={styles.requestCtaTitle}>
-                ¿Tenés una promo o idea para ejecutar?
-              </div>
-              <div className={styles.requestCtaBody}>
-                Cargá ofertas comerciales (descuentos, promos) o pedidos
-                libres y el equipo los toma desde acá.
-              </div>
-              <div className={styles.requestCtaArrow}>+ Nueva solicitud →</div>
-            </Link>
 
             {/* La Bóveda de credenciales se movió a la tab bar del portal
                 (PortalHeader), al lado de Tendencias. */}

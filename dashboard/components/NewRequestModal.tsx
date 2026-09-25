@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createRequest } from "@/lib/requests";
+import { createRequest, updateRequestFromPortal } from "@/lib/requests";
 import type {
+  ClientRequest,
   ClientRequestType,
   ClientRequestUrgency,
 } from "@/lib/types";
@@ -16,6 +17,8 @@ interface Props {
   packageForm?: boolean;
   onClose: () => void;
   onCreated?: () => void;
+  /** Oferta existente a editar (solo portal, solo activas). Precarga el form y guarda con PATCH. */
+  initial?: ClientRequest | null;
 }
 
 const ACCION_AREAS = [
@@ -33,6 +36,7 @@ export default function NewRequestModal({
   packageForm,
   onClose,
   onCreated,
+  initial,
 }: Props) {
   // Comunes
   const [title, setTitle] = useState("");
@@ -61,22 +65,27 @@ export default function NewRequestModal({
 
   useEffect(() => {
     if (!open) return;
-    setTitle("");
-    setDescription("");
-    setUrgency("media");
-    setStartDate("");
-    setEndDate("");
-    setDiscountPct("");
-    setProduct("");
-    setDestino("");
-    setPrecio("");
-    setPrecioNota("");
-    setTier("high");
-    setDetails([""]);
+    const m = (initial?.metadata ?? {}) as Record<string, unknown>;
+    const str = (v: unknown) => (v == null ? "" : String(v));
+    const initialDetails = Array.isArray(m.details)
+      ? (m.details as unknown[]).map(String).filter(Boolean)
+      : [];
+    setTitle(initial?.title ?? "");
+    setDescription(initial?.description ?? "");
+    setUrgency(initial?.urgency ?? "media");
+    setStartDate(str(m.startDate));
+    setEndDate(str(m.endDate));
+    setDiscountPct(str(m.discountPct));
+    setProduct(str(m.product));
+    setDestino(str(m.destino));
+    setPrecio(str(m.precio));
+    setPrecioNota(str(m.precioNota));
+    setTier(m.tier === "low" ? "low" : "high");
+    setDetails(initialDetails.length > 0 ? initialDetails : [""]);
     setArea("ads");
     setDesiredDate("");
     setError("");
-  }, [open, type]);
+  }, [open, type, initial]);
 
   if (!open) return null;
 
@@ -121,14 +130,23 @@ export default function NewRequestModal({
         (k) => metadata[k] === undefined && delete metadata[k],
       );
 
-      await createRequest({
-        client_id: clientId,
-        type,
-        title: title.trim(),
-        description: isPackage ? "" : description.trim(),
-        metadata,
-        urgency,
-      });
+      if (initial) {
+        await updateRequestFromPortal(initial.id, {
+          title: title.trim(),
+          description: isPackage ? "" : description.trim(),
+          metadata,
+          urgency,
+        });
+      } else {
+        await createRequest({
+          client_id: clientId,
+          type,
+          title: title.trim(),
+          description: isPackage ? "" : description.trim(),
+          metadata,
+          urgency,
+        });
+      }
       onCreated?.();
       onClose();
     } catch (err) {
@@ -140,6 +158,7 @@ export default function NewRequestModal({
   }
 
   const isOferta = type === "oferta";
+  const editing = !!initial;
 
   return (
     <div
@@ -152,21 +171,29 @@ export default function NewRequestModal({
         </button>
 
         <div className={styles.eyebrow}>
-          {isPackage
+          {editing
+            ? isPackage
+              ? "Editar paquete"
+              : "Editar oferta"
+            : isPackage
             ? "Cargar paquete"
             : isOferta
               ? "Nueva oferta comercial"
               : "Nueva acción"}
         </div>
         <h2 className={styles.title}>
-          {isPackage
+          {editing
+            ? initial?.title
+            : isPackage
             ? "Cargá un paquete"
             : isOferta
               ? "Cargá una promoción"
               : "Cargá una acción"}
         </h2>
         <p className={styles.sub}>
-          {isPackage
+          {editing
+            ? "Cambiá lo que necesites y guardá. Al equipo le llega un aviso de que la actualizaste."
+            : isPackage
             ? "Cargá el paquete: destino, precio, disponibilidad y los detalles (qué incluye) por renglón. Nuestro equipo lo revisa y te responde."
             : isOferta
               ? "Describí la promoción que querés que ejecutemos: producto, fechas, descuento. Nuestro equipo la revisa y te responde."
@@ -450,7 +477,13 @@ export default function NewRequestModal({
             onClick={submit}
             disabled={!canSubmit}
           >
-            {saving ? "Enviando…" : "Enviar solicitud →"}
+            {saving
+              ? editing
+                ? "Guardando…"
+                : "Enviando…"
+              : editing
+                ? "Guardar cambios →"
+                : "Enviar solicitud →"}
           </button>
         </div>
       </div>

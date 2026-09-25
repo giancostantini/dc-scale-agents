@@ -10,7 +10,8 @@
   color: var(--off-white);
   padding: 18px 56px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
   align-items: center;
   border-bottom: 1px solid rgba(196, 168, 130, 0.18);
   position: sticky;
@@ -19,11 +20,64 @@
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
+/* Páginas internas ("← Portal"): sin menú, con el eyebrow centrado. */
+.headerBack {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
 .headerLeft {
   display: flex;
   align-items: center;
   gap: 18px;
   min-width: 0;
+}
+
+/* Monograma D&C: el lockup completo se partía en tres líneas al lado del menú. */
+.headerLeft .brandMark {
+  font-size: 26px;
+  white-space: nowrap;
+  color: var(--off-white);
+}
+
+/* ===== Menú del portal ===== */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 18px;
+  border-left: 1px solid rgba(232, 228, 220, 0.18);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.navLink {
+  flex: none;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(232, 228, 220, 0.65);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 120ms ease-out, background 120ms ease-out, border-color 120ms ease-out;
+}
+.navLink:hover {
+  color: var(--off-white);
+}
+.navLink:focus-visible {
+  outline: 2px solid var(--sand);
+  outline-offset: 2px;
+}
+.navLinkActive {
+  color: var(--off-white);
+  background: rgba(196, 168, 130, 0.18);
+  border-color: rgba(196, 168, 130, 0.5);
 }
 
 .clientLogo {
@@ -160,10 +214,45 @@
 
 /* ===== Responsive ===== */
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .header {
-    padding: 14px 28px;
-    grid-template-columns: 1fr auto;
+    padding: 16px 28px;
+  }
+  .userName {
+    display: none;
+  }
+  .userBtn {
+    padding: 0 6px;
+  }
+}
+
+/* Menú en una segunda fila, desplazable, cuando no entra al lado del logo. */
+@media (max-width: 900px) {
+  .header,
+  .headerBack {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 12px;
+  }
+  .headerLeft {
+    display: contents;
+  }
+  .headerLeft > a {
+    grid-row: 1;
+    grid-column: 1;
+  }
+  .clientLogo {
+    display: none;
+  }
+  .headerRight {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .nav {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    padding-left: 0;
+    border-left: 0;
+    margin-inline: -4px;
   }
   .headerCenter {
     display: none;
