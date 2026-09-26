@@ -2876,6 +2876,16 @@ function PostEditorCard({
                 onSaved={(url) => onPatch({ imageUrl: url })}
               />
 
+              {/* PDF adjunto — además de la imagen (brief, guion, arte). */}
+              <div style={{ marginTop: 14 }}>
+                <FieldLabel>PDF adjunto</FieldLabel>
+                <PostPdfEditor
+                  post={post}
+                  canEdit={canEdit}
+                  onSaved={(url) => onPatch({ pdfUrl: url })}
+                />
+              </div>
+
               <div style={{ marginTop: 14 }}>
                 <FieldLabel>Idea</FieldLabel>
                 <textarea
@@ -3229,6 +3239,161 @@ function PostEditorCard({
 }
 
 // ============================================================
+// PostPdfEditor — sube / muestra / quita un PDF adjunto de la pieza.
+// Usa el mismo bucket público que la imagen (content-post-previews, que
+// desde la mig 105 acepta cualquier tipo). Sin tope corto de MB.
+// ============================================================
+function PostPdfEditor({
+  post,
+  canEdit,
+  onSaved,
+}: {
+  post: ContentPost;
+  canEdit: boolean;
+  onSaved: (url: string | null) => Promise<boolean> | void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleFile(file: File) {
+    if (!canEdit) return;
+    setUploading(true);
+    setErr("");
+    try {
+      const uploaded = await uploadContentPreview(file, `pdfs/${post.clientId}`);
+      if (!uploaded.url) throw new Error("El upload no devolvió una URL.");
+      await onSaved(uploaded.url);
+    } catch (e) {
+      const msg = (e as Error).message;
+      setErr(
+        msg.includes("Bucket not found")
+          ? "Falta el bucket de previews (migración 069)."
+          : /mime|not supported|allowed/i.test(msg)
+            ? "El bucket rechaza este tipo de archivo. Corré la migración 105 en Supabase."
+            : msg,
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function clearPdf() {
+    if (!canEdit) return;
+    if (!confirm("¿Quitar el PDF adjunto?")) return;
+    setUploading(true);
+    setErr("");
+    try {
+      await onSaved(null);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {post.pdfUrl ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <a
+            href={post.pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              flex: 1,
+              fontSize: 12,
+              color: "var(--deep-green)",
+              textDecoration: "underline",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            📄 Abrir PDF adjunto ↗
+          </a>
+          {canEdit && (
+            <>
+              <label
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "var(--deep-green)",
+                  color: "var(--off-white)",
+                  borderRadius: 4,
+                  cursor: uploading ? "default" : "pointer",
+                  opacity: uploading ? 0.5 : 1,
+                }}
+              >
+                {uploading ? "Subiendo…" : "↻ Reemplazar"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFile(f);
+                    e.target.value = "";
+                  }}
+                  style={{ display: "none" }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={clearPdf}
+                disabled={uploading}
+                style={{
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: "transparent",
+                  color: "var(--red-warn)",
+                  border: "1px solid var(--red-warn)",
+                  borderRadius: 4,
+                  cursor: uploading ? "default" : "pointer",
+                }}
+              >
+                Quitar
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <label
+          style={{
+            padding: "12px",
+            border: "1px dashed rgba(10,26,12,0.2)",
+            borderRadius: "var(--r-sm)",
+            background: "var(--white)",
+            cursor: canEdit && !uploading ? "pointer" : "default",
+            textAlign: "center",
+            color: "var(--text-muted)",
+            fontSize: 12,
+            display: "block",
+            opacity: canEdit && !uploading ? 1 : 0.5,
+          }}
+        >
+          {uploading ? "Subiendo…" : "+ Adjuntar PDF"}
+          <input
+            type="file"
+            accept="application/pdf"
+            disabled={!canEdit || uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+            style={{ display: "none" }}
+          />
+        </label>
+      )}
+      {err && (
+        <div style={{ fontSize: 11, color: "var(--red-warn)" }}>{err}</div>
+      )}
+    </div>
+  );
+}
+
 // PostImageEditor — preview + upload de la imagen del post.
 // Sube al bucket client-onboarding en folder content-posts/<clientId>/.
 // Si ya hay imagen muestra el preview con botones Reemplazar / Quitar;

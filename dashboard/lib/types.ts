@@ -1055,6 +1055,9 @@ export interface ContentPost {
    *  OneDrive. La tabla muestra un mini-icono 📎 cuando hay valor.
    *  Ver migración 071. */
   assetUrl?: string | null;
+  /** PDF adjunto a la pieza (brief, guion, arte). URL pública del bucket
+   *  content-post-previews. NULL = sin PDF. Ver migración 106. */
+  pdfUrl?: string | null;
   /** Pieza exclusiva de Publicidad: se pauta pero no se publica en el
    *  perfil de ninguna red, así que se excluye de la Tabla y de la
    *  Vista feed. Solo tiene sentido con format="anuncio".

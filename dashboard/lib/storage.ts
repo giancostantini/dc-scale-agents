@@ -2642,6 +2642,8 @@ interface ContentRow {
   image_url?: string | null;
   // Migración 071 — link externo (OneDrive / Drive) al archivo final.
   asset_url?: string | null;
+  // Migración 106 — PDF adjunto a la pieza.
+  pdf_url?: string | null;
   // Migración 081 — pieza exclusiva de Publicidad.
   ads_only?: boolean | null;
   // Migración 102 — intención de la pieza + cuándo se marcó subida.
@@ -2676,6 +2678,7 @@ function contentFromRow(r: ContentRow): ContentPost {
     classification: r.classification ?? null,
     imageUrl: r.image_url ?? null,
     assetUrl: r.asset_url ?? null,
+    pdfUrl: r.pdf_url ?? null,
     adsOnly: r.ads_only ?? false,
     contentType: r.content_type ?? null,
     publishedAt: r.published_at ?? null,
@@ -2729,6 +2732,9 @@ function contentInsertRow(data: NewContentInput): Record<string, unknown> {
     image_url: data.imageUrl ?? null,
     asset_url: data.assetUrl ?? null,
     ads_only: data.adsOnly ?? false,
+    // pdf_url (mig 106): guardado — solo se manda si viene, así un insert
+    // no rompe en bases sin la columna.
+    ...(data.pdfUrl !== undefined ? { pdf_url: data.pdfUrl } : {}),
     // Columnas de la migración 102: solo se mandan si vienen, así los
     // flujos viejos (módulo Contenido) no dependen de que esté corrida.
     ...(data.contentType !== undefined ? { content_type: data.contentType } : {}),
@@ -2843,6 +2849,8 @@ export interface UpdateContentInput {
   imageUrl?: string | null;
   /** Link externo (OneDrive / Drive) al archivo final. null para limpiar. */
   assetUrl?: string | null;
+  /** PDF adjunto (migración 106). null para limpiar. */
+  pdfUrl?: string | null;
   /** Pieza exclusiva de Publicidad (migración 081). */
   adsOnly?: boolean;
   /** Intención (migración 102). null para limpiar. */
@@ -2881,6 +2889,7 @@ export async function updateContent(
   if (patch.classification !== undefined) dbPatch.classification = patch.classification;
   if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
   if (patch.assetUrl !== undefined) dbPatch.asset_url = patch.assetUrl;
+  if (patch.pdfUrl !== undefined) dbPatch.pdf_url = patch.pdfUrl;
   if (patch.adsOnly !== undefined) dbPatch.ads_only = patch.adsOnly;
   if (patch.contentType !== undefined) dbPatch.content_type = patch.contentType;
   if (patch.publishedAt !== undefined) dbPatch.published_at = patch.publishedAt;

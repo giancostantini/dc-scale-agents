@@ -1357,6 +1357,8 @@ function PieceModal({
 }) {
   const [description, setDescription] = useState(post.brief ?? "");
   const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl ?? null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(post.pdfUrl ?? null);
+  const [assetUrl, setAssetUrl] = useState(post.assetUrl ?? "");
   const [moveDate, setMoveDate] = useState(post.date);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1435,6 +1437,41 @@ function PieceModal({
       async () => {
         await updateContent(post.id, { imageUrl: null });
         setImageUrl(null);
+      },
+      false,
+    );
+
+  async function handlePdf(file: File) {
+    setBusy("pdf");
+    setError(null);
+    try {
+      const up = await uploadContentPreview(file, `pdfs/${post.clientId}`);
+      if (!up.url) throw new Error("El upload no devolvió una URL.");
+      await updateContent(post.id, { pdfUrl: up.url });
+      setPdfUrl(up.url);
+      onChanged();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const removePdf = () =>
+    run(
+      "remove-pdf",
+      async () => {
+        await updateContent(post.id, { pdfUrl: null });
+        setPdfUrl(null);
+      },
+      false,
+    );
+
+  const saveAsset = () =>
+    run(
+      "asset",
+      async () => {
+        await updateContent(post.id, { assetUrl: assetUrl.trim() || null });
       },
       false,
     );
@@ -1527,6 +1564,74 @@ function PieceModal({
                 </button>
               )}
             </div>
+          )}
+        </div>
+
+        {/* PDF adjunto — además de la foto. */}
+        <label style={labelS}>PDF adjunto</label>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+          {pdfUrl ? (
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--deep-green)", textDecoration: "underline" }}>
+              📄 Abrir PDF ↗
+            </a>
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Sin PDF</span>
+          )}
+          {canEdit && (
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <label className={ui.btnGhost} style={{ cursor: busy ? "default" : "pointer" }}>
+                {busy === "pdf" ? "Subiendo…" : pdfUrl ? "Cambiar PDF" : "Adjuntar PDF"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  disabled={!!busy}
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void handlePdf(f);
+                  }}
+                />
+              </label>
+              {pdfUrl && (
+                <button
+                  type="button"
+                  onClick={removePdf}
+                  disabled={!!busy}
+                  style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
+                >
+                  Quitar PDF
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Link a video / archivo (OneDrive / Drive) — para videos pesados
+            que no se suben acá, se pega el link. */}
+        <label style={labelS}>Link a video / archivo (OneDrive · Drive)</label>
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          <input
+            value={assetUrl}
+            onChange={(e) => setAssetUrl(e.target.value)}
+            disabled={!canEdit || !!busy}
+            placeholder="https://onedrive.live.com/…"
+            style={{ ...inputS, flex: 1, minWidth: 200, marginBottom: 0 }}
+          />
+          {canEdit && assetUrl.trim() !== (post.assetUrl ?? "") && (
+            <button
+              type="button"
+              onClick={saveAsset}
+              disabled={!!busy}
+              className={ui.btnGhost}
+            >
+              {busy === "asset" ? "Guardando…" : "Guardar link"}
+            </button>
+          )}
+          {post.assetUrl && (
+            <a href={post.assetUrl} target="_blank" rel="noopener noreferrer" className={ui.btnGhost} style={{ textDecoration: "none" }}>
+              Abrir ↗
+            </a>
           )}
         </div>
 
