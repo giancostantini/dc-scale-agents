@@ -24,6 +24,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/portal/ofertas", label: "Ofertas" },
   { href: "/portal/documentos", label: "Documentos" },
   { href: "/portal/calendario", label: "Calendario" },
+  { href: "/portal/campanas", label: "Campañas" },
   { href: "/portal/tendencias", label: "Tendencias" },
   { href: "/portal/credenciales", label: "Bóveda" },
 ];

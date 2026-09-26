@@ -11,6 +11,11 @@
  * y refresca clients.kpis.paid_media.meta con el acumulado del mes, así el
  * dashboard existente muestra datos vivos sin tocar la UI.
  *
+ * Nivel campaña (mig 106): en la misma corrida trae las insights por
+ * campaña + el estado actual de cada campaña y escribe
+ * meta_campaigns_daily. La primera vez de un cliente trae 30 días para que
+ * el portal ("Campañas") arranque con historia.
+ *
  * Sin token o sin clientes configurados → responde ok con configured:false
  * (no es un error: la infraestructura queda lista y se enchufa después).
  * Token inválido/vencido → notificación error al director (máx 1/día).
@@ -33,6 +38,9 @@ const GRAPH = "https://graph.facebook.com/v21.0";
 
 interface InsightRow {
   date_start: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  reach?: string;
   spend?: string;
   impressions?: string;
   clicks?: string;
@@ -87,6 +95,183 @@ function mapInsight(row: InsightRow) {
   };
 }
 
+/** Resultado principal de una campaña: compras > leads > conversaciones. */
+function mainResult(row: InsightRow): { results: number | null; result_type: string | null } {
+  const purchases = actionValue(row.actions, ["omni_purchase", "purchase"]);
+  if (purchases > 0) return { results: purchases, result_type: "compras" };
+  const leads = actionValue(row.actions, ["lead", "onsite_conversion.lead_grouped"]);
+  if (leads > 0) return { results: leads, result_type: "leads" };
+  const messages = actionValue(row.actions, [
+    "onsite_conversion.messaging_conversation_started_7d",
+  ]);
+  if (messages > 0) return { results: messages, result_type: "conversaciones" };
+  return { results: null, result_type: null };
+}
+
+interface CampaignInfo {
+  id: string;
+  name: string;
+  effective_status: string;
+  objective?: string;
+}
+
+/**
+ * Insights por campaña + estado actual → meta_campaigns_daily. Devuelve
+ * cuántas filas escribió. Tira si la API falla (el caller lo registra).
+ */
+async function syncCampaigns(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  clientId: string,
+  actId: string,
+  token: string,
+  since: string,
+  until: string,
+): Promise<number> {
+  // Primera vez del cliente → 30 días de historia.
+  const { count } = await supabase
+    .from("meta_campaigns_daily")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId);
+  let from = since;
+  if (!count) {
+    const d = new Date(`${until}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 29);
+    const back = d.toISOString().slice(0, 10);
+    if (back < from) from = back;
+  }
+
+  // Estado actual de las campañas (las borradas no vienen).
+  const campaigns = new Map<string, CampaignInfo>();
+  let next: string | null =
+    `${GRAPH}/${actId}/campaigns?` +
+    new URLSearchParams({
+      fields: "id,name,effective_status,objective",
+      limit: "200",
+      access_token: token,
+    }).toString();
+  let pages = 0;
+  while (next && pages < 10) {
+    pages++;
+    const res: Response = await fetch(next, { signal: AbortSignal.timeout(20_000), cache: "no-store" });
+    const json = (await res.json()) as {
+      data?: CampaignInfo[];
+      paging?: { next?: string };
+      error?: { message: string; code: number };
+    };
+    if (json.error) throw new Error(`Meta API ${json.error.code}: ${json.error.message}`);
+    for (const c of json.data ?? []) campaigns.set(c.id, c);
+    next = json.paging?.next ?? null;
+  }
+
+  // Insights por campaña y por día.
+  const insights: InsightRow[] = [];
+  let nextIns: string | null =
+    `${GRAPH}/${actId}/insights?` +
+    new URLSearchParams({
+      level: "campaign",
+      time_increment: "1",
+      time_range: JSON.stringify({ since: from, until }),
+      fields:
+        "campaign_id,campaign_name,spend,impressions,reach,clicks,ctr,cpc,actions,action_values,purchase_roas",
+      limit: "500",
+      access_token: token,
+    }).toString();
+  pages = 0;
+  while (nextIns && pages < 20) {
+    pages++;
+    const res: Response = await fetch(nextIns, { signal: AbortSignal.timeout(20_000), cache: "no-store" });
+    const json = (await res.json()) as {
+      data?: InsightRow[];
+      paging?: { next?: string };
+      error?: { message: string; code: number };
+    };
+    if (json.error) throw new Error(`Meta API ${json.error.code}: ${json.error.message}`);
+    insights.push(...(json.data ?? []));
+    nextIns = json.paging?.next ?? null;
+  }
+
+  const rows = insights
+    .filter((r) => r.campaign_id)
+    .map((r) => {
+      const info = campaigns.get(r.campaign_id!);
+      const m = mapInsight(r);
+      return {
+        client_id: clientId,
+        date: r.date_start,
+        campaign_id: r.campaign_id!,
+        campaign_name: r.campaign_name ?? info?.name ?? "",
+        effective_status: info?.effective_status ?? null,
+        objective: info?.objective ?? null,
+        spend: m.spend,
+        impressions: m.impressions,
+        reach: r.reach != null ? Math.round(num(r.reach)) : null,
+        clicks: m.clicks,
+        ctr: m.ctr,
+        cpc: m.cpc,
+        ...mainResult(r),
+        conversion_value: m.conversion_value,
+        roas: m.roas,
+        raw: r as unknown,
+      };
+    });
+
+  // Activas sin entrega ayer: fila en cero para que figuren como corriendo.
+  const withRowToday = new Set(rows.filter((r) => r.date === until).map((r) => r.campaign_id));
+  for (const c of campaigns.values()) {
+    if (c.effective_status !== "ACTIVE" || withRowToday.has(c.id)) continue;
+    rows.push({
+      client_id: clientId,
+      date: until,
+      campaign_id: c.id,
+      campaign_name: c.name,
+      effective_status: c.effective_status,
+      objective: c.objective ?? null,
+      spend: 0,
+      impressions: 0,
+      reach: null,
+      clicks: 0,
+      ctr: null,
+      cpc: null,
+      results: null,
+      result_type: null,
+      conversion_value: null,
+      roas: null,
+      raw: null,
+    });
+  }
+
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from("meta_campaigns_daily")
+      .upsert(rows, { onConflict: "client_id,date,campaign_id" });
+    if (error) throw new Error(`upsert campañas: ${error.message}`);
+  }
+
+  // El estado cambia (una campaña se pausa): lo actualizamos en las filas
+  // recientes de cada campaña, así el portal nunca muestra "activa" de más.
+  const windowStart = new Date(`${until}T00:00:00Z`);
+  windowStart.setUTCDate(windowStart.getUTCDate() - 35);
+  const { data: recent } = await supabase
+    .from("meta_campaigns_daily")
+    .select("campaign_id, effective_status")
+    .eq("client_id", clientId)
+    .gte("date", windowStart.toISOString().slice(0, 10));
+  const stale = new Set<string>();
+  for (const r of recent ?? []) {
+    const current = campaigns.get(r.campaign_id as string)?.effective_status ?? "DELETED";
+    if (r.effective_status !== current) stale.add(r.campaign_id as string);
+  }
+  for (const id of stale) {
+    await supabase
+      .from("meta_campaigns_daily")
+      .update({ effective_status: campaigns.get(id)?.effective_status ?? "DELETED" })
+      .eq("client_id", clientId)
+      .eq("campaign_id", id);
+  }
+
+  return rows.length;
+}
+
 /** Ayer en hora Uruguay (el día completo más reciente). */
 function yesterdayUY(): string {
   const today = todayUY();
@@ -134,7 +319,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const results: { client: string; days: number; error?: string }[] = [];
+  const results: { client: string; days: number; campaignRows?: number; error?: string }[] = [];
   let tokenBroken = false;
 
   for (const client of configured) {
@@ -215,7 +400,19 @@ export async function POST(req: NextRequest) {
       kpis.paid_media = paidMedia;
       await supabase.from("clients").update({ kpis }).eq("id", client.id);
 
-      results.push({ client: client.id, days: rows.length });
+      // ---- Nivel campaña (mig 106). Lo de cuenta ya quedó guardado arriba:
+      //      si esto falla (p.ej. mig 106 sin correr) el cliente figura con
+      //      error en el resultado, pero no se pierde la ingestión de cuenta.
+      let campaignRows: number | undefined;
+      try {
+        campaignRows = await syncCampaigns(supabase, client.id, actId, token, since, until);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "unknown";
+        if (/Meta API 190/.test(message)) tokenBroken = true;
+        throw new Error(`campañas: ${message}`);
+      }
+
+      results.push({ client: client.id, days: rows.length, campaignRows });
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown";
       console.error(`[meta-insights] ${client.id}:`, message);
