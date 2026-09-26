@@ -587,3 +587,57 @@ body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-
   -webkit-text-fill-color: #9B8259;
   color: #9B8259;
 }
+
+/* ============================================================
+   FASE 2 · Alternancia clara para las secciones internas
+   Mantenemos verde oscuro SOLO en:
+     - .statement-section (La pregunta 30%)
+     - #agendar (CTA final)
+     - footer
+   Todas las demás pasan a ivory.
+   ============================================================ */
+
+/* Nuestra firma / posicionamiento */
+#nosotros[data-tone="light"] {
+  background: #F5F2EC;
+  color: #0A1A0C;
+  padding-block: clamp(64px, 8vw, 112px);
+}
+#nosotros[data-tone="light"] .concept {
+  border-top: 1px solid rgba(10, 26, 12, 0.1);
+  padding-top: clamp(32px, 4vw, 56px);
+}
+#nosotros[data-tone="light"] h2 { color: #0A1A0C; }
+#nosotros[data-tone="light"] .accent-sand { color: #9B8259; }
+#nosotros[data-tone="light"] .concept-quote {
+  background: #FFFFFF;
+  border-left: 3px solid #C4A882;
+  color: rgba(10, 26, 12, 0.85);
+  box-shadow: 0 1px 2px rgba(10, 26, 12, 0.04), 0 6px 18px rgba(10, 26, 12, 0.06);
+}
+
+/* Servicios */
+.solutions-section[data-tone="light"] {
+  background: #F5F2EC;
+  color: #0A1A0C;
+}
+.solutions-section[data-tone="light"] .solutions-heading {
+  border-top: 1px solid rgba(10, 26, 12, 0.1);
+}
+.solutions-section[data-tone="light"] .solutions-heading .entry-eyebrow {
+  color: #9B8259;
+}
+.solutions-section[data-tone="light"] .solutions-heading h2 {
+  color: #0A1A0C;
+}
+.solutions-section[data-tone="light"] .solutions-intro {
+  color: rgba(10, 26, 12, 0.7);
+}
+.solutions-section[data-tone="light"] .solutions-intro strong { color: #0A1A0C; }
+
+/* El workbench de la demo ya viene en paper (claro). Le damos un
+   fondo un pelo distinto para separarlo visualmente del heading. */
+.solutions-section[data-tone="light"] .solution-workbench {
+  background: #FFFFFF;
+  border-top: 1px solid rgba(10, 26, 12, 0.08);
+}
