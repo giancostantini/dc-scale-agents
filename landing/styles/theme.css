@@ -708,3 +708,26 @@ body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-
 .brand-marquee .brand-group img:hover {
   opacity: 0.9;
 }
+
+/* Altura del logo Tilde en el marquee de clientes. Ratio 2.39,
+   por eso lo bajamos un pelin respecto de los demás. Hereda el
+   filter monocromático del resto del carrusel — la tilde azul
+   pasa a negro suave para mantener consistencia. */
+.brand-marquee .brand-group .brand-tilde { height: 48px; }
+@media (max-width: 720px) {
+  .brand-marquee .brand-group .brand-tilde { height: 38px; }
+}
+
+/* Logo Tilde en la sección #productos (hero editorial): full
+   color original, tamaño generoso pero contenido, sobre la card
+   blanca. Reemplaza al placeholder .tilde-logo-placeholder. */
+.tilde-logo-img {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  object-fit: contain;
+}
+@media (max-width: 900px) {
+  .tilde-logo-img { max-width: 200px; }
+}
