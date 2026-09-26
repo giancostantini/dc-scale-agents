@@ -42,6 +42,7 @@ import {
   buildPortalVaultBlock,
 } from "@/lib/portal-vault-context";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import { buildPortalInsightsBlock, loadPortalInsights } from "@/lib/portal-insights";
 import { recordApiUsage } from "@/lib/api-usage";
 
 const MODEL = CLAUDE_MODEL_OPUS;
@@ -63,6 +64,15 @@ QUÉ PODÉS HACER:
 - Mencionar qué assets de marca cargó (logos, brandbook, etc.) cuando sea útil.
 - Citar contenido textual del vault cuando responde — la estrategia activa, decisiones de marca (positioning, voz), criterios de contenido, restricciones, etc. Cuando lo hagas, mencioná de dónde sacaste el dato (ej. "según tu strategy.md" o "según tu brand/voice-character").
 - Comparaciones mes anterior vs actual cuando hay data.
+- Responder cualquier pregunta sobre su negocio con lo que hay cargado: ofertas y paquetes (destino, precio, fechas, qué incluye), campañas, contenido, competencia, tendencias del sector.
+
+RECOMENDAR Y DETECTAR OPORTUNIDADES:
+- Podés recomendar: qué paquetes u ofertas conviene empujar, qué campañas rinden mejor, qué formato o gancho probar, qué fecha o tendencia aprovechar.
+- Cada recomendación se apoya en un dato concreto del contexto y lo nombrás: resultados de una campaña ("la campaña X trajo 34 conversaciones en 7 días"), lo que publica la competencia ("tu competencia Y está empujando Z en reels"), una tendencia del sector (sector-trends) o un aprendizaje de la cuenta.
+- Si no hay datos suficientes para recomendar algo, decilo y sugerí qué cargar o medir. Nunca recomiendes en el aire.
+- Si ves una oportunidad clara aunque no te la pregunten (un paquete alineado con una tendencia, una campaña que rinde mucho mejor que el resto, un hueco que la competencia no cubre), mencionála al final en una línea.
+- Nunca des cifras de inversión, gasto ni costos de pauta: no las tenés. Hablá de resultados, CTR, ROAS y resultados cada 1.000 impresiones.
+- Recomendar no es ejecutar: si quiere avanzar, que lo cargue en Solicitudes o lo hable con su account lead.
 
 QUÉ NO PODÉS HACER (importante):
 - NO podés modificar nada. El cliente NO pide cambios; solo consulta y crea solicitudes nuevas.
@@ -308,7 +318,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const contextBlock = buildClientContextBlock(bundle);
+  // Contexto variable (tablas + datos para recomendar). Va DESPUÉS de los
+  // bloques cacheados: si fuera antes, cualquier cambio invalidaría el
+  // cache del vault y del historial.
+  const insights = await loadPortalInsights(admin, clientId);
+  const contextBlock = `${buildClientContextBlock(bundle, "client")}\n\n${buildPortalInsightsBlock(insights)}`;
   const vaultBlock = vault ? buildPortalVaultBlock(vault) : null;
 
   const anthropic = new Anthropic({ apiKey: anthropicKey });
@@ -323,10 +337,6 @@ export async function POST(req: NextRequest) {
         type: "text",
         text: SYSTEM_PROMPT,
         cache_control: { type: "ephemeral" },
-      },
-      {
-        type: "text",
-        text: contextBlock,
       },
     ];
     if (vaultBlock) {
@@ -343,6 +353,7 @@ export async function POST(req: NextRequest) {
         cache_control: { type: "ephemeral" },
       });
     }
+    systemBlocks.push({ type: "text", text: contextBlock });
 
     const response = await anthropic.messages.create({
       model: MODEL,

@@ -44,7 +44,7 @@ los briefs), n8n, Google Sheets como config, Blotato, Telegram como canal (vesti
   fx-rates (diario, FIN-0), billing/facturación+cobranzas (diario, FIN-1), monthly-close (día 2,
   FIN-3), meta-insights + organic-insights (diarios, Stage 2 — dormidos sin token), process-sync
   (diario, Stage 3), monthly-reports (día 3, Stage 3), events-dispatch (diario, Stage 5 — sweeper
-  del outbox), autonomy-review + budget-recommendations (lun, Stage 6), evals (lun, Stage 2c —
+  del outbox), autonomy-review + budget-recommendations + portal-opportunities (lun, Stage 6), evals (lun, Stage 2c —
   juez de sets dorados vs `vault/agency/evals/`). Event-driven:
   phase-autogen (al aprobar una fase, drafea la siguiente) + outbox `events` (triggers SQL →
   /api/events/dispatch). Autonomía: `autonomy_settings` — todo gated por default; promover =
@@ -73,7 +73,10 @@ asistente del calendario (determinístico, sin IA) carga pendientes SIN texto �
 descripción + foto (preparado) → sube a la red → marca subido; todo lo que ve el cliente lo
 escribe un humano y el portal no muestra pendientes. El batch IA viejo (vista Contenido, fuera
 del menú) mantiene draft → aprobar → scheduled → published. Campañas Meta: spec IA → humano pushea
-(`/api/meta/push-campaign`). Solicitudes: director asigna/responde. **Dinero: siempre humano**
+(`/api/meta/push-campaign`). Solicitudes: director asigna/responde. **Excepción decidida por Gian (2026-09-26):** las
+oportunidades del asesor IA (`portal_opportunities`, mig 107) se publican directo en el inicio del
+portal, con copia al equipo; interruptor `autonomy_settings.portal_opportunity` (gated = solo internas).
+El cliente nunca ve inversión ni costos de pauta (portal Campañas y asesor). **Dinero: siempre humano**
 (finanzas sin IA ejecutora; el área Finanzas Autónoma — doc 16 — prepara/alerta/draftea, no ejecuta).
 
 ## Patrones de robustez (obligatorios en agentes nuevos)

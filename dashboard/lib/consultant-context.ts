@@ -177,7 +177,7 @@ export async function loadClientContext(
       .select("type, title, description, status, urgency, submitted_at, response, metadata")
       .eq("client_id", clientId)
       .order("submitted_at", { ascending: false })
-      .limit(10),
+      .limit(20),
     admin
       .from("content_posts")
       .select("network, format, brief, date")
@@ -234,12 +234,56 @@ export function createAdminClient(): SupabaseClient | null {
   });
 }
 
+/** Campos de costo de la pauta: no se muestran al cliente (decisión de Gian). */
+const COST_KEYS = new Set(["spent", "spend", "cpc", "cpm", "cpa", "cost", "budget"]);
+
+/** Un KPI en una línea legible (antes los objetos salían "[object Object]"). */
+function formatKpi(key: string, value: unknown, audience: "team" | "client"): string[] {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    return [`- ${key}: ${value ?? "—"}`];
+  }
+  // Un nivel de anidado (ej. paid_media: { meta: {...}, updated_at }).
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v != null && typeof v === "object" && !Array.isArray(v)) {
+      const parts = Object.entries(v as Record<string, unknown>)
+        .filter(([kk, vv]) => vv != null && vv !== "" && !(audience === "client" && COST_KEYS.has(kk)))
+        .map(([kk, vv]) => `${kk} ${typeof vv === "number" ? Number(vv.toFixed(4)) : vv}`);
+      if (parts.length > 0) out.push(`- ${key} · ${k}: ${parts.join(", ")}`);
+    } else if (!(audience === "client" && COST_KEYS.has(k)) && k !== "updated_at") {
+      out.push(`- ${key} · ${k}: ${v ?? "—"}`);
+    }
+  }
+  return out;
+}
+
+/** Los datos de una oferta/paquete (destino, precio, fechas, qué incluye). */
+function formatOfferMeta(meta: Record<string, unknown> | null): string | null {
+  if (!meta) return null;
+  const parts: string[] = [];
+  if (meta.destino) parts.push(`destino ${meta.destino}`);
+  if (meta.precio != null) parts.push(`precio ${meta.precio}${meta.precioNota ? ` (${meta.precioNota})` : ""}`);
+  if (meta.tier) parts.push(meta.tier === "high" ? "gama alta" : "gama baja");
+  if (meta.startDate || meta.endDate) parts.push(`disponible ${meta.startDate ?? "?"} → ${meta.endDate ?? "?"}`);
+  if (meta.discountPct != null) parts.push(`descuento ${meta.discountPct}%`);
+  if (meta.product) parts.push(`producto ${meta.product}`);
+  if (Array.isArray(meta.details) && meta.details.length > 0) {
+    parts.push(`incluye: ${(meta.details as unknown[]).map(String).slice(0, 6).join("; ")}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 /**
  * Arma el bloque de contexto en markdown para pasar al system prompt
  * de Claude. Incluye todas las fuentes visibles al cliente para que
  * el consultor pueda responder con conocimiento real del estado.
+ *
+ * audience 'client' (asesor del portal) saca los costos de la pauta.
  */
-export function buildClientContextBlock(bundle: ClientContextBundle): string {
+export function buildClientContextBlock(
+  bundle: ClientContextBundle,
+  audience: "team" | "client" = "team",
+): string {
   const {
     client,
     objectives,
@@ -280,7 +324,7 @@ export function buildClientContextBlock(bundle: ClientContextBundle): string {
     lines.push("");
     lines.push("## KPIs del mes actual");
     for (const [k, v] of Object.entries(client.kpis)) {
-      lines.push(`- ${k}: ${v ?? "—"}`);
+      lines.push(...formatKpi(k, v, audience));
     }
   }
 
@@ -327,10 +371,14 @@ export function buildClientContextBlock(bundle: ClientContextBundle): string {
   // ===== Solicitudes del cliente =====
   if (requests.length > 0) {
     lines.push("");
-    lines.push("## Solicitudes que cargó el cliente (últimas 10)");
+    lines.push("## Solicitudes, ofertas y paquetes que cargó el cliente (últimas 20)");
     for (const r of requests) {
       const submitted = r.submitted_at.slice(0, 10);
       lines.push(`- [${r.type}] ${r.title} · ${r.status} · ${r.urgency} · enviada ${submitted}${r.response ? " · respondida" : ""}`);
+      if (r.type === "oferta") {
+        const meta = formatOfferMeta(r.metadata);
+        if (meta) lines.push(`  ${meta}`);
+      }
       if (r.description && r.description.length > 0) {
         const desc = r.description.length > 140 ? r.description.slice(0, 140) + "…" : r.description;
         lines.push(`  ${desc}`);
@@ -448,6 +496,7 @@ export function computeDataSignature(bundle: ClientContextBundle): string {
     reports: bundle.phaseReports.map((r) => `${r.phase}:${r.status}:${r.approved_at ?? ""}`),
     eventsCount: bundle.events.length,
     requestsLastUpdate: bundle.requests.at(0)?.submitted_at ?? null,
+    requestsEdited: bundle.requests.map((r) => (r.metadata as { editedAt?: string } | null)?.editedAt ?? ""),
     requestsCount: bundle.requests.length,
     contentCount: bundle.content.length,
     integrations: bundle.integrations.map((i) => i.key).sort(),

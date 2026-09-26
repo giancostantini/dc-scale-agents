@@ -61,6 +61,8 @@ export interface ConsultorChatPanelProps {
   onConversationCreated?: (id: string) => void;
   /** Llamado después de cada turno exitoso para que el padre refresque el historial. */
   onActivity?: () => void;
+  /** Texto precargado en el input (no se envía solo). */
+  initialInput?: string;
 }
 
 /**
@@ -86,9 +88,10 @@ export default function ConsultorChatPanel({
   conversationId,
   onConversationCreated,
   onActivity,
+  initialInput,
 }: ConsultorChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput ?? "");
   const [sending, setSending] = useState(false);
   const [welcomeLoading, setWelcomeLoading] = useState(true);
   const [welcomeError, setWelcomeError] = useState<string | null>(null);

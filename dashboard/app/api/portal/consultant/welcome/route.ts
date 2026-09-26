@@ -32,6 +32,11 @@ import {
   vaultSignatureFragment,
 } from "@/lib/portal-vault-context";
 import { CLAUDE_MODEL_OPUS } from "@/lib/anthropic-model";
+import {
+  buildPortalInsightsBlock,
+  loadPortalInsights,
+  portalInsightsSignature,
+} from "@/lib/portal-insights";
 import { recordApiUsage } from "@/lib/api-usage";
 
 const MODEL = CLAUDE_MODEL_OPUS;
@@ -46,7 +51,8 @@ Saludalo brevemente por nombre y dale un resumen ejecutivo en este orden, usando
 1) **Cómo va tu mes** — 1 oración con el estado de KPIs vs target (si hay objectives). Si no hay data, decílo.
 2) **Novedades** — bullets cortos con: reportes nuevos aprobados, decisiones tomadas, próximos pasos del equipo, cambios en strategy.md o brand/* recientes. Máximo 3 bullets.
 3) **Próximas reuniones** — hasta 2.
-4) **Te sugiero preguntarme** — 1 pregunta concreta que el cliente podría hacerte hoy. Apoyate en lo que el equipo cargó en su vault (strategy, brandbook, content-library) para hacer la sugerencia más rica que un genérico "¿cómo va el ROAS?".
+4) **Oportunidad** — si en los datos para recomendar hay una clara (un paquete alineado con una tendencia, una campaña que rinde mucho mejor, un hueco que la competencia no cubre), contala en 1-2 oraciones citando el dato. Si no hay datos suficientes, omití esta sección.
+5) **Te sugiero preguntarme** — 1 pregunta concreta que el cliente podría hacerte hoy. Apoyate en lo que el equipo cargó en su vault (strategy, brandbook, content-library) para hacer la sugerencia más rica que un genérico "¿cómo va el ROAS?".
 
 CONTEXTO QUE TENÉS:
 - Tablas Supabase: KPIs, objetivos, fases, campañas, contenido publicado, reuniones, pagos, solicitudes, integraciones.
@@ -58,7 +64,7 @@ REGLAS:
 - Español rioplatense (vos, tu cuenta, tu negocio).
 - Prohibido: "sinergia", "potenciar", "transformar", "valor agregado", "ecosistema".
 - Concreto: números reales, fechas reales. Si no tenés data, decís "todavía no veo X cargado".
-- Nunca inventes métricas.
+- Nunca inventes métricas. Nunca des cifras de inversión, gasto ni costos de pauta.
 - Máximo 220 palabras totales.
 - NO empezar con "¡Hola!" repetido — variar el saludo.`;
 
@@ -118,7 +124,7 @@ export async function GET(req: NextRequest) {
   const clientId = callerProfile.client_id;
 
   // Cargar contexto en paralelo: tablas Supabase + vault filtrado del repo.
-  const [bundle, vault] = await Promise.all([
+  const [bundle, vault, insights] = await Promise.all([
     loadClientContext(admin, clientId),
     loadClientVaultForPortal(clientId).catch((err) => {
       console.warn(
@@ -127,6 +133,7 @@ export async function GET(req: NextRequest) {
       );
       return null;
     }),
+    loadPortalInsights(admin, clientId),
   ]);
 
   if (!bundle) {
@@ -145,7 +152,7 @@ export async function GET(req: NextRequest) {
         .digest("hex")
         .slice(0, 16)
     : "novault";
-  const signature = `${tablesSig}-${vaultSig}`;
+  const signature = `${tablesSig}-${vaultSig}-${portalInsightsSignature(insights)}`;
 
   // Chequear cache
   const { data: cached } = await admin
@@ -167,7 +174,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Cache miss — generar
-  const contextBlock = buildClientContextBlock(bundle);
+  const contextBlock = `${buildClientContextBlock(bundle, "client")}\n\n${buildPortalInsightsBlock(insights)}`;
   const vaultBlock = vault ? buildPortalVaultBlock(vault) : null;
   const userMessage = `Es la primera vez del día que el cliente ${bundle.client.name} entra a su portal. Generá el mensaje de bienvenida según las reglas.`;
 
@@ -185,11 +192,8 @@ export async function GET(req: NextRequest) {
         text: SYSTEM_PROMPT,
         cache_control: { type: "ephemeral" },
       },
-      {
-        type: "text",
-        text: contextBlock,
-      },
     ];
+    // Vault (cacheado) antes del contexto variable, para no invalidarlo.
     if (vaultBlock) {
       systemBlocks.push({
         type: "text",
@@ -197,6 +201,7 @@ export async function GET(req: NextRequest) {
         cache_control: { type: "ephemeral" },
       });
     }
+    systemBlocks.push({ type: "text", text: contextBlock });
 
     const response = await anthropic.messages.create({
       model: MODEL,
