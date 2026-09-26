@@ -1903,18 +1903,29 @@
 
 <a class="entry-skip" href="#entry-title">Saltar al contenido</a>
 
-<!-- Header stub: existe en el DOM (necesario para el JS de entry-v2 y
-     hero-scroll que busca #entry-header y .entry-brand) pero se oculta
-     por completo via CSS. El menu real es el boton flotante de abajo. -->
-<header class="entry-header" id="entry-header" aria-hidden="true">
-  <a href="#top" class="entry-brand" tabindex="-1"><span aria-hidden="true">DC</span></a>
+<!-- V2 entry: static content; styles and progressive interaction are separate. -->
+<header class="entry-header" id="entry-header">
+  <nav class="entry-nav entry-shell" aria-label="Navegación principal">
+    <a href="#top" class="entry-brand" aria-label="Dearmas y Costantini, inicio">
+      <span>Dearmas <span class="entry-brand-amp">&amp;</span> Costantini</span>
+      <span class="entry-brand-caption">Socios de crecimiento</span>
+    </a>
+    <div class="entry-nav-links">
+      <a href="#top">Home</a>
+      <a href="#soluciones">Nuestros servicios</a>
+      <a href="#productos">Nuestros productos</a>
+      <a href="#casos">Casos de éxito</a>
+      <a href="#socios">Quiénes somos</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="entry-button entry-nav-cta" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
+      Agendar una conversación <span class="entry-arrow" aria-hidden="true">↗</span>
+    </a>
+    <button class="entry-menu-toggle" id="entry-menu-toggle" type="button" aria-label="Abrir menú" aria-controls="entry-menu" aria-expanded="false" hidden>
+      <span></span><span></span>
+    </button>
+  </nav>
 </header>
-
-<!-- Boton hamburger flotante (arriba a la derecha). Abre el .entry-menu. -->
-<button class="floating-menu-btn" id="entry-menu-toggle" type="button"
-        aria-label="Abrir menú" aria-controls="entry-menu" aria-expanded="false">
-  <span></span><span></span><span></span>
-</button>
 
 <dialog class="entry-menu" id="entry-menu" aria-label="Menú de navegación">
   <div class="entry-menu-top">
@@ -1940,9 +1951,6 @@
 <section class="entry-hero" id="top" data-bg="#F5F2EC" data-tone="light" aria-labelledby="entry-title">
   <div class="hero-stage">
   <div class="entry-shell hero-stage-inner">
-    <a class="hero-brand" href="#top" aria-label="Dearmas y Costantini, inicio">
-      <span>Dearmas <span class="entry-brand-amp">&amp;</span> Costantini</span>
-    </a>
     <div class="hero-type">
       <h1 id="entry-title" tabindex="-1"><span class="hero-line"><span class="hero-line-inner">Socios de</span></span> <span class="hero-line hero-line-accent"><span class="hero-line-inner">crecimiento empresarial.</span></span></h1>
       <div class="hero-flags" aria-label="Trabajamos con empresas en Uruguay, Argentina, Brasil, Perú, Guatemala, México y Paraguay">
@@ -1961,20 +1969,22 @@
           <a class="book-btn" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking><span class="book-faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="36" height="36"><img src="photos/gianluca.jpg" alt="" width="36" height="36"></span><span class="book-text"><strong>Agendar una conversación</strong><small>30 min con Federico y Gianluca</small></span><span class="book-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
         </div>
     </div>
-    <!-- Marquee integrado al hero: visible en el fold inicial -->
-    <div class="brand-marquee hero-marquee" id="brand-marquee" aria-label="Marcas con las que trabajamos">
-      <div class="brand-track">
-        <ul class="brand-group">
-          <li><img class="brand-glassy" src="logos/glassy.svg" alt="Glassy Waves" width="738" height="583" loading="lazy" decoding="async"></li>
-          <li><img class="brand-wiztrip" src="logos/wiztrip.svg" alt="Wiz Trip" width="1920" height="1080" loading="lazy" decoding="async"></li>
-          <li><img class="brand-mundipack" src="logos/mundipack.png" alt="Mundipack" width="440" height="93" loading="lazy" decoding="async"></li>
-          <li><img class="brand-propios" src="logos/propios.png" alt="Pinturería Propios" width="500" height="415" loading="lazy" decoding="async"></li>
-          <li><img class="brand-tilde" src="logos/tilde.png" alt="Tilde" width="2000" height="837" loading="lazy" decoding="async"></li>
-        </ul>
-      </div>
-    </div>
-    <a class="hero-scroll-cue" href="#manifesto">Conocé más <span aria-hidden="true">↓</span></a>
+    <a class="hero-scroll-cue" href="#empresas">Conocé nuestro trabajo <span aria-hidden="true">↓</span></a>
   </div>
+  </div>
+</section>
+
+<section class="entry-proof" id="empresas" data-bg="#F5F2EC" data-tone="light" aria-label="Clientes">
+  <div class="brand-marquee" id="brand-marquee">
+    <div class="brand-track">
+      <ul class="brand-group" aria-label="Marcas con las que trabajamos: Glassy Waves, Wiz Trip, Mundipack, Pinturería Propios y Tilde">
+        <li><img class="brand-glassy" src="logos/glassy.svg" alt="Glassy Waves" width="738" height="583" loading="lazy" decoding="async"></li>
+        <li><img class="brand-wiztrip" src="logos/wiztrip.svg" alt="Wiz Trip" width="1920" height="1080" loading="lazy" decoding="async"></li>
+        <li><img class="brand-mundipack" src="logos/mundipack.png" alt="Mundipack" width="440" height="93" loading="lazy" decoding="async"></li>
+        <li><img class="brand-propios" src="logos/propios.png" alt="Pinturería Propios" width="500" height="415" loading="lazy" decoding="async"></li>
+        <li><img class="brand-tilde" src="logos/tilde.png" alt="Tilde" width="2000" height="837" loading="lazy" decoding="async"></li>
+      </ul>
+    </div>
   </div>
 </section>
 
