@@ -12,16 +12,8 @@ export const solutions = [
     outcome: 'Objetivo: facilitar el acceso a la información y el seguimiento por vendedor. El proyecto está en implementación.',
     media: { type: 'demo', demo: 'mundipack', caption: 'Recreación interactiva basada en los dashboards de Mundipack. Nombres, cifras, productos y recorridos ficticios; los cambios se mantienen únicamente durante esta visita.' },
   },
-  {
-    id: 'brainbill', name: 'BrainBill', category: 'Desarrollo / producto propio',
-    status: 'Producto propio', title: 'Las facturas de compra se cargan solas.',
-    description: 'Sacás una foto de la factura del proveedor, o subís el PDF o el XML del CFE. BrainBill la lee, valida los totales, reconoce cada producto de tu catálogo y sugiere el precio de venta. Una persona confirma y la compra llega a tu sistema. Probalo de punta a punta.',
-    audience: 'Empresas que cargan a mano las facturas de sus proveedores.',
-    challenge: 'Tipear renglón por renglón cada compra, con errores de IVA, productos mal asociados y precios desactualizados.',
-    work: 'Lectura con IA (o exacta desde el XML del CFE), validaciones de DGI, asociación al catálogo que aprende de cada proveedor y entrega a tu ERP, base de datos, planilla o API.',
-    outcome: 'Minutos de carga convertidos en segundos, sin perder control: nada se carga en tu sistema sin revisión humana.',
-    media: { type: 'demo', demo: 'brainbill', caption: 'Recreación interactiva del flujo de BrainBill. Proveedores, RUTs, productos y precios ficticios; nada se sube ni se guarda fuera de esta visita.' },
-  },
+  // Tilde (ex BrainBill) vive en su propia sección #productos.
+  // Se mantiene el demo brainbill-demo.js por si se quiere reincorporar acá.
   {
     id: 'growth', name: 'Growth & Marketing', category: 'Crecimiento / estrategia digital',
     status: 'Capacidad de la firma', title: 'Conectar marca, canales y conversión.',
