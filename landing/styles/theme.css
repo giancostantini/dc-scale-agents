@@ -553,28 +553,18 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
   color: rgba(232, 228, 220, 0.72);
 }
 
-/* ============ HEADER sobre hero light ============
-   Cuando el hero es claro, la nav superior (transparente por default
-   sobre bosque) queda invisible. Le damos tratamiento oscuro mientras
-   el scroll está arriba del todo, y mantenemos el estilo "is-scrolled"
-   original cuando se scrollea. */
-body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) {
-  color: #0A1A0C;
-}
-body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-brand,
-body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-nav-links a {
-  color: #0A1A0C;
-}
-body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-brand-caption {
-  color: rgba(10, 26, 12, 0.55);
-}
-body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-nav-cta {
-  background: #0A1A0C;
-  color: #E8E4DC;
-  border-color: #0A1A0C;
-}
-body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-menu-toggle span {
-  background: #0A1A0C;
+/* ============ HEADER siempre verde ============
+   El encabezado tiene el mismo tratamiento (fondo verde bosque con
+   blur y texto claro) todo el tiempo, no solo cuando is-scrolled.
+   Antes el header era transparente al top y aparecia verde al scrollear;
+   ahora es visible desde el minuto cero. */
+.entry-header,
+.entry-header:not(.is-scrolled) {
+  background: rgba(15, 31, 18, 0.95);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: var(--entry-paper);
+  box-shadow: 0 1px 0 rgba(232, 228, 220, 0.08);
 }
 
 /* Override del acento "en LATAM." para que se lea sobre fondo claro:
@@ -701,12 +691,16 @@ body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-
    a negro puro; opacity baja el contraste para que se vean "presentes
    pero discretos" como en Xpider. En hover recuperan intensidad. */
 .brand-marquee .brand-group img {
-  filter: brightness(0);
-  opacity: 0.55;
+  /* grayscale + contrast: monocroma sin aplastar los detalles finos
+     (brightness(0) hacia que Mundipack y Propios se vean manchados
+     porque sus antialiasing se convertian en negros semi-transparentes). */
+  filter: grayscale(1) contrast(0.9);
+  opacity: 0.7;
   transition: opacity 200ms ease, filter 200ms ease;
 }
 .brand-marquee .brand-group img:hover {
-  opacity: 0.9;
+  filter: grayscale(0);
+  opacity: 1;
 }
 
 /* Altura del logo Tilde en el marquee de clientes. Ratio 2.39,
@@ -730,4 +724,34 @@ body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-
 }
 @media (max-width: 900px) {
   .tilde-logo-img { max-width: 200px; }
+}
+
+/* ============ HERO · Banderas LATAM ============
+   Reemplazan el 'en LATAM.' del titulo con la representacion visual
+   de los paises donde trabajamos: Uruguay, Argentina, Brasil, Peru,
+   Guatemala, Mexico y Paraguay. Fila centrada bajo el H1. */
+.hero-flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(14px, 1.4vw, 22px);
+  margin-top: clamp(20px, 2.6vw, 36px);
+  padding-inline: 8px;
+}
+.hero-flags img {
+  display: block;
+  width: auto;
+  height: clamp(22px, 2.2vw, 30px);
+  border-radius: 3px;
+  box-shadow:
+    0 1px 2px rgba(10, 26, 12, 0.08),
+    0 3px 8px rgba(10, 26, 12, 0.06),
+    inset 0 0 0 1px rgba(10, 26, 12, 0.06);
+  transition: transform 220ms ease;
+}
+.hero-flags img:hover { transform: translateY(-2px); }
+@media (max-width: 720px) {
+  .hero-flags { gap: 12px; margin-top: 24px; }
+  .hero-flags img { height: 22px; }
 }
