@@ -497,3 +497,93 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
   .tilde-hero-brand { padding-right: 0; padding-bottom: 24px; border-right: none; border-bottom: 1px solid rgba(10, 26, 12, 0.08); }
   .tilde-hero-features { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   FASE 1 · Hero light (rediseño estético, referencia sistema)
+   Overrides puntuales para pasar el hero de fondo oscuro (bosque)
+   a fondo claro (ivory) sin tocar los estilos base que gobiernan
+   otras secciones. Solo aplican cuando entry-hero tiene
+   data-tone="light".
+   ============================================================ */
+
+.entry-hero[data-tone="light"] {
+  background: #F5F2EC; /* ivory, como el sistema */
+  color: #0A1A0C;
+  /* Re-mapea las variables heredadas para todos los descendientes */
+  --entry-paper: #0A1A0C;
+  --entry-muted: rgba(10, 26, 12, 0.62);
+  --entry-line: rgba(10, 26, 12, 0.12);
+}
+
+.entry-hero[data-tone="light"] h1 {
+  color: #0A1A0C;
+}
+.entry-hero[data-tone="light"] h1 > span:last-child {
+  color: #9B8259; /* sand-dark para mejor contraste sobre ivory */
+}
+.entry-hero[data-tone="light"] .entry-intro {
+  color: rgba(10, 26, 12, 0.72);
+}
+.entry-hero[data-tone="light"] .entry-intro strong {
+  color: #0A1A0C;
+}
+.entry-hero[data-tone="light"] .hero-scroll-cue {
+  color: rgba(10, 26, 12, 0.62);
+}
+.entry-hero[data-tone="light"] .hero-scroll-cue span {
+  border-color: rgba(10, 26, 12, 0.18);
+  color: #9B8259;
+}
+
+/* Botón principal del hero: sólido verde profundo sobre ivory,
+   como los CTAs del sistema (card-premium look). */
+.entry-hero[data-tone="light"] .book-btn {
+  background: #0A1A0C;
+  color: #E8E4DC;
+  border: 1px solid #0A1A0C;
+  box-shadow: 0 1px 2px rgba(10, 26, 12, 0.04), 0 6px 18px rgba(10, 26, 12, 0.12);
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+.entry-hero[data-tone="light"] .book-btn:hover {
+  background: #1E3A28;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(10, 26, 12, 0.1), 0 12px 28px rgba(10, 26, 12, 0.15);
+}
+.entry-hero[data-tone="light"] .book-btn small {
+  color: rgba(232, 228, 220, 0.72);
+}
+
+/* ============ HEADER sobre hero light ============
+   Cuando el hero es claro, la nav superior (transparente por default
+   sobre bosque) queda invisible. Le damos tratamiento oscuro mientras
+   el scroll está arriba del todo, y mantenemos el estilo "is-scrolled"
+   original cuando se scrollea. */
+body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) {
+  color: #0A1A0C;
+}
+body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-brand,
+body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-nav-links a {
+  color: #0A1A0C;
+}
+body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-brand-caption {
+  color: rgba(10, 26, 12, 0.55);
+}
+body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-nav-cta {
+  background: #0A1A0C;
+  color: #E8E4DC;
+  border-color: #0A1A0C;
+}
+body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-menu-toggle span {
+  background: #0A1A0C;
+}
+
+/* Override del acento "en LATAM." para que se lea sobre fondo claro:
+   el gradient hero-line-accent original va con dorado claro que sobre
+   ivory pierde contraste. Usamos color sólido sand-dark. */
+.entry-hero[data-tone="light"] .hero-line-accent .hero-line-inner {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  -webkit-text-fill-color: #9B8259;
+  color: #9B8259;
+}
