@@ -3,19 +3,19 @@
 // A video can also supply poster and captions: { src, language, label }.
 export const solutions = [
   {
-    id: 'mundipack', name: 'Mundipack', category: 'Desarrollo / operación comercial',
-    status: 'Proyecto en implementación', title: 'Un negocio. Dos formas de verlo.',
-    description: 'Dirección ve el negocio completo. El vendedor tiene su cartera, su ruta y el contexto para actuar. Explorá las dos experiencias.',
-    audience: 'Dirección y equipo comercial.',
-    challenge: 'Reunir la información que necesitan para consultar y dar seguimiento a la operación.',
-    work: 'Dashboards de seguimiento y un agente de consulta, integrados con el sistema interno.',
-    outcome: 'Objetivo: facilitar el acceso a la información y el seguimiento por vendedor. El proyecto está en implementación.',
-    media: { type: 'demo', demo: 'mundipack', caption: 'Recreación interactiva basada en los dashboards de Mundipack. Nombres, cifras, productos y recorridos ficticios; los cambios se mantienen únicamente durante esta visita.' },
+    id: 'mundipack', name: 'Tecnología e IA Aplicada', category: 'Desarrollo a medida',
+    status: 'Servicio de la firma', title: 'Sistemas hechos a la medida de tu operación.',
+    description: 'Diseñamos software, dashboards, agentes de IA y automatizaciones para cada empresa. Cada proyecto arranca desde tu operación, no desde una plantilla. Explorá abajo un ejemplo real que construimos.',
+    audience: 'Empresas que necesitan software propio para su operación.',
+    challenge: 'Reunir la información y automatizar los procesos que hoy dependen de personas o de planillas.',
+    work: 'Dashboards, agentes de consulta y automatizaciones integrados a los sistemas internos del cliente.',
+    outcome: 'Cada desarrollo se diseña de cero. El ejemplo interactivo de abajo es Mundipack, uno de los proyectos que tenemos en implementación.',
+    media: { type: 'demo', demo: 'mundipack', caption: 'Ejemplo · Mundipack. Recreación interactiva de los dashboards que construimos. Nombres, cifras y recorridos ficticios; los cambios se mantienen solo durante esta visita.' },
   },
   // Tilde (ex BrainBill) vive en su propia sección #productos.
   // Se mantiene el demo brainbill-demo.js por si se quiere reincorporar acá.
   {
-    id: 'growth', name: 'Growth & Marketing', category: 'Crecimiento / estrategia digital',
+    id: 'growth', name: 'Crecimiento y marketing digital', category: 'Crecimiento / estrategia digital',
     status: 'Capacidad de la firma', title: 'Conectar marca, canales y conversión.',
     description: 'Estrategia y ejecución digital orientadas a las necesidades de cada negocio.',
     audience: 'Empresas que buscan desarrollar su crecimiento digital.',
