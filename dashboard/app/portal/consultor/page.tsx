@@ -20,6 +20,9 @@ export default function PortalConsultorPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  // ?pregunta=… (desde "Preguntale al asesor" de una oportunidad) deja la
+  // pregunta escrita en el chat, sin enviarla.
+  const [prefill, setPrefill] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -46,6 +49,8 @@ export default function PortalConsultorPage() {
       setProfile(p);
       const c = await getClient(p.client_id);
       if (active) {
+        const q = new URLSearchParams(window.location.search).get("pregunta");
+        if (q) setPrefill(q.slice(0, 500));
         setClient(c ?? null);
         setLoading(false);
       }
@@ -77,7 +82,12 @@ export default function PortalConsultorPage() {
           </p>
         </section>
 
-        <ConsultorChatPanel clientName={client.name} variant="fullscreen" />
+        <ConsultorChatPanel
+          key={prefill ?? "chat"}
+          clientName={client.name}
+          variant="fullscreen"
+          initialInput={prefill}
+        />
 
         <div className={styles.disclaimer}>
           Para cambios sobre lo que ya está aprobado, hablá con tu

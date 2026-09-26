@@ -25,6 +25,7 @@ import type {
 import WelcomeBanner from "@/components/WelcomeBanner";
 import ClientQuickLinks from "@/components/ClientQuickLinks";
 import UpcomingContentPanel from "@/components/UpcomingContentPanel";
+import OpportunitiesCard from "@/components/OpportunitiesCard";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ClienteDashboard({
@@ -141,6 +142,9 @@ function GPDashboard({
           {client.phase}
         </span>
       </WelcomeBanner>
+
+      {/* Oportunidades que el asesor IA le muestra al cliente en su portal. */}
+      <OpportunitiesCard clientId={client.id} variant="team" />
 
       {/* Datos fiscales — sutiles, solo aparecen si están cargados.
           Importantes para que el equipo tenga la razón social/RUT a

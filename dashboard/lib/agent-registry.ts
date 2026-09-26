@@ -326,6 +326,15 @@ export const AGENT_REGISTRY: AgentRegistryEntry[] = [
     status: "active",
   },
   {
+    key: "portal-opportunities",
+    name: "Oportunidades del Asesor (portal)",
+    desc: "Semanal: 0-3 oportunidades por cliente GP (paquetes, campañas, competencia, tendencias) que el asesor IA muestra en el inicio del portal. Publicación directa por decisión de Gian; interruptor autonomy_settings 'portal_opportunity'.",
+    kind: "job",
+    area: "growth",
+    owner: "gian",
+    status: "active",
+  },
+  {
     key: "distill-learnings",
     name: "Destilador de Aprendizajes",
     desc: "Destila aprendizajes semanales de los chats+ratings a consultant_memory_v2 (Haiku, incremental).",
