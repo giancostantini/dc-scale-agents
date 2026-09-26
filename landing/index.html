@@ -2635,7 +2635,7 @@
     chatToggle.setAttribute('aria-label', open ? 'Cerrar chat' : 'Abrir chat');
   }
 
-  setTimeout(showChatBubble, 6000);
+  setTimeout(showChatBubble, 500);
   chatBubble.addEventListener('click', (e) => {
     if (e.target.closest('.chat-bubble-close')) return;
     toggleChat(true);
