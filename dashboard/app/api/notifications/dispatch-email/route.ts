@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
             await emailNewRequestToTeam({
               teamEmails,
               clientName,
-              requestType: request.type as "oferta" | "accion",
+              requestType: request.type as "oferta" | "accion" | "recomendacion",
               requestTitle: request.title,
               requestDescription: request.description ?? "",
               urgency: request.urgency,

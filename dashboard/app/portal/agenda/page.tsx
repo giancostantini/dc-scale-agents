@@ -11,9 +11,13 @@
  * pendientes (planned, sin descripción ni foto) y los borradores IA viejos
  * (draft) son trabajo interno — todo lo que ve lo escribió una persona.
  *
- * Lo que SÍ puede hacer: abrir una pieza (descripción + foto) y dejar una
- * "recomendación" → client_requests type='recomendacion' con
- * metadata.post_id, que el equipo ve en Solicitudes.
+ * Lo que SÍ puede hacer:
+ *   - abrir una pieza (descripción + foto) y dejar una recomendación sobre
+ *     ella (metadata { scope:'pieza', post_id });
+ *   - tocar un día y dejar una propuesta para ese día (metadata
+ *     { scope:'dia', date }).
+ * Las dos son client_requests type='recomendacion': al equipo le llega
+ * notificación + mail y las ve en Solicitudes → Propuestas del cliente.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -86,6 +90,7 @@ export default function PortalAgendaPage() {
   const [month, setMonth] = useState(today.getMonth());
   const [openPiece, setOpenPiece] = useState<ContentPost | null>(null);
   const [recoModal, setRecoModal] = useState<ContentPost | null>(null);
+  const [dayModal, setDayModal] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -139,6 +144,18 @@ export default function PortalAgendaPage() {
     return map;
   }, [requests]);
 
+  // Propuestas por día ya enviadas: date → requests.
+  const dayProposals = useMemo(() => {
+    const map = new Map<string, ClientRequest[]>();
+    for (const r of requests) {
+      if (r.type !== "recomendacion") continue;
+      const meta = (r.metadata ?? {}) as { scope?: string; date?: string };
+      if (meta.scope !== "dia" || !meta.date) continue;
+      map.set(meta.date, [...(map.get(meta.date) ?? []), r]);
+    }
+    return map;
+  }, [requests]);
+
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const monthPosts = useMemo(
     () => posts.filter((p) => p.date.startsWith(`${monthKey}-`)),
@@ -174,6 +191,7 @@ export default function PortalAgendaPage() {
         title: `Recomendación sobre ${code}`,
         description: text,
         metadata: {
+          scope: "pieza",
           post_id: recoModal.id,
           post_code: code,
           post_idea_excerpt: ideaExcerpt,
@@ -190,6 +208,21 @@ export default function PortalAgendaPage() {
       );
     } catch (e) {
       alert(`No se pudo enviar la recomendación:\n${(e as Error).message}`);
+    }
+  }
+
+  async function handleSubmitDay(date: string, text: string) {
+    if (!client) return;
+    await createRequest({
+      client_id: client.id,
+      type: "recomendacion",
+      title: `Propuesta para el ${longDate(date).toLowerCase()}`,
+      description: text,
+      metadata: { scope: "dia", date },
+      urgency: "media",
+    });
+    if (profile?.client_id) {
+      setRequests(await listRequestsForClient(profile.client_id));
     }
   }
 
@@ -211,9 +244,9 @@ export default function PortalAgendaPage() {
             <h1 className={portalStyles.heroTitle}>Agenda de publicaciones</h1>
             <p className={portalStyles.heroSub}>
               El mismo calendario con el que trabaja el equipo: qué se sube
-              cada día y en qué red. Tocá una pieza para verla y, si querés,{" "}
-              <strong>dejar una recomendación</strong>; te respondemos por el
-              portal.
+              cada día y en qué red. Tocá una pieza para verla, o tocá un día
+              para <strong>proponernos algo para esa fecha</strong>; te
+              respondemos por el portal.
             </p>
           </div>
         </section>
@@ -290,6 +323,7 @@ export default function PortalAgendaPage() {
             todayIso={todayIso}
             markOverdue={false}
             onOpenPiece={setOpenPiece}
+            onOpenDay={setDayModal}
           />
 
           {monthPosts.length === 0 && (
@@ -313,6 +347,20 @@ export default function PortalAgendaPage() {
         />
       )}
 
+      {dayModal && (
+        <DayProposalModal
+          date={dayModal}
+          pieces={posts.filter((p) => p.date === dayModal)}
+          sent={dayProposals.get(dayModal) ?? []}
+          onClose={() => setDayModal(null)}
+          onOpenPiece={(p) => {
+            setDayModal(null);
+            setOpenPiece(p);
+          }}
+          onSubmit={(text) => handleSubmitDay(dayModal, text)}
+        />
+      )}
+
       {recoModal && (
         <RecommendationModal
           post={recoModal}
@@ -322,6 +370,233 @@ export default function PortalAgendaPage() {
         />
       )}
     </>
+  );
+}
+
+// Modal de un día: las piezas de ese día + una propuesta libre para la
+// fecha (sirve también para días sin contenido: "acá quiero una promo").
+function DayProposalModal({
+  date,
+  pieces,
+  sent,
+  onClose,
+  onOpenPiece,
+  onSubmit,
+}: {
+  date: string;
+  pieces: ContentPost[];
+  sent: ClientRequest[];
+  onClose: () => void;
+  onOpenPiece: (p: ContentPost) => void;
+  onSubmit: (text: string) => Promise<void>;
+}) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send() {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await onSubmit(text.trim());
+      setText("");
+      setDone(true);
+    } catch (e) {
+      setError((e as Error).message || "No se pudo enviar la propuesta.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && !sending && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(10,26,12,0.6)",
+        zIndex: 1100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        backdropFilter: "blur(3px)",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-label={`Propuesta para el ${longDate(date)}`}
+        style={{
+          background: "var(--white)",
+          maxWidth: 480,
+          width: "100%",
+          padding: 28,
+          borderRadius: "var(--r-lg)",
+          position: "relative",
+          maxHeight: "85vh",
+          overflowY: "auto",
+        }}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Cerrar"
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            fontSize: 18,
+            width: 32,
+            height: 32,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+          }}
+        >
+          ×
+        </button>
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sand-dark)",
+            fontWeight: 700,
+            marginBottom: 6,
+          }}
+        >
+          Agenda de publicaciones
+        </div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 14, color: "var(--deep-green)" }}>
+          {longDate(date)}
+        </h2>
+
+        {pieces.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
+            {pieces.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onOpenPiece(p)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                  color: "var(--deep-green)",
+                  background: "var(--off-white)",
+                  border: "1px solid rgba(10,26,12,0.08)",
+                  borderRadius: "var(--r-sm)",
+                  cursor: "pointer",
+                }}
+              >
+                <span>{pieceTitle(p)}</span>
+                <StatePill state={pieceState(p)} overdue={false} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 18 }}>
+            Todavía no hay publicaciones preparadas para este día.
+          </p>
+        )}
+
+        {sent.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <LegendTitle>Lo que ya propusiste para este día</LegendTitle>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+              {sent.map((r) => (
+                <div
+                  key={r.id}
+                  style={{
+                    padding: 10,
+                    fontSize: 12.5,
+                    lineHeight: 1.5,
+                    background: "rgba(196,168,130,0.08)",
+                    borderLeft: "3px solid var(--sand)",
+                    borderRadius: 4,
+                    color: "var(--deep-green)",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {r.description}
+                  {r.response && (
+                    <div style={{ marginTop: 6, color: "var(--text-muted)" }}>
+                      <strong>Respuesta del equipo:</strong> {r.response}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <label
+          htmlFor="day-proposal"
+          style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--deep-green)", marginBottom: 6 }}
+        >
+          ¿Qué te gustaría para este día?
+        </label>
+        <textarea
+          id="day-proposal"
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            setDone(false);
+          }}
+          rows={4}
+          disabled={sending}
+          placeholder="Ej: ese día lanzamos la promo de verano, estaría bueno una historia con el precio."
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            border: "1px solid rgba(10,26,12,0.15)",
+            borderRadius: 4,
+            fontSize: 13,
+            fontFamily: "inherit",
+            background: "var(--white)",
+            color: "var(--deep-green)",
+            resize: "vertical",
+            marginBottom: 12,
+          }}
+        />
+        {error && (
+          <div style={{ fontSize: 12, color: "var(--red-warn)", marginBottom: 10 }}>{error}</div>
+        )}
+        {done && (
+          <div style={{ fontSize: 12, color: "var(--green-ok)", marginBottom: 10 }}>
+            Listo, la propuesta le llegó al equipo. Te respondemos por el portal.
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={send}
+          disabled={sending || !text.trim()}
+          style={{
+            width: "100%",
+            padding: "12px 18px",
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            background: "var(--deep-green)",
+            color: "var(--off-white)",
+            border: "none",
+            borderRadius: 6,
+            cursor: sending || !text.trim() ? "default" : "pointer",
+            opacity: sending || !text.trim() ? 0.5 : 1,
+            fontFamily: "inherit",
+          }}
+        >
+          {sending ? "Enviando…" : "Enviar propuesta →"}
+        </button>
+      </div>
+    </div>
   );
 }
 

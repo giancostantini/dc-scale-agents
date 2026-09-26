@@ -1251,13 +1251,16 @@ export interface AccionMetadata {
 }
 
 /**
- * Metadata para client_requests con type='recomendacion'.
- * El cliente carga estas desde /portal/agenda al apretar
- * "+ Recomendación" sobre una pieza concreta — referenciamos
- * el post por uuid + code C-XXXX + un excerpt de la idea para
- * que el director vea contexto sin tener que abrir el post.
+ * Metadata para client_requests con type='recomendacion' — las
+ * "propuestas del cliente" que carga desde /portal/agenda:
+ *   - scope 'pieza' (o sin scope, las viejas): sobre una pieza concreta —
+ *     referenciamos el post por uuid + code C-XXXX + un excerpt de la idea.
+ *   - scope 'dia': sobre un día del calendario (`date`, YYYY-MM-DD), haya o
+ *     no piezas ese día.
  */
 export interface RecomendacionMetadata {
+  scope?: "pieza" | "dia";
+  date?: string;
   post_id?: string;
   post_code?: string;
   post_idea_excerpt?: string;

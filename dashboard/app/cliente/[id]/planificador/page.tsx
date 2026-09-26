@@ -157,8 +157,11 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const today = new Date();
   const todayIso = isoLocalDate(today);
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
+  // ?mes=YYYY-MM (link desde una propuesta del cliente) abre ese mes.
+  const mesParam = searchParams.get("mes");
+  const mesMatch = mesParam?.match(/^(\d{4})-(\d{2})$/);
+  const [year, setYear] = useState(mesMatch ? Number(mesMatch[1]) : today.getFullYear());
+  const [month, setMonth] = useState(mesMatch ? Number(mesMatch[2]) - 1 : today.getMonth());
   /** Día abierto en el modal del día (YYYY-MM-DD). */
   const [dayModal, setDayModal] = useState<string | null>(null);
   /** Pieza abierta. Guardamos el id y no un snapshot: el modal siempre

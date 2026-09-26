@@ -62,7 +62,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const typeLabel = request.type === "oferta" ? "oferta" : "acción";
+  // recomendacion = "propuesta del cliente" (por pieza o por día del
+  // calendario de contenido) → pestaña Propuestas de Solicitudes.
+  const typeLabel =
+    request.type === "oferta"
+      ? "oferta"
+      : request.type === "recomendacion"
+        ? "propuesta"
+        : "acción";
   const level = URGENCY_LEVEL[request.urgency] ?? "info";
 
   const { error: insertError } = await supabase.from("notifications").insert({
@@ -72,7 +79,10 @@ export async function POST(req: NextRequest) {
     level,
     title: `Nueva ${typeLabel} del cliente`,
     body: request.title,
-    link: `/cliente/${request.client_id}/solicitudes`,
+    link:
+      request.type === "recomendacion"
+        ? `/cliente/${request.client_id}/solicitudes?vista=propuestas`
+        : `/cliente/${request.client_id}/solicitudes`,
     read: false,
     email_sent: false,
   });
