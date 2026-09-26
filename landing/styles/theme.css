@@ -268,3 +268,232 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
   .tilde-showcase { grid-template-columns: 1fr; }
   .tilde-card-head { flex-direction: column; align-items: flex-start; }
 }
+
+/* ============ SERVICIOS · Bloques Tecnología / Crecimiento ============ */
+.service-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+  padding: clamp(48px, 6vw, 88px) 0;
+  border-top: 1px solid rgba(232, 228, 220, 0.1);
+}
+.service-block:first-of-type { border-top: none; padding-top: clamp(32px, 4vw, 56px); }
+
+.service-copy { position: sticky; top: 96px; align-self: start; }
+@media (max-width: 999px) { .service-copy { position: static; } }
+
+.service-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #C4A882;
+  margin: 0 0 20px;
+}
+.service-title {
+  font-size: clamp(28px, 3.6vw, 48px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  margin: 0 0 20px;
+  color: #E8E4DC;
+}
+.service-desc {
+  font-size: 16px;
+  line-height: 1.65;
+  color: rgba(232, 228, 220, 0.78);
+  margin: 0 0 24px;
+}
+.service-desc strong { color: #E8E4DC; font-weight: 600; }
+.service-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.service-features li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: rgba(232, 228, 220, 0.85);
+}
+.service-features li::before {
+  content: '';
+  position: absolute; left: 0; top: 10px;
+  width: 12px; height: 1px;
+  background: #C4A882;
+}
+
+.service-mockup { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.service-mockup-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: rgba(232, 228, 220, 0.6);
+}
+.service-mockup-dot { color: #C4A882; }
+.service-mockup-frame {
+  min-height: 200px;
+  border-radius: 14px;
+  background: rgba(10, 26, 12, 0.35);
+  border: 1px solid rgba(232, 228, 220, 0.06);
+  padding: 0;
+  overflow: hidden;
+  min-width: 0;
+}
+.service-mockup-frame > * { max-width: 100%; }
+.service-mockup-fallback {
+  padding: 32px;
+  color: rgba(232, 228, 220, 0.55);
+  font-size: 14px;
+  text-align: center;
+}
+.service-mockup-note {
+  font-size: 12.5px;
+  font-style: italic;
+  color: rgba(232, 228, 220, 0.55);
+  line-height: 1.55;
+  margin: 4px 0 0;
+}
+.service-mockup-note strong { color: #C4A882; font-style: normal; font-weight: 700; }
+
+@media (max-width: 999px) {
+  .service-block { grid-template-columns: 1fr; gap: 28px; }
+}
+
+/* ============ PRODUCTOS · Tilde hero editorial ============ */
+.tilde-hero {
+  margin-top: clamp(24px, 4vw, 40px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+  padding: clamp(32px, 4vw, 56px);
+  background: #FFFFFF;
+  border: 1px solid rgba(10, 26, 12, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px -40px rgba(10, 26, 12, 0.3);
+}
+
+.tilde-hero-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding-right: clamp(0px, 2vw, 24px);
+  border-right: 1px solid rgba(10, 26, 12, 0.08);
+}
+.tilde-logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 26px;
+  background: #0A1A0C;
+  color: #E8E4DC;
+  border-radius: 12px;
+  min-width: 200px;
+  justify-content: center;
+}
+.tilde-logo-mark {
+  color: #C4A882;
+  font-size: 24px;
+  font-weight: 700;
+}
+.tilde-logo-word {
+  font-family: 'DM Sans', 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+  color: #E8E4DC;
+}
+.tilde-hero-kicker {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9B8259;
+  font-weight: 600;
+  margin: 0;
+}
+
+.tilde-hero-copy { display: flex; flex-direction: column; gap: 20px; }
+.tilde-hero-copy h2 {
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0;
+  color: #0A1A0C;
+}
+.tilde-hero-desc {
+  font-size: 16px;
+  line-height: 1.65;
+  color: rgba(10, 26, 12, 0.82);
+  margin: 0;
+}
+.tilde-hero-desc strong { color: #0A1A0C; font-weight: 700; }
+.tilde-hero-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+}
+.tilde-hero-features li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(10, 26, 12, 0.75);
+}
+.tilde-hero-features li::before {
+  content: '';
+  position: absolute; left: 0; top: 9px;
+  width: 12px; height: 1px;
+  background: #C4A882;
+}
+.tilde-hero-features li strong { color: #0A1A0C; font-weight: 600; }
+
+.tilde-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  padding-top: 8px;
+}
+.tilde-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px;
+  background: #0A1A0C;
+  color: #E8E4DC;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+  transition: background 0.2s, transform 0.2s;
+  text-decoration: none;
+}
+.tilde-cta-primary:hover { background: #1E3A28; transform: translateY(-1px); }
+.tilde-cta-primary .tilde-cta-arrow { color: #C4A882; font-size: 16px; }
+.tilde-cta-secondary {
+  font-size: 13px;
+  color: #9B8259;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.tilde-cta-secondary:hover { color: #0A1A0C; }
+
+@media (max-width: 900px) {
+  .tilde-hero { grid-template-columns: 1fr; gap: 28px; }
+  .tilde-hero-brand { padding-right: 0; padding-bottom: 24px; border-right: none; border-bottom: 1px solid rgba(10, 26, 12, 0.08); }
+  .tilde-hero-features { grid-template-columns: 1fr; }
+}

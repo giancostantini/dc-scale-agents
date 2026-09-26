@@ -1896,6 +1896,7 @@
 <link rel="stylesheet" href="styles/growth-deck.css">
 <link rel="stylesheet" href="styles/page-motion.css">
 <script type="module" src="scripts/entry-v2.js"></script>
+<script type="module" src="scripts/services-mount.js"></script>
 <noscript><style>@media (max-width: 999px) { .entry-hero { padding-top: 170px; } }</style></noscript>
 </head>
 <body>
@@ -2045,73 +2046,110 @@
   </div>
 </section>
 
-<!-- ============ SOLUCIONES · CAPACIDADES EN LA PRÁCTICA ============ -->
+<!-- ============ SOLUCIONES · NUESTROS SERVICIOS ============ -->
 <section class="solutions-section" id="soluciones" data-tone="dark" aria-labelledby="solutions-title">
   <div class="entry-shell">
-    <div class="solutions-heading"><p class="entry-eyebrow">Qué hacemos / En la práctica</p><div><h2 id="solutions-title">Marketing y tecnología.<br>Conectados a tu negocio.</h2><p class="solutions-intro">De la estrategia de crecimiento a los sistemas que hacen funcionar tu operación. Explorá lo que construimos.</p></div></div>
-  </div>
-  <div class="solution-workbench" id="showcase" aria-label="Explorar soluciones">
-    <div class="entry-shell">
-      <div id="solution-showcase" class="solution-showcase">
-        <div class="showcase-fallback">
-          <p>Explorá nuestras líneas de trabajo:</p>
-          <ul><li><strong>Mundipack:</strong> dos dashboards distintos: Dirección/Gerencia y Vendedores. Seguimiento comercial, cartera, rutas y presupuestos. Proyecto en implementación.</li><li><strong>Growth &amp; Marketing:</strong> estrategia, performance y análisis de canales.</li></ul>
-          <p>Tilde, nuestro producto propio para la carga de facturas de compra, tiene su propia sección arriba.</p>
-          <p>La demo de Mundipack se puede explorar con JavaScript habilitado. Toda su información es ficticia.</p>
-        </div>
+    <div class="solutions-heading">
+      <p class="entry-eyebrow">Nuestros servicios</p>
+      <div>
+        <h2 id="solutions-title">Dos capacidades.<br>Un mismo objetivo.</h2>
+        <p class="solutions-intro">Tecnología para que tu operación funcione mejor. Marketing para que tu negocio venda más. Se combinan según lo que necesite cada empresa.</p>
       </div>
     </div>
+
+    <!-- ==== Servicio 01: Tecnología e IA Aplicada ==== -->
+    <article class="service-block" data-service="tech" aria-labelledby="service-tech-title">
+      <div class="service-copy">
+        <p class="service-eyebrow">01 / Tecnología e IA Aplicada</p>
+        <h3 id="service-tech-title" class="service-title">Sistemas hechos a la medida de tu operación.</h3>
+        <p class="service-desc">Diseñamos e implementamos software, dashboards, agentes de IA y automatizaciones para cada cliente. Cada proyecto arranca desde tu operación real, no desde una plantilla — lo que construimos es tan único como tu negocio.</p>
+        <ul class="service-features">
+          <li>Dashboards y sistemas internos a medida</li>
+          <li>Agentes de IA integrados a tu operación</li>
+          <li>Automatizaciones e integraciones (WhatsApp, ERPs, APIs)</li>
+          <li>Del diagnóstico a la puesta en producción</li>
+        </ul>
+      </div>
+      <div class="service-mockup">
+        <div class="service-mockup-label">
+          <span class="service-mockup-dot" aria-hidden="true">●</span>
+          Ejemplo real · Mundipack · dashboards de dirección y vendedores
+        </div>
+        <div class="service-mockup-frame" id="mp-mount" aria-label="Demo interactiva de Mundipack">
+          <p class="service-mockup-fallback">Demo interactiva disponible con JavaScript habilitado.</p>
+        </div>
+        <p class="service-mockup-note">Este es <strong>uno</strong> de los desarrollos que hicimos. Cada proyecto se diseña de cero según tu negocio.</p>
+      </div>
+    </article>
+
+    <!-- ==== Servicio 02: Crecimiento y marketing digital ==== -->
+    <article class="service-block" data-service="growth" aria-labelledby="service-growth-title">
+      <div class="service-copy">
+        <p class="service-eyebrow">02 / Crecimiento y marketing digital</p>
+        <h3 id="service-growth-title" class="service-title">Marca, canales y conversión medidos.</h3>
+        <p class="service-desc">Estrategia y ejecución digital para desarrollar tu marca, tus canales y tus ventas. Trabajamos con las cuentas que ves abajo — tocá una para verla.</p>
+        <ul class="service-features">
+          <li>Estrategia y posicionamiento digital</li>
+          <li>Performance y publicidad en Meta, Google y LinkedIn</li>
+          <li>Contenido y comunidad en redes</li>
+          <li>Analítica y toma de decisiones basada en datos</li>
+        </ul>
+      </div>
+      <div class="service-mockup">
+        <div class="service-mockup-label">
+          <span class="service-mockup-dot" aria-hidden="true">●</span>
+          Cuentas activas de la firma
+        </div>
+        <div class="service-mockup-frame" id="gd-mount" aria-label="Cuentas activas en Growth &amp; Marketing">
+          <p class="service-mockup-fallback">Panel interactivo disponible con JavaScript habilitado.</p>
+        </div>
+      </div>
+    </article>
   </div>
 </section>
 
 <!-- ============ PRODUCTOS · Tilde ============ -->
+<!-- TODO: cuando tengas los assets reales, reemplazar:
+     - logos/tilde.svg (o .png) por el logo oficial de Tilde
+     - href="https://tilde.dearmascostantini.com" por la URL real del sitio de Tilde
+-->
 <section class="paper-bg products-section" id="productos" data-bg="#F5F2EC" data-tone="light" aria-labelledby="products-title">
   <div class="entry-shell">
-    <div class="solutions-heading">
-      <p class="entry-eyebrow">Nuestros productos / Tilde</p>
-      <div>
-        <h2 id="products-title">Las facturas de compra<br>se cargan solas.</h2>
-        <p class="solutions-intro">Tilde es nuestra app propia: sacás una foto, subís el PDF o el XML del CFE, y en segundos queda cargada — leída, validada, asociada a tu catálogo y revisada por una persona antes de entrar a tu sistema.</p>
-      </div>
-    </div>
+    <p class="entry-eyebrow">Nuestros productos</p>
 
-    <div class="tilde-showcase">
-      <div class="tilde-card">
-        <div class="tilde-card-head">
-          <div class="tilde-brand">
-            <span class="tilde-brand-dot" aria-hidden="true">✓</span>
-            <div>
-              <strong>Tilde</strong>
-              <span class="tilde-brand-tag">Producto propio · Facturas de compra</span>
-            </div>
-          </div>
-          <span class="tilde-status">Disponible</span>
+    <div class="tilde-hero">
+      <div class="tilde-hero-brand">
+        <!-- Placeholder del logo. Reemplazar por <img src="logos/tilde.svg" alt="Tilde"> cuando lo tengas. -->
+        <div class="tilde-logo-placeholder" role="img" aria-label="Logo de Tilde">
+          <span class="tilde-logo-mark" aria-hidden="true">✓</span>
+          <span class="tilde-logo-word">tilde</span>
         </div>
+        <p class="tilde-hero-kicker">Producto propio · Hecho en Uruguay</p>
+      </div>
 
-        <ol class="tilde-steps" aria-label="Cómo funciona Tilde">
-          <li><span class="tilde-step-num">01</span><div><strong>Subís la factura.</strong> Foto, PDF o XML del CFE.</div></li>
-          <li><span class="tilde-step-num">02</span><div><strong>La leemos con IA</strong> (o de forma exacta si viene el XML del CFE).</div></li>
-          <li><span class="tilde-step-num">03</span><div><strong>Validamos totales, IVA, RUT y duplicados</strong> antes de avanzar.</div></li>
-          <li><span class="tilde-step-num">04</span><div><strong>Asociamos cada producto</strong> a tu catálogo, con precio de venta sugerido.</div></li>
-          <li><span class="tilde-step-num">05</span><div><strong>Una persona confirma.</strong> Nada entra a tu sistema sin revisión humana.</div></li>
-          <li><span class="tilde-step-num">06</span><div><strong>Se entrega a tu destino:</strong> ERP, base de datos, planilla o API.</div></li>
-        </ol>
+      <div class="tilde-hero-copy">
+        <h2 id="products-title">La app que digitaliza tus facturas de compra en segundos.</h2>
+        <p class="tilde-hero-desc">
+          <strong>Tilde</strong> es la herramienta que desarrollamos para que las empresas dejen de tipear facturas a mano. Sacás una foto, subís el PDF o el XML del CFE, y Tilde lee la factura, valida totales, IVA y RUT, la asocia a tu catálogo y la entrega revisada a tu sistema. Menos tiempo perdido, cero errores de tipeo, control humano donde importa.
+        </p>
 
-        <div class="tilde-actions">
-          <a class="book-btn is-dark" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
-            <span class="book-faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="36" height="36"><img src="photos/gianluca.jpg" alt="" width="36" height="36"></span>
-            <span class="book-text"><strong>Agendar una demo</strong><small>30 min con Federico y Gianluca</small></span>
-            <span class="book-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        <ul class="tilde-hero-features">
+          <li><strong>Lectura con IA</strong> — o exacta desde el XML del CFE.</li>
+          <li><strong>Validación automática</strong> de totales, IVA, RUT y duplicados.</li>
+          <li><strong>Catálogo asistido</strong> con precio de venta sugerido.</li>
+          <li><strong>Revisión humana</strong> antes de entrar a tu ERP, planilla o API.</li>
+        </ul>
+
+        <div class="tilde-hero-actions">
+          <a class="tilde-cta-primary" href="https://tilde.dearmascostantini.com" target="_blank" rel="noopener">
+            Conocer Tilde
+            <span class="tilde-cta-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="tilde-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
+            Agendar una demo con los socios
           </a>
         </div>
       </div>
-
-      <aside class="tilde-benefits" aria-label="Qué gana tu negocio con Tilde">
-        <div class="tilde-benefit"><span class="tilde-benefit-num">−90%</span><span class="tilde-benefit-label">tiempo de carga por factura</span></div>
-        <div class="tilde-benefit"><span class="tilde-benefit-num">0</span><span class="tilde-benefit-label">errores de tipeo en totales, IVA y RUT</span></div>
-        <div class="tilde-benefit"><span class="tilde-benefit-num">1×</span><span class="tilde-benefit-label">revisión humana antes de entrar a tu sistema</span></div>
-        <p class="tilde-benefits-note">Para empresas que hoy cargan facturas a mano y quieren orden sin perder el control.</p>
-      </aside>
     </div>
   </div>
 </section>
