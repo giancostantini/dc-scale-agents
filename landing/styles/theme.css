@@ -695,3 +695,16 @@ body:has(.entry-hero[data-tone="light"]) .entry-header:not(.is-scrolled) .entry-
   .brand-marquee .brand-group .brand-propios { height: 48px; }
   .brand-marquee .brand-group .brand-mundipack { height: 32px; }
 }
+
+/* Monocromía tipo Xpider: los logos a color van a un negro suave
+   sobre el fondo ivory. brightness(0) fuerza cualquier pixel opaco
+   a negro puro; opacity baja el contraste para que se vean "presentes
+   pero discretos" como en Xpider. En hover recuperan intensidad. */
+.brand-marquee .brand-group img {
+  filter: brightness(0);
+  opacity: 0.55;
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+.brand-marquee .brand-group img:hover {
+  opacity: 0.9;
+}
