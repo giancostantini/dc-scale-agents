@@ -552,6 +552,8 @@ function RequestRow({
   onRefresh: () => Promise<void>;
 }) {
   const meta = (req.metadata ?? {}) as {
+    scope?: string;
+    date?: string;
     post_id?: string;
     post_code?: string;
     post_idea_excerpt?: string;
@@ -630,7 +632,7 @@ function RequestRow({
             {expanded ? "▼ " : "▶ "}
             {req.title}
           </div>
-          {req.type === "recomendacion" && meta.post_code && (
+          {req.type === "recomendacion" && (meta.post_code || meta.date) && (
             <div
               style={{
                 fontSize: 11,
@@ -638,7 +640,9 @@ function RequestRow({
                 marginTop: 2,
               }}
             >
-              Sobre {meta.post_code}
+              {meta.scope === "dia" && meta.date
+                ? `Sobre el día ${meta.date.slice(8, 10)}/${meta.date.slice(5, 7)}`
+                : `Sobre ${meta.post_code}`}
             </div>
           )}
         </td>

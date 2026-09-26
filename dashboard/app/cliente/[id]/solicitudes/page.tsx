@@ -9,6 +9,9 @@
  *   - Registro de ofertas: las ofertas/paquetes que cargó el cliente,
  *     activas + histórico (antes era /ofertas, que ahora redirige acá
  *     con ?vista=ofertas).
+ *   - Propuestas del cliente (?vista=propuestas): lo que el cliente propone
+ *     desde su agenda de contenido — sobre una pieza o sobre un día del
+ *     calendario (client_requests type='recomendacion').
  * Los clientes dev ven solo la bandeja.
  */
 
@@ -39,7 +42,7 @@ const STATUS_OPTIONS: { value: ClientRequestStatus; label: string }[] = [
   { value: "rejected", label: "Rechazada" },
 ];
 
-type Vista = "bandeja" | "ofertas";
+type Vista = "bandeja" | "ofertas" | "propuestas";
 
 export default function ClientSolicitudesPage({
   params,
@@ -59,9 +62,10 @@ function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [vista, setVista] = useState<Vista>(
-    searchParams.get("vista") === "ofertas" ? "ofertas" : "bandeja",
-  );
+  const [vista, setVista] = useState<Vista>(() => {
+    const v = searchParams.get("vista");
+    return v === "ofertas" || v === "propuestas" ? v : "bandeja";
+  });
   const [client, setClient] = useState<Client | null>(null);
   const [me, setMe] = useState<Profile | null>(null);
   const [team, setTeam] = useState<Profile[]>([]);
@@ -103,7 +107,7 @@ function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
     setVista(v);
     // La pestaña queda en la URL para que un reload o un link la respeten.
     router.replace(
-      `/cliente/${id}/solicitudes${v === "ofertas" ? "?vista=ofertas" : ""}`,
+      `/cliente/${id}/solicitudes${v === "bandeja" ? "" : `?vista=${v}`}`,
       { scroll: false },
     );
   }
@@ -156,8 +160,16 @@ function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
 
   const ofertas = requests.filter((r) => r.type === "oferta");
   const acciones = requests.filter((r) => r.type === "accion");
-  const pending = requests.filter(
+  const propuestas = requests.filter((r) => r.type === "recomendacion");
+  const propuestasAbiertas = propuestas.filter(
     (r) => r.status === "pending" || r.status === "reviewing",
+  ).length;
+  const showPropuestas = vista === "propuestas";
+  // La bandeja cuenta solo ofertas + acciones: las propuestas tienen su pestaña.
+  const pending = requests.filter(
+    (r) =>
+      r.type !== "recomendacion" &&
+      (r.status === "pending" || r.status === "reviewing"),
   );
 
   // Render de una fila — lo pasamos a RequestsGroup para no threadear todos
@@ -191,12 +203,16 @@ function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
               ? isTravel
                 ? "Paquetes cargados"
                 : "Ofertas cargadas"
-              : "Inbox"}
+              : showPropuestas
+                ? "Propuestas del cliente"
+                : "Inbox"}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
             {showOffers
               ? `Registro de ${isTravel ? "paquetes" : "ofertas"} que cargó el cliente — activas e histórico. El estado se gestiona en la Bandeja.`
-              : `${requests.length} totales · ${pending.length} pendientes de revisión`}
+              : showPropuestas
+                ? "Lo que el cliente propone desde su agenda de contenido: sobre un día del calendario o sobre una pieza. Respondele desde acá."
+                : `${requests.length - propuestas.length} totales · ${pending.length} pendientes de revisión`}
           </div>
         </div>
         <button
@@ -207,12 +223,17 @@ function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
         </button>
       </div>
 
-      {hasOffers && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
           {(
             [
               { v: "bandeja", label: `Bandeja (${pending.length} pendientes)` },
-              { v: "ofertas", label: isTravel ? "Registro de paquetes" : "Registro de ofertas" },
+              ...(hasOffers
+                ? [{ v: "ofertas", label: isTravel ? "Registro de paquetes" : "Registro de ofertas" }]
+                : []),
+              {
+                v: "propuestas",
+                label: `Propuestas del cliente${propuestasAbiertas ? ` (${propuestasAbiertas} nuevas)` : ""}`,
+              },
             ] as { v: Vista; label: string }[]
           ).map((t) => (
             <button
@@ -224,11 +245,17 @@ function ClientSolicitudes({ params }: { params: Promise<{ id: string }> }) {
               {t.label}
             </button>
           ))}
-        </div>
-      )}
+      </div>
 
       {showOffers ? (
         <OfferRegistry clientId={id} travel={isTravel} />
+      ) : showPropuestas ? (
+        <RequestsGroup
+          title={`Propuestas (${propuestas.length})`}
+          empty="El cliente todavía no dejó propuestas. Las carga desde su agenda de publicaciones, tocando un día o una pieza."
+          reqs={propuestas}
+          renderRow={renderRow}
+        />
       ) : (
         <>
           <RequestsGroup
@@ -560,7 +587,59 @@ function RequestRow({
           );
         }
 
-        // Fallback genérico (acciones, ofertas viejas, recomendaciones)
+        if (req.type === "recomendacion") {
+          const date = typeof m.date === "string" ? m.date : null;
+          const isDay = m.scope === "dia" && date;
+          const href = isDay
+            ? `/cliente/${req.client_id}/planificador?mes=${date!.slice(0, 7)}`
+            : m.post_id
+              ? `/cliente/${req.client_id}/planificador?pieza=${m.post_id}`
+              : null;
+          return (
+            <div
+              style={{
+                padding: 12,
+                background: "var(--off-white)",
+                marginBottom: 14,
+                borderRadius: "var(--r-md)",
+                fontSize: 12,
+                color: "var(--deep-green)",
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+              }}
+            >
+              <span>
+                {isDay ? (
+                  <>
+                    Sobre el día{" "}
+                    <strong>
+                      {new Date(`${date}T12:00:00`).toLocaleDateString("es-AR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
+                    </strong>
+                  </>
+                ) : (
+                  <>
+                    Sobre la pieza <strong>{String(m.post_code ?? "")}</strong>
+                    {m.post_idea_excerpt ? ` — ${String(m.post_idea_excerpt)}` : ""}
+                  </>
+                )}
+              </span>
+              {href && (
+                <a href={href} style={{ color: "var(--deep-green)", fontWeight: 600 }}>
+                  Ver en el calendario →
+                </a>
+              )}
+            </div>
+          );
+        }
+
+        // Fallback genérico (acciones, ofertas viejas)
         if (Object.keys(m).length === 0) return null;
         return (
           <div

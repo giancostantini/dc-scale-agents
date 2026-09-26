@@ -219,7 +219,7 @@ function baseLayout(content: string, ctaUrl?: string, ctaLabel?: string): string
 export async function emailNewRequestToTeam(input: {
   teamEmails: string[];
   clientName: string;
-  requestType: "oferta" | "accion";
+  requestType: "oferta" | "accion" | "recomendacion";
   requestTitle: string;
   requestDescription: string;
   urgency: "baja" | "media" | "alta";
@@ -229,7 +229,12 @@ export async function emailNewRequestToTeam(input: {
   updated?: boolean;
 }): Promise<{ id: string } | null> {
   if (input.teamEmails.length === 0) return null;
-  const typeLabel = input.requestType === "oferta" ? "oferta" : "acción";
+  const typeLabel =
+    input.requestType === "oferta"
+      ? "oferta"
+      : input.requestType === "recomendacion"
+        ? "propuesta"
+        : "acción";
   const heading = input.updated
     ? `${input.clientName} actualizó una ${typeLabel}`
     : `Nueva ${typeLabel} de ${input.clientName}`;
