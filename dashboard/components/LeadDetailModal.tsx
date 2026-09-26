@@ -136,6 +136,13 @@ export default function LeadDetailModal({
     lead.sourceUrl || offer || posted || lead.roleRequirements,
   );
 
+  // Lead creado por el formulario previo a Calendly de la landing (la nota
+  // la arma /api/leads/from-landing: "Email: …\nOrigen: landing pública").
+  const landing = /Origen: landing pública/i.test(lead.note ?? "");
+  const landingEmail = landing
+    ? (lead.note ?? "").match(/^Email:\s*(\S+@\S+)\s*$/m)?.[1] ?? null
+    : null;
+
   return (
     <div
       className={styles.backdrop}
@@ -157,6 +164,46 @@ export default function LeadDetailModal({
           {lead.sector && lead.sector !== "—" ? ` · ${lead.sector}` : ""}
           {lead.jobLocation ? ` · ${lead.jobLocation}` : ""}
         </p>
+
+        {/* ===== Llegó por la landing =====
+            El formulario "Contanos quién sos" de la landing crea el lead ANTES
+            de elegir horario en Calendly (/api/leads/from-landing). Sin el
+            webhook de Calendly el sistema no sabe si terminó de reservar. */}
+        {landing && (
+          <div
+            role="note"
+            style={{
+              margin: "0 0 20px",
+              padding: "12px 14px",
+              fontSize: 12.5,
+              lineHeight: 1.55,
+              color: "var(--deep-green)",
+              background: lead.meetingBooked ? "rgba(47,125,79,0.08)" : "rgba(196,168,130,0.14)",
+              borderLeft: `3px solid ${lead.meetingBooked ? "var(--green-ok)" : "var(--sand)"}`,
+              borderRadius: "var(--r-sm)",
+            }}
+          >
+            {lead.meetingBooked ? (
+              <>
+                <strong>Llegó por la landing y agendó por Calendly.</strong>{" "}
+                Completó el formulario &ldquo;Contanos quién sos&rdquo; y reservó horario.
+              </>
+            ) : (
+              <>
+                <strong>Llegó por el formulario de la landing, antes de agendar.</strong>{" "}
+                Completó &ldquo;Contanos quién sos&rdquo; al tocar un botón de Agendar; lo de
+                abajo es lo que escribió. No sabemos si después eligió horario:
+                confirmalo en Calendly → Scheduled events
+                {landingEmail ? (
+                  <>
+                    {" "}buscando <strong>{landingEmail}</strong>
+                  </>
+                ) : null}
+                . Si no aparece, no terminó de agendar: conviene escribirle.
+              </>
+            )}
+          </div>
+        )}
 
         {/* ===== El aviso ===== */}
         {tieneAviso && (
@@ -291,7 +338,9 @@ export default function LeadDetailModal({
         {/* ===== Por qué es candidata ===== */}
         {lead.note && (
           <>
-            <div className={styles.sectionLabel}>Por qué es candidata</div>
+            <div className={styles.sectionLabel}>
+              {landing ? "Lo que escribió en el formulario" : "Por qué es candidata"}
+            </div>
             <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>
               {lead.note}
             </p>
