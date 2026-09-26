@@ -6,6 +6,7 @@ import { getProdCampaigns, deleteProdCampaign, getClient } from "@/lib/storage";
 import type { Client, ProductionCampaign } from "@/lib/types";
 import NewProdCampaignModal from "@/components/NewProdCampaignModal";
 import NewEventModal from "@/components/NewEventModal";
+import MetaCampaignsPanel from "@/components/MetaCampaignsPanel";
 import ui from "@/components/ClientUI.module.css";
 
 export default function CampanasPage({ params }: { params: Promise<{ id: string }> }) {
@@ -96,6 +97,10 @@ export default function CampanasPage({ params }: { params: Promise<{ id: string 
           </button>
         </div>
       </div>
+
+      {/* Pauta de Meta en vivo (mig 106): lo que el cliente ve en su portal →
+          Campañas, acá con inversión y costos. */}
+      <MetaCampaignsPanel clientId={id} />
 
       <p style={{ maxWidth: 720, color: "var(--text-muted)", marginBottom: 28, fontSize: 14, lineHeight: 1.6 }}>
         Producciones de contenido, sesiones UGC, Pooshlo y servicios externos.
