@@ -341,10 +341,10 @@ export default function TareasClientePage({
         <button
           className={ui.btnSolid}
           onClick={() => setShowForm(!showForm)}
-          disabled={!isDirector}
-          title={
-            !isDirector ? "Solo directores pueden crear tareas" : ""
-          }
+          // Todo el equipo carga tareas (director y team). La RLS de
+          // dev_tasks (mig 079) limita al team a los clientes asignados.
+          disabled={!canManage}
+          title={!canManage ? "Solo el equipo puede crear tareas" : ""}
         >
           {showForm ? "× Cancelar" : "+ Nueva tarea"}
         </button>
