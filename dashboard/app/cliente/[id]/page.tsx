@@ -117,6 +117,13 @@ function GPDashboard({
   const overdueTasks = pendingTasks.filter(
     (t) => t.dueDate && t.dueDate < today,
   );
+  // Contenido para subir: piezas no publicadas de hoy / atrasadas.
+  const contentToday = posts.filter(
+    (p) => p.status !== "published" && p.date === today,
+  );
+  const contentOverdue = posts.filter(
+    (p) => p.status !== "published" && p.date < today,
+  );
   // Las métricas de paid media y el presupuesto se sacaron del dashboard:
   // la pauta se mira en Espor.ai + Looker Studio (accesos de abajo del
   // banner) y las producciones en /campanas. Acá quedan: header,
@@ -143,8 +150,157 @@ function GPDashboard({
         </span>
       </WelcomeBanner>
 
-      {/* Oportunidades que el asesor IA le muestra al cliente en su portal. */}
-      <OpportunitiesCard clientId={client.id} variant="team" />
+      {/* Inicio a dos mitades: izquierda las oportunidades del asesor IA,
+          derecha lo que hay que hacer hoy / lo pendiente. En pantallas
+          angostas se apilan (auto-fit). */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: 20,
+          alignItems: "start",
+          marginBottom: 24,
+        }}
+      >
+        {/* Mitad 1 — Oportunidades del asesor IA. Si no hay, el card no
+            renderiza nada y queda solo la mitad derecha. */}
+        <OpportunitiesCard clientId={client.id} variant="team" />
+
+        {/* Mitad 2 — Para hoy / pendiente. */}
+        <section
+          className={ui.panel}
+          style={{
+            background: "var(--white)",
+            border: "1px solid rgba(10,26,12,0.08)",
+            borderLeft:
+              contentOverdue.length > 0 || overdueTasks.length > 0
+                ? "3px solid var(--red-warn)"
+                : "3px solid var(--sand)",
+            borderRadius: 14,
+            padding: 18,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--sand-dark)",
+              fontWeight: 700,
+              marginBottom: 14,
+            }}
+          >
+            Para hoy y pendiente
+          </div>
+
+          {(() => {
+            const rows: {
+              icon: string;
+              label: string;
+              overdue: boolean;
+              onClick: () => void;
+            }[] = [];
+            if (contentToday.length > 0 || contentOverdue.length > 0) {
+              rows.push({
+                icon: contentOverdue.length > 0 ? "🚨" : "📅",
+                label:
+                  `${contentToday.length} pieza${contentToday.length === 1 ? "" : "s"} para subir hoy` +
+                  (contentOverdue.length > 0
+                    ? ` · ${contentOverdue.length} atrasada${contentOverdue.length === 1 ? "" : "s"}`
+                    : ""),
+                overdue: contentOverdue.length > 0,
+                onClick: () =>
+                  router.push(`/cliente/${client.id}/planificador`),
+              });
+            }
+            if (pendingTasks.length > 0) {
+              rows.push({
+                icon: overdueTasks.length > 0 ? "🚨" : "✓",
+                label:
+                  `${pendingTasks.length} tarea${pendingTasks.length === 1 ? "" : "s"} pendiente${pendingTasks.length === 1 ? "" : "s"}` +
+                  (overdueTasks.length > 0
+                    ? ` · ${overdueTasks.length} vencida${overdueTasks.length === 1 ? "" : "s"}`
+                    : ""),
+                overdue: overdueTasks.length > 0,
+                onClick: () => router.push(`/cliente/${client.id}/tareas`),
+              });
+            }
+            if (pendingRequests.length > 0) {
+              rows.push({
+                icon: "💬",
+                label: `${pendingRequests.length} solicitud${pendingRequests.length === 1 ? "" : "es"} del cliente sin responder`,
+                overdue: false,
+                onClick: () =>
+                  router.push(`/cliente/${client.id}/solicitudes`),
+              });
+            }
+
+            if (rows.length === 0) {
+              return (
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "var(--text-muted)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Todo al día. No hay contenido ni tareas pendientes.
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {rows.map((r, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={r.onClick}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      background: "var(--off-white)",
+                      border: "none",
+                      borderRadius: "var(--r-md)",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{r.icon}</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 13,
+                        color: r.overdue
+                          ? "var(--red-warn)"
+                          : "var(--deep-green)",
+                        fontWeight: r.overdue ? 700 : 500,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {r.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "var(--deep-green)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+        </section>
+      </div>
 
       {/* Datos fiscales — sutiles, solo aparecen si están cargados.
           Importantes para que el equipo tenga la razón social/RUT a
