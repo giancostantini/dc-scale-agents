@@ -22,7 +22,6 @@ import ConsultorHistoryPanel from "@/components/ConsultorHistoryPanel";
 // Si lo necesitás en otro lugar, importalo desde @/components/PhaseRoadmap.
 // ReportCommentsDrawer se movió a /portal/documentos junto con PhaseRoadmap.
 import LookerStudioCard from "@/components/LookerStudioCard";
-import OpportunitiesCard from "@/components/OpportunitiesCard";
 import TeamCard from "@/components/TeamCard";
 import SectorTrendsCard from "@/components/SectorTrendsCard";
 import type {
@@ -260,8 +259,9 @@ export default function PortalPage() {
           </div>
 
           <aside className={styles.sidebar}>
-            {/* Oportunidades del asesor IA (job semanal, mig 107). */}
-            <OpportunitiesCard clientId={client.id} variant="portal" />
+            {/* Las oportunidades del asesor IA ya NO se muestran en el
+                portal del cliente — se ven solo en nuestro dashboard, en
+                el inicio de cada cliente (variant="team"). */}
 
             {/* CTAs principales, lado a lado arriba de todo.
                 Agenda: el cliente ve lo que el equipo planeó subir y puede
