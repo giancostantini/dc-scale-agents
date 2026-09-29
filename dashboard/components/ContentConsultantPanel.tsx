@@ -58,9 +58,13 @@ function ratePillStyle(active: boolean): CSSProperties {
 export default function ContentConsultantPanel({
   clientId,
   clientName,
+  quickPrompts,
 }: {
   clientId: string;
   clientName?: string | null;
+  /** Botones de acceso rápido que envían un prompt al chat. Persistentes
+   *  (a diferencia de las sugerencias, que solo salen con el hilo vacío). */
+  quickPrompts?: { label: string; prompt: string }[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -381,6 +385,34 @@ export default function ContentConsultantPanel({
               }}
             >
               {q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Accesos rápidos persistentes: envían un prompt al chat. */}
+      {quickPrompts && quickPrompts.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+          {quickPrompts.map((qp) => (
+            <button
+              key={qp.label}
+              type="button"
+              onClick={() => send(qp.prompt)}
+              disabled={sending || loading}
+              style={{
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                background: "var(--deep-green)",
+                color: "var(--off-white)",
+                border: "none",
+                borderRadius: "var(--r-pill)",
+                cursor: sending || loading ? "default" : "pointer",
+                fontFamily: "inherit",
+                opacity: sending || loading ? 0.5 : 1,
+              }}
+            >
+              {qp.label}
             </button>
           ))}
         </div>

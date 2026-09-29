@@ -25,7 +25,6 @@ import type {
 import WelcomeBanner from "@/components/WelcomeBanner";
 import ClientQuickLinks from "@/components/ClientQuickLinks";
 import UpcomingContentPanel from "@/components/UpcomingContentPanel";
-import OpportunitiesCard from "@/components/OpportunitiesCard";
 import ui from "@/components/ClientUI.module.css";
 
 export default function ClienteDashboard({
@@ -150,23 +149,9 @@ function GPDashboard({
         </span>
       </WelcomeBanner>
 
-      {/* Inicio a dos mitades: izquierda las oportunidades del asesor IA,
-          derecha lo que hay que hacer hoy / lo pendiente. En pantallas
-          angostas se apilan (auto-fit). */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          gap: 20,
-          alignItems: "start",
-          marginBottom: 24,
-        }}
-      >
-        {/* Mitad 1 — Oportunidades del asesor IA. Si no hay, el card no
-            renderiza nada y queda solo la mitad derecha. */}
-        <OpportunitiesCard clientId={client.id} variant="team" />
-
-        {/* Mitad 2 — Para hoy / pendiente. */}
+      {/* "Para hoy y pendiente". Las oportunidades del asesor se movieron
+          al menú Asesor, así que este panel va a lo ancho. */}
+      <div style={{ marginBottom: 24 }}>
         <section
           className={ui.panel}
           style={{
