@@ -86,6 +86,46 @@ const SOURCE_COLORS: Record<LeadSource, string> = {
   manual: "#7A8A7E",
 };
 
+/** Emoji distintivo por canal de origen — para reconocer de un vistazo
+ *  de dónde viene el lead en la card. */
+const SOURCE_ICON: Record<LeadSource, string> = {
+  referido: "🤝",
+  sitio_web: "🌐",
+  redes_sociales: "📱",
+  eventos: "🎪",
+  linkedin: "in",
+  email: "✉",
+  manual: "✍",
+  otro: "•",
+};
+
+/** Badge de origen: color + icono + label del canal. */
+function SourceBadge({ source }: { source: LeadSource }) {
+  const color = SOURCE_COLORS[source] ?? "#7A8A7E";
+  return (
+    <span
+      title={`Origen: ${SOURCE_LABEL[source]}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.03em",
+        color: "#fff",
+        background: color,
+        padding: "2px 8px",
+        borderRadius: 999,
+        whiteSpace: "nowrap",
+        lineHeight: 1.6,
+      }}
+    >
+      <span style={{ fontSize: 11 }}>{SOURCE_ICON[source] ?? "•"}</span>
+      {SOURCE_LABEL[source]}
+    </span>
+  );
+}
+
 /** Sector + ubicacion del aviso, para la linea meta de la card. */
 function cardMeta(lead: Lead): string {
   return [
@@ -125,6 +165,15 @@ export default function PipelinePage() {
    *  se re-resuelve en cada render, si no el modal muestra datos viejos
    *  despues de refresh(). */
   const [detailLeadId, setDetailLeadId] = useState<string | null>(null);
+  // Cards del kanban expandidas (resumidas por defecto; se abren al tocar).
+  const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set());
+  const toggleExpanded = (leadId: string) =>
+    setExpandedLeads((prev) => {
+      const next = new Set(prev);
+      if (next.has(leadId)) next.delete(leadId);
+      else next.add(leadId);
+      return next;
+    });
   /** Aviso mientras el agente busca tras crear una campana. */
   const [searchBanner, setSearchBanner] = useState<string | null>(null);
   const [leadModal, setLeadModal] = useState<{
@@ -698,6 +747,7 @@ export default function PipelinePage() {
                     lead.stage === "propuesta" ||
                     lead.stage === "negociacion" ||
                     lead.stage === "cerrado";
+                  const expanded = expandedLeads.has(lead.id);
                   return (
                     <div
                       key={lead.id}
@@ -709,11 +759,12 @@ export default function PipelinePage() {
                         borderLeft: stale
                           ? "3px solid #F87171"
                           : undefined,
+                        cursor: "pointer",
                       }}
                       onClick={() => {
-                        // No abrir la ficha si estaban seleccionando texto.
+                        // No expandir si estaban seleccionando texto.
                         if (window.getSelection()?.toString()) return;
-                        setDetailLeadId(lead.id);
+                        toggleExpanded(lead.id);
                       }}
                     >
                       {stale && (
@@ -736,28 +787,66 @@ export default function PipelinePage() {
                           ● {ageDays}d
                         </div>
                       )}
-                      <div className={styles.kType}>
-                        {lead.type === "gp" ? "Growth Partner" : "Desarrollo"}
-                        {lead.source === "linkedin" ? " · in" : ""}
-                        {lead.source === "email" ? " · ✉" : ""}
+                      {/* Header compacto: badge de origen (canal) + tipo. */}
+                      <div
+                        className={styles.kType}
+                        style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}
+                      >
+                        <SourceBadge source={lead.source} />
+                        <span style={{ opacity: 0.7 }}>
+                          {lead.type === "gp" ? "GP" : "Dev"}
+                        </span>
                         {lead.score != null && (
                           <span className={styles.kScore}>fit {lead.score}/5</span>
                         )}
                       </div>
-                      {/* La empresa es el título y el único control accesible
-                          que abre la ficha (el onClick de la card es azúcar
-                          para el mouse). */}
+                      {/* La empresa es el título. Toca la card (o el nombre)
+                          para expandir el resumen. */}
                       <button
                         type="button"
                         className={`${styles.kName} ${styles.kNameBtn}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setDetailLeadId(lead.id);
+                          toggleExpanded(lead.id);
                         }}
-                        title={`Ver la ficha de ${lead.company}`}
+                        title="Tocá para expandir"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          width: "100%",
+                          justifyContent: "space-between",
+                        }}
                       >
-                        {lead.company}
+                        <span>{lead.company}</span>
+                        <span style={{ opacity: 0.5, fontSize: 11 }}>
+                          {expanded ? "▾" : "▸"}
+                        </span>
                       </button>
+
+                      {/* Resumen de una línea cuando está colapsada. */}
+                      {!expanded && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            marginTop: 4,
+                            letterSpacing: "0.02em",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {showValue && lead.value > 0
+                            ? `US$ ${lead.value.toLocaleString()}/mes · `
+                            : ""}
+                          {ageDays === 0 ? "recién entró" : `${ageDays}d en etapa`}
+                        </div>
+                      )}
+
+                      {/* ===== Detalle expandible ===== */}
+                      {expanded && (
+                        <>
                       {cardSubject(lead) && (
                         <div className={styles.kSubject}>{cardSubject(lead)}</div>
                       )}
@@ -933,6 +1022,29 @@ export default function PipelinePage() {
                           ⊘
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailLeadId(lead.id);
+                        }}
+                        style={{
+                          marginTop: 8,
+                          fontSize: 11,
+                          color: "var(--sand-dark)",
+                          background: "transparent",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          textDecoration: "underline",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Ver ficha completa ↗
+                      </button>
+                        </>
+                      )}
                     </div>
                   );
                 })}
