@@ -2007,44 +2007,94 @@
   </div>
 </section>
 
-<!-- ============ PRODUCTOS · Tilde ============ -->
-<!-- TODO: cuando tengas los assets reales, reemplazar:
-     - logos/tilde.svg (o .png) por el logo oficial de Tilde
-     - href="https://tilde.dearmascostantini.com" por la URL real del sitio de Tilde
+<!-- ============ PRODUCTOS · Tilde · Vuelta · Encargue ============ -->
+<!-- TODO cuando tengas los assets/URL definitivos:
+     - logos/vuelta.png / logos/encargue.png (por ahora hay placeholder textual)
+     - href="https://vuelta.dearmascostantini.com" y https://encargue.dearmascostantini.com
+       por las URLs reales de cada producto.
 -->
 <section class="paper-bg products-section" id="productos" data-bg="#F5F2EC" data-tone="light" aria-labelledby="products-title">
   <div class="entry-shell">
-    <p class="entry-eyebrow">Nuestros productos</p>
+    <div class="products-heading">
+      <p class="entry-eyebrow">Nuestros productos</p>
+      <h2 id="products-title">Tres apps propias.<br>Un mismo estándar.</h2>
+      <p class="products-intro">Diseñamos, construimos y sostenemos nuestro propio software. Cada producto resuelve un problema real de la operación de nuestros clientes.</p>
+    </div>
 
-    <div class="tilde-hero">
-      <div class="tilde-hero-brand">
-        <img class="tilde-logo-img" src="logos/tilde.png" alt="Tilde" width="2000" height="837">
-        <p class="tilde-hero-kicker">Producto propio · Hecho en Uruguay</p>
-      </div>
+    <div class="products-grid">
 
-      <div class="tilde-hero-copy">
-        <h2 id="products-title">La app que digitaliza tus facturas de compra en segundos.</h2>
-        <p class="tilde-hero-desc">
-          <strong>Tilde</strong> es la herramienta que desarrollamos para que las empresas dejen de tipear facturas a mano. Sacás una foto, subís el PDF o el XML del CFE, y Tilde lee la factura, valida totales, IVA y RUT, la asocia a tu catálogo y la entrega revisada a tu sistema. Menos tiempo perdido, cero errores de tipeo, control humano donde importa.
-        </p>
-
-        <ul class="tilde-hero-features">
-          <li><strong>Lectura con IA</strong> — o exacta desde el XML del CFE.</li>
-          <li><strong>Validación automática</strong> de totales, IVA, RUT y duplicados.</li>
-          <li><strong>Catálogo asistido</strong> con precio de venta sugerido.</li>
-          <li><strong>Revisión humana</strong> antes de entrar a tu ERP, planilla o API.</li>
+      <!-- Tilde -->
+      <article class="product-card" aria-labelledby="product-tilde-title">
+        <div class="product-brand">
+          <img class="product-logo" src="logos/tilde.png" alt="Tilde" width="2000" height="837" loading="lazy">
+        </div>
+        <p class="product-kicker">Facturas de compra</p>
+        <h3 id="product-tilde-title" class="product-title">Cargá facturas de proveedor en segundos.</h3>
+        <p class="product-desc">Sacá una foto o subí el XML del CFE. Tilde lee, valida totales, IVA y RUT, y la asocia a tu catálogo — con revisión humana antes de entrar a tu ERP.</p>
+        <ul class="product-features">
+          <li>Lectura con IA o exacta desde el XML</li>
+          <li>Validaciones automáticas de DGI</li>
+          <li>Catálogo asistido con precio sugerido</li>
+          <li>Integración a tu ERP, planilla o API</li>
         </ul>
-
-        <div class="tilde-hero-actions">
-          <a class="tilde-cta-primary" href="https://tilde.dearmascostantini.com" target="_blank" rel="noopener">
-            Conocer Tilde
-            <span class="tilde-cta-arrow" aria-hidden="true">↗</span>
+        <div class="product-actions">
+          <a class="product-cta-primary" href="https://tilde.dearmascostantini.com" target="_blank" rel="noopener">
+            Conocer Tilde <span aria-hidden="true">↗</span>
           </a>
-          <a class="tilde-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
-            Agendar una demo con los socios
+          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
+            Agendar demo
           </a>
         </div>
-      </div>
+      </article>
+
+      <!-- Vuelta -->
+      <article class="product-card" aria-labelledby="product-vuelta-title">
+        <div class="product-brand">
+          <span class="product-logo-placeholder">Vuelta</span>
+        </div>
+        <p class="product-kicker">Ruteo de reparto</p>
+        <h3 id="product-vuelta-title" class="product-title">Optimizá el reparto de cada camión.</h3>
+        <p class="product-desc">Cargás los pedidos del día, Vuelta arma la ruta óptima por camión y la seguís en vivo. Menos kilómetros, más entregas por jornada, tu equipo con visibilidad completa.</p>
+        <ul class="product-features">
+          <li>Ruteo automático por camión y zona</li>
+          <li>Seguimiento en tiempo real desde el celular</li>
+          <li>Historial y métricas por chofer</li>
+          <li>Precios por camión — se adapta a tu flota</li>
+        </ul>
+        <div class="product-actions">
+          <a class="product-cta-primary" href="https://vuelta.dearmascostantini.com" target="_blank" rel="noopener">
+            Conocer Vuelta <span aria-hidden="true">↗</span>
+          </a>
+          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
+            Agendar demo
+          </a>
+        </div>
+      </article>
+
+      <!-- Encargue -->
+      <article class="product-card" aria-labelledby="product-encargue-title">
+        <div class="product-brand">
+          <span class="product-logo-placeholder">Encargue</span>
+        </div>
+        <p class="product-kicker">Pedidos por WhatsApp</p>
+        <h3 id="product-encargue-title" class="product-title">Un agente que toma pedidos y carga tu ERP.</h3>
+        <p class="product-desc">Encargue atiende a tus clientes B2B por WhatsApp, entiende qué necesitan, arma el pedido, lo confirma y lo carga a tu sistema. Vende a la hora que tu equipo no está.</p>
+        <ul class="product-features">
+          <li>Conversación natural en WhatsApp</li>
+          <li>Reconoce catálogo, precios y clientes</li>
+          <li>Confirma y carga pedidos al ERP</li>
+          <li>Disponible 24/7, sin tiempos de espera</li>
+        </ul>
+        <div class="product-actions">
+          <a class="product-cta-primary" href="https://encargue.dearmascostantini.com" target="_blank" rel="noopener">
+            Conocer Encargue <span aria-hidden="true">↗</span>
+          </a>
+          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
+            Agendar demo
+          </a>
+        </div>
+      </article>
+
     </div>
   </div>
 </section>
