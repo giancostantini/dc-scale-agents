@@ -68,7 +68,6 @@ import ContentMonthGrid, {
   NETWORK_ORDER,
   OVERDUE_COLOR,
   StatePill,
-  TypeBadge,
   mainNetwork,
   sortPieces,
 } from "@/components/content/ContentMonthGrid";
@@ -783,56 +782,6 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
           </div>
         );
       })()}
-
-      {/* Leyenda: frecuencia configurada, tipos y estados. */}
-      {hasFrequency && (
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            marginBottom: 16,
-            padding: "10px 14px",
-            background: "var(--off-white)",
-            fontSize: 11,
-            borderRadius: "var(--r-md)",
-            alignItems: "center",
-            color: "var(--deep-green)",
-          }}
-        >
-          <LegendTitle>Frecuencia</LegendTitle>
-          {plannableFreq.map(({ slot, perWeek }) => (
-            <span key={slot.key} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: slot.color,
-                  display: "inline-block",
-                  borderRadius: 2,
-                }}
-              />
-              <strong>
-                {slot.networkLabel} {slot.formatLabel.toLowerCase()}
-              </strong>
-              <span style={{ color: "var(--text-muted)" }}>{perWeek}/sem</span>
-            </span>
-          ))}
-          <span style={{ flex: 1 }} />
-          <LegendTitle>Tipo</LegendTitle>
-          {(["valor", "oferta", "engagement"] as ContentType[]).map((t) => (
-            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
-              <TypeBadge type={t} />
-              {CONTENT_TYPE_META[t].label}
-            </span>
-          ))}
-          <LegendTitle>Estado</LegendTitle>
-          <span style={{ color: "var(--text-muted)" }}>
-            punteado = pendiente · lleno = preparado · ✓ = subido ·{" "}
-            <span style={{ color: OVERDUE_COLOR }}>rojo = atrasado</span>
-          </span>
-        </div>
-      )}
 
       {/* Calendar */}
       <div className={ui.panel}>
