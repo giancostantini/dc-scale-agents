@@ -183,12 +183,41 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
   const [agentPrompt, setAgentPrompt] = useState("");
   const [agentBusy, setAgentBusy] = useState(false);
   const [agentError, setAgentError] = useState<string | null>(null);
+  // Recomendaciones del cliente pendientes, mapeadas por post_id. Vienen
+  // de client_requests type='recomendacion' (metadata.post_id).
+  const [recosByPost, setRecosByPost] = useState<
+    Map<string, { id: string; text: string; at: string }[]>
+  >(new Map());
 
   const refresh = useCallback(() => {
     getContent(id).then(setPosts);
     // Eventos: solo los de ESTE cliente (getEventsByClient filtra en DB;
     // los eventos globales del topbar no tienen client_id).
     getEventsByClient(id).then(setEvents);
+    // Recomendaciones del cliente sin resolver (por pieza).
+    getSupabase()
+      .from("client_requests")
+      .select("id, description, metadata, status, submitted_at")
+      .eq("client_id", id)
+      .eq("type", "recomendacion")
+      .not("status", "in", "(done,rejected)")
+      .order("submitted_at", { ascending: false })
+      .then(({ data }) => {
+        const m = new Map<string, { id: string; text: string; at: string }[]>();
+        for (const r of (data ?? []) as {
+          id: string;
+          description: string;
+          metadata: { post_id?: string } | null;
+          submitted_at: string;
+        }[]) {
+          const postId = r.metadata?.post_id;
+          if (!postId) continue;
+          const arr = m.get(postId) ?? [];
+          arr.push({ id: r.id, text: r.description, at: r.submitted_at });
+          m.set(postId, arr);
+        }
+        setRecosByPost(m);
+      });
   }, [id]);
 
   useEffect(() => refresh(), [refresh]);
@@ -567,6 +596,28 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
     }
   }
 
+  /** Marca las recomendaciones de una pieza como resueltas y le avisa al
+   *  cliente (endpoint con service role). */
+  async function resolveRecos(postId: string) {
+    const recos = recosByPost.get(postId) ?? [];
+    if (recos.length === 0) return;
+    const {
+      data: { session },
+    } = await getSupabase().auth.getSession();
+    if (!session) return;
+    for (const r of recos) {
+      await fetch(`/api/clients/${id}/recommendations/resolve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ requestId: r.id }),
+      }).catch(() => {});
+    }
+    refresh();
+  }
+
   return (
     <>
       <div className={ui.head}>
@@ -619,61 +670,50 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </div>
 
-      {/* Asistente creativo + resumen del mes. */}
+      {/* Resumen del mes — compacto: solo los conteos + la acción de
+          cargar/configurar (director). Sin el bloque grande del asistente. */}
       <div
         className={ui.panel}
         style={{
           display: "flex",
-          gap: 20,
+          gap: 16,
           alignItems: "center",
+          justifyContent: "space-between",
           flexWrap: "wrap",
           borderLeft: `3px solid ${
             summary.atrasados > 0 ? OVERDUE_COLOR : "var(--sand)"
           }`,
         }}
       >
-        <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 9,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: "var(--sand-dark)",
-              fontWeight: 700,
-              marginBottom: 6,
-            }}
-          >
-            ✨ Asistente creativo
-          </div>
-          <div style={{ fontSize: 14, color: "var(--deep-green)", lineHeight: 1.5 }}>
-            {!hasFrequency ? (
-              isDirector ? (
-                <>
-                  Definí la frecuencia (cuántas veces por semana va cada
-                  formato y de qué tipo) y el asistente carga el mes solo.
-                </>
-              ) : (
-                <>
-                  Todavía no hay frecuencia configurada. Pedile a un
-                  director que la cargue para que el asistente arme el mes.
-                </>
-              )
-            ) : isPastMonth ? (
-              <>Mes cerrado — queda como registro de lo que se subió.</>
-            ) : missing.length > 0 ? (
-              <>
-                {monthPosts.length === 0
-                  ? `${monthLabel} todavía no está cargado: `
-                  : "Según la frecuencia faltan "}
-                <strong>
-                  {missing.length} contenido{missing.length === 1 ? "" : "s"}
-                </strong>
-                {monthPosts.length === 0 ? " para cargar." : ` en ${monthLabel.toLowerCase()}.`}
-              </>
-            ) : (
-              <>{monthLabel} está cargado según la frecuencia.</>
-            )}
-          </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            flexWrap: "wrap",
+            alignItems: "center",
+            fontSize: 13,
+          }}
+        >
+          <span style={{ color: "var(--text-muted)" }}>
+            <strong style={{ color: "var(--deep-green)", fontSize: 15 }}>
+              {summary.total}
+            </strong>{" "}
+            contenido{summary.total === 1 ? "" : "s"} en {monthLabel.toLowerCase()}
+          </span>
+          <span style={{ color: PIECE_STATE_META.subido.color }}>
+            ✓ <strong>{summary.subidos}</strong> subidos
+          </span>
+          <span style={{ color: PIECE_STATE_META.preparado.color }}>
+            ● <strong>{summary.preparados}</strong> preparados
+          </span>
+          <span style={{ color: PIECE_STATE_META.pendiente.color }}>
+            ○ <strong>{summary.pendientes}</strong> pendientes
+          </span>
+          {summary.atrasados > 0 && (
+            <span style={{ color: OVERDUE_COLOR, fontWeight: 700 }}>
+              ⚠ <strong>{summary.atrasados}</strong> atrasados
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           {!hasFrequency && isDirector && (
@@ -687,44 +727,62 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
               onClick={() => void loadMonth()}
               disabled={planning}
             >
-              {planning ? "Cargando…" : `✨ Cargar ${monthLabel.toLowerCase()}`}
+              {planning ? "Cargando…" : `✨ Cargar (${missing.length})`}
             </button>
           )}
         </div>
-        {summary.total > 0 && (
+      </div>
+
+      {/* Alerta: contenidos del mes con recomendación del cliente sin
+          resolver. Tocá uno para abrirlo y ver la recomendación. */}
+      {(() => {
+        const withReco = monthPosts.filter(
+          (p) => (recosByPost.get(p.id)?.length ?? 0) > 0,
+        );
+        if (withReco.length === 0) return null;
+        return (
           <div
             style={{
-              flexBasis: "100%",
               display: "flex",
-              gap: 14,
-              flexWrap: "wrap",
-              fontSize: 12,
-              color: "var(--text-muted)",
-              paddingTop: 12,
-              borderTop: "1px solid rgba(10,26,12,0.06)",
+              flexDirection: "column",
+              gap: 8,
+              marginBottom: 16,
+              padding: "12px 14px",
+              background: "rgba(37,99,235,0.06)",
+              borderLeft: "3px solid #2563eb",
+              borderRadius: "var(--r-md)",
             }}
           >
-            <span>
-              <strong style={{ color: "var(--deep-green)" }}>{summary.total}</strong>{" "}
-              contenido{summary.total === 1 ? "" : "s"} en {monthLabel.toLowerCase()}
-            </span>
-            <span style={{ color: PIECE_STATE_META.subido.color }}>
-              ✓ <strong>{summary.subidos}</strong> subido{summary.subidos === 1 ? "" : "s"}
-            </span>
-            <span style={{ color: PIECE_STATE_META.preparado.color }}>
-              ● <strong>{summary.preparados}</strong> preparado{summary.preparados === 1 ? "" : "s"}
-            </span>
-            <span style={{ color: PIECE_STATE_META.pendiente.color }}>
-              ○ <strong>{summary.pendientes}</strong> pendiente{summary.pendientes === 1 ? "" : "s"}
-            </span>
-            {summary.atrasados > 0 && (
-              <span style={{ color: OVERDUE_COLOR, fontWeight: 600 }}>
-                ⚠ {summary.atrasados} atrasado{summary.atrasados === 1 ? "" : "s"}
-              </span>
-            )}
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--deep-green)" }}>
+              💬 {withReco.length} contenido{withReco.length === 1 ? "" : "s"} con
+              recomendación del cliente sin resolver
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {withReco.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPieceId(p.id)}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#1d4ed8",
+                    background: "var(--white)",
+                    border: "1px solid rgba(37,99,235,0.3)",
+                    borderRadius: 999,
+                    padding: "4px 10px",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                  title="Ver la recomendación"
+                >
+                  {p.date.slice(8, 10)}/{p.date.slice(5, 7)} · {pieceTitle(p)} ↗
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Leyenda: frecuencia configurada, tipos y estados. */}
       {hasFrequency && (
@@ -964,6 +1022,7 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
           date={dayModal}
           todayIso={todayIso}
           pieces={piecesOfDay(posts, dayModal)}
+          recoPostIds={new Set(recosByPost.keys())}
           canEdit={canEdit}
           onClose={() => setDayModal(null)}
           onOpenPiece={(pid) => {
@@ -985,6 +1044,8 @@ function Planificador({ params }: { params: Promise<{ id: string }> }) {
           todayIso={todayIso}
           canEdit={canEdit}
           metaBusinessSuiteUrl={client?.external_links?.meta_business_suite_url ?? null}
+          recos={recosByPost.get(openPiece.id) ?? []}
+          onResolveRecos={() => resolveRecos(openPiece.id)}
           onClose={() => setPieceId(null)}
           onChanged={refresh}
         />
@@ -1128,6 +1189,7 @@ function DayModal({
   date,
   todayIso,
   pieces,
+  recoPostIds,
   canEdit,
   onClose,
   onOpenPiece,
@@ -1137,6 +1199,7 @@ function DayModal({
   date: string;
   todayIso: string;
   pieces: ContentPost[];
+  recoPostIds: Set<string>;
   canEdit: boolean;
   onClose: () => void;
   onOpenPiece: (id: string) => void;
@@ -1231,6 +1294,14 @@ function DayModal({
                       </div>
                     )}
                   </div>
+                  {recoPostIds.has(p.id) && (
+                    <span
+                      title="Tiene una recomendación del cliente"
+                      style={{ fontSize: 14, flexShrink: 0 }}
+                    >
+                      💬
+                    </span>
+                  )}
                   <StatePill state={state} overdue={overdue} />
                 </button>
               );
@@ -1345,6 +1416,8 @@ function PieceModal({
   todayIso,
   canEdit,
   metaBusinessSuiteUrl,
+  recos,
+  onResolveRecos,
   onClose,
   onChanged,
 }: {
@@ -1352,6 +1425,8 @@ function PieceModal({
   todayIso: string;
   canEdit: boolean;
   metaBusinessSuiteUrl: string | null;
+  recos: { id: string; text: string; at: string }[];
+  onResolveRecos: () => Promise<void> | void;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -1397,13 +1472,16 @@ function PieceModal({
     );
 
   const markUploaded = () =>
-    run("publish", () =>
-      updateContent(post.id, {
+    run("publish", async () => {
+      await updateContent(post.id, {
         brief: desc,
         status: "published",
         publishedAt: new Date().toISOString(),
-      }),
-    );
+      });
+      // Si la pieza tenía recomendaciones del cliente, al re-subirla las
+      // damos por resueltas y le avisamos al cliente.
+      if (recos.length > 0) await onResolveRecos();
+    });
 
   const undoUploaded = () =>
     run("undo", () =>
@@ -1499,6 +1577,66 @@ function PieceModal({
             </span>
           )}
         </div>
+
+        {/* Recomendaciones del cliente sobre esta pieza. Al re-subir la
+            pieza se marcan resueltas y se le avisa al cliente; también hay
+            un botón manual. */}
+        {recos.length > 0 && (
+          <div
+            style={{
+              marginBottom: 20,
+              padding: "12px 14px",
+              background: "rgba(37,99,235,0.06)",
+              borderLeft: "3px solid #2563eb",
+              borderRadius: "var(--r-md)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "#1d4ed8",
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              💬 Recomendación del cliente
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {recos.map((r) => (
+                <div
+                  key={r.id}
+                  style={{
+                    fontSize: 13,
+                    color: "var(--deep-green)",
+                    lineHeight: 1.5,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {r.text}
+                </div>
+              ))}
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => void run("resolve-reco", async () => { await onResolveRecos(); }, false)}
+                disabled={!!busy}
+                className={ui.btnGhost}
+                style={{ marginTop: 10, fontWeight: 600 }}
+              >
+                {busy === "resolve-reco"
+                  ? "Avisando…"
+                  : "✓ Marcar resuelta y avisar al cliente"}
+              </button>
+            )}
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
+              Al marcar la pieza como subida, la recomendación se resuelve y
+              el cliente recibe el aviso automáticamente.
+            </div>
+          </div>
+        )}
 
         <label style={labelS}>¿Qué se va a subir?</label>
         <textarea
