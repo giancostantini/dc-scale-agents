@@ -343,6 +343,101 @@ export default function HubPage() {
                 el hub era redundante. La página /meta sigue existiendo
                 y accesible directo por URL. */}
 
+            {/* ============ NUESTROS PRODUCTOS ============
+                Productos propios de D&C (apps que construimos y vendemos).
+                Cada card lleva al dashboard de gestión de ese negocio. */}
+            <div style={{ marginTop: 28 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--sand)",
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}
+              >
+                Nuestros productos
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {[
+                  {
+                    slug: "tilde",
+                    emoji: "🧾",
+                    name: "Tilde",
+                    tagline: "Carga y control de facturas de compra",
+                  },
+                  {
+                    slug: "encargue",
+                    emoji: "💬",
+                    name: "Encargue",
+                    tagline: "Pedidos B2B por WhatsApp al ERP",
+                  },
+                  {
+                    slug: "vuelta",
+                    emoji: "🚚",
+                    name: "Vuelta",
+                    tagline: "Ruteo y reparto de camiones",
+                  },
+                ].map((p) => (
+                  <Link
+                    key={p.slug}
+                    href={`/producto/${p.slug}`}
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(232,228,220,0.12)",
+                      borderRadius: "var(--r-md)",
+                      padding: 16,
+                      textDecoration: "none",
+                      color: "inherit",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      backdropFilter: "blur(2px)",
+                    }}
+                  >
+                    <div style={{ fontSize: 26, lineHeight: 1 }}>{p.emoji}</div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "var(--off-white)",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {p.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "rgba(232,228,220,0.6)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {p.tagline}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.04em",
+                        color: "var(--sand)",
+                      }}
+                    >
+                      Ver dashboard →
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
             {/* ============ MIS CLIENTES (dentro del hero verde) ============
                 Antes este grid vivía en una sección aparte abajo del
                 hero. El director pidió moverlo acá adentro, debajo de
