@@ -361,7 +361,7 @@ export default function HubPage() {
                   }}
                 >
                   {profile.role === "director"
-                    ? `Todos los clientes (${clients.length})`
+                    ? `Todos los clientes directos (${clients.length})`
                     : `Mis clientes (${clients.length})`}
                 </div>
                 <div
