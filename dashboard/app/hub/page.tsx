@@ -369,21 +369,27 @@ export default function HubPage() {
                 {[
                   {
                     slug: "tilde",
-                    emoji: "🧾",
+                    mono: "T",
+                    logo: "/productos/tilde.png",
                     name: "Tilde",
                     tagline: "Carga y control de facturas de compra",
+                    accent: "#2F7D6B",
                   },
                   {
                     slug: "encargue",
-                    emoji: "💬",
+                    mono: "E",
+                    logo: "/productos/encargue.png",
                     name: "Encargue",
                     tagline: "Pedidos B2B por WhatsApp al ERP",
+                    accent: "#1F9D55",
                   },
                   {
                     slug: "vuelta",
-                    emoji: "🚚",
+                    mono: "V",
+                    logo: "/productos/vuelta.png",
                     name: "Vuelta",
                     tagline: "Ruteo y reparto de camiones",
+                    accent: "#E07A29",
                   },
                 ].map((p) => (
                   <Link
@@ -392,17 +398,22 @@ export default function HubPage() {
                     style={{
                       background: "rgba(255,255,255,0.06)",
                       border: "1px solid rgba(232,228,220,0.12)",
+                      borderTop: `3px solid ${p.accent}`,
                       borderRadius: "var(--r-md)",
                       padding: 16,
                       textDecoration: "none",
                       color: "inherit",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 6,
+                      gap: 8,
                       backdropFilter: "blur(2px)",
                     }}
                   >
-                    <div style={{ fontSize: 26, lineHeight: 1 }}>{p.emoji}</div>
+                    <ProductLogo
+                      logo={p.logo}
+                      mono={p.mono}
+                      accent={p.accent}
+                    />
                     <div
                       style={{
                         fontSize: 15,
@@ -424,7 +435,7 @@ export default function HubPage() {
                     </div>
                     <div
                       style={{
-                        marginTop: 4,
+                        marginTop: 2,
                         fontSize: 10,
                         fontWeight: 700,
                         letterSpacing: "0.04em",
@@ -1185,6 +1196,50 @@ function ClientLogo({
 }
 
 // ============ Subcomponentes ============
+
+/** Logo de un producto en la card del hub: imagen de /public si carga,
+ *  si no un monograma con el color de marca. */
+function ProductLogo({
+  logo,
+  mono,
+  accent,
+}: {
+  logo?: string;
+  mono: string;
+  accent: string;
+}) {
+  const [ok, setOk] = useState(true);
+  if (logo && ok) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt=""
+        onError={() => setOk(false)}
+        style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 8 }}
+      />
+    );
+  }
+  return (
+    <div
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        background: accent,
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 20,
+        fontWeight: 800,
+        letterSpacing: "-0.02em",
+      }}
+    >
+      {mono}
+    </div>
+  );
+}
 
 function HeroStat({
   value,

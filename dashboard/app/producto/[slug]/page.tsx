@@ -1,10 +1,18 @@
 "use client";
 
 /**
- * /producto/[slug] — dashboard de gestión de un producto propio de D&C
- * (Tilde, Encargue, Vuelta). Lee las tablas que las apps de cada producto
- * escriben en esta base (mig 107): tilde_invoices, encargue_orders,
- * vuelta_deliveries. Calcula KPIs + secciones de gestión.
+ * /producto/[slug] — BACKEND COMERCIAL de un producto propio de D&C
+ * (Tilde, Encargue, Vuelta). No es la app en sí: es el tablero para seguir
+ * la COMERCIALIZACIÓN de cada producto como negocio SaaS:
+ *   · Resumen comercial (suscriptores, MRR, KPIs de eficiencia)
+ *   · Finanzas (ingresos / egresos / resultado del producto)
+ *   · Growth (pauta publicitaria + calendario de contenido del producto)
+ *   · Equipo & tareas (quién trabaja en el producto y qué falta)
+ *   · Prospección (pipeline de prospectos del producto)
+ *
+ * Cada producto se muestra con su branding (color + logo). Los datos se
+ * conectan por módulo — por ahora la estructura queda armada con estados
+ * "próximamente".
  */
 
 import { use, useEffect, useState } from "react";
@@ -12,259 +20,113 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { getCurrentProfile, hasSession } from "@/lib/supabase/auth";
-import { getSupabase } from "@/lib/supabase/client";
 import { IArrowLeft } from "@/components/icons/BrandIcons";
 
-interface Kpi {
-  label: string;
-  value: string;
-}
-interface Row {
-  label: string;
-  value: string;
-  sub?: string;
-}
-interface SectionData {
-  title: string;
-  hint: string;
-  rows: Row[];
-  /** Nota estática cuando no hay lista de datos (ej. integraciones). */
-  note?: string;
-}
-interface ProductData {
-  kpis: Kpi[];
-  sections: SectionData[];
+interface Brand {
+  name: string;
+  tagline: string;
+  /** Color principal de la marca (branding del producto). */
+  accent: string;
+  /** Fondo suave del header. */
+  soft: string;
+  /** Monograma (hasta que tengamos el logo real en /public). */
+  mono: string;
+  /** Ruta al logo si existe en /public (opcional). */
+  logo?: string;
 }
 
-const META: Record<string, { name: string; emoji: string; tagline: string; table: string }> = {
-  tilde: { name: "Tilde", emoji: "🧾", tagline: "Carga y control de facturas de compra", table: "tilde_invoices" },
-  encargue: { name: "Encargue", emoji: "💬", tagline: "Pedidos B2B por WhatsApp al ERP", table: "encargue_orders" },
-  vuelta: { name: "Vuelta", emoji: "🚚", tagline: "Ruteo y reparto de camiones", table: "vuelta_deliveries" },
+const BRAND: Record<string, Brand> = {
+  tilde: {
+    name: "Tilde",
+    tagline: "Carga y control de facturas de compra",
+    accent: "#2F7D6B",
+    soft: "rgba(47,125,107,0.10)",
+    mono: "T",
+    logo: "/productos/tilde.png",
+  },
+  encargue: {
+    name: "Encargue",
+    tagline: "Pedidos B2B por WhatsApp al ERP",
+    accent: "#1F9D55",
+    soft: "rgba(31,157,85,0.10)",
+    mono: "E",
+    logo: "/productos/encargue.png",
+  },
+  vuelta: {
+    name: "Vuelta",
+    tagline: "Ruteo y reparto de camiones",
+    accent: "#E07A29",
+    soft: "rgba(224,122,41,0.10)",
+    mono: "V",
+    logo: "/productos/vuelta.png",
+  },
 };
 
-const money = (n: number) => `$ ${Math.round(n).toLocaleString("es-AR")}`;
-const todayIso = () => new Date().toISOString().slice(0, 10);
+type TabKey = "resumen" | "finanzas" | "growth" | "equipo" | "prospeccion";
 
-/** Agrupa por un campo, suma o cuenta, y devuelve top N como filas. */
-function groupTop(
-  rows: Record<string, unknown>[],
-  field: string,
-  mode: "sum" | "count",
-  sumField = "monto",
-  n = 6,
-): Row[] {
-  const m = new Map<string, number>();
-  for (const r of rows) {
-    const key = (r[field] as string) || "—";
-    const add = mode === "sum" ? Number(r[sumField] ?? 0) : 1;
-    m.set(key, (m.get(key) ?? 0) + add);
-  }
-  return [...m.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, n)
-    .map(([label, v]) => ({
-      label,
-      value: mode === "sum" ? money(v) : String(v),
-    }));
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "resumen", label: "Resumen comercial" },
+  { key: "finanzas", label: "Finanzas" },
+  { key: "growth", label: "Growth" },
+  { key: "equipo", label: "Equipo & tareas" },
+  { key: "prospeccion", label: "Prospección" },
+];
+
+interface TabContent {
+  kpis: string[];
+  sections: { title: string; hint: string }[];
+  showPeriod: boolean;
 }
 
-function buildTilde(
-  rows: Record<string, unknown>[],
-  from: string,
-  plabel: string,
-): ProductData {
-  const month = rows.filter((r) => String(r.fecha ?? "") >= from);
-  const pendientes = rows.filter((r) => r.estado === "pendiente");
-  const montoMes = month.reduce((s, r) => s + Number(r.monto ?? 0), 0);
-  const proveedores = new Set(month.map((r) => r.proveedor).filter(Boolean));
-  const in7 = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
-  const today = todayIso();
-  const alertas = rows.filter(
-    (r) =>
-      r.estado !== "pagada" &&
-      r.vencimiento &&
-      String(r.vencimiento) >= today &&
-      String(r.vencimiento) <= in7,
-  );
-  return {
-    kpis: [
-      { label: `Facturas (${plabel})`, value: String(month.length) },
-      { label: `Monto cargado (${plabel})`, value: money(montoMes) },
-      { label: "Proveedores", value: String(proveedores.size) },
-      { label: "Pendientes de control", value: String(pendientes.length) },
-    ],
+const TAB_CONTENT: Record<TabKey, TabContent> = {
+  resumen: {
+    kpis: ["Clientes suscritos", "MRR", "Ingresos (período)", "Churn"],
+    showPeriod: true,
     sections: [
-      {
-        title: "Facturas recientes",
-        hint: "Últimas facturas cargadas.",
-        rows: rows.slice(0, 8).map((r) => ({
-          label: `${r.proveedor ?? "—"} · ${r.empresa ?? ""}`,
-          value: money(Number(r.monto ?? 0)),
-          sub: `${r.fecha ?? ""} · ${r.estado ?? ""}`,
-        })),
-      },
-      {
-        title: `Por proveedor (${plabel})`,
-        hint: "Cuánto se cargó por proveedor en el período.",
-        rows: groupTop(month, "proveedor", "sum"),
-      },
-      {
-        title: "Alertas · vencimientos (7 días)",
-        hint: "Facturas sin pagar que vencen en la próxima semana.",
-        rows: alertas.slice(0, 8).map((r) => ({
-          label: `${r.proveedor ?? "—"} · ${r.empresa ?? ""}`,
-          value: money(Number(r.monto ?? 0)),
-          sub: `vence ${r.vencimiento}`,
-        })),
-      },
-      {
-        title: "Empresas usando Tilde",
-        hint: "Cuentas activas y su volumen de facturas.",
-        rows: groupTop(rows, "empresa", "count"),
-      },
+      { title: "Crecimiento de suscriptores", hint: "Altas y bajas mes a mes." },
+      { title: "Suscripciones recientes", hint: "Últimas altas y bajas de clientes." },
+      { title: "Clientes por plan", hint: "Distribución de la base por plan / pricing." },
+      { title: "KPIs de eficiencia", hint: "Activación, uso, retención y NPS del producto." },
     ],
-  };
-}
-
-function buildEncargue(
-  rows: Record<string, unknown>[],
-  from: string,
-  plabel: string,
-): ProductData {
-  const month = rows.filter((r) => String(r.fecha ?? "") >= from);
-  const vendido = month.reduce((s, r) => s + Number(r.monto ?? 0), 0);
-  const clientes = new Set(month.map((r) => r.cliente).filter(Boolean));
-  const ticket = month.length > 0 ? vendido / month.length : 0;
-  return {
-    kpis: [
-      { label: `Pedidos (${plabel})`, value: String(month.length) },
-      { label: `Vendido (${plabel})`, value: money(vendido) },
-      { label: "Clientes B2B activos", value: String(clientes.size) },
-      { label: "Ticket promedio", value: money(ticket) },
-    ],
+  },
+  finanzas: {
+    kpis: ["Ingresos (período)", "Egresos (período)", "Resultado", "Margen %"],
+    showPeriod: true,
     sections: [
-      {
-        title: "Pedidos recientes",
-        hint: "Últimos pedidos tomados por el agente.",
-        rows: rows.slice(0, 8).map((r) => ({
-          label: `${r.cliente ?? "—"} · ${r.empresa ?? ""}`,
-          value: money(Number(r.monto ?? 0)),
-          sub: `${r.fecha ?? ""} · ${r.estado ?? ""}`,
-        })),
-      },
-      {
-        title: `Top clientes (${plabel})`,
-        hint: "Clientes que más compraron en el período.",
-        rows: groupTop(month, "cliente", "sum"),
-      },
-      {
-        title: `Pedidos por empresa (${plabel})`,
-        hint: "Volumen de pedidos por cuenta que usa Encargue.",
-        rows: groupTop(month, "empresa", "count"),
-      },
-      {
-        title: "Integraciones",
-        hint: "Conexión con el ERP y con WhatsApp.",
-        rows: [],
-        note: "Estado de integraciones: lo reporta la app de Encargue (pendiente de conectar).",
-      },
+      { title: "Ingresos vs egresos", hint: "Evolución mensual del resultado del producto." },
+      { title: "Egresos por categoría", hint: "Infra, sueldos, pauta, herramientas." },
+      { title: "Cobranzas", hint: "Suscripciones al día vs morosas." },
+      { title: "Proyección", hint: "MRR proyectado y punto de equilibrio." },
     ],
-  };
-}
-
-function buildVuelta(
-  rows: Record<string, unknown>[],
-  from: string,
-  plabel: string,
-): ProductData {
-  const today = todayIso();
-  const month = rows.filter((r) => String(r.fecha ?? "") >= from);
-  const entregadasMes = month.filter((r) => r.estado === "entregada");
-  const aTiempo = entregadasMes.filter((r) => r.a_tiempo === true).length;
-  const pctATiempo =
-    entregadasMes.length > 0
-      ? Math.round((aTiempo / entregadasMes.length) * 100)
-      : null;
-  const hoy = rows.filter((r) => String(r.fecha ?? "") === today);
-  const camiones = new Set(month.map((r) => r.camion).filter(Boolean));
-  const rutasActivas = new Set(
-    rows
-      .filter((r) => r.estado === "en_ruta" || String(r.fecha ?? "") === today)
-      .map((r) => r.ruta)
-      .filter(Boolean),
-  );
-  const pendientes = rows.filter(
-    (r) => r.estado === "pendiente" || r.estado === "atrasada" || r.estado === "en_ruta",
-  );
-  return {
-    kpis: [
-      { label: `Entregas (${plabel})`, value: String(entregadasMes.length) },
-      { label: "Rutas activas", value: String(rutasActivas.size) },
-      { label: "Camiones", value: String(camiones.size) },
-      { label: "Entregas a tiempo", value: pctATiempo == null ? "—" : `${pctATiempo}%` },
-    ],
+  },
+  growth: {
+    kpis: ["Inversión en pauta (período)", "Leads generados", "CAC", "Alcance"],
+    showPeriod: true,
     sections: [
-      {
-        title: "Rutas de hoy",
-        hint: "Rutas planificadas para hoy, con chofer y camión.",
-        rows: hoy.slice(0, 8).map((r) => ({
-          label: `${r.ruta ?? "—"} · ${r.zona ?? ""}`,
-          value: String(r.camion ?? "—"),
-          sub: `${r.chofer ?? ""} · ${r.estado ?? ""}`,
-        })),
-      },
-      {
-        title: `Camiones y choferes (${plabel})`,
-        hint: "Flota y su volumen de entregas.",
-        rows: groupTop(month, "camion", "count"),
-      },
-      {
-        title: "Entregas pendientes / atrasadas",
-        hint: "Lo que falta entregar o se pasó de horario.",
-        rows: pendientes.slice(0, 8).map((r) => ({
-          label: `${r.ruta ?? "—"} · ${r.empresa ?? ""}`,
-          value: String(r.estado ?? ""),
-          sub: `${r.fecha ?? ""} · ${r.chofer ?? ""}`,
-        })),
-      },
-      {
-        title: `Zonas de reparto (${plabel})`,
-        hint: "Densidad de entregas por zona.",
-        rows: groupTop(month, "zona", "count"),
-      },
+      { title: "Pauta publicitaria", hint: "Campañas activas del producto (Meta / Google) e inversión." },
+      { title: "Calendario de contenido", hint: "Piezas planificadas y publicadas del producto." },
+      { title: "Canales de adquisición", hint: "De dónde vienen los leads del producto." },
     ],
-  };
-}
+  },
+  equipo: {
+    kpis: ["Personas asignadas", "Tareas abiertas", "Vencidas", "Completadas (período)"],
+    showPeriod: true,
+    sections: [
+      { title: "Equipo del producto", hint: "Quién trabaja en este producto y su rol." },
+      { title: "Tareas", hint: "Pendientes, en curso y vencidas del producto." },
+    ],
+  },
+  prospeccion: {
+    kpis: ["Prospectos activos", "En propuesta", "Cerrados (período)", "Valor del pipeline"],
+    showPeriod: true,
+    sections: [
+      { title: "Pipeline", hint: "Prospectos por etapa (prospecto → cerrado)." },
+      { title: "Leads recientes", hint: "Últimos prospectos que entraron para este producto." },
+    ],
+  },
+};
 
 type Period = "mes" | "3m" | "anio";
-
-const PERIOD_LABEL: Record<Period, string> = {
-  mes: "este mes",
-  "3m": "últimos 3 meses",
-  anio: "este año",
-};
-
-/** Fecha de inicio (YYYY-MM-DD) del período elegido. */
-function periodStart(period: Period): string {
-  const d = new Date();
-  if (period === "mes") return `${d.toISOString().slice(0, 7)}-01`;
-  if (period === "anio") return `${d.getFullYear()}-01-01`;
-  // últimos 3 meses (desde el 1° de hace 2 meses)
-  const from = new Date(d.getFullYear(), d.getMonth() - 2, 1);
-  return from.toISOString().slice(0, 10);
-}
-
-function build(
-  slug: string,
-  rows: Record<string, unknown>[],
-  period: Period,
-): ProductData {
-  const from = periodStart(period);
-  const plabel = PERIOD_LABEL[period];
-  if (slug === "tilde") return buildTilde(rows, from, plabel);
-  if (slug === "encargue") return buildEncargue(rows, from, plabel);
-  return buildVuelta(rows, from, plabel);
-}
 
 export default function ProductoDashboard({
   params,
@@ -274,13 +136,11 @@ export default function ProductoDashboard({
   const { slug } = use(params);
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
-  const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<TabKey>("resumen");
   const [period, setPeriod] = useState<Period>("mes");
+  const [logoOk, setLogoOk] = useState(true);
 
-  const meta = META[slug];
-  // Recalcula KPIs/secciones al cambiar de período sin volver a pedir datos.
-  const data: ProductData | null = meta ? build(slug, rawRows, period) : null;
+  const brand = BRAND[slug];
 
   useEffect(() => {
     hasSession().then(async (has) => {
@@ -297,27 +157,7 @@ export default function ProductoDashboard({
     });
   }, [router]);
 
-  useEffect(() => {
-    if (!authChecked || !meta) return;
-    let active = true;
-    (async () => {
-      try {
-        const { data: rows } = await getSupabase()
-          .from(meta.table)
-          .select("*")
-          .order("fecha", { ascending: false })
-          .limit(1000);
-        if (active) setRawRows((rows ?? []) as Record<string, unknown>[]);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [authChecked, meta, slug]);
-
-  if (!meta) {
+  if (!brand) {
     return (
       <>
         <Topbar showPrimary={false} />
@@ -333,10 +173,21 @@ export default function ProductoDashboard({
     );
   }
 
+  if (!authChecked) {
+    return (
+      <>
+        <Topbar showPrimary={false} />
+        <main style={{ padding: 40 }} />
+      </>
+    );
+  }
+
+  const content = TAB_CONTENT[tab];
+
   return (
     <>
       <Topbar showPrimary={false} />
-      <main style={{ padding: "28px 40px", maxWidth: 1200, margin: "0 auto" }}>
+      <main style={{ padding: "24px 40px", maxWidth: 1200, margin: "0 auto" }}>
         <Link
           href="/hub"
           style={{
@@ -346,119 +197,182 @@ export default function ProductoDashboard({
             color: "var(--sand-dark)",
             fontSize: 13,
             textDecoration: "none",
-            marginBottom: 18,
+            marginBottom: 16,
           }}
         >
           <IArrowLeft size={14} /> Nuestros productos
         </Link>
 
+        {/* Header branded del producto */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 16,
-            marginBottom: 24,
-            flexWrap: "wrap",
+            gap: 18,
+            padding: "20px 24px",
+            background: brand.soft,
+            borderLeft: `4px solid ${brand.accent}`,
+            borderRadius: "var(--r-lg)",
+            marginBottom: 8,
           }}
         >
-          <div style={{ fontSize: 40, lineHeight: 1 }}>{meta.emoji}</div>
+          {/* Logo: usa /public/productos/<slug>.png si existe; si no, monograma. */}
+          {brand.logo && logoOk ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logo}
+              alt={brand.name}
+              onError={() => setLogoOk(false)}
+              style={{ width: 56, height: 56, objectFit: "contain", borderRadius: 12 }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 14,
+                background: brand.accent,
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 26,
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+                flexShrink: 0,
+              }}
+            >
+              {brand.mono}
+            </div>
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1
               style={{
                 fontSize: 28,
-                fontWeight: 700,
+                fontWeight: 800,
                 letterSpacing: "-0.02em",
-                color: "var(--deep-green)",
+                color: brand.accent,
                 margin: 0,
               }}
             >
-              {meta.name}
+              {brand.name}
             </h1>
-            <div style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 2 }}>
-              {meta.tagline}
+            <div style={{ fontSize: 14, color: "var(--text-soft, #5A6A5E)", marginTop: 2 }}>
+              {brand.tagline} · <strong>backend comercial</strong>
             </div>
-          </div>
-          {/* Selector de período: scopea KPIs y agrupaciones. */}
-          <div
-            style={{
-              display: "inline-flex",
-              border: "1px solid rgba(10,26,12,0.15)",
-              borderRadius: "var(--r-pill)",
-              overflow: "hidden",
-            }}
-          >
-            {(["mes", "3m", "anio"] as Period[]).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                style={{
-                  padding: "7px 14px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  background:
-                    period === p ? "var(--deep-green)" : "transparent",
-                  color: period === p ? "var(--off-white)" : "var(--deep-green)",
-                }}
-              >
-                {p === "mes" ? "Este mes" : p === "3m" ? "3 meses" : "Año"}
-              </button>
-            ))}
           </div>
         </div>
 
-        {/* KPIs */}
+        {/* Tabs / menú de secciones */}
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            flexWrap: "wrap",
+            borderBottom: "1px solid rgba(10,26,12,0.1)",
+            marginBottom: 22,
+          }}
+        >
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                style={{
+                  padding: "10px 16px",
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 500,
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: `2px solid ${active ? brand.accent : "transparent"}`,
+                  color: active ? brand.accent : "var(--text-muted)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  marginBottom: -1,
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selector de período */}
+        {content.showPeriod && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                border: "1px solid rgba(10,26,12,0.15)",
+                borderRadius: "var(--r-pill)",
+                overflow: "hidden",
+              }}
+            >
+              {(["mes", "3m", "anio"] as Period[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    background: period === p ? brand.accent : "transparent",
+                    color: period === p ? "#fff" : "var(--deep-green)",
+                  }}
+                >
+                  {p === "mes" ? "Este mes" : p === "3m" ? "3 meses" : "Año"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* KPIs de la sección */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
             gap: 14,
-            marginBottom: 28,
+            marginBottom: 24,
           }}
         >
-          {(data?.kpis ?? [{ label: "—", value: "—" }, { label: "—", value: "—" }, { label: "—", value: "—" }, { label: "—", value: "—" }]).map(
-            (k, i) => (
+          {content.kpis.map((label) => (
+            <div
+              key={label}
+              style={{
+                background: "var(--white)",
+                border: "1px solid rgba(10,26,12,0.08)",
+                borderRadius: "var(--r-md)",
+                padding: 18,
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
               <div
-                key={i}
                 style={{
-                  background: "var(--white)",
-                  border: "1px solid rgba(10,26,12,0.08)",
-                  borderRadius: "var(--r-md)",
-                  padding: 18,
-                  boxShadow: "var(--shadow-sm)",
+                  fontSize: 10,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "var(--sand-dark)",
+                  fontWeight: 700,
+                  marginBottom: 8,
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "var(--sand-dark)",
-                    fontWeight: 700,
-                    marginBottom: 8,
-                  }}
-                >
-                  {k.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 700,
-                    color: "var(--deep-green)",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {loading ? "…" : k.value}
-                </div>
+                {label}
               </div>
-            ),
-          )}
+              <div style={{ fontSize: 26, fontWeight: 700, color: "var(--deep-green)" }}>
+                —
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Secciones */}
+        {/* Secciones de la pestaña */}
         <div
           style={{
             display: "grid",
@@ -466,7 +380,7 @@ export default function ProductoDashboard({
             gap: 16,
           }}
         >
-          {(data?.sections ?? []).map((s) => (
+          {content.sections.map((s) => (
             <section
               key={s.title}
               style={{
@@ -475,7 +389,7 @@ export default function ProductoDashboard({
                 borderRadius: "var(--r-lg)",
                 padding: 20,
                 boxShadow: "var(--shadow-sm)",
-                minHeight: 160,
+                minHeight: 150,
                 display: "flex",
                 flexDirection: "column",
               }}
@@ -483,73 +397,28 @@ export default function ProductoDashboard({
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--deep-green)" }}>
                 {s.title}
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4, marginBottom: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
                 {s.hint}
               </div>
-              {s.rows.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {s.rows.map((r, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: 12,
-                        padding: "8px 0",
-                        borderTop: i === 0 ? "none" : "1px solid rgba(10,26,12,0.06)",
-                        fontSize: 13,
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            color: "var(--deep-green)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {r.label}
-                        </div>
-                        {r.sub && (
-                          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                            {r.sub}
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          color: "var(--deep-green)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {r.value}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--text-muted)",
-                    fontSize: 12,
-                    fontStyle: "italic",
-                    opacity: 0.75,
-                    textAlign: "center",
-                    padding: 12,
-                    border: "1px dashed rgba(10,26,12,0.12)",
-                    borderRadius: "var(--r-md)",
-                    marginTop: 4,
-                  }}
-                >
-                  {s.note ?? (loading ? "Cargando…" : "Sin datos todavía")}
-                </div>
-              )}
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--text-muted)",
+                  fontSize: 12,
+                  fontStyle: "italic",
+                  opacity: 0.7,
+                  marginTop: 12,
+                  border: "1px dashed rgba(10,26,12,0.12)",
+                  borderRadius: "var(--r-md)",
+                  padding: 16,
+                  textAlign: "center",
+                }}
+              >
+                Próximamente — conectar datos
+              </div>
             </section>
           ))}
         </div>
