@@ -43,7 +43,6 @@ const META: Record<string, { name: string; emoji: string; tagline: string; table
 };
 
 const money = (n: number) => `$ ${Math.round(n).toLocaleString("es-AR")}`;
-const monthKey = () => new Date().toISOString().slice(0, 7);
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /** Agrupa por un campo, suma o cuenta, y devuelve top N como filas. */
@@ -69,9 +68,12 @@ function groupTop(
     }));
 }
 
-function buildTilde(rows: Record<string, unknown>[]): ProductData {
-  const mk = monthKey();
-  const month = rows.filter((r) => String(r.fecha ?? "").startsWith(mk));
+function buildTilde(
+  rows: Record<string, unknown>[],
+  from: string,
+  plabel: string,
+): ProductData {
+  const month = rows.filter((r) => String(r.fecha ?? "") >= from);
   const pendientes = rows.filter((r) => r.estado === "pendiente");
   const montoMes = month.reduce((s, r) => s + Number(r.monto ?? 0), 0);
   const proveedores = new Set(month.map((r) => r.proveedor).filter(Boolean));
@@ -86,8 +88,8 @@ function buildTilde(rows: Record<string, unknown>[]): ProductData {
   );
   return {
     kpis: [
-      { label: "Facturas del mes", value: String(month.length) },
-      { label: "Monto cargado (mes)", value: money(montoMes) },
+      { label: `Facturas (${plabel})`, value: String(month.length) },
+      { label: `Monto cargado (${plabel})`, value: money(montoMes) },
       { label: "Proveedores", value: String(proveedores.size) },
       { label: "Pendientes de control", value: String(pendientes.length) },
     ],
@@ -102,8 +104,8 @@ function buildTilde(rows: Record<string, unknown>[]): ProductData {
         })),
       },
       {
-        title: "Por proveedor (mes)",
-        hint: "Cuánto se cargó por proveedor este mes.",
+        title: `Por proveedor (${plabel})`,
+        hint: "Cuánto se cargó por proveedor en el período.",
         rows: groupTop(month, "proveedor", "sum"),
       },
       {
@@ -124,16 +126,19 @@ function buildTilde(rows: Record<string, unknown>[]): ProductData {
   };
 }
 
-function buildEncargue(rows: Record<string, unknown>[]): ProductData {
-  const mk = monthKey();
-  const month = rows.filter((r) => String(r.fecha ?? "").startsWith(mk));
+function buildEncargue(
+  rows: Record<string, unknown>[],
+  from: string,
+  plabel: string,
+): ProductData {
+  const month = rows.filter((r) => String(r.fecha ?? "") >= from);
   const vendido = month.reduce((s, r) => s + Number(r.monto ?? 0), 0);
   const clientes = new Set(month.map((r) => r.cliente).filter(Boolean));
   const ticket = month.length > 0 ? vendido / month.length : 0;
   return {
     kpis: [
-      { label: "Pedidos del mes", value: String(month.length) },
-      { label: "Vendido (mes)", value: money(vendido) },
+      { label: `Pedidos (${plabel})`, value: String(month.length) },
+      { label: `Vendido (${plabel})`, value: money(vendido) },
       { label: "Clientes B2B activos", value: String(clientes.size) },
       { label: "Ticket promedio", value: money(ticket) },
     ],
@@ -148,12 +153,12 @@ function buildEncargue(rows: Record<string, unknown>[]): ProductData {
         })),
       },
       {
-        title: "Top clientes (mes)",
-        hint: "Clientes que más compraron este mes.",
+        title: `Top clientes (${plabel})`,
+        hint: "Clientes que más compraron en el período.",
         rows: groupTop(month, "cliente", "sum"),
       },
       {
-        title: "Pedidos por empresa (mes)",
+        title: `Pedidos por empresa (${plabel})`,
         hint: "Volumen de pedidos por cuenta que usa Encargue.",
         rows: groupTop(month, "empresa", "count"),
       },
@@ -167,10 +172,13 @@ function buildEncargue(rows: Record<string, unknown>[]): ProductData {
   };
 }
 
-function buildVuelta(rows: Record<string, unknown>[]): ProductData {
-  const mk = monthKey();
+function buildVuelta(
+  rows: Record<string, unknown>[],
+  from: string,
+  plabel: string,
+): ProductData {
   const today = todayIso();
-  const month = rows.filter((r) => String(r.fecha ?? "").startsWith(mk));
+  const month = rows.filter((r) => String(r.fecha ?? "") >= from);
   const entregadasMes = month.filter((r) => r.estado === "entregada");
   const aTiempo = entregadasMes.filter((r) => r.a_tiempo === true).length;
   const pctATiempo =
@@ -190,7 +198,7 @@ function buildVuelta(rows: Record<string, unknown>[]): ProductData {
   );
   return {
     kpis: [
-      { label: "Entregas del mes", value: String(entregadasMes.length) },
+      { label: `Entregas (${plabel})`, value: String(entregadasMes.length) },
       { label: "Rutas activas", value: String(rutasActivas.size) },
       { label: "Camiones", value: String(camiones.size) },
       { label: "Entregas a tiempo", value: pctATiempo == null ? "—" : `${pctATiempo}%` },
@@ -206,7 +214,7 @@ function buildVuelta(rows: Record<string, unknown>[]): ProductData {
         })),
       },
       {
-        title: "Camiones y choferes (mes)",
+        title: `Camiones y choferes (${plabel})`,
         hint: "Flota y su volumen de entregas.",
         rows: groupTop(month, "camion", "count"),
       },
@@ -220,7 +228,7 @@ function buildVuelta(rows: Record<string, unknown>[]): ProductData {
         })),
       },
       {
-        title: "Zonas de reparto (mes)",
+        title: `Zonas de reparto (${plabel})`,
         hint: "Densidad de entregas por zona.",
         rows: groupTop(month, "zona", "count"),
       },
@@ -228,10 +236,34 @@ function buildVuelta(rows: Record<string, unknown>[]): ProductData {
   };
 }
 
-function build(slug: string, rows: Record<string, unknown>[]): ProductData {
-  if (slug === "tilde") return buildTilde(rows);
-  if (slug === "encargue") return buildEncargue(rows);
-  return buildVuelta(rows);
+type Period = "mes" | "3m" | "anio";
+
+const PERIOD_LABEL: Record<Period, string> = {
+  mes: "este mes",
+  "3m": "últimos 3 meses",
+  anio: "este año",
+};
+
+/** Fecha de inicio (YYYY-MM-DD) del período elegido. */
+function periodStart(period: Period): string {
+  const d = new Date();
+  if (period === "mes") return `${d.toISOString().slice(0, 7)}-01`;
+  if (period === "anio") return `${d.getFullYear()}-01-01`;
+  // últimos 3 meses (desde el 1° de hace 2 meses)
+  const from = new Date(d.getFullYear(), d.getMonth() - 2, 1);
+  return from.toISOString().slice(0, 10);
+}
+
+function build(
+  slug: string,
+  rows: Record<string, unknown>[],
+  period: Period,
+): ProductData {
+  const from = periodStart(period);
+  const plabel = PERIOD_LABEL[period];
+  if (slug === "tilde") return buildTilde(rows, from, plabel);
+  if (slug === "encargue") return buildEncargue(rows, from, plabel);
+  return buildVuelta(rows, from, plabel);
 }
 
 export default function ProductoDashboard({
@@ -242,10 +274,13 @@ export default function ProductoDashboard({
   const { slug } = use(params);
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
-  const [data, setData] = useState<ProductData | null>(null);
+  const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>("mes");
 
   const meta = META[slug];
+  // Recalcula KPIs/secciones al cambiar de período sin volver a pedir datos.
+  const data: ProductData | null = meta ? build(slug, rawRows, period) : null;
 
   useEffect(() => {
     hasSession().then(async (has) => {
@@ -272,7 +307,7 @@ export default function ProductoDashboard({
           .select("*")
           .order("fecha", { ascending: false })
           .limit(1000);
-        if (active) setData(build(slug, (rows ?? []) as Record<string, unknown>[]));
+        if (active) setRawRows((rows ?? []) as Record<string, unknown>[]);
       } finally {
         if (active) setLoading(false);
       }
@@ -317,9 +352,17 @@ export default function ProductoDashboard({
           <IArrowLeft size={14} /> Nuestros productos
         </Link>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 24,
+            flexWrap: "wrap",
+          }}
+        >
           <div style={{ fontSize: 40, lineHeight: 1 }}>{meta.emoji}</div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h1
               style={{
                 fontSize: 28,
@@ -334,6 +377,36 @@ export default function ProductoDashboard({
             <div style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 2 }}>
               {meta.tagline}
             </div>
+          </div>
+          {/* Selector de período: scopea KPIs y agrupaciones. */}
+          <div
+            style={{
+              display: "inline-flex",
+              border: "1px solid rgba(10,26,12,0.15)",
+              borderRadius: "var(--r-pill)",
+              overflow: "hidden",
+            }}
+          >
+            {(["mes", "3m", "anio"] as Period[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                style={{
+                  padding: "7px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  background:
+                    period === p ? "var(--deep-green)" : "transparent",
+                  color: period === p ? "var(--off-white)" : "var(--deep-green)",
+                }}
+              >
+                {p === "mes" ? "Este mes" : p === "3m" ? "3 meses" : "Año"}
+              </button>
+            ))}
           </div>
         </div>
 
