@@ -1,5 +1,5 @@
 /**
- * Productos propios de D&C (Tilde, Encargue, Vuelta) — branding + config
+ * Productos propios de D&C (Tildalo, Encargue, Rondín) — branding + config
  * compartida por el sidebar, el layout y las páginas de /producto/[slug].
  *
  * Los logos reales viven en /public/productos/<slug>.png (los favicons /
@@ -20,7 +20,7 @@ export interface ProductBrand {
 export const PRODUCTS: ProductBrand[] = [
   {
     slug: "tilde",
-    name: "Tilde",
+    name: "Tildalo",
     tagline: "Carga y control de facturas de compra",
     accent: "#2F7D6B",
     soft: "rgba(47,125,107,0.10)",
@@ -37,13 +37,13 @@ export const PRODUCTS: ProductBrand[] = [
     logo: "/productos/encargue.png",
   },
   {
-    slug: "vuelta",
-    name: "Vuelta",
+    slug: "rondin",
+    name: "Rondín",
     tagline: "Ruteo y reparto de camiones",
     accent: "#E07A29",
     soft: "rgba(224,122,41,0.10)",
-    mono: "V",
-    logo: "/productos/vuelta.png",
+    mono: "R",
+    logo: "/productos/rondin.png",
   },
 ];
 

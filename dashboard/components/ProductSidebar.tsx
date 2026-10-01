@@ -2,7 +2,7 @@
 
 /**
  * ProductSidebar — menú lateral del backend comercial de un producto
- * (Tilde, Encargue, Vuelta). Mismo look que ClientSidebar (reusa su CSS).
+ * (Tildalo, Encargue, Rondín). Mismo look que ClientSidebar (reusa su CSS).
  *
  * Menús:
  *   · Home (dashboard inicial)

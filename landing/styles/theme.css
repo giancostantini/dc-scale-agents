@@ -851,7 +851,7 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
   object-fit: contain;
   display: block;
 }
-/* Placeholder textual mientras no haya logos reales para Vuelta y Encargue */
+/* Placeholder textual mientras no haya logo real para Encargue */
 .product-logo-placeholder {
   display: inline-block;
   padding: 8px 16px;
