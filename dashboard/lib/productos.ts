@@ -1,5 +1,5 @@
 /**
- * Productos propios de D&C (Tildalo, Encargue, Rondín) — branding + config
+ * Productos propios de D&C (Tildalo, Encargue, Rondín, Libreta) — branding + config
  * compartida por el sidebar, el layout y las páginas de /producto/[slug].
  *
  * Los logos reales viven en /public/productos/<slug>.png (los favicons /
@@ -44,6 +44,15 @@ export const PRODUCTS: ProductBrand[] = [
     soft: "rgba(224,122,41,0.10)",
     mono: "R",
     logo: "/productos/rondin.png",
+  },
+  {
+    slug: "libreta",
+    name: "Libreta",
+    tagline: "Pedidos de vendedores de calle",
+    accent: "#6D4AFF",
+    soft: "rgba(109,74,255,0.10)",
+    mono: "L",
+    logo: "/productos/libreta.png",
   },
 ];
 

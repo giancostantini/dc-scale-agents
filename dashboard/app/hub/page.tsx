@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
+import { PRODUCTS } from "@/lib/productos";
 import {
   getClients,
   getAllTasks,
@@ -366,32 +367,7 @@ export default function HubPage() {
                   gap: 10,
                 }}
               >
-                {[
-                  {
-                    slug: "tilde",
-                    mono: "T",
-                    logo: "/productos/tilde.png",
-                    name: "Tildalo",
-                    tagline: "Carga y control de facturas de compra",
-                    accent: "#2F7D6B",
-                  },
-                  {
-                    slug: "encargue",
-                    mono: "E",
-                    logo: "/productos/encargue.png",
-                    name: "Encargue",
-                    tagline: "Pedidos B2B por WhatsApp al ERP",
-                    accent: "#1F9D55",
-                  },
-                  {
-                    slug: "rondin",
-                    mono: "R",
-                    logo: "/productos/rondin.png",
-                    name: "Rondín",
-                    tagline: "Ruteo y reparto de camiones",
-                    accent: "#E07A29",
-                  },
-                ].map((p) => (
+                {PRODUCTS.map((p) => (
                   <Link
                     key={p.slug}
                     href={`/producto/${p.slug}`}
