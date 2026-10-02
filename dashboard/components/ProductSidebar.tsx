@@ -21,7 +21,6 @@ import {
   IProducciones,
   IAnalitica,
   IPipeline,
-  IEquipo,
   IArrowLeft,
   type BrandIconProps,
 } from "./icons/BrandIcons";
@@ -123,8 +122,6 @@ export default function ProductSidebar({
           </span>
         </button>
         {growthOpen && growthItems.map((it) => renderItem(it, true))}
-
-        {renderItem({ href: `${base}/equipo`, icon: IEquipo, label: "Equipo" })}
       </div>
     </aside>
   );

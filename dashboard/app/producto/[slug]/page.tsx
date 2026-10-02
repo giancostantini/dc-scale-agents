@@ -30,11 +30,6 @@ export default function ProductoHome({
       title: "Growth",
       desc: "Pauta publicitaria, calendario de contenido, producciones, reporting y prospección.",
     },
-    {
-      href: `/producto/${slug}/equipo`,
-      title: "Equipo",
-      desc: "Quién trabaja en este producto.",
-    },
   ];
 
   return (

@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Tablero de control comercial del producto: salud comercial + financiera.
- * Estructura armada; los datos (suscriptores, MRR, ingresos) se conectan
- * en una segunda etapa.
+ * Tablero de control comercial del producto: salud comercial, financiera y
+ * de retención/eficiencia del negocio SaaS. Estructura completa; los datos
+ * (suscriptores, MRR, ingresos) se conectan en una segunda etapa.
  */
 
 import { use, useState } from "react";
@@ -11,6 +11,23 @@ import { PRODUCT_BY_SLUG } from "@/lib/productos";
 import { PageHead, KpiRow, SectionGrid } from "@/components/producto/ProductUI";
 
 type Period = "mes" | "3m" | "anio";
+
+function Block({ title }: { title: string }) {
+  return (
+    <div
+      style={{
+        fontSize: 10,
+        letterSpacing: "0.22em",
+        textTransform: "uppercase",
+        color: "var(--sand-dark)",
+        fontWeight: 700,
+        margin: "28px 0 14px",
+      }}
+    >
+      {title}
+    </div>
+  );
+}
 
 export default function ComercialPage({
   params,
@@ -68,38 +85,59 @@ export default function ComercialPage({
         </div>
       </div>
 
-      {/* Comercial */}
-      <KpiRow labels={["Clientes suscritos", "MRR", "Ingresos (período)", "Churn"]} />
+      {/* ===== Comercial ===== */}
+      <Block title="Comercial" />
+      <KpiRow
+        labels={[
+          "Clientes suscritos",
+          "MRR",
+          "ARR",
+          "Nuevos clientes (período)",
+          "Bajas (período)",
+          "Churn mensual",
+        ]}
+      />
       <SectionGrid
         sections={[
-          { title: "Crecimiento de suscriptores", hint: "Altas y bajas mes a mes." },
-          { title: "Suscripciones recientes", hint: "Últimas altas y bajas de clientes." },
+          { title: "Crecimiento de suscriptores", hint: "Base de clientes mes a mes (altas − bajas)." },
+          { title: "Altas y bajas", hint: "Quién se sumó y quién se fue en el período." },
           { title: "Clientes por plan", hint: "Distribución de la base por plan / pricing." },
-          { title: "KPIs de eficiencia", hint: "Activación, uso, retención y NPS." },
+          { title: "Embudo de conversión", hint: "Lead → trial → pago → activo." },
         ]}
       />
 
-      {/* Financiero */}
-      <div style={{ height: 28 }} />
-      <div
-        style={{
-          fontSize: 10,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color: "var(--sand-dark)",
-          fontWeight: 700,
-          marginBottom: 14,
-        }}
-      >
-        Financiero
-      </div>
-      <KpiRow labels={["Ingresos (período)", "Egresos (período)", "Resultado", "Margen %"]} />
+      {/* ===== Financiero ===== */}
+      <Block title="Financiero" />
+      <KpiRow
+        labels={[
+          "Ingresos (período)",
+          "Egresos (período)",
+          "Resultado",
+          "Margen %",
+          "Ticket promedio",
+          "LTV",
+        ]}
+      />
       <SectionGrid
         sections={[
-          { title: "Ingresos vs egresos", hint: "Evolución mensual del resultado." },
-          { title: "Egresos por categoría", hint: "Infra, sueldos, pauta, herramientas." },
-          { title: "Cobranzas", hint: "Suscripciones al día vs morosas." },
-          { title: "Proyección", hint: "MRR proyectado y punto de equilibrio." },
+          { title: "Ingresos vs egresos", hint: "Evolución mensual del resultado del producto." },
+          { title: "Egresos por categoría", hint: "Infra, sueldos, pauta, herramientas, comisiones." },
+          { title: "Cobranzas", hint: "Suscripciones al día vs morosas; recupero." },
+          { title: "Proyección", hint: "MRR proyectado, runway y punto de equilibrio." },
+        ]}
+      />
+
+      {/* ===== Retención & eficiencia ===== */}
+      <Block title="Retención & eficiencia" />
+      <KpiRow
+        labels={["Retención 90 días", "NPS", "CAC", "LTV / CAC", "Uso activo (MAU)", "Payback"]}
+      />
+      <SectionGrid
+        sections={[
+          { title: "Cohortes de retención", hint: "Cuánto dura cada camada de clientes." },
+          { title: "Uso del producto", hint: "Activación, frecuencia de uso y features más usadas." },
+          { title: "Top clientes por facturación", hint: "Quiénes aportan más ingresos." },
+          { title: "Riesgo de churn", hint: "Clientes con señales de baja para retener." },
         ]}
       />
     </>
