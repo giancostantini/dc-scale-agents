@@ -198,3 +198,242 @@ export async function updateProductoSettings(
     );
   if (error) throw error;
 }
+
+// ============================================================
+// Pauta publicitaria (producto_campaigns)
+// ============================================================
+export type CampaignPlatform = "meta" | "google" | "tiktok" | "linkedin" | "otra";
+export type CampaignStatus = "activa" | "pausada" | "finalizada";
+
+export interface ProductoCampaign {
+  id: string;
+  producto: string;
+  nombre: string;
+  plataforma: CampaignPlatform;
+  estado: CampaignStatus;
+  inversion: number;
+  moneda: string;
+  alcance: number;
+  leads: number;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  notas: string;
+  createdAt: string;
+}
+
+export type NewCampaign = Omit<ProductoCampaign, "id" | "createdAt">;
+
+function campaignFromRow(r: Record<string, unknown>): ProductoCampaign {
+  return {
+    id: r.id as string,
+    producto: r.producto as string,
+    nombre: r.nombre as string,
+    plataforma: r.plataforma as CampaignPlatform,
+    estado: r.estado as CampaignStatus,
+    inversion: Number(r.inversion ?? 0),
+    moneda: (r.moneda as string) ?? "UYU",
+    alcance: Number(r.alcance ?? 0),
+    leads: Number(r.leads ?? 0),
+    fechaInicio: (r.fecha_inicio as string) ?? null,
+    fechaFin: (r.fecha_fin as string) ?? null,
+    notas: (r.notas as string) ?? "",
+    createdAt: r.created_at as string,
+  };
+}
+
+function campaignToRow(c: Partial<NewCampaign>): Record<string, unknown> {
+  const db: Record<string, unknown> = {};
+  if (c.producto !== undefined) db.producto = c.producto;
+  if (c.nombre !== undefined) db.nombre = c.nombre;
+  if (c.plataforma !== undefined) db.plataforma = c.plataforma;
+  if (c.estado !== undefined) db.estado = c.estado;
+  if (c.inversion !== undefined) db.inversion = c.inversion;
+  if (c.moneda !== undefined) db.moneda = c.moneda;
+  if (c.alcance !== undefined) db.alcance = c.alcance;
+  if (c.leads !== undefined) db.leads = c.leads;
+  if (c.fechaInicio !== undefined) db.fecha_inicio = c.fechaInicio;
+  if (c.fechaFin !== undefined) db.fecha_fin = c.fechaFin;
+  if (c.notas !== undefined) db.notas = c.notas;
+  return db;
+}
+
+export async function getProductoCampaigns(producto: string): Promise<ProductoCampaign[]> {
+  const { data, error } = await getSupabase()
+    .from("producto_campaigns")
+    .select("*")
+    .eq("producto", producto)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return (data as Record<string, unknown>[]).map(campaignFromRow);
+}
+
+export async function addProductoCampaign(c: NewCampaign): Promise<void> {
+  const { error } = await getSupabase().from("producto_campaigns").insert(campaignToRow(c));
+  if (error) throw error;
+}
+
+export async function updateProductoCampaign(id: string, patch: Partial<NewCampaign>): Promise<void> {
+  const { error } = await getSupabase()
+    .from("producto_campaigns")
+    .update(campaignToRow(patch))
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteProductoCampaign(id: string): Promise<void> {
+  await getSupabase().from("producto_campaigns").delete().eq("id", id);
+}
+
+// ============================================================
+// Producciones (producto_producciones)
+// ============================================================
+export type ProduccionTipo = "video" | "foto" | "diseno" | "copy" | "campana" | "otra";
+export type ProduccionEstado = "idea" | "en_curso" | "revision" | "entregada";
+
+export interface ProductoProduccion {
+  id: string;
+  producto: string;
+  titulo: string;
+  tipo: ProduccionTipo;
+  estado: ProduccionEstado;
+  presupuesto: number;
+  ejecutado: number;
+  moneda: string;
+  fechaEntrega: string | null;
+  notas: string;
+  createdAt: string;
+}
+
+export type NewProduccion = Omit<ProductoProduccion, "id" | "createdAt">;
+
+function produccionFromRow(r: Record<string, unknown>): ProductoProduccion {
+  return {
+    id: r.id as string,
+    producto: r.producto as string,
+    titulo: r.titulo as string,
+    tipo: r.tipo as ProduccionTipo,
+    estado: r.estado as ProduccionEstado,
+    presupuesto: Number(r.presupuesto ?? 0),
+    ejecutado: Number(r.ejecutado ?? 0),
+    moneda: (r.moneda as string) ?? "UYU",
+    fechaEntrega: (r.fecha_entrega as string) ?? null,
+    notas: (r.notas as string) ?? "",
+    createdAt: r.created_at as string,
+  };
+}
+
+function produccionToRow(p: Partial<NewProduccion>): Record<string, unknown> {
+  const db: Record<string, unknown> = {};
+  if (p.producto !== undefined) db.producto = p.producto;
+  if (p.titulo !== undefined) db.titulo = p.titulo;
+  if (p.tipo !== undefined) db.tipo = p.tipo;
+  if (p.estado !== undefined) db.estado = p.estado;
+  if (p.presupuesto !== undefined) db.presupuesto = p.presupuesto;
+  if (p.ejecutado !== undefined) db.ejecutado = p.ejecutado;
+  if (p.moneda !== undefined) db.moneda = p.moneda;
+  if (p.fechaEntrega !== undefined) db.fecha_entrega = p.fechaEntrega;
+  if (p.notas !== undefined) db.notas = p.notas;
+  return db;
+}
+
+export async function getProductoProducciones(producto: string): Promise<ProductoProduccion[]> {
+  const { data, error } = await getSupabase()
+    .from("producto_producciones")
+    .select("*")
+    .eq("producto", producto)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return (data as Record<string, unknown>[]).map(produccionFromRow);
+}
+
+export async function addProductoProduccion(p: NewProduccion): Promise<void> {
+  const { error } = await getSupabase().from("producto_producciones").insert(produccionToRow(p));
+  if (error) throw error;
+}
+
+export async function updateProductoProduccion(id: string, patch: Partial<NewProduccion>): Promise<void> {
+  const { error } = await getSupabase()
+    .from("producto_producciones")
+    .update(produccionToRow(patch))
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteProductoProduccion(id: string): Promise<void> {
+  await getSupabase().from("producto_producciones").delete().eq("id", id);
+}
+
+// ============================================================
+// Prospección (producto_prospectos)
+// ============================================================
+export type ProspectoEtapa = "nuevo" | "contactado" | "propuesta" | "ganado" | "perdido";
+
+export interface ProductoProspecto {
+  id: string;
+  producto: string;
+  nombre: string;
+  empresa: string;
+  contacto: string;
+  etapa: ProspectoEtapa;
+  valor: number;
+  moneda: string;
+  notas: string;
+  createdAt: string;
+}
+
+export type NewProspecto = Omit<ProductoProspecto, "id" | "createdAt">;
+
+function prospectoFromRow(r: Record<string, unknown>): ProductoProspecto {
+  return {
+    id: r.id as string,
+    producto: r.producto as string,
+    nombre: r.nombre as string,
+    empresa: (r.empresa as string) ?? "",
+    contacto: (r.contacto as string) ?? "",
+    etapa: r.etapa as ProspectoEtapa,
+    valor: Number(r.valor ?? 0),
+    moneda: (r.moneda as string) ?? "UYU",
+    notas: (r.notas as string) ?? "",
+    createdAt: r.created_at as string,
+  };
+}
+
+function prospectoToRow(p: Partial<NewProspecto>): Record<string, unknown> {
+  const db: Record<string, unknown> = {};
+  if (p.producto !== undefined) db.producto = p.producto;
+  if (p.nombre !== undefined) db.nombre = p.nombre;
+  if (p.empresa !== undefined) db.empresa = p.empresa;
+  if (p.contacto !== undefined) db.contacto = p.contacto;
+  if (p.etapa !== undefined) db.etapa = p.etapa;
+  if (p.valor !== undefined) db.valor = p.valor;
+  if (p.moneda !== undefined) db.moneda = p.moneda;
+  if (p.notas !== undefined) db.notas = p.notas;
+  return db;
+}
+
+export async function getProductoProspectos(producto: string): Promise<ProductoProspecto[]> {
+  const { data, error } = await getSupabase()
+    .from("producto_prospectos")
+    .select("*")
+    .eq("producto", producto)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return (data as Record<string, unknown>[]).map(prospectoFromRow);
+}
+
+export async function addProductoProspecto(p: NewProspecto): Promise<void> {
+  const { error } = await getSupabase().from("producto_prospectos").insert(prospectoToRow(p));
+  if (error) throw error;
+}
+
+export async function updateProductoProspecto(id: string, patch: Partial<NewProspecto>): Promise<void> {
+  const { error } = await getSupabase()
+    .from("producto_prospectos")
+    .update(prospectoToRow(patch))
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteProductoProspecto(id: string): Promise<void> {
+  await getSupabase().from("producto_prospectos").delete().eq("id", id);
+}
