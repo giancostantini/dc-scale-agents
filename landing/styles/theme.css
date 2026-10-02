@@ -948,3 +948,10 @@ main > section[data-tone="light"] .dark-case .case-metric { color: var(--sand); 
   .products-grid { grid-template-columns: 1fr; gap: 16px; }
   .product-card { padding: 24px 22px 22px; }
 }
+
+/* Override: el chatbot se ve desde el minuto cero, incluso dentro del hero.
+   entry-v2.css lo escondía mientras body.entry-first-chapter estaba activa. */
+body.entry-first-chapter .chat-widget {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}

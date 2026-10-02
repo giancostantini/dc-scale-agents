@@ -363,7 +363,7 @@ export default function HubPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                   gap: 10,
                 }}
               >
@@ -376,12 +376,12 @@ export default function HubPage() {
                       border: "1px solid rgba(232,228,220,0.12)",
                       borderTop: `3px solid ${p.accent}`,
                       borderRadius: "var(--r-md)",
-                      padding: 16,
+                      padding: 12,
                       textDecoration: "none",
                       color: "inherit",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 8,
+                      gap: 6,
                       backdropFilter: "blur(2px)",
                     }}
                   >
@@ -389,10 +389,11 @@ export default function HubPage() {
                       logo={p.logo}
                       mono={p.mono}
                       accent={p.accent}
+                      size={30}
                     />
                     <div
                       style={{
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: 700,
                         color: "var(--off-white)",
                         letterSpacing: "-0.01em",
@@ -402,9 +403,13 @@ export default function HubPage() {
                     </div>
                     <div
                       style={{
-                        fontSize: 11,
-                        color: "rgba(232,228,220,0.6)",
-                        lineHeight: 1.4,
+                        fontSize: 10.5,
+                        color: "rgba(232,228,220,0.55)",
+                        lineHeight: 1.35,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
                       }}
                     >
                       {p.tagline}
@@ -1179,10 +1184,12 @@ function ProductLogo({
   logo,
   mono,
   accent,
+  size = 40,
 }: {
   logo?: string;
   mono: string;
   accent: string;
+  size?: number;
 }) {
   const [ok, setOk] = useState(true);
   if (logo && ok) {
@@ -1192,22 +1199,22 @@ function ProductLogo({
         src={logo}
         alt=""
         onError={() => setOk(false)}
-        style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 8 }}
+        style={{ width: size, height: size, objectFit: "contain", borderRadius: 8 }}
       />
     );
   }
   return (
     <div
       style={{
-        width: 40,
-        height: 40,
+        width: size,
+        height: size,
         borderRadius: 10,
         background: accent,
         color: "#fff",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 20,
+        fontSize: size * 0.5,
         fontWeight: 800,
         letterSpacing: "-0.02em",
       }}
