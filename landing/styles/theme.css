@@ -1028,3 +1028,238 @@ body.entry-first-chapter .chat-widget {
 @media (max-width: 999px) {
   .growth-aside-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   HERO 2 COLUMNAS + PRODUCT DECK
+   ============================================================ */
+.hero-twocol .hero-stage-inner {
+  align-items: stretch;
+  text-align: left;
+  min-height: 100svh;
+  padding-block: 128px 72px !important;
+}
+.hero-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.95fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+  width: 100%;
+}
+.hero-col-left { display: flex; flex-direction: column; justify-content: center; gap: clamp(24px, 2.6vw, 36px); }
+.hero-twocol .entry-hero h1,
+.hero-twocol .hero-type h1 { text-align: left; }
+.hero-twocol .hero-line-inner { margin-inline: 0; }
+.hero-twocol .entry-intro { text-align: left; max-width: 540px; margin-inline: 0; }
+.hero-twocol .entry-actions { justify-content: flex-start; }
+
+/* El scroll cue vuelve a la base, un poco más chico */
+.hero-twocol .hero-scroll-cue { position: absolute; left: 50%; transform: translateX(-50%); bottom: 24px; }
+
+/* ---- DECK ---- */
+.hero-deck { position: relative; width: 100%; max-width: 520px; margin-inline: auto; }
+.hero-deck-stage {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  min-height: 420px;
+}
+.hd-card {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(165deg, #0A1A0C 0%, #0F1F12 60%, var(--hd-tint, #0A1A0C) 180%);
+  color: #E8E4DC;
+  border: 1px solid rgba(196, 168, 130, 0.18);
+  border-radius: 24px;
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(28px) scale(0.96);
+  pointer-events: none;
+  transition: opacity 420ms cubic-bezier(0.22, 0.7, 0.2, 1),
+              transform 520ms cubic-bezier(0.22, 0.7, 0.2, 1);
+  box-shadow:
+    0 1px 2px rgba(10, 26, 12, 0.08),
+    0 20px 48px rgba(10, 26, 12, 0.18);
+}
+.hd-card::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 420px; height: 420px;
+  background: radial-gradient(circle at center, var(--hd-tint, #C4A882) 0%, transparent 65%);
+  opacity: 0.28;
+  pointer-events: none;
+  filter: blur(10px);
+}
+.hd-card.is-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.hd-card-head {
+  display: flex; align-items: center; gap: 10px;
+  position: relative;
+}
+.hd-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #C4A882;
+  box-shadow: 0 0 0 3px rgba(196, 168, 130, 0.22);
+}
+.hd-kicker {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(232, 228, 220, 0.72);
+}
+
+.hd-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  position: relative;
+}
+.hd-logo {
+  display: block;
+  width: auto;
+  max-width: 180px;
+  max-height: 72px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+.hd-logo-text {
+  display: block;
+  font-family: 'DM Sans', 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 52px;
+  letter-spacing: -0.03em;
+  color: #E8E4DC;
+  line-height: 1;
+}
+.hd-copy {
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(232, 228, 220, 0.82);
+  margin: 0;
+  max-width: 320px;
+}
+
+.hd-card-foot {
+  position: relative;
+  padding-top: 14px;
+  border-top: 1px solid rgba(232, 228, 220, 0.12);
+}
+.hd-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #C4A882;
+  text-decoration: none;
+  transition: gap 200ms ease, color 200ms ease;
+}
+.hd-link:hover { gap: 10px; color: #E8E4DC; }
+
+.hero-deck-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 20px;
+  justify-content: center;
+}
+.hd-chip {
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid rgba(10, 26, 12, 0.18);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(10, 26, 12, 0.72);
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+.hd-chip:hover { border-color: rgba(10, 26, 12, 0.4); color: #0A1A0C; }
+.hd-chip.is-active {
+  background: #0A1A0C;
+  color: #E8E4DC;
+  border-color: #0A1A0C;
+}
+
+@media (max-width: 999px) {
+  .hero-cols { grid-template-columns: 1fr; gap: 40px; }
+  .hero-twocol .hero-stage-inner { padding-block: 100px 60px !important; }
+  .hero-deck-stage { min-height: 360px; max-width: 420px; margin: 0 auto; }
+}
+
+/* ============================================================
+   NUMERACIÓN DE SECCIONES (estilo estudio)
+   ============================================================ */
+.entry-eyebrow[data-num]::before,
+.label[data-num]::before {
+  content: attr(data-num);
+  display: inline-block;
+  margin-right: 10px;
+  font-weight: 400;
+  color: rgba(10, 26, 12, 0.3);
+}
+section.dark .label[data-num]::before,
+[data-tone="dark"] .label[data-num]::before,
+[data-tone="dark"] .entry-eyebrow[data-num]::before { color: rgba(232, 228, 220, 0.42); }
+
+/* ============================================================
+   HOVER STATES - productos y casos (más vivos)
+   ============================================================ */
+.product-card {
+  transform-origin: center;
+}
+.product-card:hover .product-logo,
+.product-card:hover .product-logo-placeholder {
+  transform: translateY(-2px);
+  transition: transform 240ms ease;
+}
+.product-card .product-logo,
+.product-card .product-logo-placeholder {
+  transition: transform 240ms ease;
+}
+.product-card:hover .product-title {
+  color: #1E3A28;
+  transition: color 240ms ease;
+}
+
+.case {
+  transition: transform 320ms cubic-bezier(0.22, 0.7, 0.2, 1),
+              box-shadow 320ms cubic-bezier(0.22, 0.7, 0.2, 1),
+              border-color 320ms cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+.case:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 4px 12px rgba(10, 26, 12, 0.06), 0 32px 56px rgba(10, 26, 12, 0.12);
+  border-color: rgba(196, 168, 130, 0.5);
+}
+.case:hover .case-metric {
+  color: #9B8259;
+  transition: color 240ms ease;
+}
+
+/* ============================================================
+   ANIMACIÓN DE NÚMEROS (count-up)
+   ============================================================ */
+.case-metric[data-count] {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   PRODUCT CARDS: sin CTA secundario duplicado
+   El 'Agendar demo' se saca via JS/HTML a demanda — acá dejamos
+   el estilo mínimo para que si queda, siga centrado.
+   ============================================================ */
+.product-actions { gap: 14px 20px; }

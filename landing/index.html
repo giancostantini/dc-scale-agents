@@ -1897,6 +1897,7 @@
 <link rel="stylesheet" href="styles/page-motion.css">
 <script type="module" src="scripts/entry-v2.js"></script>
 <script type="module" src="scripts/growth-aside-mount.js"></script>
+<script defer src="scripts/hero-deck.js"></script>
 <script defer src="scripts/manifesto-reveal.js"></script>
 <noscript><style>@media (max-width: 999px) { .entry-hero { padding-top: 170px; } }</style></noscript>
 </head>
@@ -1949,19 +1950,95 @@
 </dialog>
 
 <main>
-<section class="entry-hero" id="top" data-bg="#F5F2EC" data-tone="light" aria-labelledby="entry-title">
+<section class="entry-hero hero-twocol" id="top" data-bg="#F5F2EC" data-tone="light" aria-labelledby="entry-title">
   <div class="hero-stage">
   <div class="entry-shell hero-stage-inner">
-    <div class="hero-type">
-      <h1 id="entry-title" tabindex="-1"><span class="hero-line"><span class="hero-line-inner">Estudio</span></span> <span class="hero-line"><span class="hero-line-inner">de</span></span> <span class="hero-line hero-line-accent"><span class="hero-line-inner">software.</span></span></h1>
-    </div>
-    <div class="hero-support">
-        <p class="entry-intro">Diseñamos y construimos el software que hace<br>más eficiente la operación de nuestros clientes.</p>
-        <div class="entry-actions">
-          <a class="book-btn" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking><span class="book-faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="36" height="36"><img src="photos/gianluca.jpg" alt="" width="36" height="36"></span><span class="book-text"><strong>Hablar con el estudio</strong><small>30 min con Federico y Gianluca</small></span><span class="book-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+    <div class="hero-cols">
+      <div class="hero-col-left">
+        <div class="hero-type">
+          <h1 id="entry-title" tabindex="-1"><span class="hero-line"><span class="hero-line-inner">Estudio</span></span> <span class="hero-line"><span class="hero-line-inner">de</span></span> <span class="hero-line hero-line-accent"><span class="hero-line-inner">software.</span></span></h1>
         </div>
+        <div class="hero-support">
+            <p class="entry-intro">Diseñamos y construimos el software que hace más eficiente la operación de nuestros clientes.</p>
+            <div class="entry-actions">
+              <a class="book-btn" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking><span class="book-faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="36" height="36"><img src="photos/gianluca.jpg" alt="" width="36" height="36"></span><span class="book-text"><strong>Hablar con el estudio</strong><small>30 min con Federico y Gianluca</small></span><span class="book-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+            </div>
+        </div>
+      </div>
+      <div class="hero-col-right">
+        <div class="hero-deck" id="heroDeck" role="region" aria-label="Productos del estudio">
+          <div class="hero-deck-stage">
+            <article class="hd-card is-active" data-hd-slide="tildalo" style="--hd-tint: #4C167C;">
+              <div class="hd-card-head">
+                <span class="hd-dot" aria-hidden="true"></span>
+                <span class="hd-kicker">Facturas de compra</span>
+              </div>
+              <div class="hd-card-body">
+                <img class="hd-logo" src="logos/tilde.png" alt="Tildalo" loading="lazy">
+                <p class="hd-copy">Cargá las facturas de proveedor en segundos. Lectura con IA, validación y catálogo asistido.</p>
+              </div>
+              <div class="hd-card-foot">
+                <a href="https://www.tildalo.app" target="_blank" rel="noopener" class="hd-link">
+                  Ir a tildalo.app <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </article>
+            <article class="hd-card" data-hd-slide="rondin" style="--hd-tint: #1E3A28;">
+              <div class="hd-card-head">
+                <span class="hd-dot" aria-hidden="true"></span>
+                <span class="hd-kicker">Ruteo de reparto</span>
+              </div>
+              <div class="hd-card-body">
+                <img class="hd-logo" src="logos/rondin.png" alt="Rondín" loading="lazy">
+                <p class="hd-copy">Los pedidos llegan solos, Rondín arma el recorrido y lo seguís en vivo.</p>
+              </div>
+              <div class="hd-card-foot">
+                <a href="https://rondin.dearmascostantini.com" target="_blank" rel="noopener" class="hd-link">
+                  Conocer Rondín <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </article>
+            <article class="hd-card" data-hd-slide="encargue" style="--hd-tint: #0A5B3F;">
+              <div class="hd-card-head">
+                <span class="hd-dot" aria-hidden="true"></span>
+                <span class="hd-kicker">Pedidos por WhatsApp</span>
+              </div>
+              <div class="hd-card-body">
+                <span class="hd-logo-text">Encargue</span>
+                <p class="hd-copy">Un agente que atiende por WhatsApp, arma el pedido y lo carga al ERP.</p>
+              </div>
+              <div class="hd-card-foot">
+                <a href="https://encargue.dearmascostantini.com" target="_blank" rel="noopener" class="hd-link">
+                  Conocer Encargue <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </article>
+            <article class="hd-card" data-hd-slide="libreta" style="--hd-tint: #8A5A1F;">
+              <div class="hd-card-head">
+                <span class="hd-dot" aria-hidden="true"></span>
+                <span class="hd-kicker">Vendedores de calle</span>
+              </div>
+              <div class="hd-card-body">
+                <span class="hd-logo-text">Libreta</span>
+                <p class="hd-copy">La libreta del vendedor, ahora en el celular. Carga pedidos, consulta precios y stock al día.</p>
+              </div>
+              <div class="hd-card-foot">
+                <a href="https://libreta.dearmascostantini.com" target="_blank" rel="noopener" class="hd-link">
+                  Conocer Libreta <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </article>
+          </div>
+          <div class="hero-deck-chips" role="tablist" aria-label="Elegir producto">
+            <button type="button" class="hd-chip is-active" data-hd-target="tildalo" role="tab" aria-selected="true">Tildalo</button>
+            <button type="button" class="hd-chip" data-hd-target="rondin" role="tab" aria-selected="false">Rondín</button>
+            <button type="button" class="hd-chip" data-hd-target="encargue" role="tab" aria-selected="false">Encargue</button>
+            <button type="button" class="hd-chip" data-hd-target="libreta" role="tab" aria-selected="false">Libreta</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <a class="hero-scroll-cue" href="#empresas">Conocé nuestro trabajo <span aria-hidden="true">↓</span></a>
+    <a class="hero-scroll-cue" href="#productos">Ver todos los productos <span aria-hidden="true">↓</span></a>
   </div>
   </div>
 </section>
@@ -1988,7 +2065,7 @@
 <section class="solutions-section" id="soluciones" data-bg="#F5F2EC" data-tone="light" aria-labelledby="solutions-title">
   <div class="entry-shell">
     <div class="solutions-heading">
-      <p class="entry-eyebrow">Nuestros servicios</p>
+      <p class="entry-eyebrow" data-num="02">Capacidades</p>
       <div>
         <h2 id="solutions-title">Tecnología que <span class="accent-sand">ejecuta</span>.<br>Software a medida para tu operación.</h2>
       </div>
@@ -2012,7 +2089,7 @@
 <section class="paper-bg products-section" id="productos" data-bg="#F5F2EC" data-tone="light" aria-labelledby="products-title">
   <div class="entry-shell">
     <div class="products-heading">
-      <p class="entry-eyebrow">Nuestros productos</p>
+      <p class="entry-eyebrow" data-num="01">Productos del estudio</p>
       <h2 id="products-title">Cuatro apps propias.<br>Un mismo estándar.</h2>
       <p class="products-intro">Diseñamos, construimos y sostenemos nuestro propio software. Cada app resuelve un problema real de la operación de nuestros clientes.</p>
     </div>
@@ -2037,9 +2114,6 @@
           <a class="product-cta-primary" href="https://www.tildalo.app" target="_blank" rel="noopener">
             Conocer Tildalo <span aria-hidden="true">↗</span>
           </a>
-          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
-            Agendar demo
-          </a>
         </div>
       </article>
 
@@ -2060,9 +2134,6 @@
         <div class="product-actions">
           <a class="product-cta-primary" href="https://rondin.dearmascostantini.com" target="_blank" rel="noopener">
             Conocer Rondín <span aria-hidden="true">↗</span>
-          </a>
-          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
-            Agendar demo
           </a>
         </div>
       </article>
@@ -2085,9 +2156,6 @@
           <a class="product-cta-primary" href="https://encargue.dearmascostantini.com" target="_blank" rel="noopener">
             Conocer Encargue <span aria-hidden="true">↗</span>
           </a>
-          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
-            Agendar demo
-          </a>
         </div>
       </article>
 
@@ -2109,9 +2177,6 @@
           <a class="product-cta-primary" href="https://libreta.dearmascostantini.com" target="_blank" rel="noopener">
             Conocer Libreta <span aria-hidden="true">↗</span>
           </a>
-          <a class="product-cta-secondary" href="https://calendly.com/dearmascostantini" target="_blank" rel="noopener" data-entry-booking>
-            Agendar demo
-          </a>
         </div>
       </article>
 
@@ -2122,7 +2187,7 @@
 <!-- ============ CASES ============ -->
 <section class="paper-bg" id="casos" data-bg="#F5F2EC" data-tone="light">
   <div class="cases-intro-simple">
-    <div class="label">Casos de éxito</div>
+    <div class="label" data-num="03">Casos del estudio</div>
     <h2>Resultados <span class="accent-sand">reales</span>.<br>Empresas reales.</h2>
     <p class="lead">
       No mostramos capturas de pantalla genéricas ni proyecciones. Mostramos lo que ejecutamos con clientes que hoy siguen creciendo con nosotros.
@@ -2245,7 +2310,7 @@
 
 <!-- ============ PARTNERS ============ -->
 <section class="paper-bg" id="socios" data-bg="#F5F2EC" data-tone="light">
-  <div class="label">Los socios</div>
+  <div class="label" data-num="04">El estudio</div>
   <h2>Dos fundadores.<br>En todas las <span class="accent-sand">cuentas</span>.</h2>
   <p class="lead" style="margin-bottom: 40px;">
     Federico y Gianluca están involucrados en <strong>todas las cuentas de la firma</strong>. El día a día operativo puede pasar con un ejecutivo de cuenta del equipo, pero los socios firman, deciden y están al tanto de cada movimiento crítico.
@@ -2310,7 +2375,7 @@
   <div class="entry-shell">
     <div class="growth-aside-grid">
       <div class="growth-aside-copy">
-        <p class="entry-eyebrow">Práctica complementaria</p>
+        <p class="entry-eyebrow" data-num="05">Práctica complementaria</p>
         <h2 id="growth-title">Crecimiento <span class="accent-sand">&amp;</span> marketing digital</h2>
         <p class="growth-aside-desc">Para empresas que ya tienen su operación en orden y quieren potenciar marca, canales y conversión. Es una línea secundaria del estudio: la hacemos cuando aporta al proyecto, no como oferta principal.</p>
         <ul class="growth-aside-list">
