@@ -1636,3 +1636,32 @@ section.dark .label[data-num]::before,
   letter-spacing: 0.04em;
   color: rgba(10, 26, 12, 0.5);
 }
+
+/* ============ FIX hero editorial: alineación y tamaño del título ============
+   entry-v2.css define .entry-hero h1 (104px, centrado, -0.05em) con más
+   especificidad que .hero-ed-title; acá se sube la especificidad. */
+.entry-hero.hero-editorial .hero-stage-inner { text-align: left; align-items: stretch; }
+.entry-hero.hero-editorial .hero-ed-grid { width: 100%; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.entry-hero.hero-editorial .hero-ed-copy { max-width: 640px; }
+.entry-hero.hero-editorial h1.hero-ed-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(40px, 4.4vw, 66px);
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  line-height: 1.04;
+  text-align: left;
+  text-wrap: balance;
+  margin: 0 0 24px;
+}
+@media (max-width: 999px) {
+  .entry-hero.hero-editorial .hero-ed-grid { grid-template-columns: 1fr; }
+  .entry-hero.hero-editorial h1.hero-ed-title { font-size: clamp(36px, 8vw, 56px); }
+}
+
+/* ============ FIX nav: hamburguesa por debajo de 1200px ============
+   Con 6 links a 15px + CTA, entre 1000 y 1199px el menú se desbordaba. */
+@media (max-width: 1199px) {
+  .entry-header.is-enhanced .entry-nav-links { display: none; }
+  .entry-header.is-enhanced .entry-nav-cta { margin-left: auto; }
+  .entry-menu-toggle:not([hidden]) { display: block; }
+}
