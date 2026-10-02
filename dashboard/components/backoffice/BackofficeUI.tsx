@@ -220,7 +220,7 @@ export interface Column<T> {
   width?: number | string;
 }
 
-export function DataTable<T extends { id?: string }>({
+export function DataTable<T>({
   columns,
   rows,
   onRowClick,
@@ -247,7 +247,7 @@ export function DataTable<T extends { id?: string }>({
         <tbody>
           {rows.map((row, i) => (
             <tr
-              key={row.id ?? i}
+              key={(row as { id?: string | number }).id ?? i}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               style={{ borderTop: "1px solid rgba(10,26,12,0.06)", cursor: onRowClick ? "pointer" : "default" }}
               onMouseEnter={onRowClick ? (e) => { e.currentTarget.style.background = "var(--off-white)"; } : undefined}

@@ -71,7 +71,7 @@ export default function ProductSidebar({
         { href: `${base}/producto/uso`, label: "Uso", glyph: "▲" },
         { href: `${base}/producto/funcionalidades`, label: "Funcionalidades", glyph: "◇" },
         { href: `${base}/producto/actividad`, label: "Actividad", glyph: "≋" },
-        ...meta.modules.map((m) => ({ href: `${base}/producto/${m.key}`, label: m.label, glyph: "·" })),
+        ...meta.modules.map((m) => ({ href: `${base}/modulo/${m.key}`, label: m.label, glyph: "·" })),
       ],
     },
     {

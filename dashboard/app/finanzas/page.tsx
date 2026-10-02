@@ -56,6 +56,8 @@ import { PremiumCuentasBancarias } from "@/components/finanzas/PremiumCuentasBan
 import { PremiumDashboard } from "./PremiumDashboard";
 import { PremiumIngresos } from "./PremiumIngresos";
 import { PremiumEgresos } from "./PremiumEgresos";
+import AppFinanceView from "@/components/finanzas/AppFinanceView";
+import { PRODUCTS } from "@/lib/productos";
 import {
   listManualRevenues,
   revenueMonthlyImpact,
@@ -79,7 +81,8 @@ type FinPage =
   | "tesoreria"
   | "conciliacion"
   | "cierre"
-  | "costos_api";
+  | "costos_api"
+  | `app_${string}`;
 
 const MONTH_ISO = () => new Date().toISOString().slice(0, 7);
 
@@ -124,6 +127,19 @@ export default function FinanzasPage() {
       refresh();
     });
   }, [router, refresh]);
+
+  // Abrir directamente la finanza de una app si viene ?app=<slug>.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const app = sp.get("app");
+      if (app && PRODUCTS.some((pr) => pr.slug === app)) {
+        setPage(`app_${app}` as FinPage);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // ====== Cálculos ======
   // MRR EFECTIVO del mes en curso — respeta calendario de tramos
@@ -193,6 +209,14 @@ export default function FinanzasPage() {
         { key: "dividendos", icon: "◆", label: "Distribución de dividendos" },
         { key: "costos_api", icon: "⊛", label: "Costos API (Claude)" },
       ],
+    },
+    {
+      label: "Aplicaciones (SaaS)",
+      items: PRODUCTS.map((pr) => ({
+        key: `app_${pr.slug}` as FinPage,
+        icon: "◆",
+        label: pr.name,
+      })),
     },
   ];
 
@@ -265,6 +289,9 @@ export default function FinanzasPage() {
               />
             )}
             {page === "costos_api" && <CostosApiView />}
+            {page.startsWith("app_") && (
+              <AppFinanceView slug={page.slice(4)} />
+            )}
             {page === "mkt_clientes" && (
               <MktClientesView
                 clients={clients}
