@@ -1665,3 +1665,8 @@ section.dark .label[data-num]::before,
   .entry-header.is-enhanced .entry-nav-cta { margin-left: auto; }
   .entry-menu-toggle:not([hidden]) { display: block; }
 }
+/* entry-v2.css oculta el toggle con !important desde 1000px; en el rango
+   1000-1199 lo necesitamos visible porque ahí los links ya están ocultos. */
+@media (min-width: 1000px) and (max-width: 1199px) {
+  .entry-header .entry-menu-toggle:not([hidden]) { display: block !important; margin-left: 0; }
+}
