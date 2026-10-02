@@ -1,107 +1,101 @@
 # Tendencias del nicho — Glassy Waves
 
-> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-09-11.
+> Generado automáticamente por el agente `sector-trends` (búsqueda web) el 2026-10-02.
 > Tendencias recientes y accionables del nicho. Cada ítem cita su fuente.
 
 ### 🎬 Contenido que está funcionando
 
-- **Nostalgia surf '90s como gancho visual en Reels** — Creadores que centran contenido en nostalgia de los '90s están obteniendo tasas de engagement más altas y mejores conversiones en 2026; no son throwbacks pasivos, son revivals calculados para alcance, guardados y agotamiento de stock. Para Glassy Waves esto es ORO: el surfwear vintage (Quiksilver, Rusty, Billabong) está siendo masivamente evocado en TikTok bajo `#vintagesurfwear` y `#90ssurfstyle`. El formato "Last one crazy" con prendas vintage '90s y marcas como Rusty circula activamente en TikTok bajo los tags `#surfwear #90s #vintage`. **Acción inmediata:** publicar Reels mostrando prendas actuales de Glassy con filtro retro/granulado y audio nostálgico, con el hook "el surfwear de los '90 era otro nivel… por eso lo trajimos de vuelta 🌊" · Plataforma: Instagram Reels + TikTok · (fuente: https://www.amraandelma.com/influencers-pushing-90s-nostalgia-fashion/ y https://www.tiktok.com/discover/surfwear-brands)
+**1. Contenido crudo y "sin filtro" gana al producido** — El algoritmo de Instagram en 2026 está premiando el contenido auténtico por encima del estéticamente perfecto. Lo que el algoritmo está premiando ahora: "el contenido crudo gana al perfecto", y los DMs valen más que los likes — si nadie manda tu video a alguien, editá el guión. **Para Glassy Waves:** grabaciones en el agua, en el local, detrás del drop, con cámara de mano. Sin estudio. · (fuente: https://www.tiktok.com/@meycuanc/video/7621366486703050004)
 
-- **"Flop-Core" adaptado a marca lifestyle** — El formato anti-highlight-reel donde los creadores postean sus fracasos y momentos vergonzosos en vez de sus éxitos está ganando tracción en Reels con audio original, sin licencia bloqueada. Para Glassy: "el día que salimos a surfear y el mar estaba liso" / "el outfit que armamos vs. cómo quedó" — contenido auténtico que encaja perfecto con el tono irreverente de la marca. · Plataforma: Instagram Reels · (fuente: https://newengen.com/insights/instagram-trends/)
+**2. BTS + proceso real como formato de marca** — Luego de un año de contenido "delulu" y desconexión silenciosa, la gente busca honestidad, comunidad y experiencia compartida. En 2026 la gente va a TikTok por historias sin filtro y momentos BTS, y las marcas que más resuenan muestran proceso real y personas reales, no perfección curada. **Para Glassy Waves:** mostrar el proceso de diseño de una remera, la llegada de stock, el equipo en el local de La Barra. · (fuente: https://ads.tiktok.com/business/en-US/next)
 
-- **GRWM + fit check con energía de "protagonista del verano"** — El audio con energía "main-character, summer-coded" está funcionando para videos de day-in-the-life, demos de producto y fit checks; la vibra despreocupada gana siempre. Formato: alguien de la comunidad surf de Glassy mostrando el outfit desde levantarse hasta llegar a la playa con la tabla. Cada clip de 1 segundo cortado al ritmo. · Plataforma: Instagram Reels / TikTok · (fuente: https://later.com/blog/instagram-reels-trends/)
+**3. Transition dab / outfit change — formato que funciona para indumentaria** — El trend "Transition dab" usa un movimiento rápido sincronizado con el sonido para hacer transformaciones de antes/después instantáneas. Es perfecto para cambios de outfit, revelaciones de locación, o mostrar cómo tu producto cambia completamente el vibe. **Para Glassy Waves:** de ropa "de calle" al look surf con una prenda de la nueva colección. · (fuente: https://later.com/blog/tiktok-trends/)
 
-- **Construcción de comunidad con sorpresa / giveaway de producto** — Marcas de surf pequeñas están usando el gancho "somos tan chicos que te mandamos un set por seguirnos, likear y comentar" para crecer su comunidad; el formato está activo en TikTok bajo `#surfcommunity #lifestylebrand`. Para Glassy, este formato es directamente replicable con una remera o bikini como premio, reforzando la identidad de "marca nacida de la comunidad". · Plataforma: TikTok + Instagram · (fuente: https://www.tiktok.com/discover/surf-clothing-brands)
+**4. Video sigue siendo rey en TikTok, carrusel en Instagram** — En TikTok, el video obtiene 5 veces más views y 6 veces más interacciones que los carruseles. TikTok domina en video, mientras Instagram sigue siendo muy fuerte con carruseles. **Acción concreta:** producir Reels/videos cortos para TikTok y carruseles de producto/lifestyle para Instagram. · (fuente: https://metricool.com/tiktok-trends/)
 
-- **Photo booth strips / secuencias de fotos con estética retro** — Las tiras de foto tipo photo booth están volviendo oficialmente; el formato funciona para throwbacks, evolución de marca o recaps que se sienten sacados de 2009 (para bien). Para Glassy: serie de fotos de los drops de temporada o de un surf camp, en tira de 4 imágenes con filtro lavado. Muy shareable entre el público 15–25. · Plataforma: Instagram Stories + Reels · (fuente: https://later.com/blog/instagram-reels-trends/)
+**5. "Kinda Chic" + romanticizar lo cotidiano** — El trend "Kinda Chic" de septiembre 2026 lleva a los creators a romantizar comportamientos que no se considerarían glamorosos: quedarse en casa un sábado, repetir un outfit, elegir la opción menos obvia. **Para Glassy Waves:** "Kinda chic ponerse la misma campera todos los días cuando es la mejor campera del mundo." Aplica perfecto a la identidad surf/lifestyle. · (fuente: https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026-and-how-brands-can-actually-use-them)
+
+**6. Estética surfer vintage + "granola girl" está traccionando en TikTok** — En TikTok, el contenido de surf está siendo dominado por el estilo "vintage surfwear" para outfits de "salty granola girl". El vibe preppy-skater-surfer está en auge. Videos con hoodies baggy de surfwear están acumulando miles de likes, bajo el eje "vintage surfwear era top tier… that's why we're bringing it back." **Para Glassy Waves:** comunicar sus hoodies y camperas bajo este eje estético. · (fuente: https://www.tiktok.com/discover/surf-wear)
 
 ---
 
 ### 📈 Tráfico a la web
 
-- **Instagram como motor de búsqueda de producto** — El SEO en Instagram es altamente efectivo y obligatorio en 2026: casi el 26% de los usuarios usa la plataforma como buscador de productos y contenido, por lo que optimizar nombre de perfil, bio, captions y texto en pantalla con palabras clave impacta directamente la visibilidad en Explore y Search. **Acción:** incluir "ropa surf Uruguay", "moda playa Montevideo", "surf lifestyle UY" en captions y texto on-screen de cada Reel de Glassy. · (fuente: https://www.socibly.com/blog/instagram-trends-2026)
+**7. TikTok e Instagram como motores de búsqueda para la Gen Z** — Cómo la Gen Z está redefiniendo la búsqueda: TikTok e Instagram como motores de búsqueda modernos. Esto significa que el SEO de Glassy Waves ahora incluye los captions, hashtags y texto en pantalla de sus videos. Usar términos como "ropa surf Uruguay", "camperas lifestyle Montevideo" en el contenido de redes. · (fuente: https://www.ramd.am/blog/trends-tiktok)
 
-- **Mobile-first es la única opción real en Uruguay** — El celular sigue siendo el dispositivo preferido para comprar: el 91% de los consumidores uruguayos intenta concretar compras desde móvil y el 88% logra finalizar la operación. Dado que la auditoría de Glassy ya marcó el zoom bloqueado en mobile como brecha crítica, resolver esto tiene impacto directo en tráfico que convierte. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026/)
-
-- **TikTok + Meta Ads como dupla de tráfico validada para moda UY** — Para productos que lucen en video, la combinación de Instagram y TikTok orgánico más Meta Ads con presupuesto chico para validar es la estrategia más mencionada para e-commerces en Uruguay en 2026. El surfwear es un producto visualmente fuerte: el contenido en movimiento (olas, playa, skate) tiene ventaja natural frente a moda genérica. · (fuente: https://tiendli.com/blog/dropshipping-uruguay)
+**8. Ecommerce Uruguay en pleno boom — más compradores buscando online** — Las ventas en línea alcanzaron $31.333 millones entre enero y marzo de 2026, con un alza de 2% incluso frente a la fuerte zafra de fin de año. El volumen de transacciones se disparó 36% interanual, mientras el ticket promedio se mantuvo estable. El estudio Tendencias de Consumo Digital 2026 revela que 1.850.000 uruguayos realizaron compras online en 2025 (7 de cada 10 adultos) y cerca de 900.000 presentan hábitos de consumo frecuente. El mercado está creciendo — hay más demanda real para capturar. · (fuente: https://www.xn--lamaana-7za.uy/economia/e-commerce-en-uruguay-crecio-35-en-el-primer-trimestre-y-supero-los-us-800-millones/)
 
 ---
 
 ### 🛒 Ventas / conversión
 
-- **Envío gratuito y política de cambios visibles = conversión directa** — Estrategias como devoluciones sin costo o envíos gratuitos en la primera compra se presentan como herramientas efectivas para conquistar y retener clientes en el ecommerce uruguayo 2026. Glassy hoy no tiene umbral de envío gratis ni política de devoluciones de dinero: ambas son barreras documentadas de conversión. Definir zonas de envío, costos y plazos claros antes del checkout reduce el abandono de carrito; el comprador uruguayo valora la transparencia: políticas de cambios y devoluciones visibles, datos de contacto reales y una tienda profesional y segura. · (fuente: https://www.elobservador.com.uy/cafe-y-negocios/ y https://agile.uy/recursos/guia-ecommerce-uruguay-2026/)
+**9. Micro-creators y afiliados: el modelo que más convierte** — El volume de micro-creators supera a las partnerships con celebrities. Los afiliados generan entre el 82% y 84% de la revenue en TikTok Shop según datos de OddDuck Marketing Group. **Para Glassy Waves:** activar surfers/lifestyle creators locales en UY (aunque sea con 3K–20K seguidores) en esquema de comisión o canje, antes de apostar todo a un influencer grande. · (fuente: https://www.shortformnation.com/blog/social-commerce-trends-2026-what-s-actually-working-on-tiktok-shop-and-what-s-not)
 
-- **Confianza post-compra como ventaja competitiva** — Una política de devoluciones poco clara puede convertirse en una barrera antes de comprar. La experiencia posventa es una parte fundamental de la estrategia de ecommerce: una marca que responde cuando las cosas salen bien y también cuando aparece un inconveniente tiene mayores posibilidades de construir relaciones comerciales duraderas. Esto aplica directamente a la brecha de Glassy (emails @gmail, sin RUT visible, sin reseñas). Publicar la política claramente + activar reseñas en ficha de producto = palanca de conversión inmediata. · (fuente: https://encolombia.com/economia/empresas/ecommerce-competitivo-confianza/)
+**10. Instagram Shopping convierte al 3.2% — moda y lifestyle son las categorías top** — Instagram Shopping tiene una tasa de conversión promedio de 3.2% para moda y lifestyle, y el tip clave es el storytelling visual. Para marcas de moda en la región, TikTok tiene mayor potencial de alcance orgánico para cuentas nuevas porque el algoritmo distribuye contenido a no-seguidores, mientras que el perfil de comprador en Instagram es más planificado: guarda, vuelve y compra después. **Acción:** usar Instagram Stories con sticker de producto y links directos a ficha; usar TikTok para top-of-funnel. · (fuente: https://base.com/es-AR/blog/social-commerce-como-vender-en-tiktok-e-instagram/)
 
-- **Indumentaria, calzado y accesorios: categoría #1 en Ciberlunes** — Vestimenta, calzado y accesorios lideran el Ciberlunes con el 21% del volumen, seguidos por electrodomésticos (7%) y perfumería (6%). Glassy está en la categoría que más convierte en el evento de descuentos más grande de Uruguay. La segunda edición del Ciberlunes 2026 se viene en noviembre: hay que preparar stock, precios reales y ficha de producto completa ya. · (fuente: https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-lanza-inscripciones-para-la-preventa-del-primer-ciberlunes-de-2026/)
-
-- **Preventa como mecánica de conversión anticipada** — Glassy ya usa "Preventa" como eje de merchandising en el sitio. Productos de ticket medio y decisión de compra rápida performan mejor que ticket alto con venta consultiva en el contexto de eventos como Ciberlunes. Potenciar los drops con countdown + preventa activada en Reels puede comprimir el ciclo de decisión. · (fuente: https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
+**11. Championes/sneakers como categoría de alto crecimiento en Uruguay** — Al analizar la categoría de Deportes en el mercado uruguayo, la subcategoría de Championes registró más del doble de ventas en 2025 en comparación con 2024, mostrando un alto potencial de crecimiento para 2026. **Para Glassy Waves:** priorizar visibilidad y fichas completas de calzado en la web; considerar campañas específicas para esa subcategoría. · (fuente: https://academia.nubimetrics.com/tendencias-ecommerce)
 
 ---
 
 ### 📰 Noticias del sector
 
-- **Ecommerce uruguayo facturó casi USD 3.000 millones y creció 35%** — El canal digital facturó casi 3.000 millones de dólares en el último año móvil, con un crecimiento del 35% en dólares que ubica a Uruguay en el top 10 mundial; el eCommerce representa el 3% del PIB y genera cerca de 100 millones de transacciones anuales. El mercado está en su mejor momento: hay más compradores activos que nunca para capturar. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026/)
+**12. Ecommerce de indumentaria en Uruguay: canal digital facturó casi USD 3.000M** — Durante el eCommerce Day Uruguay 2026, Andrés Marrero, presidente de CEDU, afirmó que el comercio electrónico continúa en expansión sostenida. El canal digital facturó casi 3.000 millones de dólares en el último año móvil, con un crecimiento del 35% en dólares que ubica a Uruguay en el top 10 mundial. El contexto es favorable: hay momentum real de mercado. · (fuente: https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
 
-- **85% del crecimiento del ecommerce UY es mercado interno** — Si bien las adquisiciones en el exterior (especialmente vestimenta y juguetes) siguen siendo relevantes, apenas el 15% del crecimiento del ecommerce corresponde a compras realizadas en el exterior; el 85% fue impulsado por el mercado interno. Esto favorece a marcas locales como Glassy frente al crossborder: hay espacio real para crecer sin competir contra Shein/Amazon. · (fuente: https://ecommerce.institute/el-ecommerce-day-uruguay-2026/)
+**13. Tiendas físicas siguen siendo clave — pero el cliente investiga online primero** — Se está en una etapa híbrida donde la integración entre canales físicos y digitales resulta esencial. Los consumidores investigan productos online, comparan precios y luego concretan compras tanto en tiendas como en plataformas digitales. Glassy Waves tiene 5 locales físicos — su web debe funcionar como la primera impresión, no como segunda opción. · (fuente: https://americaretail-malls.com/paises/uruguay/fast-fashion-uruguayo-crece-regionalmente-y-apunta-al-mercado-argentino-y-brasileno/)
 
-- **Ley de envíos exprés protege al comercio local** — La ley de envíos exprés limita las compras al exterior libres de impuestos a tres operaciones de hasta US$ 200 por año por persona; el diferencial frente a plataformas globales es la cercanía: entrega rápida, atención en español, cambios sencillos y confianza. Glassy debe comunicar activamente este diferencial ("entrega en 24–48h, cambios fáciles, marca uruguaya") en sus campañas. · (fuente: https://agile.uy/recursos/guia-ecommerce-uruguay-2026/)
-
-- **Surf-inspired swimwear como tendencia de producto 2026** — El swimwear con inspiración surf está trayendo una sensibilidad deportiva a la moda de playa: rash guards, one-pieces con cierre y tops de manga larga ofrecen protección solar siendo on-trend para 2026; el look es práctico para nadar y sports de playa, pero lo suficientemente estilizado para usarse fuera del agua. Para Glassy, este es un ángulo de producto y contenido aún no explotado. · (fuente: https://shopping.yahoo.com/style/clothing/articles/swimsuit-trends-see-everywhere-152816303.html)
-
----
-
-### 📣 Publicidad / campañas
-
-- **Micro-influencers de surf/lifestyle en UY: el modelo que convierte** — El impacto de los influencers va más allá del estilo: influyen en decisiones de compra, lealtad de marca y producción; los seguidores confían porque el contenido se siente personal y relatable — esa autenticidad impulsa el engagement y las conversiones. Para Glassy, activar 3–5 surfers/riders locales (Punta del Este, La Barra, Montevideo) con producto a cambio de contenido auténtico es más eficiente que pauta masiva esta semana. · (fuente: https://smartresponces.com/influencer-fashion-trends-on-instagram-whats-driving-style-in-2026/)
-
-- **Nostalgia de archivo como campaña de bajo costo** — Para marcas establecidas, la recomendación de septiembre 2026 es mirar lo que ya existe antes de fabricar una nueva campaña de nostalgia: avisos viejos, fotos de campañas pasadas, packaging descontinuado y colaboraciones olvidadas pueden convertirse en contenido social; para audiencias jóvenes, algo que lleva 5–7 años en un archivo puede sentirse genuinamente nuevo. Glassy puede activar fotos de sus primeras temporadas, de surf camps anteriores o de la apertura de locales como contenido de Reels de alto engagement a costo $0. · (fuente: https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026/)
+**14. Moda casual, artículos de playa y gorras entre los más buscados en marketplaces UY** — La moda casual, el fitness y el autocuidado se consolidan como tendencias de consumo recurrentes, con crecimiento sostenido en los marketplaces. Estos nichos se mantienen entre los más buscados y ofrecen ventas constantes durante todo el año. Entre los productos más demandados: artículos de playa como trajes de baño, toallas y pareos; y productos deportivos y fitness como leggings, tops y gorras. Estas categorías coinciden directamente con el catálogo de Glassy Waves. · (fuente: https://academia.nubimetrics.com/tendencias-ecommerce)
 
 ---
 
 ### 🗓️ Estacional / próximo
 
-- **Ciberlunes edición noviembre 2026: 3 al 5 de noviembre** — Del 3 al 5 de noviembre llega el Ciberlunes Uruguay 2026, el evento online más esperado del año, con descuentos en todas las categorías incluyendo moda. Quedan menos de 8 semanas. Glassy debe definir ya: qué SKUs participan, precio real con margen, y ficha de producto completa (sin fichas vacías no hay conversión en el pico de tráfico). En 2025 el 36% de los uruguayos compró en el evento y el 57% lo asocia con los mejores precios del año. · (fuente: https://todonexo.com.uy/pages/ciberlunes-uruguay-2026 y https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
+**15. Temporada de verano + arranque de primavera = ventana crítica ahora** — Octubre–noviembre en Uruguay es el momento de activar colecciones de verano. Las fechas comerciales clave para Uruguay incluyen: 18 de octubre — Día de la Madre; 2 de noviembre — próxima fecha relevante del calendario. El **Día de la Madre (18 de octubre)** es en menos de 3 semanas — oportunidad inmediata para campañas de regalo con las líneas de accesorios, gorras y bikinis. · (fuente: https://academia.nubimetrics.com/fechas-importantes-ecommerce)
 
-- **Primavera / pre-temporada de verano (septiembre–octubre)** — Uruguay entra en primavera esta semana (21 de septiembre). El período septiembre–octubre es la ventana clave para activar bikinis, musculosas, shorts y sandalias antes del verano real. El formato "A New Season Had Begun" — clips sin texto que dan la bienvenida a la nueva estación con momentos de lifestyle costero — está activo en Reels ahora mismo. Para Glassy: activar drops de nueva temporada con este formato + contenido de La Barra/Punta del Este apenas el clima acompañe. · (fuente: https://newengen.com/insights/instagram-trends/)
+**16. Ciberlunes Uruguay + Black Friday (noviembre) — preparar con 4–6 semanas de anticipación** — Entre las fechas más relevantes del e-commerce regional se destacan: 27 de noviembre — Black Friday; y para Uruguay, el evento Ciberlunes como equivalente local al Cyber Monday. Con el crecimiento del 36% en transacciones online este año, la demanda en estos eventos será mayor que nunca. Glassy Waves debería tener landing pages y stock definido para estas fechas ya. · (fuente: https://academia.nubimetrics.com/fechas-importantes-ecommerce)
 
-- **Derecho de retracto en compras online (5 días) — cumplimiento Ley 17.250** — En web o app, en la ficha y el checkout debe ser visible el precio final, gastos de envío, plazos, alcance de garantía y política de cambios/devoluciones incluyendo el retracto en compras a distancia; lo que se promete se cumple. En e-commerce, el derecho de retracto es de 5 días si aplica. Glassy hoy no tiene esto visible: es una obligación legal y una palanca de conversión. Resolverlo antes del Ciberlunes es urgente. · (fuente: https://www.abogadouy.com/guias-legales/defensa-consumidor-uruguay)
+**17. Temporada de verano y estética costera dominan la conversación en redes en Q4** — "Aquamarinecore" es una tendencia de moda veraniega 2026 que enfatiza tonalidades azul-verde reminiscentes del mar, incorporada a través de piezas statement como tops y accesorios para evocar un vibe fresco y costero. Es el lenguaje visual perfecto para el lanzamiento de la temporada de verano de Glassy Waves. · (fuente: https://www.tiktok.com/discover/viral-products-for-2026-clothes)
 
 ## Fuentes
-- [Instagram Trends: September 2026 — Updated Weekly](https://newengen.com/insights/instagram-trends/)
-- [TikTok & Instagram Trends for September 2026 (and How Brands Can Actually Use Them) | Pepper Agency Blog](https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026-and-how-brands-can-actually-use-them)
-- [Surfwear Brands | TikTok](https://www.tiktok.com/discover/surfwear-brands)
-- [Viral Clothing Brand Video | TikTok](https://www.tiktok.com/discover/viral-clothing-brand-video)
-- [Surf Clothing Brands | TikTok](https://www.tiktok.com/discover/surf-clothing-brands)
-- [Surf Clothing Brand | TikTok](https://www.tiktok.com/discover/surf-clothing-brand)
-- [Surf Wear | TikTok](https://www.tiktok.com/discover/surf-wear?lang=en)
-- [Viral Clothing Brand Content Ideas](https://www.tiktok.com/discover/viral-clothing-brand-content-ideas)
-- [eCommerce Day Uruguay 2026 - 15ª edición: Tendencias, innovación y networking en retail digital - YouTube](https://www.youtube.com/watch?v=Ucxh-yPTfWQ)
-- [El eCommerce Day Uruguay 2026 reunió a los líderes del Digital Commerce para impulsar la próxima etapa de la transformación digital en el país - eCommerce Institute](https://ecommerce.institute/el-ecommerce-day-uruguay-2026-reunio-a-los-lideres-del-digital-commerce-para-impulsar-la-proxima-etapa-de-la-transformacion-digital-en-el-pais/)
-- [eCommerce Day Uruguay 2026 | El evento más importante de Digital Commerce de la región - El tour de eventos que conecta, inspira y transforma el ecosistema digital de la región.](https://ecommerceday.org.uy/2026/)
-- [Guía del eCommerce en Uruguay 2026: datos, plataformas y cómo vender online | Agile Commerce Uruguay](https://agile.uy/recursos/guia-ecommerce-uruguay-2026/)
-- [El eCommerce Day Uruguay 2026 reunió a los líderes del Digital Commerce para impulsar la próxima etapa de la transformación digital en el país - eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/el-ecommerce-day-uruguay-2026-reunio-a-los-lideres-del-digital-commerce-para-impulsar-la-proxima-etapa-de-la-transformacion-digital-en-el-pais/)
+- [Tendencias de Instagram para ser viral en 2026 🤌✨ Lo que el algoritmo está premiando AHORITA: 📲 El contenido crudo gana al perfecto, para de esperar tener la luz ideal 💬 Los DMs valen más que los likes: si nadie manda tu video a alguien, edita el guión 🎵 El audio de tendencia tiene ventana de 48 hrs : después de eso ya perdiste el impulso 🖼️ Los carruseles con historia generan más saves que cualquier otro formato ¿Cuál de estas ya estabas haciendo sin saber que era tendencia? Cuéntame abajo 👇 #instagramr...](https://www.tiktok.com/@meycuanc/video/7621366486703050004)
+- [Las mayores tendencias de TikTok en este momento (2026)](https://clipchamp.com/en/blog/tiktok-trends-challenges/)
+- [Informe de tendencias TikTok Next 2026](https://ads.tiktok.com/business/en-US/next)
+- [Estrategias TikTok 2025 - ¿Cuáles son las tendencias?](https://metricool.com/tiktok-trends/)
+- [Tendencias actuales de TikTok para probar en 2026](https://translate.google.com/translate?u=https%3A%2F%2Flater.com%2Fblog%2Ftiktok-trends%2F&hl=es&sl=en&tl=es&client=srp)
+- [Tendencias de TikTok: cómo encontrarlas y usarlas ...](https://www.kontentino.com/blog/tiktok-trends-how-to-find-use-them/)
+- [Ramdam - Tiktok Trends - September 2026](https://www.ramd.am/blog/trends-tiktok)
+- [Hashtags Para Viralizar Em 2026 No Instagram](https://www.tiktok.com/discover/hashtags-para-viralizar-em-2026-no-instagram)
+- [TikTok & Instagram Trends for September 2026 (and How Brands Can Actually Use Them)](https://www.pepperagency.com/blog/tiktok-instagram-trends-for-september-2026-and-how-brands-can-actually-use-them)
+- [Ecommerce de moda: tendencias para la venta de moda online en 2026](https://www.shippypro.com/blog/es/ecommerce-moda)
+- [Tendencias de mercado 2026: qué esperar del e-commerce](https://academia.nubimetrics.com/tendencias-ecommerce)
+- [eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/)
+- [E-commerce en Uruguay creció 35% en el primer trimestre y superó los US$ 800 millones](https://www.xn--lamaana-7za.uy/economia/e-commerce-en-uruguay-crecio-35-en-el-primer-trimestre-y-supero-los-us-800-millones/)
+- [Tendencias alternativas 2026 — lo que se viene en la moda en Uruguaya](https://bimboz.uy/2025/10/21/tendencias-alternativas-2026-lo-que-se-viene-en-la-moda-en-uruguaya/)
 - [El eCommerce Day Uruguay 2026 celebró 20 años de evolución del comercio electrónico en la región - Diario La R](https://grupormultimedio.com/el-ecommerce-day-uruguay-2026-celebro-20-anos-de-evolucion-del-comercio-electronico-en-la-region-id202364/)
-- [Ciberlunes 2026 ¡Las mejores ofertas!](https://www.mercadolibre.com.uy/ciberlunes)
-- [¿Cuándo es el Cyber Monday 2026 y qué tiendas participan en Uruguay?](https://www.megacupones.uy/blog/cuando-se-celebra-cyber-monday-en-uruguay)
-- [⚡ Ciberlunes Uruguay 2026 | Ofertas Online en TodoNexo](https://todonexo.com.uy/pages/%E2%9A%A1-ciberlunes-uruguay-2026-ofertas-online-en-todonexo)
-- [Ciberlunes 2026: inscripción hasta el 24 de abril | Conly](https://conlyapp.com/blog/ciberlunes-2026-pymes-uruguay)
-- [Cámara de la Economía Digital del Uruguay lanza inscripciones para la preventa del primer CIBERLUNES® de 2026 - CEDU](https://www.cedu.org.uy/camara-de-la-economia-digital-del-uruguay-lanza-inscripciones-para-la-preventa-del-primer-ciberlunes-de-2026/)
-- [Ciberlunes Stadium: Hasta 60% OFF en Calzado y Moda ...](https://www.stadium.com.uy/ciberlunes)
-- [Ciberlunes | Junio 2026](https://ciberlunes.uy/)
-- [Ciberlunes 2026 | Ofertas en ropa y accesorios | H&M UY | H&M UY](https://uy.hm.com/ciberlunes)
-- [Preguntas frecuentes sobre Ciberlunes](https://www.ciberlunes.uy/preguntas-frecuentes)
-- [Tabla, calendario, marcadores en vivo y resultados de Liga AUF Uruguaya 2026, Uruguay](https://cl.soccerway.com/uruguay/liga-auf-uruguaya)
-- [20 Instagram Trends for Your Strategy in 2026 | Sprout Social](https://sproutsocial.com/insights/instagram-trends/)
-- [Top Instagram Reels Trends to Try in 2026 (Updated Weekly)](https://later.com/blog/instagram-reels-trends/)
-- [The Swimsuit Trends You’re About to See Everywhere](https://shopping.yahoo.com/style/clothing/articles/swimsuit-trends-see-everywhere-152816303.html)
-- [Top 20 Instagram Trends to Boost Engagement in 2026](https://www.haulpack.com/blog/top-20-instagram-trendings/)
-- [Influencer Fashion Trends on Instagram: What’s Driving Style in 2026](https://smartresponces.com/influencer-fashion-trends-on-instagram-whats-driving-style-in-2026/)
-- [25 INFLUENCERS PUSHING 90S NOSTALGIA FASHION IN 2026 GOING VIRAL FAST](https://www.amraandelma.com/influencers-pushing-90s-nostalgia-fashion/)
-- [28 Viral Reels Trends in 2026: Avoid These Costly Mistakes](https://socialbaddie.com/lab-notes/28-viral-reels-trends-in-2026/)
-- [Top Instagram Reels Trends in January 2026 You Should Use | Life Designer® Blog](https://www.lifedesigner.io/blog/top-instagram-reels-trends-in-january-2026-you-should-use)
-- [15 Instagram Trends You Need to Know in 2026 to Explode Your Growth](https://www.socibly.com/blog/instagram-trends-2026)
-- [Ecommerce competitivo en 2026: por qué la confianza es la nueva moneda digital](https://encolombia.com/economia/empresas/transporte-mercancias-emprendimiento/ecommerce-competitivo-confianza/)
-- [Las nuevas reglas del ecommerce: tendencias de consumo y estrategias para competir en un ecosistema digital cada vez más competitivo](https://www.elobservador.com.uy/cafe-y-negocios/las-nuevas-reglas-del-ecommerce-tendencias-consumo-y-estrategias-competir-un-ecosistema-digital-cada-vez-mas-competitivo-n6017619)
-- [Dropshipping en Uruguay 2026: guía realista para empezar | Tiendli](https://tiendli.com/blog/dropshipping-uruguay)
-- [Defensa del Consumidor en Uruguay: Guía práctica, garantías y cómo reclamar (2025) | Abogado UY](https://www.abogadouy.com/guias-legales/defensa-consumidor-uruguay)
+- [2026 in Uruguay](https://en.wikipedia.org/wiki/2026_in_Uruguay)
+- [Las tendencias de moda que ya marcan SS2026, –y ya podés ...](https://mondesign.com.uy/blog/las-tendencias-de-moda-que-ya-marcan-ss2026-ndash-y-ya-podes-comprar/4343)
+- [Fast fashion uruguayo crece regionalmente y apunta al mercado argentino y brasileño - AmericaMalls & Retail](https://americaretail-malls.com/paises/uruguay/fast-fashion-uruguayo-crece-regionalmente-y-apunta-al-mercado-argentino-y-brasileno/)
+- [Surfwear Brands](https://www.tiktok.com/discover/surfwear-brands)
+- [Viral Products for 2026 Clothes](https://www.tiktok.com/discover/viral-products-for-2026-clothes)
+- [2026 Streetwear Trends Prediction](https://www.tiktok.com/discover/2026-streetwear-trends-prediction)
+- [Streetwear](https://www.tiktok.com/discover/streetwear?lang=en)
+- [Surfer Fashion](https://www.tiktok.com/discover/surfer-fashion)
+- [Streetwear Trends](https://www.tiktok.com/discover/streetwear-trends)
+- [Surf Clothing Brand](https://www.tiktok.com/discover/surf-clothing-brand)
+- [Halara](https://en.wikipedia.org/wiki/Halara)
+- [Surf Clothing Brands](https://www.tiktok.com/discover/surf-clothing-brands)
+- [Surf Wear](https://www.tiktok.com/discover/surf-wear?lang=en)
+- [Calendario 2026: las fechas comerciales más importantes del e-commerce](https://academia.nubimetrics.com/fechas-importantes-ecommerce)
+- [Lanzamiento de fechas comerciales 2026](https://ccsuy.com.uy/lanzamiento-de-fechas-comerciales-2026/)
+- [Calendario Comercial Argentina 2026: Prepará tu operación](https://base.com/es-AR/blog/calendario-comercial-argentina/)
+- [Calendario de Eventos de Ecommerce Argentina 2026 — Fechas Clave para Vender](https://singlesday.com.ar/calendario-ecommerce-argentina)
+- [eCommerce Day Uruguay reunirá un año más a los protagonistas que están transformando el Digital Commerce - eCommerce Day Uruguay 2026](https://ecommerceday.org.uy/2026/ecommerce-day-uruguay-reunira-un-ano-mas-a-los-protagonistas-que-estan-transformando-el-digital-commerce/)
+- [Calendario Comercial 2026: Fechas Clave para eCommerce](https://creatuwebrapido.com/blog/rony-kebab-revoluciona-la-hosteleria-bocatas-y-kebabs-que-hacen-historia-y-hambre/)
+- [Social commerce 2026: cómo vender en TikTok e Instagram](https://base.com/es-AR/blog/social-commerce-como-vender-en-tiktok-e-instagram/)
+- [Social Commerce Strategies 2026: sell via Instagram & TikTok](https://www.clickforest.com/en/blog/social-commerce-strategies)
+- [El boom del social commerce en México](https://forbes.com.mx/el-boom-del-social-commerce-en-mexico/)
+- [TikTok Shop crece 59x su valor bruto de ventas promedio](https://marketing4ecommerce.mx/social-commerce-tiktok-shop-crece-en-mexico/)
+- [TikTok y redes sociales impulsan las compras de moda en México: 45% de usuarios ya adquiere prendas desde estas plataformas](https://marketing4ecommerce.mx/tiktok-redes-sociales-compras-moda-mexico/)
+- [Social Commerce 2026: What's Working on TikTok Shop](https://www.shortformnation.com/blog/social-commerce-trends-2026-what-s-actually-working-on-tiktok-shop-and-what-s-not)
+- [Social Commerce Strategy 2026: How Retail Brands Win on TikTok, Instagram, and Beyond](https://www.genaiembed.ai/blog/social-commerce-strategy-retail-2026)
+- [En México, 4 de cada 10 consumidores ya compran en TikTok e Instagram, revela estudio](https://www.eluniversal.com.mx/cartera/en-mexico-4-de-cada-10-consumidores-ya-compran-en-tiktok-e-instagram-revela-estudio/)
+- [Facebook vs Instagram vs TikTok: Dónde Vender Más en 2026 (Con Data Real)](https://pagosdigitales.lat/facebook-vs-instagram-vs-tiktok-donde-vender-mas-2026/)
