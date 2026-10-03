@@ -291,3 +291,322 @@ La buena noticia: la base está. 4,6 ★ con 250 reseñas es un activo real. El 
   ]
 }
 ```
+
+
+---
+
+## MONTHLY report — 2026-10-03
+Source: cron
+
+# Reporte Mensual — Pintureria Propios
+**Período:** 4 de septiembre – 3 de octubre de 2026
+**Generado por:** Analytics Agent · D&C Scale Partners
+**Fecha de emisión:** sábado, 3 de octubre de 2026
+
+---
+
+> ⚠️ **AVISO DE INTEGRIDAD DE DATOS — LECTURA OBLIGATORIA**
+>
+> Este es el **segundo reporte mensual** de Pintureria Propios. Al igual que en el reporte anterior (03/09/2026), no existen datos de ventas, ads, tráfico web ni eCommerce disponibles para el período analizado. Las fuentes automáticas (Meta Insights API, log de ventas, historial de ads) continúan sin datos ingestados.
+>
+> **Situación respecto al reporte anterior:** Los 5 ítems identificados como requisitos para este reporte (sitio web con pixel, ficha Google reclamada, kickoff de datos, Meta Business Manager y primera campaña activa) **no tienen evidencia de resolución** en ninguna de las fuentes disponibles — metrics-log, learning-log, content-library y strategy.md permanecen sin actualizaciones desde el baseline del 24/08/2026.
+>
+> Este reporte **no fabricará números**. Reportará el estado real, medirá el avance contra los compromisos del mes anterior, y escalará la urgencia donde corresponde.
+
+---
+
+## Resumen Ejecutivo
+
+- **Health Score:** 🔴 `critical`
+- **Mejor activo del período:** Reputación Google — 4,6 ★ / 250 reseñas (sin cambio registrado, pero sigue siendo el único activo medible del negocio digital).
+- **Peor situación / oportunidad más grande:** Instrumentación en cero por segundo mes consecutivo. Cada día sin pixel, sin sitio funcional y sin datos de ventas es un día de curva de aprendizaje perdida en los algoritmos de Meta y Google — un costo invisible pero real.
+- **Hallazgo principal del período:** El negocio lleva **2 meses bajo gestión de D&C** sin que ningún KPI de eCommerce sea medible. Esto no es un problema de performance — es un problema de base operativa. El riesgo concreto: si los bloqueadores no se resuelven antes del 15/10, el período de aprendizaje de cualquier campaña de ads se superpone con las fechas de mayor demanda del sector (primavera / fin de año), encareciendo el CAC en el momento en que debería estar más barato.
+
+---
+
+## Seguimiento de Compromisos del Mes Anterior
+
+Esta sección es nueva. A partir de este reporte, cada reporte anterior genera compromisos que se auditan aquí.
+
+| Compromiso (fijado el 03/09) | Deadline | Estado | Impacto de no cumplimiento |
+|---|---|---|---|
+| Sitio web funcional con pixel instalado | 15/09 | ❌ Sin evidencia | Todos los KPIs de eCommerce siguen en `null` |
+| Ficha Google reclamada y completa | 10/09 | ❌ Sin evidencia | Riesgo de edición por terceros; tráfico orgánico perdido |
+| Kickoff de datos en dashboard (catálogo, márgenes, ticket promedio) | 10/09 | ❌ Sin evidencia | ROAS break-even incalculable; no se puede diseñar estrategia de medios |
+| Meta Business Manager + ad account creado | 15/09 | ❌ Sin evidencia | Sin plataforma de pauta activa |
+| Primera campaña activa | 20/09 | ❌ Sin evidencia | Cero inversión en adquisición; cero datos de audiencia |
+
+> **Nota metodológica:** "Sin evidencia" significa que ninguna de las fuentes disponibles (metrics-log, learning-log, content-library, strategy.md, historial de ads, log de ventas) refleja avance. Si alguno de estos ítems se resolvió offline, se solicita que el equipo lo registre en el dashboard y en el vault para que el próximo reporte lo capture correctamente.
+
+---
+
+## KPIs Principales
+
+| KPI | Valor actual | Mes anterior | Variación | Tendencia |
+|---|---|---|---|---|
+| Revenue | `sin datos` | `sin datos` | — | — |
+| Ventas (cantidad) | `sin datos` | `sin datos` | — | — |
+| AOV / Ticket promedio | `sin datos` | `sin datos` | — | Benchmark sectorial: pendiente kickoff |
+| Tasa de conversión | `sin datos` | `sin datos` | — | Benchmark: 1–3% |
+| Tasa de abandono de carrito | `sin datos` | `sin datos` | — | Benchmark: 60–80% |
+| CAC | `sin datos` | `sin datos` | — | Meta: <1/3 del LTV |
+| LTV | `sin datos` | `sin datos` | — | — |
+| LTV / CAC | `sin datos` | `sin datos` | — | Meta saludable: >3× |
+| ROAS | `sin datos` | `sin datos` | — | Meta saludable: >3× |
+| Sesiones web | `sin datos` | `sin datos` | — | — |
+| Bounce rate | `sin datos` | `sin datos` | — | — |
+| Tasa de recompra | `sin datos` | `sin datos` | — | — |
+
+> **Por qué no hay números (segundo mes consecutivo):** el sitio web no está instrumentado, no hay log de ventas activo, Meta Insights API no tiene ad account conectado y no se registró actividad de campañas en el período. Rellenar esta tabla con estimaciones comprometería la integridad de todos los análisis futuros.
+
+---
+
+## Breakdown por Canal
+
+| Canal | Revenue | CAC | ROAS | Estado |
+|---|---|---|---|---|
+| Meta Ads | `sin datos` | — | — | Sin ad account creado |
+| Google Ads | `sin datos` | — | — | Sin historial |
+| Orgánico / SEO | `sin datos` | — | — | Sitio web sin resolver |
+| Email / WhatsApp | `sin datos` | — | — | Sin canal formal activo |
+| Directo / Referral | `sin datos` | — | — | Sin tracking |
+
+---
+
+## Top Productos del Período
+
+`Sin catálogo cargado.` El kickoff de datos no fue completado. Sin productos, precios ni márgenes registrados, es imposible calcular AOV, mix de categorías ni ROAS break-even por línea de producto.
+
+---
+
+## Análisis de Funnel
+
+```
+Sesiones → ATC → Checkout iniciado → Compra completada
+
+  [?]  →  [?]  →        [?]         →        [?]
+
+Estado: funnel no instrumentado — segundo mes consecutivo.
+Sin sitio web funcional ni pixel activo, ninguna etapa es medible.
+```
+
+**Lo que sí sabemos del comportamiento del cliente (contexto offline):**
+- El negocio tiene volumen real de clientes (250 personas motivadas suficiente para dejar reseña pública).
+- No hay evidencia de mecanismo de captura digital de esos clientes (email, teléfono, WhatsApp) para reactivación o remarketing.
+- Sin base de datos de clientes → LTV y tasa de recompra serán las métricas más difíciles de reconstruir retrospectivamente.
+
+---
+
+## Lo que Sí Medimos: Reputación Google
+
+*(Único activo con dato duro disponible. Sin nuevo snapshot del período, se mantiene el baseline del 24/08/2026.)*
+
+| Métrica | Valor | Contexto |
+|---|---|---|
+| Reseñas Google | 250 (baseline) | Sin nuevo conteo registrado este período |
+| Rating | 4,6 ★ | Igual que Pintelux (líder de mercado) |
+| Ficha reclamada | ❌ Sin evidencia de cambio | Riesgo activo |
+| Sitio web en ficha | ❌ Sin evidencia de cambio | Tráfico orgánico perdido |
+| QR de reseñas | ✅ Instalado | Sin protocolo de activación documentado |
+| Nuevas reseñas en el período | `sin dato` | No se realizó medición |
+
+**Lectura:** si el protocolo del QR se activó en mostrador, deberíamos haber acumulado entre 15 y 25 reseñas nuevas en septiembre (meta del reporte anterior). Sin medición no podemos confirmarlo. Registrar el conteo actual de reseñas es una tarea de 5 minutos que convierte un activo invisible en un KPI trackeable.
+
+---
+
+## Recomendaciones Accionables
+
+### 🔴 PRIORIDAD CRÍTICA — Resolver el sitio web esta semana
+
+**Contexto:** Llevamos 2 meses con este ítem en rojo. El costo de oportunidad ya es concreto: el algoritmo de Meta necesita entre 7 y 14 días de datos para salir del período de aprendizaje. Cada semana de retraso desplaza el primer resultado real de las campañas.
+
+**Acción inmediata:** Si el dominio tiene problemas técnicos, lanzar una landing page en Tiendanube, Shopify o incluso un link de WhatsApp Business con catálogo mientras se resuelve el dominio. Lo urgente es tener una URL donde instalar el pixel.
+
+**Deadline no negociable:** 10/10/2026.
+
+**Impacto:** Desbloquea el 100% de los KPIs eCommerce. Sin esto, el reporte de noviembre será idéntico a este.
+
+---
+
+### 🔴 PRIORIDAD CRÍTICA — Kickoff de datos: completar en la próxima llamada
+
+**Acción:** En la próxima call con el cliente, capturar obligatoriamente:
+- Ticket promedio histórico (aunque sea estimación del dueño)
+- Margen de contribución por categoría (pinturas, electricidad, sanitaria)
+- Inversión mensual disponible para ads
+- Volumen mensual aproximado de ventas (en pesos o unidades)
+
+**Por qué es urgente ahora:** sin margen no hay ROAS break-even. Sin ROAS break-even, la primera campaña puede estar generando ventas a pérdida sin que nadie lo note hasta que el daño sea significativo.
+
+**Deadline:** 10/10/2026.
+
+---
+
+### 🔴 PRIORIDAD ALTA — Reclamar ficha de Google Business Profile
+
+**Acción:** Reclamar la ficha, completar todos los campos (horarios, descripción, categorías secundarias: electricidad, sanitaria, ferretería), subir mínimo 10 fotos del local y vincular el sitio web en cuanto esté activo.
+
+**Impacto directo y medible:** mejora de posición en el Local Pack de Google Maps → más consultas orgánicas sin costo. Con 4,6 ★ y una ficha completa, Propios tiene todo para ganarle posición a competidores con peor rating.
+
+**Deadline:** 10/10/2026.
+
+---
+
+### 🟡 PRIORIDAD MEDIA — Medir reseñas Google esta semana y fijar cadencia semanal
+
+**Acción:** Registrar hoy el conteo actual de reseñas en Google. Comparar con el baseline (250 del 24/08). Calcular cuántas se generaron con el QR activo. Si el número no creció, revisar el protocolo de mostrador.
+
+**Meta:** llegar al reporte de noviembre con +30 reseñas documentadas (sumando septiembre y octubre).
+
+**Impacto:** cada 50 reseñas adicionales con rating >4,5 mejora el ranking en el Local Pack → tráfico orgánico gratuito que reduce la dependencia de paid media.
+
+---
+
+### 🟡 PRIORIDAD MEDIA — Definir el primer experimento de paid media antes del 20/10
+
+**Acción:** Una vez resuelto el sitio web y el ad account, diseñar la primera campaña con presupuesto mínimo (USD 5–10/día) orientada a tráfico local en Montevideo. Objetivo: no ventas todavía, sino datos — sesiones, comportamiento en el sitio, primeras señales de conversión.
+
+**Por qué importa el timing:** noviembre y diciembre son temporada alta para el sector (pintura de fin de año, reformas de verano en Uruguay). Necesitamos que el algoritmo de Meta haya completado su período de aprendizaje antes de esas fechas para poder escalar con CAC eficiente.
+
+**Deadline para lanzar el primer test:** 20/10/2026.
+
+---
+
+## Estado del Próximo Reporte (noviembre 2026)
+
+Para que el reporte del 3 de noviembre tenga KPIs reales por primera vez, se necesita que antes del **20/10** estén resueltos:
+
+| Item | Responsable | Deadline | Impacto si no se cumple |
+|---|---|---|---|
+| Sitio web funcional + pixel instalado | Cliente + D&C | **10/10** | Tercer reporte en blanco |
+| Ficha Google reclamada y completa | Cliente | **10/10** | Tráfico orgánico perdido |
+| Kickoff de datos completado | D&C (próxima call) | **10/10** | Sin ROAS break-even → campañas a ciegas |
+| Meta Business Manager + ad account | D&C | **15/10** | Sin plataforma de pauta |
+| Primera campaña activa | D&C | **20/10** | Sin datos antes de temporada alta |
+| Primer conteo semanal de reseñas | D&C | **07/10** | KPI de reputación sigue invisible |
+
+---
+
+## Nota del Equipo
+
+Dos meses sin datos es una señal que necesita atención directa. No es un juicio de valor sobre el negocio — el negocio claramente funciona, tiene clientes satisfechos y un producto competitivo. Es una señal de que hay fricciones en la integración digital que están bloqueando todo el trabajo posterior.
+
+El valor que D&C puede generar para Propios en los próximos 6 meses es alto — pero está completamente condicionado a que la base esté instrumentada. Cada semana adicional de retraso comprime el tiempo disponible para aprender, iterar y escalar antes de la temporada fuerte de fin de año.
+
+La conversación más importante de la próxima semana no es qué campaña lanzar. Es: ¿qué está frenando el sitio web y cómo lo desbloqueamos en los próximos 7 días?
+
+---
+
+*D&C Scale Partners · Analytics Agent · Generado automáticamente el 03/10/2026*
+*Fuentes: metrics-log.md (baseline Google 24/08/2026), reporte anterior 03/09/2026, claude-client.md, strategy.md*
+*Datos de ads: sin ingestión automática activa (falta meta\_ad\_account\_id) · Datos de ventas: sin log disponible · Datos web: sitio sin resolver*
+
+---
+
+```json
+{
+  "date": "2026-10-03",
+  "client": "pintureria-propios",
+  "mode": "monthly",
+  "period": { "days": 30, "end": "2026-10-03" },
+  "healthScore": "critical",
+  "dataQuality": {
+    "status": "no-data",
+    "reason": "Segundo reporte consecutivo sin datos. Ninguno de los 5 compromisos del reporte anterior (03/09/2026) tiene evidencia de resolución en las fuentes disponibles.",
+    "availableData": ["google-reputation-baseline-2026-08-24"],
+    "blockers": [
+      "pintureriapropios.com.uy no resuelve — segundo mes",
+      "meta_ad_account_id no provisto — segundo mes",
+      "kickoff de datos pendiente — segundo mes",
+      "ficha Google sin reclamar — segundo mes",
+      "sin primera campaña activa"
+    ],
+    "previousCommitmentsResolved": 0,
+    "previousCommitmentsTotal": 5
+  },
+  "kpis": {
+    "revenue": null,
+    "sales": null,
+    "aov": null,
+    "conversionRate": null,
+    "cartAbandonment": null,
+    "cac": null,
+    "ltv": null,
+    "ltvCacRatio": null,
+    "roas": null,
+    "sessions": null,
+    "bounceRate": null,
+    "repurchaseRate": null
+  },
+  "reputationBaseline": {
+    "googleReviews": 250,
+    "googleRating": 4.6,
+    "googleClaimedProfile": false,
+    "websiteLinked": false,
+    "qrReviewsInstalled": true,
+    "reviewsNewThisPeriod": null,
+    "reviewTarget": "+15 to +25 per month"
+  },
+  "channels": [
+    { "name": "meta-ads", "revenue": null, "cac": null, "roas": null, "status": "no-ad-account" },
+    { "name": "google-ads", "revenue": null, "cac": null, "roas": null, "status": "no-history" },
+    { "name": "organic-seo", "revenue": null, "cac": null, "roas": null, "status": "website-down" },
+    { "name": "email-whatsapp", "revenue": null, "cac": null, "roas": null, "status": "no-channel" },
+    { "name": "direct-referral", "revenue": null, "cac": null, "roas": null, "status": "not-tracked" }
+  ],
+  "topProducts": [],
+  "funnel": {
+    "sessions": null,
+    "addToCart": null,
+    "checkoutStarted": null,
+    "purchased": null
+  },
+  "previousReportCommitments": [
+    { "item": "Sitio web funcional con pixel", "deadline": "2026-09-15", "status": "not-resolved" },
+    { "item": "Ficha Google reclamada y completa", "deadline": "2026-09-10", "status": "not-resolved" },
+    { "item": "Kickoff de datos en dashboard", "deadline": "2026-09-10", "status": "not-resolved" },
+    { "item": "Meta Business Manager + ad account", "deadline": "2026-09-15", "status": "not-resolved" },
+    { "item": "Primera campaña activa", "deadline": "2026-09-20", "status": "not-resolved" }
+  ],
+  "recommendations": [
+    {
+      "priority": "CRÍTICA",
+      "action": "Resolver sitio web pintureriapropios.com.uy o lanzar landing en Tiendanube/Shopify como alternativa inmediata. Instalar pixel el mismo día.",
+      "impactEstimate": "Desbloquea 100% de KPIs eCommerce. Sin esto, el reporte de noviembre será idéntico a este.",
+      "deadline": "2026-10-10"
+    },
+    {
+      "priority": "CRÍTICA",
+      "action": "Completar kickoff de datos en próxima call: ticket promedio, márgenes por categoría, inversión disponible en ads, volumen mensual de ventas.",
+      "impactEstimate": "Habilita cálculo de ROAS break-even. Sin esto las campañas pueden generar ventas a pérdida sin detección.",
+      "deadline": "2026-10-10"
+    },
+    {
+      "priority": "ALTA",
+      "action": "Reclamar ficha Google Business Profile. Completar horarios, descripción, categorías secundarias (electricidad, sanitaria), fotos y sitio web.",
+      "impactEstimate": "Mejora ranking Local Pack → +15-25% tráfico orgánico estimado sin costo adicional.",
+      "deadline": "2026-10-10"
+    },
+    {
+      "priority": "MEDIA",
+      "action": "Medir reseñas Google hoy y fijar conteo semanal. Comparar con baseline 250 del 24/08.",
+      "impactEstimate": "Convierte activo invisible en KPI trackeable. Meta: +30 reseñas en oct-nov.",
+      "deadline": "2026-10-07"
+    },
+    {
+      "priority": "MEDIA",
+      "action": "Diseñar y lanzar primer test de Meta Ads (USD 5-10/día, tráfico local Montevideo) antes del 20/10 para completar período de aprendizaje antes de temporada alta.",
+      "impactEstimate": "Datos de audiencia disponibles antes de noviembre-diciembre (temporada pico). CAC de escala más bajo.",
+      "deadline": "2026-10-20"
+    }
+  ],
+  "nextReportRequirements": [
+    { "item": "Sitio web funcional con pixel", "deadline": "2026-10-10", "consequence": "Tercer reporte en blanco" },
+    { "item": "Ficha Google reclamada y completa", "deadline": "2026-10-10", "consequence": "Tráfico orgánico perdido" },
+    { "item": "Kickoff de datos completado", "deadline": "2026-10-10", "consequence": "Sin ROAS break-even" },
+    { "item": "Meta Business Manager + ad account", "deadline": "2026-10-15", "consequence": "Sin plataforma de pauta" },
+    { "item": "Primera campaña activa", "deadline": "2026-10-20", "consequence": "Sin datos antes de temporada alta" },
+    { "item": "Primer conteo semanal de reseñas", "deadline": "2026-10-07", "consequence": "KPI de reputación sigue invisible" }
+  ]
+}
+```
