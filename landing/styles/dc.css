@@ -135,6 +135,7 @@ ul, ol { padding: 0; list-style: none; }
   white-space: nowrap;
   transition: background .25s var(--ease), color .25s, border-color .25s, box-shadow .3s var(--ease), transform .2s var(--ease);
 }
+.btn .arr, .link-arrow .arr { flex-shrink: 0; }
 .btn .arr { transition: transform .3s var(--ease); }
 .btn:hover .arr { transform: translateX(4px); }
 .btn:active { transform: translateY(1px); }
@@ -216,6 +217,14 @@ ul, ol { padding: 0; list-style: none; }
   .brand-name { font-size: 14px; }
   .brand-cat { font-size: 8.5px; letter-spacing: .2em; }
   .brand { gap: 11px; }
+  .btn { padding: 0 18px; letter-spacing: .06em; }
+}
+@media (max-width: 340px) {
+  .brand { gap: 9px; }
+  .brand-mono { font-size: 20px; }
+  .brand-name { font-size: 13px; }
+  .brand-cat { font-size: 8px; letter-spacing: .16em; }
+  .menu-toggle { width: 40px; height: 40px; }
 }
 
 /* Menú móvil */
@@ -268,7 +277,7 @@ ul, ol { padding: 0; list-style: none; }
   .hero-inner { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 40px; }
 }
 
-.hero-copy .eyebrow { margin-bottom: 30px; }
+.hero-copy .eyebrow { display: block; margin-bottom: 30px; line-height: 1.7; }
 .hero h1 {
   font-size: clamp(50px, 6.5vw, 104px);
   font-weight: 700;
