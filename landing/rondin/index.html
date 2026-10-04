@@ -1,0 +1,2055 @@
+<!doctype html>
+<html lang="es-UY">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rondín | El recorrido de cada camión se arma solo</title>
+<meta name="description" content="Rondín toma los pedidos de tu sistema de facturación, arma las rutas de cada camión, guía al chofer, avisa al cliente por WhatsApp 15 minutos antes y te deja el reporte de cumplimiento de la jornada.">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="canonical" href="https://www.dearmascostantini.com/rondin">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Rondín">
+<meta property="og:locale" content="es_UY">
+<meta property="og:url" content="https://www.dearmascostantini.com/rondin">
+<meta property="og:title" content="Rondín · El recorrido de cada camión se arma solo">
+<meta property="og:description" content="Pedidos que llegan solos, rutas por camión, GPS en vivo y aviso por WhatsApp al cliente. Pedí una demo con los datos de tu empresa.">
+<meta property="og:image" content="https://www.dearmascostantini.com/rondin/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/rondin/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/rondin/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/rondin/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@200&display=swap">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Rondín","applicationCategory":"BusinessApplication","operatingSystem":"Web, Android, iOS","description":"Ruteo de camiones de reparto: toma los pedidos del sistema de facturación, arma las rutas por camión, guía al chofer, avisa al cliente por WhatsApp y mide el cumplimiento.","inLanguage":"es-UY","publisher":{"@type":"Organization","name":"Dearmas & Costantini","url":"https://dearmascostantini.com"}}</script>
+<style>
+:root{
+  --blanco:#FFFFFF; --papel:#F3F5F3; --tinta:#132019; --tinta-2:#4A5751; --tinta-3:#7A8680;
+  --linea:#E0E5E1; --linea-2:#ECEFEC;
+  --ruta:#0B7A55; --ruta-600:#086447; --ruta-50:#E6F4EE; --ruta-100:#CBE8DB; --ruta-clara:#6FD6A8;
+  --chaleco:#F26A1B; --chaleco-600:#D9560B; --chaleco-50:#FFF0E5; --chaleco-borde:#F8C9A6; --chaleco-tinta:#8A3A0B;
+  --azul:#2F64D6; --rojo:#C63A22; --rojo-50:#FCEAE6;
+  --noche:#0E1A14;
+  --wa:#1FA855; --wa-fondo:#E9E1D6;
+  --tierra:#F7F8F5; --manzana:#E4E8E2; --parque:#D6EBD9; --agua:#CFE3EA;
+  --f:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sombra-1:0 1px 2px rgba(19,32,25,.06);
+  --sombra-2:0 1px 2px rgba(19,32,25,.05),0 14px 34px -18px rgba(19,32,25,.25);
+  --sombra-3:0 2px 6px rgba(19,32,25,.08),0 44px 90px -36px rgba(19,32,25,.5);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--blanco);color:var(--tinta);font-family:var(--f);font-size:16.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+img,svg{max-width:100%}
+[hidden]{display:none!important}
+a{color:var(--ruta)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ruta);outline-offset:2px;border-radius:8px}
+::selection{background:var(--ruta-100)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+.wrap{max-width:1160px;margin:0 auto;padding-inline:clamp(16px,4vw,40px)}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.02em;text-wrap:balance}
+h1{font-size:clamp(2.3rem,4.6vw,3.7rem);line-height:1.04;letter-spacing:-.032em}
+h2{font-size:clamp(1.8rem,3.2vw,2.5rem);line-height:1.08;letter-spacing:-.028em}
+h3{font-size:1.1rem;line-height:1.35}
+p{margin:0}
+.sub{font-size:clamp(1.05rem,1.4vw,1.16rem);color:var(--tinta-2);max-width:35rem;line-height:1.55}
+.verde{color:var(--ruta)}
+.seccion{padding-block:clamp(56px,7vw,88px)}
+.seccion.gris{background:var(--papel)}
+.cabeza{display:flex;flex-direction:column;gap:12px;max-width:44rem;margin-bottom:clamp(28px,4vw,40px)}
+.etiqueta{font-size:14px;font-weight:600;color:var(--ruta)}
+
+/* botones */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:48px;padding:0 20px;border-radius:10px;border:1px solid transparent;font:600 15.5px/1 var(--f);text-decoration:none;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.btn-p{background:var(--ruta);color:#fff;box-shadow:0 1px 2px rgba(19,32,25,.12),inset 0 1px 0 rgba(255,255,255,.14)}
+.btn-p:hover{background:var(--ruta-600)}
+.btn-s{background:#fff;color:var(--tinta);border-color:var(--linea);box-shadow:var(--sombra-1)}
+.btn-s:hover{border-color:#C5CDC8}
+.btn-chico{height:38px;padding:0 14px;font-size:14.5px}
+.btn-bloque{width:100%}
+
+/* barra superior */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:rgba(255,255,255,.88);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--linea)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;gap:24px;height:64px}
+.nav-der{display:flex;align-items:center;gap:30px;margin-left:auto}
+.marca{display:inline-flex}
+.marca svg{width:104px;height:auto}
+.nav nav{display:flex;gap:26px}
+.nav nav a{color:var(--tinta);text-decoration:none;font-size:15px;font-weight:700}
+.nav nav a:hover{color:var(--ruta)}
+@media (max-width:760px){.nav nav{display:none}}
+
+/* hero */
+.hero .tel{zoom:.88}
+.hero{background:linear-gradient(180deg,#FFFFFF 0%,var(--papel) 100%);padding-block:clamp(28px,4vw,48px) clamp(28px,4vw,44px);overflow-x:clip}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:clamp(28px,4vw,56px);align-items:center}
+@media (max-width:960px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
+.hero-txt{display:flex;flex-direction:column;gap:22px}
+.pastilla{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ruta);background:var(--ruta-50);border-radius:999px;padding:6px 12px}
+.pastilla i{width:8px;height:8px;border-radius:50%;background:var(--chaleco);box-shadow:0 0 0 3px rgba(242,106,27,.22)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
+.ventajas{list-style:none;margin:6px 0 0;padding:18px 0 0;border-top:1px solid var(--linea);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:620px){.ventajas{grid-template-columns:minmax(0,1fr);gap:10px}}
+.ventajas li{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--tinta-2);line-height:1.4}
+.ventajas li b{color:var(--tinta);font-weight:600;font-size:15px}
+.ventajas li svg{width:22px;height:22px;color:var(--ruta)}
+@media (max-width:620px){.ventajas li{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:10px;row-gap:2px}.ventajas li svg{grid-row:span 2;margin-top:2px}.ventajas li b,.ventajas li span{grid-column:2}}
+
+/* funciona con */
+.funciona-con{border-block:1px solid var(--linea);background:#fff}
+.fc-in{display:flex;align-items:center;gap:28px;min-height:76px}
+.fc-lbl{flex:none;font-size:14px;font-weight:600;color:var(--tinta-3)}
+.fc-marq{flex:1;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+.fc-pista{list-style:none;margin:0;padding:0;display:flex;align-items:center;gap:56px;width:max-content;animation:marquesina 30s linear infinite}
+.fc-marq:hover .fc-pista{animation-play-state:paused}
+.fc-pista li{font-size:19px;font-weight:700;letter-spacing:-.015em;color:#8D9892;white-space:nowrap}
+@keyframes marquesina{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.fc-pista{animation:none;flex-wrap:wrap;width:auto;gap:12px 32px}.fc-pista li[aria-hidden="true"]{display:none}}
+@media (max-width:620px){.fc-in{flex-direction:column;align-items:flex-start;gap:8px;padding-block:16px}.fc-marq{width:100%}}
+
+/* cómo funciona */
+.funciones{display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.22fr);gap:clamp(24px,4vw,56px);align-items:stretch}
+@media (max-width:900px){.funciones{grid-template-columns:minmax(0,1fr)}}
+.tabs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tab{width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--linea);padding:16px 0 16px 18px;cursor:pointer;position:relative;display:flex;flex-direction:column;gap:6px}
+.tabs li:last-child .tab{border-bottom:1px solid var(--linea)}
+.tab::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:3px;border-radius:2px;background:transparent;transition:background .2s}
+.tab[aria-selected="true"]::before{background:var(--ruta)}
+.tab b{font-size:1.08rem;font-weight:600;color:var(--tinta-3);transition:color .2s}
+.tab[aria-selected="true"] b{color:var(--tinta)}
+.tab span{font-size:15px;color:var(--tinta-2);display:none}
+.tab[aria-selected="true"] span{display:block}
+.vista{background:var(--papel);border-radius:20px;padding:clamp(16px,2.6vw,28px);display:flex;align-items:center;justify-content:center;min-height:460px}
+.vista > div{width:100%;max-width:560px}
+.tarjeta{background:#fff;border:1px solid var(--linea);border-radius:14px;box-shadow:var(--sombra-2);padding:16px}
+.t-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-3)}
+.t-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.vivo{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ruta)}
+.vivo i{width:7px;height:7px;border-radius:50%;background:var(--ruta);animation:late 1.4s ease-in-out infinite}
+@keyframes late{50%{opacity:.25}}
+
+/* pedidos que entran */
+.pedidos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pedidos li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--linea-2);font-size:13.5px}
+.pedidos li:first-child{border-top:0}
+.pedidos li b{font-weight:600}
+.pedidos li small{font-family:var(--mono);font-size:11px;color:var(--tinta-3)}
+.pedidos li .asig{grid-row:span 2;align-self:center}
+.pedidos li.entra{animation:entra .5s ease}
+@keyframes entra{from{opacity:0;transform:translateY(-6px);background:var(--ruta-50)}to{opacity:1;transform:none}}
+.chip{font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 8px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.chip i{width:7px;height:7px;border-radius:50%}
+.chip.gris{background:var(--papel);color:var(--tinta-2)}
+.chip.verde{background:var(--ruta-50);color:var(--ruta)}
+.chip.nar{background:var(--chaleco-50);color:var(--chaleco-tinta)}
+.chip.rojo{background:var(--rojo-50);color:var(--rojo)}
+.chip.azul{background:#E8EFFC;color:var(--azul)}
+.origen{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tinta-2);margin-top:12px}
+.origen b{color:var(--tinta)}
+
+/* reparto: mapa del tablero */
+.tablero{padding:0;overflow:hidden}
+.tab-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--linea)}
+.camiones-sel{display:flex;flex-wrap:wrap;gap:6px}
+.cam-chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:999px;border:1px solid var(--linea);background:#fff;font:600 12.5px var(--f);color:var(--tinta);cursor:pointer}
+.cam-chip i{width:10px;height:10px;border-radius:3px}
+.cam-chip[aria-pressed="false"]{color:var(--tinta-3);background:var(--papel);text-decoration:line-through}
+.cam-chip[aria-pressed="false"] i{opacity:.35}
+.mapa-t{display:block;width:100%;height:auto;background:var(--agua)}
+.mapa-t .ruta-l{fill:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+.mapa-t .ruta-l.dib{stroke-dasharray:var(--l);stroke-dashoffset:var(--l);animation:dib 1.3s ease forwards}
+@keyframes dib{to{stroke-dashoffset:0}}
+.res-camiones{display:flex;flex-direction:column}
+.res-cam{display:grid;grid-template-columns:12px minmax(0,1.3fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--linea-2);font-size:12.5px}
+.res-cam i{width:10px;height:10px;border-radius:3px}
+.res-cam b{font-weight:600;display:block}
+.res-cam small{color:var(--tinta-3);font-size:11.5px}
+.cap{height:7px;border-radius:4px;background:var(--linea-2);overflow:hidden}
+.cap span{display:block;height:100%;border-radius:4px;transition:width .5s ease}
+.cap-t{font-family:var(--mono);font-size:10.5px;color:var(--tinta-3);margin-top:3px}
+.res-cam .km{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap}
+.res-pie{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;padding:11px 14px;background:var(--ruta-50);font-size:13px;color:var(--tinta-2)}
+.res-pie b{color:var(--ruta)}
+.res-pie.malo{background:var(--chaleco-50)}
+.res-pie.malo b{color:var(--chaleco-tinta)}
+@media (max-width:520px){.res-cam{grid-template-columns:12px minmax(0,1fr) auto}.res-cam .capc{grid-column:2/-1}}
+
+/* whatsapp */
+.wa{background:var(--wa-fondo);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.wa-cab{display:flex;align-items:center;gap:10px;background:#fff;border-radius:12px;padding:8px 10px;margin:-2px -2px 4px}
+.wa-cab .av{width:32px;height:32px;border-radius:50%;background:var(--ruta);display:grid;place-items:center}
+.wa-cab .av svg{width:20px;height:20px}
+.wa-cab b{font-size:13.5px;display:block;line-height:1.2}
+.wa-cab small{font-size:11px;color:var(--tinta-3)}
+.burbuja{background:#fff;color:#111B21;border-radius:10px 10px 10px 2px;padding:8px 11px 6px;font-size:13.5px;line-height:1.42;max-width:88%;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.burbuja.yo{align-self:flex-end;background:#D9FDD3;border-radius:10px 10px 2px 10px}
+.burbuja time{display:block;text-align:right;font-size:10.5px;color:#667781;margin-top:1px}
+.burbuja a{color:#027EB5;text-decoration:none}
+.link-seg{display:flex;gap:8px;align-items:center;margin-top:6px;background:#F0F2F5;border-radius:8px;padding:6px 8px;font-size:12px;color:#54656F}
+.link-seg svg{width:26px;height:26px;flex:none;border-radius:5px}
+
+/* incidencias */
+.incs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.incs{grid-template-columns:minmax(0,1fr)}}
+.inc{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;gap:8px;text-align:left;cursor:pointer;box-shadow:var(--sombra-1);font-family:var(--f);color:var(--tinta)}
+.inc:hover{border-color:#C5CDC8}
+.inc[aria-pressed="true"]{border-color:var(--chaleco);box-shadow:0 0 0 3px var(--chaleco-50)}
+.inc svg{width:26px;height:26px;color:var(--chaleco)}
+.inc b{font-size:14px}
+.inc span{font-size:12px;color:var(--tinta-3);line-height:1.35}
+.inc-res{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.inc-linea{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px;font-size:13.5px;color:var(--tinta-2)}
+.inc-linea::before{content:"";width:9px;height:9px;border-radius:50%;margin:6px 0 0 4px;background:var(--ruta)}
+.inc-linea.nar::before{background:var(--chaleco)}
+.inc-linea b{color:var(--tinta)}
+
+/* reporte */
+.rep-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+@media (max-width:560px){.rep-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{display:flex;flex-direction:column;gap:1px}
+.kpi small{font-size:11.5px;color:var(--tinta-3)}
+.kpi b{font-size:1.45rem;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal;font-size:11.5px;font-family:var(--mono);color:var(--tinta-3)}
+.kpi em.bien{color:var(--ruta)}
+.kpi em.mal{color:var(--chaleco-tinta)}
+.gantt{display:flex;flex-direction:column;gap:7px}
+.g-fila{display:grid;grid-template-columns:118px minmax(0,1fr) 54px;gap:10px;align-items:center;font-size:12px}
+.g-fila span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tinta-2)}
+.g-pista{position:relative;height:16px;background:var(--papel);border-radius:4px}
+.g-pista i{position:absolute;top:3px;height:10px;border-radius:3px}
+.g-pista i.pl{background:#D5DBD7;top:1px;height:14px}
+.g-pista i.re{background:var(--ruta)}
+.g-pista i.re.tarde{background:var(--chaleco)}
+.g-fila b{font-family:var(--mono);font-weight:500;font-size:11px;text-align:right}
+.g-fila b.tarde{color:var(--chaleco-tinta)}
+.g-ley{display:flex;gap:14px;font-size:11.5px;color:var(--tinta-3);margin-top:10px}
+.g-ley i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+@media (max-width:520px){.g-fila{grid-template-columns:84px minmax(0,1fr) 46px}}
+
+/* tablero de la base */
+.tab-cab{max-width:48rem}
+.ventana{background:#fff;border:1px solid var(--linea);border-radius:16px;box-shadow:var(--sombra-3);overflow:hidden}
+.ventana-barra{display:flex;align-items:center;gap:7px;height:38px;padding:0 14px;background:#F7F8F7;border-bottom:1px solid var(--linea)}
+.ventana-barra i{width:10px;height:10px;border-radius:50%;background:#D5DBD7}
+.ventana-barra span{margin-left:12px;font-family:var(--mono);font-size:11.5px;color:var(--tinta-3);background:#fff;border:1px solid var(--linea);border-radius:7px;padding:3px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ventana-cuerpo{position:relative;overflow:hidden;height:600px}
+.ventana-cuerpo iframe{position:absolute;left:0;top:0;border:0;width:1440px;height:940px;transform-origin:0 0;background:#F4F6F5}
+.ventana-nota{margin-top:12px;font-size:13px;color:var(--tinta-3)}
+@media (max-width:760px){.ventana-cuerpo iframe{position:static;width:100%;height:100%;transform:none}}
+
+/* cuánto ahorrás */
+.ahorro{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:center}
+@media (max-width:900px){.ahorro{grid-template-columns:minmax(0,1fr)}}
+.controles-calc{display:flex;flex-direction:column;gap:26px}
+.campo{display:flex;flex-direction:column;gap:10px}
+.campo label,.campo .lbl{display:flex;justify-content:space-between;gap:12px;font-weight:600}
+.campo output{font-family:var(--mono);font-weight:500;color:var(--ruta);font-variant-numeric:tabular-nums}
+.campo small{color:var(--tinta-3);font-size:13.5px}
+input[type=range]{width:100%;accent-color:var(--ruta);height:24px}
+.segmento{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff;border:1px solid var(--linea);border-radius:12px;padding:4px;gap:4px}
+.segmento button{border:0;background:transparent;border-radius:9px;padding:9px 6px;cursor:pointer;display:flex;flex-direction:column;gap:1px;align-items:center}
+.segmento button b{font-size:14.5px;font-weight:600}
+.segmento button span{font-size:12px;color:var(--tinta-3)}
+.segmento button[aria-pressed="true"]{background:var(--ruta-50);box-shadow:inset 0 0 0 1px var(--ruta-100)}
+.segmento button[aria-pressed="true"] b{color:var(--ruta)}
+.resultado{background:#fff;border:1px solid var(--linea);border-radius:20px;box-shadow:var(--sombra-2);padding:clamp(22px,3vw,30px);display:flex;flex-direction:column;gap:16px}
+.resultado .grande{display:flex;flex-direction:column;gap:2px}
+.resultado .grande span{font-size:14.5px;color:var(--tinta-2)}
+.resultado .grande b{font-size:clamp(2.3rem,4.6vw,3.1rem);font-weight:700;letter-spacing:-.035em;line-height:1.05;font-variant-numeric:tabular-nums}
+.barras{display:flex;flex-direction:column;gap:10px}
+.barra{display:grid;grid-template-columns:92px minmax(0,1fr) 78px;gap:12px;align-items:center;font-size:13.5px}
+.barra span{color:var(--tinta-2)}
+.barra i{display:block;height:12px;border-radius:0 4px 4px 0;background:#C9D1CC;transition:width .35s ease}
+.barra.con i{background:var(--ruta)}
+.barra b{font-family:var(--mono);font-weight:500;font-size:13px;text-align:right}
+.cuentas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;border-top:1px solid var(--linea);padding-top:14px}
+@media (max-width:460px){.cuentas{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.cuentas div{display:flex;flex-direction:column;gap:2px}
+.cuentas span{font-size:13px;color:var(--tinta-3)}
+.cuentas b{font-size:1.2rem;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.cuentas .neto b{color:var(--ruta)}
+.resultado .nota{font-size:12.5px;color:var(--tinta-3)}
+
+/* precios */
+.precios-cab{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px 32px;margin-bottom:clamp(24px,3vw,32px)}
+.precios-cab .cabeza{margin-bottom:0}
+.alternar{display:inline-flex;background:var(--papel);border:1px solid var(--linea);border-radius:12px;padding:4px;gap:4px}
+.alternar button{border:0;background:transparent;border-radius:9px;height:38px;padding:0 16px;font-weight:600;font-size:14.5px;color:var(--tinta-2);cursor:pointer;display:flex;align-items:center;gap:8px}
+.alternar button[aria-pressed="true"]{background:#fff;color:var(--tinta);box-shadow:var(--sombra-1)}
+.alternar em{font-style:normal;font-size:11.5px;color:var(--ruta);background:var(--ruta-50);border-radius:999px;padding:2px 7px}
+.planes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
+@media (max-width:900px){.planes{grid-template-columns:minmax(0,1fr)}}
+.plan{background:#fff;border:1px solid var(--linea);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative}
+.plan.rec{border-color:var(--ruta);box-shadow:0 0 0 3px var(--ruta-50)}
+.plan .marca-rec{position:absolute;top:-12px;left:22px;background:var(--ruta);color:#fff;font-size:12px;font-weight:600;border-radius:999px;padding:4px 10px}
+.plan h3{font-size:1.2rem}
+.plan .vol{font-size:14px;color:var(--tinta-2);margin-top:2px}
+.precio{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.precio b{font-size:2.5rem;font-weight:700;letter-spacing:-.035em;line-height:1}
+.precio span{color:var(--tinta-3);font-size:14px}
+.precio-nota{font-size:12.5px;color:var(--tinta-3);margin-top:-8px}
+.precio-nota:empty{display:none}
+.plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;font-size:14.5px;color:var(--tinta-2)}
+.plan li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px}
+.plan li::before{content:"";width:9px;height:9px;margin:7px 0 0 3px;border-radius:50%;border:2.5px solid var(--ruta)}
+.plan .btn{margin-top:auto}
+.precios-pie{margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 28px;font-size:14px;color:var(--tinta-2);background:var(--papel);border-radius:14px;padding:14px 18px}
+.precios-pie a{font-weight:600;margin-left:auto}
+
+/* preguntas */
+.faq-grid{display:grid;grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr);gap:clamp(24px,4vw,56px);align-items:start}
+@media (max-width:900px){.faq-grid{grid-template-columns:minmax(0,1fr)}}
+.faq-grid .cabeza{margin-bottom:0}
+.faq{border-top:1px solid var(--linea)}
+.faq details{border-bottom:1px solid var(--linea)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:18px 0;font-size:1.05rem;font-weight:600}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";flex:none;width:12px;height:12px;background:linear-gradient(var(--tinta-2),var(--tinta-2)) center/100% 1.8px no-repeat,linear-gradient(var(--tinta-2),var(--tinta-2)) center/1.8px 100% no-repeat;transition:transform .2s}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{padding:0 0 18px;color:var(--tinta-2);max-width:42rem}
+
+/* cierre */
+.cierre{background:var(--noche);color:#fff}
+.cierre-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:clamp(32px,5vw,72px);align-items:center}
+@media (max-width:900px){.cierre-grid{grid-template-columns:minmax(0,1fr)}}
+.cierre h2{color:#fff}
+.cierre .sub{color:#B5C4BC}
+.cierre ul{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.cierre li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;color:#DCE6E0}
+.cierre li::before{content:"";width:10px;height:10px;margin:7px 0 0 4px;border-radius:50%;border:2.5px solid var(--ruta-clara)}
+.form{background:#fff;color:var(--tinta);border-radius:20px;padding:clamp(22px,3vw,30px);display:flex;flex-direction:column;gap:14px;box-shadow:0 30px 70px -30px rgba(0,0,0,.6)}
+.form h3{font-size:1.3rem}
+.dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:520px){.dos{grid-template-columns:minmax(0,1fr)}}
+.f{display:flex;flex-direction:column;gap:6px}
+.f label{font-size:13.5px;font-weight:600}
+.f input,.f select{height:46px;font:500 15.5px var(--f);color:var(--tinta);background:#fff;border:1px solid var(--linea);border-radius:10px;padding:0 12px;width:100%;min-width:0;box-shadow:var(--sombra-1)}
+.f input:focus,.f select:focus{outline:none;border-color:var(--ruta);box-shadow:0 0 0 3px var(--ruta-50)}
+.f input:user-invalid,.f select:user-invalid{border-color:#D92D20}
+.form .legal{font-size:12.5px;color:var(--tinta-3)}
+.gracias{display:flex;flex-direction:column;gap:12px}
+.gracias .copia{font-family:var(--mono);font-size:12.5px;background:var(--papel);border:1px solid var(--linea);border-radius:10px;padding:12px;white-space:pre-wrap}
+.gracias p{color:var(--tinta-2)}
+
+/* pie */
+.pie{padding-block:40px calc(28px + env(safe-area-inset-bottom,0px));background:#fff}
+.pie-grid{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px 40px}
+.pie nav{display:flex;flex-wrap:wrap;gap:10px 24px}
+.pie nav a{font-size:14px;color:var(--tinta-2);text-decoration:none;font-weight:500}
+.pie nav a:hover{color:var(--tinta)}
+.pie-baja{margin-top:28px;padding-top:20px;border-top:1px solid var(--linea);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 32px;font-size:13.5px;color:var(--tinta-3)}
+.producto{font-size:15px;color:var(--tinta-2)}
+.producto a{color:var(--tinta);font-weight:600;text-decoration:none;border-bottom:1px solid var(--linea);padding-bottom:1px;transition:border-color .15s,color .15s}
+.producto a:hover{color:var(--ruta);border-bottom-color:var(--ruta)}
+.amp{font-family:'DM Sans',var(--f);font-weight:200;color:#C4A882}
+.privacidad summary{cursor:pointer;font-weight:600;color:var(--tinta-2)}
+.privacidad p{margin-top:8px;font-size:13px;color:var(--tinta-3);max-width:48rem}
+.pie-baja a{color:var(--tinta-2)}
+
+.fijo-movil{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(255,255,255,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--linea);transform:translateY(110%);transition:transform .25s ease;display:none}
+.fijo-movil.vis{transform:none}
+@media (max-width:760px){.fijo-movil{display:block}}
+
+/* ============ escenario de la demo y celular ============ */
+.escenario{display:flex;flex-direction:column;align-items:center;gap:14px;position:relative}
+.pasos-demo{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.pasos-demo button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--linea);background:#fff;color:var(--tinta-3);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .2s}
+.pasos-demo button span{font-family:var(--mono);font-size:11.5px}
+.pasos-demo button:hover{color:var(--tinta);border-color:#C5CDC8}
+.pasos-demo button[aria-current="step"]{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.pasos-demo button.hecho{background:var(--ruta-50);border-color:transparent;color:var(--ruta)}
+@media (max-width:420px){.pasos-demo{gap:4px}.pasos-demo button{padding:0 9px;font-size:12.5px;gap:5px}}
+
+.tel{width:300px;max-width:100%;border-radius:48px;background:#0B120E;padding:9px;box-shadow:var(--sombra-3),inset 0 0 0 1.5px #2A3A31}
+.pantalla{position:relative;height:600px;border-radius:40px;overflow:hidden;background:#fff;color:var(--tinta);font-size:13px;line-height:1.35}
+.pantalla h4,.pantalla p{margin:0}
+.isla{position:absolute;top:10px;left:50%;width:86px;height:24px;margin-left:-43px;border-radius:14px;background:#000;z-index:30}
+.scr{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;visibility:hidden;transform:translateX(14px);transition:opacity .28s ease,transform .28s ease,visibility 0s linear .28s}
+.scr.activa{opacity:1;visibility:visible;transform:none;transition:opacity .28s ease,transform .28s ease,visibility 0s}
+.estado{height:46px;flex:none;display:flex;justify-content:space-between;align-items:flex-end;padding:0 26px 6px;font-size:12.5px;font-weight:600;position:relative;z-index:5}
+.estado svg{width:42px;height:12px}
+.con-barra{padding-bottom:72px}
+.app-sec{background:#F5F7F5}
+
+/* hoy */
+.ini-top{flex:none;display:flex;align-items:center;justify-content:space-between;padding:4px 16px 8px}
+.ini-top .wm{display:block;width:78px}
+.ini-top .wm svg{width:100%;height:auto;display:block}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--tinta);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.ini-acc{display:flex;gap:8px;align-items:center}
+.gps{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:var(--ruta);background:var(--ruta-50);border-radius:999px;padding:3px 8px}
+.gps i{width:6px;height:6px;border-radius:50%;background:var(--ruta);animation:late 1.4s infinite}
+.ini-cuerpo{flex:1;min-height:0;padding:0 14px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.hola{font-size:12.5px;color:var(--tinta-2)}
+.hola b{color:var(--tinta)}
+.jornada{background:var(--ruta);color:#fff;border-radius:16px;padding:12px 13px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 24px -16px rgba(11,122,85,.9)}
+.jornada small{font-size:11px;opacity:.85}
+.jornada .j-num{display:flex;gap:14px;align-items:baseline}
+.jornada .j-num b{font-size:21px;letter-spacing:-.02em;line-height:1.1}
+.jornada .j-num > span{font-size:11.5px;opacity:.85}
+.j-cap{display:flex;flex-direction:column;gap:4px;font-size:10.5px;opacity:.95}
+.j-cap .cap{background:rgba(255,255,255,.22);height:6px}
+.j-cap .cap span{background:#fff}
+.mini-mapa{border-radius:12px;overflow:hidden;border:1px solid var(--linea);background:var(--agua);height:112px;position:relative}
+.mini-mapa svg{display:block;width:100%;height:100%}
+.mini-mapa .ley{position:absolute;left:8px;bottom:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.9);border-radius:6px;padding:2px 6px}
+.bloque-t{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;font-weight:700}
+.bloque-t span{font-size:11px;font-weight:600;color:var(--tinta-3)}
+.paradas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.mas-parada{border:0;background:var(--ruta-50);color:var(--ruta);font:700 11px var(--f);border-radius:999px;padding:4px 9px;cursor:pointer}
+.mas-parada:hover{background:var(--ruta-100)}
+.mas-parada:disabled{background:var(--papel);color:var(--tinta-3);cursor:default}
+.opciones .ic.verde{background:var(--ruta-50);color:var(--ruta)}
+.opciones button.add:hover{border-color:var(--ruta);background:var(--ruta-50)}
+.parada.nueva{animation:entra .8s ease;border-color:var(--ruta-100)}
+.parada{width:100%;display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:9px;align-items:center;background:#fff;border:1px solid var(--linea);border-radius:12px;padding:7px 9px;text-align:left;cursor:pointer;font-family:var(--f);color:var(--tinta)}
+.parada:hover{border-color:#C5CDC8}
+.parada .n{width:22px;height:22px;border-radius:50%;background:var(--papel);display:grid;place-items:center;font-size:10.5px;font-weight:700;color:var(--tinta-2)}
+.parada.hecha .n{background:var(--ruta-50);color:var(--ruta)}
+.parada.actual .n{background:var(--chaleco);color:#fff}
+.parada b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.parada small{display:block;font-size:10.5px;color:var(--tinta-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.parada .der{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.parada .hora{font-family:var(--mono);font-size:10.5px;color:var(--tinta-2)}
+.sec-top{flex:none;display:flex;justify-content:space-between;align-items:baseline;padding:2px 16px 10px}
+.sec-top b{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.sec-top span{font-size:12px;color:var(--tinta-3);font-weight:600}
+.sec-cuerpo{flex:1;min-height:0;padding:0 14px 10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:none}
+.sec-cuerpo::-webkit-scrollbar{display:none}
+.filtros{flex:none;display:flex;gap:6px}
+.filtro{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--linea);background:#fff;font:700 11.5px var(--f);color:var(--tinta-2);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.filtro span{font-size:10px;background:var(--papel);border-radius:999px;padding:1px 5px}
+.filtro.act{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.filtro.act span{background:rgba(255,255,255,.2)}
+.vacio{font-size:12px;color:var(--tinta-3);text-align:center;padding:14px 0}
+.grupo{flex:none;background:#fff;border:1px solid var(--linea);border-radius:14px;overflow:hidden}
+.fila-aj{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-bottom:1px solid var(--linea-2);background:#fff;font:500 12.5px var(--f);color:var(--tinta);text-align:left}
+.grupo > :last-child{border-bottom:0}
+.fila-aj > b{font-weight:600;margin-left:auto;text-align:right}
+.fila-aj > i{font-style:normal;color:var(--tinta-3)}
+button.fila-aj{cursor:pointer}
+button.fila-aj:hover{background:#FAFCFA}
+.zonas{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.zona{height:24px;padding:0 8px;border-radius:999px;border:1px solid var(--linea);background:#fff;font:700 10.5px var(--f);color:var(--tinta-3);cursor:pointer}
+.zona[aria-pressed="true"]{background:var(--ruta-50);border-color:var(--ruta-100);color:var(--ruta)}
+.aj-pie{font-size:10.5px;color:var(--tinta-3);text-align:center;padding-top:2px;line-height:1.4}
+.registro{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.registro li{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:8px 10px;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:9px;align-items:start}
+.registro .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center}
+.registro .ic svg{width:15px;height:15px}
+.registro .ic.wa{background:#E3F6EA;color:var(--wa)}
+.registro .ic.nar{background:var(--chaleco-50);color:var(--chaleco)}
+.registro .ic.ok{background:var(--ruta-50);color:var(--ruta)}
+.registro b{display:block;font-size:12px;font-weight:600}
+.registro small{display:block;font-size:10.5px;color:var(--tinta-3);line-height:1.35}
+.registro time{font-family:var(--mono);font-size:10px;color:var(--tinta-3)}
+.registro li.nuevo{animation:entra .6s ease}
+
+/* barra de pestañas */
+.barra-tab{position:absolute;left:0;right:0;bottom:0;z-index:12;display:grid;grid-template-columns:repeat(5,1fr);align-items:end;padding:8px 6px 16px;background:#fff;border-top:1px solid var(--linea);transition:transform .25s ease,opacity .2s}
+.pantalla:not([data-scr="hoy"]):not([data-scr="entregas"]):not([data-scr="avisos"]):not([data-scr="camion"]) .barra-tab{transform:translateY(105%);opacity:0;pointer-events:none}
+.barra-tab .t{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;color:var(--tinta-3);font-weight:600;background:none;border:0;padding:0;cursor:pointer;font-family:var(--f)}
+.barra-tab .t:hover{color:var(--tinta)}
+.barra-tab .t svg{width:18px;height:18px}
+.barra-tab .t[aria-current="page"]{color:var(--ruta)}
+.fab{justify-self:center;width:58px;height:58px;border-radius:50%;background:var(--ruta);border:4px solid #fff;margin-top:-30px;display:grid;place-items:center;color:#fff;box-shadow:0 10px 22px -8px rgba(11,122,85,.95);cursor:pointer;position:relative;padding:0;font:800 10.5px var(--f);letter-spacing:.02em}
+.fab svg{width:22px;height:22px}
+.fab::after{content:"";position:absolute;inset:-9px;border-radius:50%;border:2px solid rgba(11,122,85,.5);animation:pulso 1.8s ease-out infinite}
+.demo.tocado .fab::after{display:none}
+@keyframes pulso{0%{transform:scale(.85);opacity:1}100%{transform:scale(1.28);opacity:0}}
+.pista{position:absolute;bottom:86px;left:50%;transform:translateX(-50%);background:var(--tinta);color:#fff;font-size:12px;font-weight:600;padding:7px 11px;border-radius:9px;white-space:nowrap;box-shadow:0 8px 18px rgba(0,0,0,.2);z-index:13;pointer-events:none}
+.pista::after{content:"";position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:var(--tinta)}
+.demo.tocado .pista,.pantalla:not([data-scr="hoy"]) .pista{display:none}
+
+/* navegación */
+.nav-scr{background:var(--agua)}
+.nav-mapa{position:absolute;inset:0}
+.nav-mapa svg{width:100%;height:100%;display:block}
+.nav-mapa #mundo-nav{transition:transform .12s linear}
+.instr{position:absolute;top:46px;left:10px;right:10px;z-index:6;background:var(--ruta);color:#fff;border-radius:16px;padding:10px 12px;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:center;box-shadow:0 10px 24px -10px rgba(0,0,0,.45)}
+.instr .flecha{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.16);display:grid;place-items:center}
+.instr .flecha svg{width:26px;height:26px;transition:transform .25s}
+.instr b{display:block;font-size:19px;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.instr span{display:block;font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.instr-luego{position:absolute;top:118px;left:10px;z-index:6;background:#085C40;color:#fff;font-size:11px;font-weight:600;border-radius:0 0 10px 10px;padding:4px 10px 5px;display:flex;align-items:center;gap:6px}
+.instr-luego svg{width:13px;height:13px}
+.velocidad{position:absolute;left:10px;bottom:176px;z-index:6;width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:var(--sombra-2);display:grid;place-items:center;text-align:center;line-height:1}
+.velocidad b{font-size:15px;display:block}
+.velocidad small{font-size:8px;color:var(--tinta-3);font-weight:700}
+.btn-inc{position:absolute;right:10px;bottom:176px;z-index:6;height:42px;padding:0 12px;border-radius:999px;border:0;background:#fff;box-shadow:var(--sombra-2);display:flex;align-items:center;gap:6px;font:700 12px var(--f);color:var(--chaleco-tinta);cursor:pointer}
+.btn-inc svg{width:18px;height:18px;color:var(--chaleco)}
+.nav-abajo{position:absolute;left:0;right:0;bottom:0;z-index:6;background:#fff;border-radius:22px 22px 0 0;padding:12px 14px 18px;box-shadow:0 -10px 30px -12px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px}
+.eta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));text-align:center;gap:4px}
+.eta b{display:block;font-size:17px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.eta b.verde{color:var(--ruta)}
+.eta small{font-size:10.5px;color:var(--tinta-3)}
+.destino{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--linea-2);padding-top:9px}
+.destino b{display:block;font-size:13px}
+.destino small{display:block;font-size:10.5px;color:var(--tinta-3)}
+.destino .chip{flex:none}
+.nav-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.app-btn{width:100%;height:44px;border:0;border-radius:13px;background:var(--ruta);color:#fff;font:700 14px var(--f);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.app-btn:hover{background:var(--ruta-600)}
+.app-btn.sec{background:var(--papel);color:var(--tinta);border:1px solid var(--linea)}
+.app-btn.nar{background:var(--chaleco)}
+.app-btn:disabled{opacity:.45;cursor:default}
+
+/* aviso whatsapp dentro del celular */
+.noti{position:absolute;left:8px;right:8px;top:40px;z-index:25;background:rgba(250,250,250,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:18px;padding:10px 12px;box-shadow:0 14px 34px -10px rgba(0,0,0,.4);display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;transform:translateY(-140%);transition:transform .45s cubic-bezier(.2,.9,.25,1.1)}
+.noti.vis{transform:none}
+.noti .ic{width:30px;height:30px;border-radius:8px;background:var(--wa);display:grid;place-items:center}
+.noti .ic svg{width:18px;height:18px}
+.noti b{font-size:12px;display:flex;justify-content:space-between;gap:6px}
+.noti b time{font-weight:500;color:var(--tinta-3);font-size:10.5px}
+.noti p{font-size:11.5px;color:var(--tinta-2);line-height:1.35;margin-top:2px}
+
+/* hojas */
+.velo{position:absolute;inset:0;background:rgba(10,20,15,.42);opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s;z-index:14}
+.velo.abierto{opacity:1;visibility:visible;transition:opacity .25s}
+.hoja{position:absolute;left:0;right:0;bottom:0;z-index:15;background:#fff;border-radius:24px 24px 0 0;padding:10px 16px 20px;transform:translateY(102%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.hoja.abierta{transform:none}
+.hoja .agarre{width:36px;height:5px;border-radius:3px;background:#D5DBD7;margin:0 auto 12px}
+.hoja > b{display:block;font-size:16px;margin-bottom:4px}
+.hoja > p{font-size:11.5px;color:var(--tinta-3);margin-bottom:10px}
+.opciones{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.opciones button{width:100%;display:grid;grid-template-columns:34px 1fr;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--linea);border-radius:12px;background:#fff;text-align:left;cursor:pointer;font-family:var(--f)}
+.opciones button:hover{border-color:var(--chaleco);background:var(--chaleco-50)}
+.opciones .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--chaleco-50);color:var(--chaleco)}
+.opciones .ic svg{width:18px;height:18px}
+.opciones b{display:block;font-size:13px}
+.opciones small{display:block;font-size:10.5px;color:var(--tinta-3)}
+.det-filas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--linea)}
+.det-filas li{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:8px 2px;border-bottom:1px solid var(--linea)}
+.det-filas li span{color:var(--tinta-2)}
+.det-filas li b{font-weight:600;text-align:right}
+.aviso-flotante{position:absolute;left:12px;right:12px;bottom:192px;z-index:7;background:var(--tinta);color:#fff;font-size:12px;border-radius:12px;padding:10px 12px;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none;line-height:1.4}
+.aviso-flotante.vis{opacity:1;transform:none}
+
+/* llegada */
+.llegada{background:#F5F7F5}
+.lleg-top{padding:4px 16px 12px;display:flex;flex-direction:column;gap:3px}
+.lleg-top .chip{align-self:flex-start;margin-bottom:4px}
+.lleg-top b{font-size:20px;letter-spacing:-.02em;line-height:1.15}
+.lleg-top small{font-size:11.5px;color:var(--tinta-3)}
+.lleg-cuerpo{flex:1;min-height:0;padding:0 14px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.lleg-cuerpo .det-filas{border-top:0}
+.lleg-cuerpo .det-filas li{padding:6px 2px;font-size:12px}
+.bultos{background:#fff;border:1px solid var(--linea);border-radius:14px;overflow:hidden}
+.bultos li{display:flex;justify-content:space-between;gap:10px;padding:8px 11px;border-bottom:1px solid var(--linea-2);font-size:12px}
+.bultos li:last-child{border-bottom:0}
+.bultos li span{font-family:var(--mono);font-size:11px;color:var(--tinta-2);white-space:nowrap}
+.bultos ul{list-style:none;margin:0;padding:0}
+.firma{background:#fff;border:1px dashed #C5CDC8;border-radius:14px;height:70px;position:relative;display:grid;place-items:center;font-size:11px;color:var(--tinta-3);cursor:pointer;overflow:hidden}
+.firma svg{position:absolute;inset:0;width:100%;height:100%}
+.firma path{fill:none;stroke:var(--tinta);stroke-width:2;stroke-linecap:round;stroke-dasharray:420;stroke-dashoffset:420}
+.firma.hecha path{animation:trazo 1s ease forwards}
+.firma.hecha span{display:none}
+@keyframes trazo{to{stroke-dashoffset:0}}
+.lleg-pie{flex:none;padding:10px 14px 20px;display:flex;flex-direction:column;gap:7px}
+.lleg-pie .fila2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.app-btn.chico{height:38px;font-size:12.5px}
+
+/* reporte en el celular */
+.rep-scr{background:#F5F7F5}
+.rep-cuerpo{flex:1;min-height:0;padding:0 14px 12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:none}
+.rep-cuerpo::-webkit-scrollbar{display:none}
+.rep-cab{background:var(--tinta);color:#fff;border-radius:16px;padding:12px 13px;display:flex;flex-direction:column;gap:2px}
+.rep-cab small{font-size:10.5px;opacity:.75}
+.rep-cab b{font-size:19px;letter-spacing:-.02em}
+.rep-cab .sello{align-self:flex-start;margin-top:6px;font-size:10.5px;font-weight:700;background:rgba(111,214,168,.18);color:var(--ruta-clara);border-radius:999px;padding:3px 8px}
+.rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rep-grid div{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column}
+.rep-grid small{font-size:10px;color:var(--tinta-3)}
+.rep-grid b{font-size:17px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rep-grid em{font-style:normal;font-family:var(--mono);font-size:9.5px;color:var(--tinta-3)}
+.rep-grid em.bien{color:var(--ruta)}
+.rep-grid em.mal{color:var(--chaleco-tinta)}
+.rep-lista{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:4px 10px}
+.rep-lista li{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:6px 0;border-bottom:1px solid var(--linea-2)}
+.rep-lista li:last-child{border-bottom:0}
+.rep-lista ul{list-style:none;margin:0;padding:0}
+.rep-lista span{color:var(--tinta-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rep-lista b{font-family:var(--mono);font-weight:500;font-size:10.5px;white-space:nowrap}
+.rep-lista b.tarde{color:var(--chaleco-tinta)}
+.rep-lista b.bien{color:var(--ruta)}
+</style>
+</head>
+<body>
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a href="#top" class="marca" aria-label="Rondín, ir al inicio"><svg viewBox="0 6 394 100" role="img" aria-label="Rondín"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path class="wm-l" d="M10 44V100M10 70A26 26 0 0 1 36 44H40 M144 44V100M144 72A28 28 0 0 1 200 72V100 M280 72A28 28 0 1 0 224 72A28 28 0 1 0 280 72M280 14V100 M304 44V100 M328 44V100M328 72A28 28 0 0 1 384 72V100 M300 32L314 16" stroke="#132019" stroke-width="11"/><path class="wm-c" d="M92.0 44.0A28 28 0 1 1 71.2 53.3M72.0 68.8L71.2 53.3L55.7 54.1" stroke="#0B7A55" stroke-width="11"/></g><circle cx="92.0" cy="44.0" r="9" fill="#F26A1B"/></svg></a>
+    <div class="nav-der">
+      <nav aria-label="Secciones">
+        <a href="#como">Cómo funciona</a>
+        <a href="#tablero">Tablero</a>
+        <a href="#ahorro">Cuánto ahorrás</a>
+        <a href="#precios">Precios</a>
+        <a href="#preguntas">Preguntas</a>
+      </nav>
+      <a class="btn btn-p btn-chico" href="#contacto" data-evento="cta_barra">Pedir una demo</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div class="hero-txt">
+      <span class="pastilla"><i></i> Para distribuidoras y empresas con reparto propio</span>
+      <h1>El recorrido de cada camión se arma solo. <span class="verde">Vos solo cargás.</span></h1>
+      <p class="sub">Los pedidos llegan solos desde tu sistema de facturación. Rondín arma la ruta de cada camión, guía al chofer y le avisa al cliente 15 minutos antes de llegar.</p>
+      <div class="ctas">
+        <a class="btn btn-p" href="#contacto" data-evento="cta_hero">Pedir una demo</a>
+        <a class="btn btn-s" href="#demo" data-evento="cta_demo">Ver la demo</a>
+      </div>
+      <ul class="ventajas">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/></svg><b>Rutas sin armar a mano</b><span>Cada pedido va al camión que corresponde, por zona y por carga.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5z"/><path d="M12 8v4l2.5 1.5"/></svg><b>El cliente sabe cuándo llegás</b><span>Aviso por WhatsApp a 15 minutos, sin que nadie llame.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><b>Cada jornada, medida</b><span>Qué se entregó, a qué hora y cuánto se demoró.</span></li>
+      </ul>
+    </div>
+
+    <div class="escenario demo" id="demo">
+      <div class="tel">
+        <div class="pantalla" id="pantalla" data-scr="hoy">
+          <div class="isla" aria-hidden="true"></div>
+
+          <div class="noti" id="noti" role="status" aria-live="polite">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3zm4.6 12.4c-.2.6-1.1 1.1-1.6 1.2-.4.1-1 .1-1.6-.1-3-1-5-3.9-5.2-4.1-.2-.2-1.2-1.6-1.2-3s.8-2.1 1-2.4c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.4.6c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.1 1 2.1 1.3 2.4 1.4.3.2.5.1.6 0l.9-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.4.2.5.3.1.2.1.6-.2 1.2z"/></svg></span>
+            <div><b><span id="noti-t">WhatsApp enviado</span><time id="noti-h">08:14</time></b><p id="noti-p">Aviso a Almacén El Sol: tu pedido llega en 15 minutos.</p></div>
+          </div>
+
+          <!-- HOY -->
+          <section class="scr app-sec con-barra activa" data-scr="hoy" aria-label="Jornada de hoy">
+            <div class="estado"><span data-reloj>07:52</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="ini-top">
+              <span class="wm"><svg viewBox="0 6 394 100" role="img" aria-label="Rondín"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path class="wm-l" d="M10 44V100M10 70A26 26 0 0 1 36 44H40 M144 44V100M144 72A28 28 0 0 1 200 72V100 M280 72A28 28 0 1 0 224 72A28 28 0 1 0 280 72M280 14V100 M304 44V100 M328 44V100M328 72A28 28 0 0 1 384 72V100 M300 32L314 16" stroke="#132019" stroke-width="11"/><path class="wm-c" d="M92.0 44.0A28 28 0 1 1 71.2 53.3M72.0 68.8L71.2 53.3L55.7 54.1" stroke="#0B7A55" stroke-width="11"/></g><circle cx="92.0" cy="44.0" r="9" fill="#F26A1B"/></svg></span>
+              <span class="ini-acc"><span class="gps"><i></i>GPS</span><span class="avatar">MS</span></span>
+            </div>
+            <div class="ini-cuerpo">
+              <p class="hola">Hola, <b>Martín</b> · <span data-m="camion-corto">Camión 2 · SCD 2210</span></p>
+              <div class="jornada">
+                <small>Tu jornada de hoy · lunes 28/09</small>
+                <div class="j-num"><b><span data-m="n-paradas">7</span> entregas</b><span><span data-m="km-plan">48</span> km · <span data-m="horas-plan">6 h 10</span></span></div>
+                <div class="j-cap"><span><span data-m="kg-carga">1.980</span> kg cargados de <span data-m="kg-cap">2.500</span></span><div class="cap"><span id="j-cap-bar" style="width:79%"></span></div></div>
+              </div>
+              <div class="mini-mapa" id="mini-mapa" aria-hidden="true"></div>
+              <div class="bloque-t">Próximas entregas <button type="button" class="mas-parada" data-accion="agregar" id="btn-agregar">+ Agregar parada</button></div>
+              <ul class="paradas" id="hoy-paradas"></ul>
+            </div>
+            <div class="aviso-flotante" id="aviso-hoy" style="bottom:84px"></div>
+            <div class="pista" id="pista">Tocá para iniciar la jornada</div>
+          </section>
+
+          <!-- ENTREGAS -->
+          <section class="scr app-sec con-barra" data-scr="entregas" aria-label="Entregas">
+            <div class="estado"><span data-reloj>07:52</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="sec-top"><b>Entregas</b><span id="ent-cuenta">0 de 7</span></div>
+            <div class="sec-cuerpo">
+              <div class="filtros" role="group" aria-label="Filtrar entregas">
+                <button type="button" class="filtro act" data-filtro="todas">Todas <span data-m="n-paradas">7</span></button>
+                <button type="button" class="filtro" data-filtro="pend">Pendientes <span id="f-pend">7</span></button>
+                <button type="button" class="filtro" data-filtro="ok">Entregadas <span id="f-ok">0</span></button>
+              </div>
+              <ul class="paradas" id="ent-lista"></ul>
+            </div>
+          </section>
+
+          <!-- AVISOS -->
+          <section class="scr app-sec con-barra" data-scr="avisos" aria-label="Avisos e incidencias">
+            <div class="estado"><span data-reloj>07:52</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="sec-top"><b>Avisos</b><span>Hoy</span></div>
+            <div class="sec-cuerpo">
+              <button type="button" class="app-btn nar chico" data-accion="incidencia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:17px;height:17px"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>Avisar a la base</button>
+              <ul class="registro" id="registro"></ul>
+            </div>
+          </section>
+
+          <!-- CAMIÓN -->
+          <section class="scr app-sec con-barra" data-scr="camion" aria-label="Mi camión">
+            <div class="estado"><span data-reloj>07:52</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="sec-top"><b>Mi camión</b><span>SCD 2210</span></div>
+            <div class="sec-cuerpo">
+              <div class="grupo">
+                <div class="fila-aj"><i>Vehículo</i><b>Hyundai HD65</b></div>
+                <div class="fila-aj"><i>Carga máxima</i><b>2.500 kg · 14 m³</b></div>
+                <div class="fila-aj"><i>Refrigerado</i><b>No</b></div>
+                <div class="fila-aj"><i>Horario</i><b>08:00 a 17:00</b></div>
+              </div>
+              <div class="grupo">
+                <div class="fila-aj"><i>Zonas</i><span class="zonas" id="zonas-c2"><button type="button" class="zona" aria-pressed="true" data-zona="Oeste">Oeste</button><button type="button" class="zona" aria-pressed="true" data-zona="Centro">Centro</button><button type="button" class="zona" aria-pressed="false" data-zona="Este">Este</button></span></div>
+                <div class="fila-aj"><i>Chofer</i><b>Martín Silva</b></div>
+                <div class="fila-aj"><i>Peón</i><b>Diego Rodríguez</b></div>
+              </div>
+              <div class="grupo">
+                <div class="fila-aj"><i>Combustible</i><b id="comb">38 %</b></div>
+                <div class="fila-aj"><i>Próximo service</i><b>en 1.240 km</b></div>
+                <div class="fila-aj"><i>Kilómetros hoy</i><b id="km-hoy">0,0 km</b></div>
+              </div>
+              <p class="aj-pie">Las zonas y la carga de cada camión se definen en el tablero de la base. Probá sacarle una zona: el reparto de la sección «Cómo funciona» se rearma.</p>
+            </div>
+          </section>
+
+          <!-- NAVEGACIÓN -->
+          <section class="scr nav-scr" data-scr="nav" aria-label="Navegación">
+            <div class="nav-mapa" id="nav-mapa" aria-hidden="true"></div>
+            <div class="estado" style="color:var(--tinta)"><span data-reloj>08:00</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="instr" aria-live="polite">
+              <span class="flecha"><svg id="instr-flecha" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 20V11h9"/><path d="M13.5 7.5 17 11l-3.5 3.5"/></svg></span>
+              <div><b id="instr-d">400 m</b><span id="instr-t">Doblá a la derecha por Av. Italia</span></div>
+            </div>
+            <div class="instr-luego" id="instr-luego"><span>Luego</span><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 20V11h9"/><path d="M13.5 7.5 17 11l-3.5 3.5"/></svg></div>
+            <div class="velocidad"><div><b id="vel">38</b><small>km/h</small></div></div>
+            <button type="button" class="btn-inc" data-accion="incidencia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>Avisar</button>
+            <div class="aviso-flotante" id="aviso-nav"></div>
+            <div class="nav-abajo">
+              <div class="eta">
+                <div><b class="verde" id="eta-h">08:19</b><small>llegada</small></div>
+                <div><b id="eta-m">19 min</b><small>faltan</small></div>
+                <div><b id="eta-k">6,1 km</b><small>distancia</small></div>
+              </div>
+              <div class="destino">
+                <div><b id="dest-n">Almacén El Sol</b><small id="dest-d">Parada 1 de 7 · Av. Rivera 2310</small></div>
+                <span class="chip gris" id="dest-chip">Aviso a 15 min</span>
+              </div>
+              <div class="nav-btns">
+                <button type="button" class="app-btn sec" data-accion="acelerar" id="btn-acel">Adelantar ›</button>
+                <button type="button" class="app-btn" data-accion="llegue" id="btn-llegue" disabled>Llegué</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- LLEGADA -->
+          <section class="scr llegada" data-scr="llegada" aria-label="Entrega">
+            <div class="estado"><span data-reloj>08:19</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="lleg-top">
+              <span class="chip verde" id="lleg-chip">Llegaste 08:19 · a tiempo</span>
+              <b id="lleg-n">Almacén El Sol</b>
+              <small id="lleg-d">Av. Rivera 2310 · e-Factura A 0045127</small>
+            </div>
+            <div class="lleg-cuerpo">
+              <div class="bultos"><ul id="lleg-bultos"></ul></div>
+              <ul class="det-filas" id="lleg-info"></ul>
+              <button type="button" class="firma" id="firma" aria-label="Firma del cliente"><svg viewBox="0 0 260 70" aria-hidden="true"><path d="M30 48c10-22 18-30 22-18s-6 22 2 14 14-26 20-18-4 20 6 14 10-14 18-10 6 12 14 6 12-12 24-10 18 8 30 2"/></svg><span>Tocá para que el cliente firme</span></button>
+            </div>
+            <div class="lleg-pie">
+              <button type="button" class="app-btn" data-accion="entregado">Entregado</button>
+              <div class="fila2">
+                <button type="button" class="app-btn sec chico" data-accion="parcial">Entrega parcial</button>
+                <button type="button" class="app-btn sec chico" data-accion="norecibe">No recibió</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ENTREGADO: seguir o terminar -->
+          <section class="scr llegada" data-scr="siguiente" aria-label="Entrega registrada">
+            <div class="estado"><span data-reloj>08:25</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="lleg-top">
+              <span class="chip verde" id="sig-chip">Entregado 08:25</span>
+              <b id="sig-t">Listo, quedó registrado.</b>
+              <small id="sig-d">El sistema ya lo sabe. Próxima parada:</small>
+            </div>
+            <div class="lleg-cuerpo">
+              <ul class="paradas" id="sig-paradas"></ul>
+            </div>
+            <div class="lleg-pie">
+              <button type="button" class="app-btn" data-accion="siguiente" id="btn-sig">Ir a la próxima entrega</button>
+              <button type="button" class="app-btn sec" data-accion="terminar">Terminar jornada</button>
+            </div>
+          </section>
+
+          <!-- REPORTE -->
+          <section class="scr rep-scr" data-scr="reporte" aria-label="Reporte de la jornada">
+            <div class="estado"><span data-reloj>14:32</span><svg viewBox="0 0 42 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0.5" width="3" height="11.5" rx="1"/></g><rect x="22.5" y="1" width="16.5" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="24.5" y="3" width="11" height="6" rx="1.5" fill="currentColor"/><rect x="40.2" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/></svg></div>
+            <div class="sec-top"><b>Jornada terminada</b><span></span></div>
+            <div class="rep-cuerpo" id="rep-cuerpo"></div>
+            <div class="lleg-pie"><button type="button" class="app-btn sec" data-accion="reiniciar">Volver a empezar la demo</button></div>
+          </section>
+
+          <div class="velo" id="velo"></div>
+          <div class="hoja" id="hoja-inc" role="dialog" aria-label="Avisar a la base">
+            <div class="agarre"></div>
+            <b>¿Qué pasó?</b>
+            <p>La base lo ve al instante y, si hace falta, reparte tus entregas.</p>
+            <ul class="opciones">
+              <li><button type="button" data-inc="desvio"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V9a4 4 0 0 1 4-4h8"/><path d="m15 2 3 3-3 3"/><path d="M6 13h7"/></svg></span><span><b>Cambio de ruta</b><small>Corte, obra o tránsito: recalcula el camino</small></span></button></li>
+              <li><button type="button" data-inc="combustible"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M4 10h10"/><path d="M14 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg></span><span><b>Cargar combustible</b><small>Suma la estación más cercana a la ruta</small></span></button></li>
+              <li><button type="button" data-inc="mecanico"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg></span><span><b>Problema mecánico</b><small>Frena la ruta y pasa tus entregas a otro camión</small></span></button></li>
+            </ul>
+          </div>
+          <div class="hoja" id="hoja-add" role="dialog" aria-label="Agregar una parada">
+            <div class="agarre"></div>
+            <b>Agregar una parada</b>
+            <p>Antes de salir. La base lo ve y el recorrido se recalcula con la carga y los horarios.</p>
+            <ul class="opciones" id="add-lista"></ul>
+            <div style="margin-top:10px"><button type="button" class="app-btn sec chico" data-accion="cerrar-hoja">Cancelar</button></div>
+          </div>
+          <div class="hoja" id="hoja-det" role="dialog" aria-label="Detalle de la entrega">
+            <div class="agarre"></div>
+            <b id="det-n">Almacén El Sol</b>
+            <p id="det-d">Av. Rivera 2310 · Pocitos</p>
+            <ul class="det-filas" id="det-filas"></ul>
+            <div style="margin-top:12px"><button type="button" class="app-btn sec" data-accion="cerrar-hoja">Cerrar</button></div>
+          </div>
+
+          <nav class="barra-tab" aria-label="Menú de la app">
+            <button type="button" class="t" data-ir="hoy" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/><path d="M9.5 21v-6h5v6"/></svg>Hoy</button>
+            <button type="button" class="t" data-ir="entregas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/></svg>Entregas</button>
+            <button type="button" class="fab" data-accion="iniciar" id="fab" aria-label="Iniciar jornada"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2.5 20 21l-8-4-8 4z"/></svg></button>
+            <button type="button" class="t" data-ir="avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Avisos</button>
+            <button type="button" class="t" data-ir="camion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h11v10H2zM13 9.5h4.5L21 13v3h-8z"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>Camión</button>
+          </nav>
+        </div>
+      </div>
+      <ol class="pasos-demo" aria-label="Pasos de la demo">
+        <li><button type="button" data-paso="1" aria-current="step"><span>1</span>Jornada</button></li>
+        <li><button type="button" data-paso="2"><span>2</span>Ruta</button></li>
+        <li><button type="button" data-paso="3"><span>3</span>Aviso</button></li>
+        <li><button type="button" data-paso="4"><span>4</span>Entrega</button></li>
+        <li><button type="button" data-paso="5"><span>5</span>Reporte</button></li>
+      </ol>
+      <p class="sr-only" aria-live="polite" id="demo-vivo"></p>
+    </div>
+  </div>
+</section>
+
+<section class="funciona-con" aria-label="Sistemas con los que funciona Rondín">
+  <div class="wrap fc-in">
+    <span class="fc-lbl">Toma los pedidos de</span>
+    <div class="fc-marq">
+      <ul class="fc-pista">
+        <li>Zureo</li><li>Doria</li><li>Memory</li><li>GNS</li><li>Odoo</li><li>SAP Business One</li><li>Excel</li><li>Cualquier sistema que exporte planillas</li>
+        <li aria-hidden="true">Zureo</li><li aria-hidden="true">Doria</li><li aria-hidden="true">Memory</li><li aria-hidden="true">GNS</li><li aria-hidden="true">Odoo</li><li aria-hidden="true">SAP Business One</li><li aria-hidden="true">Excel</li><li aria-hidden="true">Cualquier sistema que exporte planillas</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="seccion" id="como">
+  <div class="wrap">
+    <div class="cabeza">
+      <span class="etiqueta">Cómo funciona</span>
+      <h2>Del pedido facturado a la entrega firmada, sin planillas en el medio.</h2>
+    </div>
+    <div class="funciones">
+      <ul class="tabs" role="tablist" aria-label="Qué hace Rondín">
+        <li><button type="button" class="tab" role="tab" id="tab-0" aria-selected="true" aria-controls="vista" data-tab="0"><b>Recibe los pedidos solos</b><span>Cada factura con reparto entra con su dirección, bultos, kilos y horario del cliente. Nadie la vuelve a tipear.</span></button></li>
+        <li><button type="button" class="tab" role="tab" id="tab-1" aria-selected="false" aria-controls="vista" data-tab="1"><b>Reparte y arma las rutas</b><span>Asigna cada pedido al camión que tiene la zona y la capacidad, y ordena las paradas para hacer menos kilómetros. Sacá un camión o cambiale las zonas y mirá cómo se rearma.</span></button></li>
+        <li><button type="button" class="tab" role="tab" id="tab-2" aria-selected="false" aria-controls="vista" data-tab="2"><b>Avisa al cliente</b><span>Cuando el camión está a 15 minutos, el cliente recibe un WhatsApp con el link para seguirlo. Menos llamadas y menos entregas fallidas.</span></button></li>
+        <li><button type="button" class="tab" role="tab" id="tab-3" aria-selected="false" aria-controls="vista" data-tab="3"><b>Resuelve lo imprevisto</b><span>El chofer avisa un desvío, una parada a cargar combustible o una falla mecánica, y la base lo ve en el momento.</span></button></li>
+        <li><button type="button" class="tab" role="tab" id="tab-4" aria-selected="false" aria-controls="vista" data-tab="4"><b>Mide cada jornada</b><span>Al terminar, el reporte de cumplimiento: entregas a tiempo, kilómetros y horas contra lo planificado, parada por parada.</span></button></li>
+      </ul>
+      <div class="vista" id="vista" role="tabpanel" aria-labelledby="tab-0">
+        <div data-vista="0">
+          <div class="tarjeta">
+            <div class="t-cab"><span class="t-lbl">Pedidos de hoy · Distribuidora Oriental</span><span class="vivo"><i></i>Sincronizado</span></div>
+            <ul class="pedidos" id="lista-pedidos"></ul>
+            <p class="origen">Entran desde <b>Zureo</b> cada 5 minutos · <span id="ped-total">18 pedidos · 3.216 kg</span></p>
+          </div>
+        </div>
+        <div data-vista="1" hidden>
+          <div class="tarjeta tablero">
+            <div class="tab-top">
+              <div class="camiones-sel" id="camiones-sel" role="group" aria-label="Camiones disponibles hoy"></div>
+              <span class="vivo"><i></i>Rutas de hoy</span>
+            </div>
+            <div id="mapa-tablero"></div>
+            <div class="res-camiones" id="res-camiones"></div>
+            <div class="res-pie" id="res-pie"></div>
+          </div>
+        </div>
+        <div data-vista="2" hidden>
+          <div class="wa">
+            <div class="wa-cab"><span class="av"><svg viewBox="0 0 128 128" aria-hidden="true"><path d="M64.0 35.0A32 32 0 1 1 40.2 45.6M41.2 63.9L40.2 45.6L21.9 46.6" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><circle cx="64.0" cy="35.0" r="11.5" fill="#F26A1B"/></svg></span><div><b>Distribuidora Oriental</b><small>Cuenta de empresa</small></div></div>
+            <div class="burbuja">Hola, Almacén El Sol. Tu pedido de Distribuidora Oriental (14 bultos, factura A 0045127) <b>llega en 15 minutos</b>, a las 08:19.<div class="link-seg"><svg viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" fill="#CFE3EA"/><path d="M0 9h26M0 18h26M9 0v26M18 0v26" stroke="#fff" stroke-width="2.5"/><circle cx="13" cy="13" r="4" fill="#F26A1B" stroke="#fff" stroke-width="1.5"/></svg><span>Seguí el camión en vivo<br><a href="#demo">seguir.rondin.uy/ab41</a></span></div><time>07:04</time></div>
+            <div class="burbuja yo">Perfecto, gracias. Los espero en la puerta de atrás.<time>07:05</time></div>
+            <div class="burbuja">Recibido. Le avisamos a Martín, el chofer.<time>07:05</time></div>
+            <div class="burbuja">Entregado a las 08:23. Firmó: Laura P. Gracias por tu compra.<time>08:24</time></div>
+          </div>
+        </div>
+        <div data-vista="3" hidden>
+          <div class="tarjeta">
+            <div class="t-cab"><span class="t-lbl">Camión 2 · Martín Silva</span><span class="chip nar" id="inc-estado">En ruta</span></div>
+            <div class="incs" role="group" aria-label="Qué avisa el chofer">
+              <button type="button" class="inc" data-inc2="desvio" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V9a4 4 0 0 1 4-4h8"/><path d="m15 2 3 3-3 3"/><path d="M6 13h7"/></svg><b>Cambio de ruta</b><span>Corte en 8 de Octubre</span></button>
+              <button type="button" class="inc" data-inc2="combustible" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M4 10h10"/><path d="M14 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg><b>Combustible</b><span>Tanque al 18 %</span></button>
+              <button type="button" class="inc" data-inc2="mecanico" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg><b>Falla mecánica</b><span>Pinchadura o motor</span></button>
+            </div>
+            <div class="inc-res" id="inc-res" aria-live="polite"><div class="inc-linea"><span>Elegí qué avisa el chofer para ver qué hace Rondín.</span></div></div>
+          </div>
+        </div>
+        <div data-vista="4" hidden>
+          <div class="tarjeta">
+            <div class="t-cab"><span class="t-lbl">Reporte de cumplimiento · lunes 28/09</span><span class="chip verde">2 camiones</span></div>
+            <div class="rep-kpis">
+              <div class="kpi"><small>Entregas</small><b>18 de 18</b><em class="bien">100 %</em></div>
+              <div class="kpi"><small>A tiempo</small><b>16</b><em class="bien">89 %</em></div>
+              <div class="kpi"><small>Kilómetros</small><b id="rep-km">124</b><em id="rep-km-d">plan 119 · +4 %</em></div>
+              <div class="kpi"><small>Horas en ruta</small><b>8 h 32</b><em class="mal">plan 8 h 07</em></div>
+            </div>
+            <div class="gantt" id="gantt"></div>
+            <div class="g-ley"><span><i style="background:#D5DBD7"></i>Planificado</span><span><i style="background:var(--ruta)"></i>Real</span><span><i style="background:var(--chaleco)"></i>Con demora</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="seccion gris" id="tablero">
+  <div class="wrap">
+    <div class="cabeza tab-cab">
+      <span class="etiqueta">El tablero de la base</span>
+      <h2>Todo el reparto del día, en una pantalla.</h2>
+      <p class="sub">Dónde está cada camión, qué se entregó, qué falta decidir y los recorridos de mañana. Probalo: tocá un camión, mandá el Camión 5 a cubrir la falla o armá los recorridos de mañana.</p>
+    </div>
+    <div class="ventana" id="ventana">
+      <div class="ventana-barra" aria-hidden="true"><i></i><i></i><i></i><span>app.rondin.uy · Distribuidora Oriental</span></div>
+      <div class="ventana-cuerpo" id="ventana-cuerpo">
+        <iframe id="tablero-demo" src="/rondin/tablero.html" title="Tablero de dirección de Rondín, con datos de ejemplo" loading="lazy"></iframe>
+      </div>
+    </div>
+    <p class="ventana-nota">Datos de ejemplo. El tablero se abre en la compu de la base; el chofer usa la app del celular.</p>
+  </div>
+</section>
+
+<section class="seccion" id="ahorro">
+  <div class="wrap ahorro">
+    <div>
+      <div class="cabeza" style="margin-bottom:28px">
+        <span class="etiqueta">Cuánto ahorrás</span>
+        <h2>Hacé la cuenta con tu flota.</h2>
+      </div>
+      <div class="controles-calc">
+        <div class="campo">
+          <label for="c-cam">Camiones de reparto <output id="o-cam" for="c-cam">6</output></label>
+          <input type="range" id="c-cam" min="1" max="40" step="1" value="6">
+        </div>
+        <div class="campo">
+          <label for="c-km">Kilómetros por camión por día <output id="o-km" for="c-km">90 km</output></label>
+          <input type="range" id="c-km" min="30" max="250" step="5" value="90">
+        </div>
+        <div class="campo">
+          <span class="lbl" id="lbl-arm">¿Cómo arman hoy las rutas?</span>
+          <div class="segmento" role="group" aria-labelledby="lbl-arm">
+            <button type="button" data-red="0.15" data-min="45" aria-pressed="false"><b>De memoria</b><span>el chofer decide</span></button>
+            <button type="button" data-red="0.12" data-min="35" aria-pressed="true"><b>Planilla</b><span>alguien las arma</span></button>
+            <button type="button" data-red="0.08" data-min="20" aria-pressed="false"><b>Con mapa</b><span>ya optimizan algo</span></button>
+          </div>
+          <small>De eso depende cuántos kilómetros y cuánto tiempo sobran hoy.</small>
+        </div>
+      </div>
+    </div>
+    <div class="resultado" aria-live="polite">
+      <div class="grande"><span>Tu flota se ahorra por mes</span><b id="r-total">$U 0</b></div>
+      <div class="barras">
+        <div class="barra"><span>Hoy</span><i id="b-hoy" style="width:100%"></i><b id="r-km-hoy">0 km</b></div>
+        <div class="barra con"><span>Con Rondín</span><i id="b-con" style="width:88%"></i><b id="r-km-con">0 km</b></div>
+      </div>
+      <div class="cuentas">
+        <div><span>Gasoil</span><b id="r-gasoil">$U 0</b></div>
+        <div><span>Horas de reparto</span><b id="r-horas">0 h</b></div>
+        <div class="neto"><span>Después de pagar Rondín</span><b id="r-neto">$U 0</b></div>
+      </div>
+      <p class="nota" id="r-nota"></p>
+    </div>
+  </div>
+</section>
+
+<section class="seccion gris" id="precios">
+  <div class="wrap">
+    <div class="precios-cab">
+      <div class="cabeza">
+        <span class="etiqueta">Precios</span>
+        <h2>Un precio por camión, todo incluido.</h2>
+        <p class="sub">App del chofer, tablero de la base y avisos por WhatsApp en todos los planes. Precios de lanzamiento en dólares, más IVA.</p>
+      </div>
+      <div class="alternar" role="group" aria-label="Forma de pago">
+        <button type="button" data-periodo="mes" aria-pressed="true">Mensual</button>
+        <button type="button" data-periodo="anual" aria-pressed="false">Anual <em>pagás 10 meses</em></button>
+      </div>
+    </div>
+    <div class="planes">
+      <div class="plan">
+        <div><h3>Reparto</h3><p class="vol">De 1 a 5 camiones</p></div>
+        <div class="precio"><b data-precio="59">USD 59</b><span>por camión / mes</span></div>
+        <p class="precio-nota" data-anual="590"></p>
+        <ul><li>Rutas optimizadas cada día</li><li>App del chofer con navegación</li><li>Aviso por WhatsApp a 15 minutos</li><li>Pedidos desde planilla</li></ul>
+        <a class="btn btn-s btn-bloque" href="#contacto" data-camiones="De 1 a 5" data-evento="cta_plan_reparto">Pedir una demo</a>
+      </div>
+      <div class="plan rec">
+        <span class="marca-rec">Recomendado</span>
+        <div><h3>Flota</h3><p class="vol">De 6 a 20 camiones</p></div>
+        <div class="precio"><b data-precio="49">USD 49</b><span>por camión / mes</span></div>
+        <p class="precio-nota" data-anual="490"></p>
+        <ul><li>Todo lo de Reparto</li><li>Conexión directa con tu sistema de facturación</li><li>Zonas, capacidades y horarios por camión</li><li>Reporte de cumplimiento diario</li></ul>
+        <a class="btn btn-p btn-bloque" href="#contacto" data-camiones="De 6 a 20" data-evento="cta_plan_flota">Pedir una demo</a>
+      </div>
+      <div class="plan">
+        <div><h3>Distribución</h3><p class="vol">Más de 20 camiones</p></div>
+        <div class="precio"><b data-precio="39">USD 39</b><span>por camión / mes</span></div>
+        <p class="precio-nota" data-anual="390"></p>
+        <ul><li>Todo lo de Flota</li><li>Varios depósitos y turnos</li><li>Portal de seguimiento con tu marca</li><li>API y soporte prioritario</li></ul>
+        <a class="btn btn-s btn-bloque" href="#contacto" data-camiones="Más de 20" data-evento="cta_plan_distribucion">Pedir una demo</a>
+      </div>
+    </div>
+    <div class="precios-pie">
+      <span><b>Instalación única:</b> USD 590 con pedidos por planilla o USD 1.200 con conexión directa a tu sistema de facturación.</span>
+    </div>
+  </div>
+</section>
+
+<section class="seccion" id="preguntas">
+  <div class="wrap faq-grid">
+    <div class="cabeza"><span class="etiqueta">Preguntas</span><h2>Lo que nos preguntan antes de empezar.</h2><p class="sub">¿Te queda otra duda? Escribinos a <a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a>.</p></div>
+    <div class="faq">
+      <details><summary>¿Necesito comprar GPS para los camiones?</summary><p>No. El GPS es el celular del chofer, con la app de Rondín. Si tus camiones ya tienen rastreador, podemos leer su posición también.</p></details>
+      <details><summary>¿Cómo llegan los pedidos?</summary><p>Se conecta con tu sistema de facturación y toma cada factura o remito con reparto: cliente, dirección, bultos, kilos y horario. Si tu sistema no tiene conexión, alcanza con la planilla que ya exporta.</p></details>
+      <details><summary>¿Y si el chofer conoce mejor la zona?</summary><p>La ruta es una propuesta. La base puede mover paradas antes de salir y el chofer puede avisar un cambio de ruta. Todo queda registrado para aprender de eso.</p></details>
+      <details><summary>¿Y si entra un pedido a último momento?</summary><p>Antes de salir, el chofer o la base agregan la parada desde la app. Rondín revisa que entre en el camión, la ubica en el mejor lugar del recorrido y recalcula la hora de llegada de todos los clientes.</p></details>
+      <details><summary>¿El cliente tiene que instalar algo?</summary><p>No. Recibe un WhatsApp de tu empresa con la hora estimada y un link para ver el camión en el mapa. Si no tiene WhatsApp, le llega un SMS.</p></details>
+      <details><summary>¿Cuánto tarda en estar funcionando?</summary><p>De una a tres semanas, según tu sistema de facturación y la cantidad de camiones. La instalación la hacemos nosotros, sin tocar tu sistema.</p></details>
+      <details><summary>¿Qué pasa con la privacidad de los choferes?</summary><p>La ubicación se registra solo durante la jornada, entre «Iniciar» y «Terminar». Tratamos los datos según la Ley 18.331 de protección de datos personales y te ayudamos a informar a tu equipo.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="seccion cierre" id="contacto">
+  <div class="wrap cierre-grid">
+    <div>
+      <h2>Veamos cómo reparte tu empresa.</h2>
+      <p class="sub" style="margin-top:14px">Te mostramos Rondín funcionando y te pasamos una propuesta con la instalación, la mensualidad y cuánto te ahorrás.</p>
+      <ul>
+        <li>Coordinamos una reunión de 30 minutos, en tu empresa o por videollamada.</li>
+        <li>Nos contás cuántos camiones tenés, qué carga lleva cada uno y qué zonas cubre.</li>
+        <li>Te mandamos la propuesta con tus números: instalación, mensualidad y ahorro estimado.</li>
+      </ul>
+    </div>
+    <div>
+      <form class="form" id="form" novalidate>
+        <h3>Pedí una demo</h3>
+        <div class="dos">
+          <div class="f"><label for="f-nombre">Nombre</label><input id="f-nombre" name="nombre" autocomplete="name" required></div>
+          <div class="f"><label for="f-empresa">Empresa</label><input id="f-empresa" name="empresa" autocomplete="organization" required></div>
+        </div>
+        <div class="dos">
+          <div class="f"><label for="f-tel">WhatsApp</label><input id="f-tel" name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" placeholder="099 123 456" required></div>
+          <div class="f"><label for="f-sistema">Tu sistema</label>
+            <select id="f-sistema" name="sistema" required>
+              <option value="">Elegí uno</option><option>Zureo</option><option>Doria</option><option>Memory</option><option>GNS</option><option>Odoo</option><option>SAP Business One</option><option>Otro sistema</option><option>Excel</option>
+            </select>
+          </div>
+        </div>
+        <div class="f"><label for="f-camiones">Camiones de reparto</label>
+          <select id="f-camiones" name="camiones" required>
+            <option value="">Elegí un rango</option><option>De 1 a 5</option><option>De 6 a 20</option><option>Más de 20</option>
+          </select>
+        </div>
+        <button class="btn btn-p btn-bloque" type="submit">Pedir la demo</button>
+        <p class="legal">Te abrimos WhatsApp con el mensaje listo para enviar. Usamos tus datos solo para contactarte sobre Rondín.</p>
+      </form>
+      <div class="form gracias" id="gracias" hidden>
+        <h3>Listo. Falta un paso.</h3>
+        <p id="gracias-txt">Se abrió WhatsApp con tu mensaje: mandalo y te respondemos en el día hábil.</p>
+        <div class="copia" id="gracias-msg"></div>
+        <p>¿No se abrió? Escribinos a <a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="pie">
+  <div class="wrap">
+    <div class="pie-grid">
+      <a href="#top" class="marca" aria-label="Rondín, ir al inicio"><svg viewBox="0 6 394 100" role="img" aria-label="Rondín"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path class="wm-l" d="M10 44V100M10 70A26 26 0 0 1 36 44H40 M144 44V100M144 72A28 28 0 0 1 200 72V100 M280 72A28 28 0 1 0 224 72A28 28 0 1 0 280 72M280 14V100 M304 44V100 M328 44V100M328 72A28 28 0 0 1 384 72V100 M300 32L314 16" stroke="#132019" stroke-width="11"/><path class="wm-c" d="M92.0 44.0A28 28 0 1 1 71.2 53.3M72.0 68.8L71.2 53.3L55.7 54.1" stroke="#0B7A55" stroke-width="11"/></g><circle cx="92.0" cy="44.0" r="9" fill="#F26A1B"/></svg></a>
+      <nav aria-label="Pie de página">
+        <a href="#como">Cómo funciona</a><a href="#tablero">Tablero</a><a href="#ahorro">Cuánto ahorrás</a><a href="#precios">Precios</a><a href="#preguntas">Preguntas</a><a href="#contacto">Pedir una demo</a>
+      </nav>
+    </div>
+    <div class="pie-baja">
+      <p class="producto">Un producto de <a href="https://dearmascostantini.com" target="_blank" rel="noopener">Dearmas <span class="amp">&amp;</span> Costantini</a></p>
+      <details class="privacidad">
+        <summary>Privacidad y datos</summary>
+        <p>Dearmas &amp; Costantini es responsable de los datos que dejás en el formulario. Los usamos solo para contactarte sobre Rondín; no los vendemos ni los compartimos con terceros. Podés pedir acceso, rectificación o eliminación escribiendo a federico@dearmascostantini.com, según la Ley 18.331 de protección de datos personales. Zureo, Doria, Memory, GNS, Odoo, SAP Business One, Excel y WhatsApp son marcas de sus respectivos dueños.</p>
+      </details>
+      <span>Montevideo, Uruguay · <a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a></span>
+    </div>
+  </div>
+</footer>
+
+<div class="fijo-movil" id="fijo-movil"><a class="btn btn-p btn-bloque" href="#contacto" data-evento="cta_fijo_movil">Pedir una demo</a></div>
+
+<script>
+(function(){
+  'use strict';
+
+  var $ = function(id){ return document.getElementById(id); };
+  var $$ = function(sel, ctx){ return Array.prototype.slice.call((ctx || document).querySelectorAll(sel)); };
+  var fmt = new Intl.NumberFormat('es-UY', {maximumFractionDigits: 0});
+  var fmt1 = new Intl.NumberFormat('es-UY', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+  var reducido = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, cls, txt){ var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function sv(tag, attrs){ var e = document.createElementNS(SVGNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+  function evento(nombre, datos){
+    try { (window.dataLayer = window.dataLayer || []).push(Object.assign({event: nombre}, datos || {})); } catch (e) {}
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('[data-evento]');
+    if (a) evento(a.getAttribute('data-evento'));
+  });
+
+  /* ================= La ciudad (grilla tipo Montevideo) ================= */
+  // Unidades del mundo: 1 unidad = 25 m. Una cuadra de la grilla (40 u) = 1 km de calles principales.
+  var W = 1000, H = 640, PASO = 40, KM = 0.025, RODEO = 1.12, VEL = 24; // km/h promedio urbano
+  var AV_Y = [160, 280, 400], AV_X = [240, 480, 720];
+  var FILAS = ['Cno. Maldonado','Av. José Belloni','Av. Millán','Av. Gral. Flores','Av. Garibaldi','Av. Luis A. de Herrera','Av. Italia','8 de Octubre','Av. Rivera','Av. Brasil','18 de Julio','21 de Setiembre','Av. Ing. Luis P. Ponce','Canelones','Rambla','Rambla','Rambla'];
+  var COLS = ['Av. Agraciada','Capurro','Av. Rondeau','Av. Libertador','Av. Fernández Crespo','Av. Gral. San Martín','Bv. Artigas','Av. Centenario','Av. Propios','Av. Comercio','Av. Mcal. Estigarribia','Av. Bolivia','Av. Hipólito Yrigoyen','Av. Estanislao López','Av. Arocena','Av. Italia','Cno. Carrasco','Av. Gianattasio','Av. Rivera','Av. Batlle Berres','Av. Uruguay','Av. Varela','Av. Ricaldoni','Av. Legrand','Av. Márquez','Av. Solano López'];
+  function costa(x){ return 548 + 22 * Math.sin((x + 60) / 150); }
+  function nomFila(y){ return FILAS[Math.round(y / PASO)] || 'la calle'; }
+  function nomCol(x){ return COLS[Math.round(x / PASO)] || 'la calle'; }
+  function zonaDe(p){ return p.x <= 280 ? 'Oeste' : (p.x <= 600 ? 'Centro' : 'Este'); }
+
+  var DEPO = {id: 'depo', x: 320, y: 80, nom: 'Depósito', dir: 'Av. Millán 2860'};
+  var CLIENTES = [
+    {id: 1, nom: 'Almacén El Sol', dir: 'Av. Rivera 2310', barrio: 'Pocitos', x: 600, y: 440, kg: 186, bul: 14, fac: 'A 0045127', vent: '08:00 a 11:00'},
+    {id: 2, nom: 'Autoservice La Rambla', dir: 'Rbla. Gandhi 480', barrio: 'Punta Carretas', x: 520, y: 480, kg: 240, bul: 18, fac: 'A 0045128', vent: '08:00 a 12:00'},
+    {id: 3, nom: 'Farmacia Centro', dir: '18 de Julio 1102', barrio: 'Centro', x: 360, y: 400, kg: 90, bul: 6, fac: 'A 0045129', vent: '09:00 a 13:00'},
+    {id: 4, nom: 'Kiosco 8 de Octubre', dir: '8 de Octubre 3020', barrio: 'La Blanqueada', x: 560, y: 280, kg: 60, bul: 5, fac: 'A 0045130', vent: 'Todo el día'},
+    {id: 5, nom: 'Supermercado Malvín', dir: 'Av. Italia 4521', barrio: 'Malvín', x: 800, y: 360, kg: 420, bul: 31, fac: 'A 0045131', vent: '07:00 a 10:00'},
+    {id: 6, nom: 'Panadería La Unión', dir: '8 de Octubre 4011', barrio: 'Unión', x: 720, y: 240, kg: 150, bul: 11, fac: 'A 0045132', vent: '06:30 a 09:30'},
+    {id: 7, nom: 'Minimercado Buceo', dir: 'Av. Rivera 3850', barrio: 'Buceo', x: 720, y: 440, kg: 210, bul: 16, fac: 'A 0045133', vent: '08:00 a 12:00'},
+    {id: 8, nom: 'Almacén Don Pepe', dir: 'Av. Garibaldi 2180', barrio: 'Goes', x: 440, y: 200, kg: 130, bul: 10, fac: 'A 0045134', vent: 'Todo el día'},
+    {id: 9, nom: 'Bar Tres Cruces', dir: 'Bv. Artigas 1650', barrio: 'Tres Cruces', x: 480, y: 320, kg: 75, bul: 6, fac: 'A 0045135', vent: '10:00 a 14:00'},
+    {id: 10, nom: 'Autoservice Prado', dir: 'Av. Agraciada 3400', barrio: 'Prado', x: 200, y: 200, kg: 310, bul: 23, fac: 'A 0045136', vent: '08:00 a 12:00'},
+    {id: 11, nom: 'Almacén Capurro', dir: 'Capurro 890', barrio: 'Capurro', x: 120, y: 280, kg: 95, bul: 7, fac: 'A 0045137', vent: 'Todo el día'},
+    {id: 12, nom: 'Kiosco Ciudad Vieja', dir: 'Sarandí 560', barrio: 'Ciudad Vieja', x: 160, y: 440, kg: 55, bul: 4, fac: 'A 0045138', vent: '09:00 a 12:00'},
+    {id: 13, nom: 'Supermercado Carrasco', dir: 'Av. Arocena 1600', barrio: 'Carrasco', x: 920, y: 440, kg: 380, bul: 28, fac: 'A 0045139', vent: '07:00 a 11:00'},
+    {id: 14, nom: 'Farmacia Punta Gorda', dir: 'Rbla. México 5500', barrio: 'Punta Gorda', x: 880, y: 480, kg: 70, bul: 5, fac: 'A 0045140', vent: 'Todo el día'},
+    {id: 15, nom: 'Distribuidora Aires Puros', dir: 'Av. Millán 4200', barrio: 'Aires Puros', x: 280, y: 120, kg: 260, bul: 20, fac: 'A 0045141', vent: '08:00 a 16:00'},
+    {id: 16, nom: 'Almacén Cordón', dir: 'Constituyente 1890', barrio: 'Cordón', x: 400, y: 440, kg: 110, bul: 8, fac: 'A 0045142', vent: '08:00 a 13:00'},
+    {id: 17, nom: 'Bar Parque Rodó', dir: '21 de Setiembre 2890', barrio: 'Parque Rodó', x: 440, y: 480, kg: 85, bul: 7, fac: 'A 0045143', vent: '11:00 a 15:00'},
+    {id: 18, nom: 'Autoservice Maroñas', dir: 'Av. José Belloni 2500', barrio: 'Maroñas', x: 800, y: 160, kg: 290, bul: 21, fac: 'A 0045144', vent: '08:00 a 12:00'}
+  ];
+  CLIENTES.forEach(function(c){ c.zona = zonaDe(c); });
+  var CAMIONES = [
+    {id: 'c1', nom: 'Camión 1', mod: 'Isuzu NPR', pat: 'SBX 4521', cap: 3500, zonas: ['Centro', 'Este'], color: '#0B7A55', activo: true, chofer: 'Pablo G.'},
+    {id: 'c2', nom: 'Camión 2', mod: 'Hyundai HD65', pat: 'SCD 2210', cap: 2500, zonas: ['Oeste', 'Centro'], color: '#F26A1B', activo: true, chofer: 'Martín S.'},
+    {id: 'c3', nom: 'Camión 3', mod: 'Kia K2700', pat: 'SAB 7788', cap: 1200, zonas: ['Oeste', 'Centro', 'Este'], color: '#2F64D6', activo: true, chofer: 'Lucía F.'}
+  ];
+
+  // Camino por la grilla: sube o baja hasta la avenida más conveniente, la recorre y entra a destino.
+  function camino(a, b){
+    if (a.x === b.x || a.y === b.y) return [{x: a.x, y: a.y}, {x: b.x, y: b.y}];
+    var mejor = AV_Y[0], m = Infinity;
+    AV_Y.forEach(function(r){ var c = Math.abs(a.y - r) + Math.abs(b.y - r); if (c < m){ m = c; mejor = r; } });
+    var pts = [{x: a.x, y: a.y}];
+    if (a.y !== mejor) pts.push({x: a.x, y: mejor});
+    pts.push({x: b.x, y: mejor});
+    if (b.y !== mejor) pts.push({x: b.x, y: b.y});
+    return pts;
+  }
+  function largo(pts){ var d = 0; for (var i = 1; i < pts.length; i++) d += Math.abs(pts[i].x - pts[i-1].x) + Math.abs(pts[i].y - pts[i-1].y); return d; }
+  function dist(a, b){ return largo(camino(a, b)); }
+  function kmDe(u){ return u * KM * RODEO; }
+  function largoRecorrido(orden){ var d = 0, prev = DEPO; orden.forEach(function(p){ d += dist(prev, p); prev = p; }); return d + (orden.length ? dist(prev, DEPO) : 0); }
+
+  // Reparto: inserción más barata respetando zona y capacidad, y después 2-opt por camión.
+  var EQUILIBRIO = 1.5;
+  function repartir(camiones){
+    var rutas = camiones.map(function(c){ return {cam: c, orden: [], kg: 0}; });
+    var pend = CLIENTES.slice(), sinLugar = [];
+    while (pend.length){
+      var mejor = null;
+      pend.forEach(function(p, pi){
+        rutas.forEach(function(r){
+          if (r.cam.zonas.indexOf(p.zona) < 0 || r.kg + p.kg > r.cam.cap) return;
+          var o = r.orden;
+          for (var i = 0; i <= o.length; i++){
+            var a = i === 0 ? DEPO : o[i-1], b = i === o.length ? DEPO : o[i];
+            var costo = dist(a, p) + dist(p, b) - (o.length ? dist(a, b) : 0);
+            if (!mejor || costo < mejor.costo) mejor = {costo: costo, r: r, i: i, pi: pi};
+          }
+        });
+      });
+      if (!mejor){ sinLugar = sinLugar.concat(pend); break; }
+      var p = pend.splice(mejor.pi, 1)[0];
+      mejor.r.orden.splice(mejor.i, 0, p); mejor.r.kg += p.kg;
+    }
+    rutas.forEach(function(r){ r.orden = dosOpt(r.orden); });
+    equilibrar(rutas);
+    rutas.forEach(function(r){ r.u = largoRecorrido(r.orden); r.km = kmDe(r.u); r.min = minutosRuta(r.orden); r.kg = r.orden.reduce(function(s, p){ return s + p.kg; }, 0); });
+    return {rutas: rutas, sinLugar: sinLugar};
+  }
+  // Mueve paradas entre camiones mientras baje el tiempo total más la jornada más larga (reparte el trabajo).
+  function objetivo(rutas){ var tot = 0, max = 0; rutas.forEach(function(r){ var m = minutosRuta(r.orden); tot += m; if (m > max) max = m; }); return tot + EQUILIBRIO * max; }
+  function equilibrar(rutas){
+    var mejoro = true, recorridos = 0;
+    while (mejoro && recorridos++ < 30){
+      mejoro = false;
+      var base = objetivo(rutas);
+      for (var a = 0; a < rutas.length; a++) for (var i = 0; i < rutas[a].orden.length; i++){
+        var p = rutas[a].orden[i], mejor = null;
+        for (var b = 0; b < rutas.length; b++){
+          if (b === a || rutas[b].cam.zonas.indexOf(p.zona) < 0) continue;
+          var kgB = rutas[b].orden.reduce(function(s, q){ return s + q.kg; }, 0);
+          if (kgB + p.kg > rutas[b].cam.cap) continue;
+          for (var j = 0; j <= rutas[b].orden.length; j++){
+            var oa = rutas[a].orden.slice(0, i).concat(rutas[a].orden.slice(i + 1));
+            var ob = rutas[b].orden.slice(0, j).concat([p], rutas[b].orden.slice(j));
+            var guardaA = rutas[a].orden, guardaB = rutas[b].orden;
+            rutas[a].orden = oa; rutas[b].orden = ob;
+            var v = objetivo(rutas);
+            rutas[a].orden = guardaA; rutas[b].orden = guardaB;
+            if (v < base - 0.5 && (!mejor || v < mejor.v)) mejor = {v: v, oa: oa, ob: ob, b: b};
+          }
+        }
+        if (mejor){ rutas[a].orden = dosOpt(mejor.oa); rutas[mejor.b].orden = dosOpt(mejor.ob); base = objetivo(rutas); mejoro = true; i--; if (i < -1) break; }
+      }
+    }
+  }
+  function dosOpt(o){
+    var mejoro = true, n = o.length, recorridos = 0;
+    while (mejoro && recorridos++ < 40){
+      mejoro = false;
+      for (var i = 0; i < n - 1; i++) for (var k = i + 1; k < n; k++){
+        var nuevo = o.slice(0, i).concat(o.slice(i, k + 1).reverse(), o.slice(k + 1));
+        if (largoRecorrido(nuevo) + 0.01 < largoRecorrido(o)){ o = nuevo; mejoro = true; }
+      }
+    }
+    return o;
+  }
+  function minParada(p){ return 6 + Math.round(p.kg / 40); }
+  function minutosRuta(orden){ var t = 0, prev = DEPO; orden.forEach(function(p){ t += kmDe(dist(prev, p)) / VEL * 60 + minParada(p); prev = p; }); if (orden.length) t += kmDe(dist(prev, DEPO)) / VEL * 60; return t; }
+  // Lo que se hace hoy sin herramienta: cada camión con su zona fija (la primera de su lista; si no está, el que tenga lugar)
+  // y el chofer va «al más cercano» desde donde está.
+  var ZONA_FIJA = {c1: 'Este', c2: 'Centro', c3: 'Oeste'};
+  function repartoManual(camiones){
+    var rutas = camiones.map(function(c){ return {cam: c, orden: [], kg: 0}; });
+    CLIENTES.forEach(function(p){
+      var cand = rutas.filter(function(r){ return ZONA_FIJA[r.cam.id] === p.zona && r.kg + p.kg <= r.cam.cap; });
+      if (!cand.length) cand = rutas.filter(function(r){ return r.cam.zonas.indexOf(p.zona) >= 0 && r.kg + p.kg <= r.cam.cap; });
+      if (cand.length){ cand[0].orden.push(p); cand[0].kg += p.kg; }
+    });
+    return rutas.reduce(function(s, r){
+      var quedan = r.orden.slice(), orden = [], prev = DEPO;
+      while (quedan.length){ var k = 0; for (var i = 1; i < quedan.length; i++) if (dist(prev, quedan[i]) < dist(prev, quedan[k])) k = i; prev = quedan.splice(k, 1)[0]; orden.push(prev); }
+      return s + largoRecorrido(orden);
+    }, 0);
+  }
+  function hhmm(min){ var h = Math.floor(min / 60), m = Math.round(min % 60); if (m === 60){ h++; m = 0; } return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'); }
+  function duracion(min){ var h = Math.floor(min / 60), m = Math.round(min % 60); return h ? h + ' h ' + String(m).padStart(2, '0') : m + ' min'; }
+
+  /* ---------- Dibujo del mapa ---------- */
+  function dibujarCiudad(g, detalle){
+    var agua = sv('rect', {x: -400, y: -400, width: W + 800, height: H + 800, fill: '#CFE3EA'});
+    g.appendChild(agua);
+    var d = 'M-400 -400 H' + (W + 400) + ' V' + costa(W + 400).toFixed(1);
+    for (var x = W + 400; x >= -400; x -= 20) d += ' L' + x + ' ' + costa(x).toFixed(1);
+    d += ' Z';
+    g.appendChild(sv('path', {d: d, fill: '#F7F8F5'}));
+    var manz = sv('g', {fill: '#E4E8E2'});
+    var parques = {'13,6': 1, '12,6': 1, '4,4': 1, '19,2': 1, '9,10': 1};
+    for (var i = -10; i < W / PASO + 10; i++) for (var j = -10; j < H / PASO + 2; j++){
+      var x0 = i * PASO, y0 = j * PASO;
+      if (y0 + PASO > Math.min(costa(x0), costa(x0 + PASO)) - 6) continue;
+      var r = sv('rect', {x: x0 + 4, y: y0 + 4, width: PASO - 8, height: PASO - 8, rx: 3});
+      if (parques[i + ',' + j]) r.setAttribute('fill', '#D6EBD9');
+      manz.appendChild(r);
+      if (detalle){ // manzanas partidas por calles chicas
+        manz.appendChild(sv('rect', {x: x0 + PASO / 2 - 1, y: y0 + 4, width: 2, height: PASO - 8, fill: '#F7F8F5'}));
+      }
+    }
+    g.appendChild(manz);
+    var av = sv('g', {stroke: '#FFFFFF', 'stroke-width': detalle ? 7 : 9, 'stroke-linecap': 'round'});
+    AV_Y.forEach(function(y){ av.appendChild(sv('line', {x1: -400, y1: y, x2: W + 400, y2: y})); });
+    AV_X.forEach(function(x){ av.appendChild(sv('line', {x1: x, y1: -400, x2: x, y2: costa(x) - 4})); });
+    g.appendChild(av);
+    var dr = 'M-400 ' + (costa(-400) - 8).toFixed(1);
+    for (var xx = -380; xx <= W + 400; xx += 20) dr += ' L' + xx + ' ' + (costa(xx) - 8).toFixed(1);
+    g.appendChild(sv('path', {d: dr, fill: 'none', stroke: '#FFFFFF', 'stroke-width': detalle ? 7 : 9, 'stroke-linecap': 'round'}));
+    if (detalle){ // nombres de las avenidas
+      var et = sv('g', {'font-family': 'Figtree, sans-serif', 'font-size': 6.5, 'font-weight': 700, fill: '#8A968F'});
+      AV_Y.forEach(function(y){ for (var x = 20; x < W; x += 160){ var t1 = sv('text', {x: x, y: y - 6}); t1.textContent = nomFila(y); et.appendChild(t1); } });
+      AV_X.forEach(function(x){ for (var y = 60; y < 520; y += 160){ var t2 = sv('text', {x: x + 6, y: y, transform: 'rotate(90 ' + (x + 6) + ' ' + y + ')'}); t2.textContent = nomCol(x); et.appendChild(t2); } });
+      g.appendChild(et);
+    }
+    if (!detalle){
+      var t = sv('text', {x: 700, y: 610, fill: '#7FA5B3', 'font-size': 20, 'font-style': 'italic', 'font-family': 'Figtree, sans-serif'}); t.textContent = 'Río de la Plata'; g.appendChild(t);
+    }
+  }
+  function ptsA(d){ return d.map(function(p){ return p.x + ',' + p.y; }).join(' '); }
+  function recorridoPts(orden){ var pts = [], prev = DEPO; orden.concat([DEPO]).forEach(function(p){ var c = camino(prev, p); if (pts.length) c.shift(); pts = pts.concat(c); prev = p; }); return pts; }
+  function marcaDepo(g, s){
+    s = s || 1;
+    var gg = sv('g', {transform: 'translate(' + DEPO.x + ' ' + DEPO.y + ') scale(' + s + ')'});
+    gg.appendChild(sv('rect', {x: -11, y: -11, width: 22, height: 22, rx: 5, fill: '#132019', stroke: '#fff', 'stroke-width': 3}));
+    gg.appendChild(sv('path', {d: 'M-5 4V-1L0 -5L5 -1V4Z', fill: '#fff'}));
+    g.appendChild(gg);
+  }
+
+  /* ================= Tablero: reparto entre camiones ================= */
+  var repartoActual = null;
+  function dibujarTablero(animar){
+    var activos = CAMIONES.filter(function(c){ return c.activo; });
+    var res = repartir(activos);
+    repartoActual = res;
+    var cont = $('mapa-tablero'); cont.textContent = '';
+    var svg = sv('svg', {viewBox: '40 40 940 520', class: 'mapa-t', role: 'img', 'aria-label': 'Mapa con las rutas de cada camión'});
+    var g = sv('g', {}); svg.appendChild(g); dibujarCiudad(g, false);
+    res.rutas.forEach(function(r, k){
+      if (!r.orden.length) return;
+      var off = (k - 1) * 3;
+      var pl = sv('polyline', {points: ptsA(recorridoPts(r.orden)), class: 'ruta-l' + (animar && !reducido ? ' dib' : ''), stroke: r.cam.color, transform: 'translate(' + off + ' ' + off + ')'});
+      g.appendChild(pl);
+      if (animar && !reducido){ var L = largo(recorridoPts(r.orden)); pl.style.setProperty('--l', L); }
+    });
+    marcaDepo(g, 1.1);
+    CLIENTES.forEach(function(p){
+      var ruta = null, idx = -1;
+      res.rutas.forEach(function(r){ var i = r.orden.indexOf(p); if (i >= 0){ ruta = r; idx = i; } });
+      var gg = sv('g', {transform: 'translate(' + p.x + ' ' + p.y + ')'});
+      var t = sv('title', {}); t.textContent = p.nom + ' · ' + p.kg + ' kg' + (ruta ? ' · ' + ruta.cam.nom : ' · sin camión'); gg.appendChild(t);
+      gg.appendChild(sv('circle', {r: 11, fill: ruta ? ruta.cam.color : '#fff', stroke: ruta ? '#fff' : '#C63A22', 'stroke-width': 3, 'stroke-dasharray': ruta ? '' : '4 3'}));
+      var tx = sv('text', {y: 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: ruta ? '#fff' : '#C63A22', 'font-family': 'Figtree, sans-serif'}); tx.textContent = ruta ? idx + 1 : '!';
+      gg.appendChild(tx);
+      g.appendChild(gg);
+    });
+    cont.appendChild(svg);
+
+    var lista = $('res-camiones'); lista.textContent = '';
+    CAMIONES.forEach(function(c){
+      var r = null; res.rutas.forEach(function(x){ if (x.cam === c) r = x; });
+      var fila = el('div', 'res-cam');
+      var i = el('i'); i.style.background = c.color; fila.appendChild(i);
+      var a = el('div'); a.appendChild(el('b', null, c.nom + ' · ' + c.mod)); a.appendChild(el('small', null, !c.activo ? 'En el taller hoy' : (r.orden.length ? r.orden.length + ' entregas · zonas ' + c.zonas.join(', ').toLowerCase() : 'Libre hoy: no hace falta salir'))); fila.appendChild(a);
+      var cc = el('div', 'capc');
+      var cap = el('div', 'cap'); var s = el('span'); s.style.width = (r ? Math.round(r.kg / c.cap * 100) : 0) + '%'; s.style.background = c.color; cap.appendChild(s); cc.appendChild(cap);
+      cc.appendChild(el('div', 'cap-t', r ? fmt.format(r.kg) + ' de ' + fmt.format(c.cap) + ' kg' : '·'));
+      fila.appendChild(cc);
+      fila.appendChild(el('span', 'km', r && r.orden.length ? fmt1.format(r.km) + ' km · ' + duracion(r.min) : '·'));
+      lista.appendChild(fila);
+    });
+    var pie = $('res-pie'); pie.textContent = '';
+    var kmTot = res.rutas.reduce(function(s, r){ return s + r.km; }, 0);
+    var kmMan = kmDe(repartoManual(activos));
+    if (res.sinLugar.length){
+      pie.className = 'res-pie malo';
+      var kg = res.sinLugar.reduce(function(s, p){ return s + p.kg; }, 0);
+      var b = el('span'); b.appendChild(el('b', null, res.sinLugar.length + (res.sinLugar.length === 1 ? ' pedido no entra' : ' pedidos no entran'))); b.appendChild(document.createTextNode(' (' + fmt.format(kg) + ' kg): quedan marcados para mañana o para un segundo viaje.'));
+      pie.appendChild(b);
+    } else {
+      pie.className = 'res-pie';
+      var ah = kmMan > kmTot ? Math.round((1 - kmTot / kmMan) * 100) : 0;
+      var libres = res.rutas.filter(function(r){ return !r.orden.length; }).map(function(r){ return r.cam.nom; });
+      var s1 = el('span'); s1.appendChild(document.createTextNode('Total: ')); s1.appendChild(el('b', null, fmt1.format(kmTot) + ' km'));
+      if (libres.length) s1.appendChild(document.createTextNode(' · ' + libres.join(' y ') + (libres.length > 1 ? ' quedan libres' : ' queda libre')));
+      pie.appendChild(s1);
+      var s2 = el('span'); s2.appendChild(document.createTextNode('Con zonas fijas: ' + fmt1.format(kmMan) + ' km · ')); s2.appendChild(el('b', null, ah ? ah + ' % menos' : 'igual')); pie.appendChild(s2);
+    }
+  }
+  function armarChipsCamiones(){
+    var cont = $('camiones-sel'); cont.textContent = '';
+    CAMIONES.forEach(function(c){
+      var b = el('button', 'cam-chip'); b.type = 'button'; b.setAttribute('aria-pressed', c.activo ? 'true' : 'false');
+      var i = el('i'); i.style.background = c.color; b.appendChild(i); b.appendChild(document.createTextNode(c.nom));
+      b.title = c.activo ? 'Sacar ' + c.nom + ' (por ejemplo, está en el taller)' : 'Volver a sumar ' + c.nom;
+      b.addEventListener('click', function(){ c.activo = !c.activo; armarChipsCamiones(); dibujarTablero(true); evento('tablero_camion', {camion: c.nom, activo: c.activo}); });
+      cont.appendChild(b);
+    });
+  }
+
+  /* ================= Pedidos que entran ================= */
+  function armarPedidos(){
+    var ul = $('lista-pedidos'); ul.textContent = '';
+    var ruta = {}; repartoActual.rutas.forEach(function(r){ r.orden.forEach(function(p){ ruta[p.id] = r.cam; }); });
+    var mostrar = CLIENTES.slice(0, 6);
+    mostrar.forEach(function(p, k){
+      var li = el('li');
+      var d = el('div'); d.appendChild(el('b', null, p.nom)); li.appendChild(d);
+      var c = ruta[p.id];
+      var ch = el('span', 'chip asig'); ch.style.background = c ? c.color + '1A' : ''; ch.style.color = c ? c.color : '';
+      var dot = el('i'); dot.style.background = c ? c.color : '#999'; ch.appendChild(dot); ch.appendChild(document.createTextNode(c ? c.nom : 'Sin camión'));
+      li.appendChild(ch);
+      li.appendChild(el('small', null, 'e-Factura ' + p.fac + ' · ' + p.bul + ' bultos · ' + p.kg + ' kg · ' + p.barrio + ' · ' + p.vent));
+      if (!reducido){ li.style.animationDelay = (k * 0.12) + 's'; li.className = 'entra'; }
+      ul.appendChild(li);
+    });
+    var kg = CLIENTES.reduce(function(s, p){ return s + p.kg; }, 0);
+    $('ped-total').textContent = CLIENTES.length + ' pedidos · ' + fmt.format(kg) + ' kg · se muestran 6';
+  }
+
+  /* ================= Incidencias (vista del tablero) ================= */
+  var INC2 = {
+    desvio: {estado: 'Ruta recalculada', lineas: [['nar', 'Martín avisó: <b>corte en 8 de Octubre</b> a las 09:42.'], ['', 'Nueva ruta por Av. Italia: <b>+1,3 km, +4 min</b>. Las horas de llegada de las 4 paradas siguientes se actualizaron.'], ['', 'Los clientes con aviso pendiente reciben la hora nueva.']]},
+    combustible: {estado: 'Parada de combustible', lineas: [['nar', 'Martín avisó: <b>carga de combustible</b> a las 11:05.'], ['', 'Se sumó la estación de Av. Italia y Propios, sobre la ruta: <b>+0,4 km, +12 min</b>.'], ['', 'Queda en el reporte como parada operativa, no como demora del chofer.']]},
+    mecanico: {estado: 'Camión detenido', lineas: [['nar', 'Martín avisó: <b>falla mecánica</b> en Av. Garibaldi a las 10:18. La base recibió la ubicación.'], ['', 'Sus <b>4 entregas pendientes</b> pasan al Camión 3 (Kia K2700), que hoy estaba libre en el depósito y tiene lugar para la carga.'], ['', 'A los 4 clientes les llega un WhatsApp con la hora nueva. Nadie se queda esperando.']]}
+  };
+  $$('[data-inc2]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var k = b.getAttribute('data-inc2'), d = INC2[k];
+      $$('[data-inc2]').forEach(function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      $('inc-estado').textContent = d.estado;
+      var cont = $('inc-res'); cont.textContent = '';
+      d.lineas.forEach(function(l){ var div = el('div', 'inc-linea' + (l[0] ? ' ' + l[0] : '')); var s = el('span'); s.innerHTML = l[1]; div.appendChild(s); cont.appendChild(div); });
+      evento('tablero_incidencia', {tipo: k});
+    });
+  });
+
+  /* ================= Reporte (vista del tablero) ================= */
+  function armarGantt(){
+    var filas = [
+      ['Supermercado Malvín', 0, 22, 0, 24, 0], ['Panadería La Unión', 26, 16, 29, 17, 0], ['Almacén El Sol', 58, 14, 61, 12, 0],
+      ['Autoservice La Rambla', 80, 18, 82, 18, 0], ['Almacén Don Pepe', 108, 12, 131, 14, 1], ['Bar Tres Cruces', 128, 10, 150, 11, 1], ['Almacén Cordón', 150, 12, 158, 12, 0]
+    ];
+    var total = 190, cont = $('gantt'); cont.textContent = '';
+    filas.forEach(function(f){
+      var fila = el('div', 'g-fila');
+      fila.appendChild(el('span', null, f[0]));
+      var p = el('div', 'g-pista');
+      var a = el('i', 'pl'); a.style.left = (f[1] / total * 100) + '%'; a.style.width = (f[2] / total * 100) + '%'; p.appendChild(a);
+      var b = el('i', 're' + (f[5] ? ' tarde' : '')); b.style.left = (f[3] / total * 100) + '%'; b.style.width = (f[4] / total * 100) + '%'; p.appendChild(b);
+      fila.appendChild(p);
+      var dif = f[3] - f[1];
+      fila.appendChild(el('b', f[5] ? 'tarde' : null, dif > 0 ? '+' + dif + ' min' : 'a tiempo'));
+      cont.appendChild(fila);
+    });
+  }
+
+  /* ================= Pestañas de «Cómo funciona» ================= */
+  var tabs = $$('.tab');
+  function mostrarTab(i){
+    tabs.forEach(function(t, k){ t.setAttribute('aria-selected', k === i ? 'true' : 'false'); t.tabIndex = k === i ? 0 : -1; });
+    $$('[data-vista]').forEach(function(v){ v.hidden = +v.getAttribute('data-vista') !== i; });
+    $('vista').setAttribute('aria-labelledby', 'tab-' + i);
+    if (i === 1) dibujarTablero(true);
+    if (i === 0) armarPedidos();
+    evento('como_pestana', {pestana: i});
+  }
+  tabs.forEach(function(t, i){
+    t.addEventListener('click', function(){ mostrarTab(i); });
+    t.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight'){ e.preventDefault(); var n = (i + 1) % tabs.length; mostrarTab(n); tabs[n].focus(); }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft'){ e.preventDefault(); var p = (i - 1 + tabs.length) % tabs.length; mostrarTab(p); tabs[p].focus(); }
+    });
+  });
+
+  /* ================= App del chofer ================= */
+  var escenario = $('demo'), pantalla = $('pantalla');
+  var pantallas = {}; $$('.scr', pantalla).forEach(function(s){ pantallas[s.getAttribute('data-scr')] = s; });
+  var timers = [];
+  function en(ms, fn){ timers.push(setTimeout(fn, reducido ? Math.min(ms, 60) : ms)); }
+  function limpiar(){ timers.forEach(clearTimeout); timers = []; if (raf) cancelAnimationFrame(raf); raf = 0; }
+  function vivo(t){ $('demo-vivo').textContent = t; }
+  function setM(k, v){ $$('[data-m="' + k + '"]').forEach(function(e){ e.textContent = v; }); }
+
+  var C2 = CAMIONES[1];
+  var J; // estado de la jornada
+  function nuevaJornada(){
+    var res = repartir(CAMIONES.filter(function(c){ return c.activo || c === C2; }).map(function(c){ return c; }));
+    var r = null; res.rutas.forEach(function(x){ if (x.cam === C2) r = x; });
+    J = {ruta: r.orden.slice(), idx: 0, hechas: [], reloj: 7 * 60 + 52, km: 0, incs: [], avisos: 0, llegadas: [], empezo: false, termino: false, comb: 38, agregadas: []};
+    replanificar();
+    $('comb').textContent = J.comb + ' %';
+    $('km-hoy').textContent = '0,0 km';
+    $('registro').textContent = '';
+    registrar('ok', 'Ruta recibida de la base', J.ruta.length + ' entregas · ' + fmt.format(Math.round(r.km)) + ' km planificados', '07:40');
+    miniMapa();
+    listarParadas();
+  }
+  // Horas estimadas, kilómetros y carga del recorrido del Camión 2
+  function replanificar(){
+    var t = 8 * 60, prev = DEPO;
+    J.plan = J.ruta.map(function(p){ t += kmDe(dist(prev, p)) / VEL * 60; var eta = t; t += minParada(p); prev = p; return eta; });
+    J.planKm = kmDe(largoRecorrido(J.ruta)); J.planMin = minutosRuta(J.ruta);
+    J.kg = J.ruta.reduce(function(s, p){ return s + p.kg; }, 0);
+    setM('n-paradas', J.ruta.length);
+    setM('km-plan', fmt.format(Math.round(J.planKm)));
+    setM('horas-plan', duracion(J.planMin));
+    setM('kg-carga', fmt.format(J.kg));
+    setM('kg-cap', fmt.format(C2.cap));
+    $('j-cap-bar').style.width = Math.round(J.kg / C2.cap * 100) + '%';
+  }
+
+  /* ---------- Agregar una parada antes de salir ---------- */
+  var EXTRAS = [
+    {id: 19, nom: 'Almacén La Esquina', dir: 'Av. Garibaldi 2450', barrio: 'Goes', x: 440, y: 240, kg: 80, bul: 6, fac: 'A 0045145', vent: 'Todo el día', motivo: 'Pidió por WhatsApp a las 07:38'},
+    {id: 20, nom: 'Farmacia Tres Cruces', dir: 'Av. Italia 2260', barrio: 'Tres Cruces', x: 360, y: 320, kg: 45, bul: 4, fac: 'A 0045146', vent: '09:00 a 13:00', motivo: 'Faltó en el reparto de ayer'},
+    {id: 21, nom: 'Autoservice Paso Molino', dir: 'Av. Agraciada 4120', barrio: 'Paso Molino', x: 200, y: 240, kg: 140, bul: 10, fac: 'Retiro de envases', vent: '08:00 a 12:00', motivo: 'Retiro de envases vacíos'}
+  ];
+  EXTRAS.forEach(function(c){ c.zona = zonaDe(c); });
+  function armarExtras(){
+    var ul = $('add-lista'); ul.textContent = '';
+    var quedan = EXTRAS.filter(function(c){ return J.agregadas.indexOf(c) < 0; });
+    if (!quedan.length){ ul.appendChild(el('li', 'vacio', 'No hay más pedidos pendientes para tu zona.')); return; }
+    quedan.forEach(function(c){
+      var li = el('li'), b = el('button', 'add'); b.type = 'button';
+      var ic = el('span', 'ic verde'); ic.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+      b.appendChild(ic);
+      var t = el('span'); t.appendChild(el('b', null, c.nom)); t.appendChild(el('small', null, c.motivo + ' · ' + c.bul + ' bultos · ' + c.kg + ' kg')); b.appendChild(t);
+      b.addEventListener('click', function(){ agregarParada(c); });
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+  function avisoHoy(txt){ var a = $('aviso-hoy'); a.textContent = txt; a.classList.add('vis'); en(4200, function(){ a.classList.remove('vis'); }); }
+  function agregarParada(c){
+    cerrarHojas();
+    if (J.kg + c.kg > C2.cap){ avisoHoy('No entra: el camión quedaría con ' + fmt.format(J.kg + c.kg) + ' kg y carga ' + fmt.format(C2.cap) + '. La base lo pasa a otro camión.'); return; }
+    var kmAntes = J.planKm, minAntes = J.planMin, mejor = 0, costo = Infinity;
+    for (var i = 0; i <= J.ruta.length; i++){
+      var prueba = J.ruta.slice(0, i).concat([c], J.ruta.slice(i));
+      var v = largoRecorrido(prueba); if (v < costo){ costo = v; mejor = i; }
+    }
+    J.ruta.splice(mejor, 0, c); J.agregadas.push(c); J.ultima = c;
+    replanificar(); miniMapa(); listarParadas();
+    var dKm = J.planKm - kmAntes, dMin = J.planMin - minAntes;
+    var suma = dKm < 0.1 ? 'Queda de pasada: no suma kilómetros, solo ' + Math.round(dMin) + ' min de descarga' : 'El recorrido suma ' + fmt1.format(dKm) + ' km y ' + Math.round(dMin) + ' min';
+    registrar('ok', 'Parada agregada · ' + c.nom, 'Queda como parada ' + (mejor + 1) + ' · ' + (dKm < 0.1 ? '+0 km' : '+' + fmt1.format(dKm) + ' km') + ', +' + Math.round(dMin) + ' min · la base ya la ve');
+    avisoHoy(c.nom + ' quedó como parada ' + (mejor + 1) + ' de ' + J.ruta.length + '. ' + suma + '. Las horas de los demás clientes ya están actualizadas.');
+    vivo(c.nom + ' agregada como parada ' + (mejor + 1) + '.');
+    evento('demo_agregar_parada');
+  }
+
+  function relojTxt(){ return hhmm(J.reloj); }
+  function pintarReloj(){ $$('[data-reloj]').forEach(function(e){ e.textContent = relojTxt(); }); }
+
+  function miniMapa(){
+    var cont = $('mini-mapa'); cont.textContent = '';
+    var xs = J.ruta.map(function(p){ return p.x; }).concat(DEPO.x), ys = J.ruta.map(function(p){ return p.y; }).concat(DEPO.y);
+    var x0 = Math.min.apply(null, xs) - 50, x1 = Math.max.apply(null, xs) + 50, y0 = Math.min.apply(null, ys) - 30, y1 = Math.max.apply(null, ys) + 30;
+    var ancho = Math.max(x1 - x0, (y1 - y0) * 2.4), cx = (x0 + x1) / 2;
+    var svg = sv('svg', {viewBox: (cx - ancho / 2) + ' ' + y0 + ' ' + ancho + ' ' + (ancho / 2.4), preserveAspectRatio: 'xMidYMid slice'});
+    var g = sv('g', {}); svg.appendChild(g); dibujarCiudad(g, false);
+    g.appendChild(sv('polyline', {points: ptsA(recorridoPts(J.ruta)), fill: 'none', stroke: '#0B7A55', 'stroke-width': 8, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}));
+    marcaDepo(g, 1.5);
+    J.ruta.forEach(function(p, i){
+      var hecha = J.hechas.indexOf(p) >= 0;
+      g.appendChild(sv('circle', {cx: p.x, cy: p.y, r: 13, fill: hecha ? '#CBE8DB' : '#fff', stroke: '#0B7A55', 'stroke-width': 4}));
+      var t = sv('text', {x: p.x, y: p.y + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800, fill: '#0B7A55', 'font-family': 'Figtree, sans-serif'}); t.textContent = i + 1; g.appendChild(t);
+    });
+    cont.appendChild(svg);
+    var ley = el('span', 'ley', 'Tu recorrido · ' + fmt.format(Math.round(J.planKm)) + ' km'); cont.appendChild(ley);
+  }
+  function itemParada(p, i, conHora){
+    var li = el('li');
+    var b = el('button', 'parada'); b.type = 'button';
+    var hecha = J.hechas.indexOf(p) >= 0, actual = !hecha && i === J.idx && J.empezo;
+    if (hecha) b.classList.add('hecha'); if (actual) b.classList.add('actual'); if (p === J.ultima && !J.empezo) b.classList.add('nueva');
+    b.appendChild(el('span', 'n', hecha ? '✓' : String(i + 1)));
+    var m = el('div'); m.appendChild(el('b', null, p.nom)); m.appendChild(el('small', null, p.dir + ' · ' + p.bul + ' bultos')); b.appendChild(m);
+    var d = el('span', 'der');
+    d.appendChild(el('span', 'hora', hecha ? hhmm(J.llegadas[J.hechas.indexOf(p)]) : '~' + hhmm(J.plan[i])));
+    d.appendChild(el('span', 'chip ' + (hecha ? 'verde' : (actual ? 'nar' : 'gris')), hecha ? 'Entregado' : (actual ? 'En camino' : 'Pendiente')));
+    if (conHora !== false) b.appendChild(d);
+    b.addEventListener('click', function(){ abrirDetalle(p, i); });
+    li.appendChild(b);
+    return li;
+  }
+  var filtroEnt = 'todas';
+  function listarParadas(){
+    var ul = $('hoy-paradas'); ul.textContent = '';
+    var desde = J.ruta.findIndex(function(p){ return J.hechas.indexOf(p) < 0; });
+    if (desde < 0) desde = 0;
+    var ver = desde;
+    if (J.ultima && !J.empezo){ var iu = J.ruta.indexOf(J.ultima); if (iu >= desde + 3) ver = Math.max(desde, iu - 1); }
+    J.ruta.slice(ver, ver + 3).forEach(function(p, k){ ul.appendChild(itemParada(p, ver + k)); });
+    var ul2 = $('ent-lista'); ul2.textContent = '';
+    var n = 0;
+    J.ruta.forEach(function(p, i){
+      var hecha = J.hechas.indexOf(p) >= 0;
+      if (filtroEnt === 'pend' && hecha) return; if (filtroEnt === 'ok' && !hecha) return;
+      ul2.appendChild(itemParada(p, i)); n++;
+    });
+    if (!n) ul2.appendChild(el('li', 'vacio', filtroEnt === 'ok' ? 'Todavía no entregaste nada hoy.' : 'No quedan entregas pendientes.'));
+    $('ent-cuenta').textContent = J.hechas.length + ' de ' + J.ruta.length;
+    var ba = $('btn-agregar'); ba.textContent = J.empezo ? 'En la calle' : '+ Agregar parada'; ba.disabled = !!J.empezo;
+    $('f-pend').textContent = J.ruta.length - J.hechas.length;
+    $('f-ok').textContent = J.hechas.length;
+  }
+  $$('.filtro').forEach(function(f){ f.addEventListener('click', function(){ filtroEnt = f.getAttribute('data-filtro'); $$('.filtro').forEach(function(x){ x.classList.toggle('act', x === f); }); listarParadas(); }); });
+
+  function abrirDetalle(p, i){
+    $('det-n').textContent = p.nom; $('det-d').textContent = p.dir + ' · ' + p.barrio;
+    var ul = $('det-filas'); ul.textContent = '';
+    [['Factura', 'e-Factura ' + p.fac], ['Bultos', p.bul + ' · ' + p.kg + ' kg'], ['Horario del cliente', p.vent], ['Llegada estimada', '~' + hhmm(J.plan[i])], ['Aviso por WhatsApp', J.hechas.indexOf(p) >= 0 ? 'Enviado' : 'A 15 minutos']].forEach(function(f){ var li = el('li'); li.appendChild(el('span', null, f[0])); li.appendChild(el('b', null, f[1])); ul.appendChild(li); });
+    abrirHoja('hoja-det');
+  }
+  function abrirHoja(id){ $('velo').classList.add('abierto'); $(id).classList.add('abierta'); }
+  function cerrarHojas(){ $('velo').classList.remove('abierto'); $$('.hoja').forEach(function(h){ h.classList.remove('abierta'); }); }
+  $('velo').addEventListener('click', cerrarHojas);
+
+  function registrar(tipo, titulo, detalle, hora){
+    var li = el('li', 'nuevo');
+    var ic = el('span', 'ic ' + tipo);
+    ic.innerHTML = tipo === 'wa' ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5z"/></svg>'
+      : (tipo === 'nar' ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>');
+    li.appendChild(ic);
+    var d = el('div'); d.appendChild(el('b', null, titulo)); d.appendChild(el('small', null, detalle)); li.appendChild(d);
+    li.appendChild(el('time', null, hora || relojTxt()));
+    var ul = $('registro'); ul.insertBefore(li, ul.firstChild);
+  }
+
+  function ir(nombre){
+    Object.keys(pantallas).forEach(function(k){ pantallas[k].classList.toggle('activa', k === nombre); });
+    pantalla.setAttribute('data-scr', nombre);
+    $$('.barra-tab .t').forEach(function(t){ if (t.getAttribute('data-ir') === nombre) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+    cerrarHojas();
+    var paso = {hoy: 1, entregas: 1, avisos: 1, camion: 1, nav: 2, llegada: 4, siguiente: 4, reporte: 5}[nombre];
+    if (nombre === 'nav' && J.avisoEnviado) paso = 3;
+    marcarPaso(paso);
+  }
+  function marcarPaso(n){
+    $$('[data-paso]').forEach(function(b){
+      var k = +b.getAttribute('data-paso');
+      if (k === n) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+      b.classList.toggle('hecho', k < n);
+    });
+  }
+  $$('.barra-tab .t').forEach(function(t){ t.addEventListener('click', function(){ ir(t.getAttribute('data-ir')); escenario.classList.add('tocado'); }); });
+
+  /* ---------- Navegación ---------- */
+  var navSvg, mundoNav, camionEl, rutaHecha, rutaFalta, raf = 0;
+  var N = null; // tramo actual
+  function prepararNav(){
+    var cont = $('nav-mapa'); cont.textContent = '';
+    navSvg = sv('svg', {viewBox: '0 0 282 600', preserveAspectRatio: 'xMidYMid slice'});
+    mundoNav = sv('g', {id: 'mundo-nav'});
+    dibujarCiudad(mundoNav, true);
+    rutaFalta = sv('polyline', {fill: 'none', stroke: '#2F8F6B', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'});
+    rutaHecha = sv('polyline', {fill: 'none', stroke: '#9DB5AA', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'});
+    var borde = sv('polyline', {fill: 'none', stroke: '#085C40', 'stroke-width': 13, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', id: 'ruta-borde'});
+    mundoNav.appendChild(borde); mundoNav.appendChild(rutaFalta); mundoNav.appendChild(rutaHecha);
+    J.ruta.forEach(function(p, i){
+      var g = sv('g', {transform: 'translate(' + p.x + ' ' + p.y + ')', 'data-par': i});
+      g.appendChild(sv('path', {d: 'M0 2 C-9 -9 -12 -14 -12 -20 A12 12 0 1 1 12 -20 C12 -14 9 -9 0 2Z', fill: '#132019', stroke: '#fff', 'stroke-width': 2.5}));
+      var t = sv('text', {y: -16, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 800, fill: '#fff', 'font-family': 'Figtree, sans-serif'}); t.textContent = i + 1; g.appendChild(t);
+      mundoNav.appendChild(g);
+    });
+    marcaDepo(mundoNav, 1.1);
+    camionEl = sv('g', {});
+    camionEl.appendChild(sv('circle', {r: 22, fill: 'rgba(242,106,27,.18)'}));
+    camionEl.appendChild(sv('circle', {r: 12, fill: '#F26A1B', stroke: '#fff', 'stroke-width': 3.5}));
+    camionEl.appendChild(sv('path', {d: 'M0 -6 L5 5 L0 2.5 L-5 5Z', fill: '#fff'}));
+    mundoNav.appendChild(camionEl);
+    navSvg.appendChild(mundoNav);
+    cont.appendChild(navSvg);
+  }
+  function empezarTramo(){
+    var desde = J.idx === 0 ? DEPO : J.ruta[J.idx - 1], hacia = J.ruta[J.idx];
+    var pts = camino(desde, hacia);
+    if (J.desvio){ // desvío: rodea una cuadra
+      var m = pts[1] || pts[0];
+      pts = [pts[0], {x: pts[0].x, y: pts[0].y + (pts[0].y < 300 ? 40 : -40)}, {x: m.x, y: pts[0].y + (pts[0].y < 300 ? 40 : -40)}].concat(pts.slice(1));
+      if (pts[2].x === pts[3].x && pts[2].y !== pts[3].y) {} // sigue por la columna
+      J.desvio = false;
+    }
+    var L = largo(pts);
+    var kmTramo = kmDe(L);
+    var min = kmTramo / VEL * 60 * (J.idx === 0 ? 1.35 : 1);
+    N = {pts: pts, L: L, s: 0, km: kmTramo, min: min, extra: 0, p: hacia, t0: J.reloj, aviso: false};
+    J.avisoEnviado = false;
+    rutaFalta.setAttribute('points', ptsA(pts)); $('ruta-borde').setAttribute('points', ptsA(pts));
+    rutaHecha.setAttribute('points', ptsA([pts[0]]));
+    $('dest-n').textContent = hacia.nom;
+    $('dest-d').textContent = 'Parada ' + (J.idx + 1) + ' de ' + J.ruta.length + ' · ' + hacia.dir;
+    $('dest-chip').className = 'chip gris'; $('dest-chip').textContent = 'Aviso a 15 min';
+    $('btn-llegue').disabled = true;
+    $$('[data-par]', mundoNav).forEach(function(g){ g.style.opacity = +g.getAttribute('data-par') < J.idx ? .35 : 1; });
+    actualizarNav();
+    // si el tramo es corto, el aviso sale al empezar
+  }
+  function puntoEn(s){
+    var pts = N.pts, acc = 0;
+    for (var i = 1; i < pts.length; i++){
+      var a = pts[i-1], b = pts[i], l = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+      if (acc + l >= s || i === pts.length - 1){
+        var f = l ? Math.min(1, (s - acc) / l) : 1;
+        return {x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, seg: i, dx: Math.sign(b.x - a.x), dy: Math.sign(b.y - a.y), falta: acc + l - s};
+      }
+      acc += l;
+    }
+    return {x: pts[pts.length-1].x, y: pts[pts.length-1].y, seg: pts.length - 1, dx: 0, dy: -1, falta: 0};
+  }
+  function giro(seg){
+    var p = N.pts; if (seg + 1 >= p.length) return null;
+    var a = p[seg-1], b = p[seg], c = p[seg+1];
+    var d1x = Math.sign(b.x - a.x), d1y = Math.sign(b.y - a.y), d2x = Math.sign(c.x - b.x), d2y = Math.sign(c.y - b.y);
+    var cruz = d1x * d2y - d1y * d2x; // en pantalla (y hacia abajo): positivo = derecha
+    var calle = d2x !== 0 ? nomFila(c.y) : nomCol(c.x);
+    return {lado: cruz > 0 ? 'derecha' : 'izquierda', calle: calle};
+  }
+  var FL_DER = '<path d="M8 20V11h9"/><path d="M13.5 7.5 17 11l-3.5 3.5"/>';
+  var FL_IZQ = '<path d="M16 20V11H7"/><path d="M10.5 7.5 7 11l3.5 3.5"/>';
+  var FL_REC = '<path d="M12 20V5"/><path d="M8 9l4-4 4 4"/>';
+  var FL_FIN = '<path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>';
+  function metros(u){ var m = kmDe(u) * 1000; return m >= 1000 ? fmt1.format(m / 1000) + ' km' : (Math.max(10, Math.round(m / 10) * 10)) + ' m'; }
+  function actualizarNav(){
+    var pt = puntoEn(N.s);
+    // cámara que sigue al camión
+    var esc = 2.3, cx = 141, cy = 300;
+    mundoNav.setAttribute('transform', 'translate(' + (cx - pt.x * esc) + ' ' + (cy - pt.y * esc) + ') scale(' + esc + ')');
+    var ang = Math.atan2(pt.dy, pt.dx) * 180 / Math.PI + 90;
+    camionEl.setAttribute('transform', 'translate(' + pt.x + ' ' + pt.y + ') rotate(' + ang + ')');
+    // lo recorrido
+    var hechos = N.pts.slice(0, pt.seg).concat([{x: pt.x, y: pt.y}]);
+    rutaHecha.setAttribute('points', ptsA(hechos));
+    // instrucción
+    var g = giro(pt.seg), fl = $('instr-flecha');
+    if (g){ $('instr-d').textContent = metros(pt.falta); $('instr-t').textContent = 'Doblá a la ' + g.lado + ' por ' + g.calle; fl.innerHTML = g.lado === 'derecha' ? FL_DER : FL_IZQ; }
+    else { $('instr-d').textContent = metros(Math.max(0, N.L - N.s)); $('instr-t').textContent = 'Llegás a ' + N.p.nom; fl.innerHTML = FL_FIN; }
+    var g2 = giro(pt.seg + 1);
+    $('instr-luego').hidden = !g2;
+    if (g2) $('instr-luego').querySelector('svg').innerHTML = g2.lado === 'derecha' ? FL_DER : FL_IZQ;
+    // ETA
+    var f = N.L ? N.s / N.L : 1;
+    var falta = Math.max(0, (N.min + N.extra) * (1 - f));
+    J.reloj = N.t0 + (N.min + N.extra) * f;
+    pintarReloj();
+    $('eta-h').textContent = hhmm(J.reloj + falta);
+    $('eta-m').textContent = Math.ceil(falta) + ' min';
+    $('eta-k').textContent = fmt1.format(N.km * (1 - f)) + ' km';
+    $('vel').textContent = f >= 1 ? '0' : String(28 + Math.round(12 * Math.abs(Math.sin(N.s / 37))));
+    $('km-hoy').textContent = fmt1.format(J.km + N.km * f) + ' km';
+    if (!N.aviso && falta <= 15){ N.aviso = true; avisoCliente(N.p, falta); }
+    if (f >= 1){ $('btn-llegue').disabled = false; $('btn-acel').disabled = true; $('instr-t').textContent = 'Llegaste a ' + N.p.nom; }
+  }
+  function avisoCliente(p, falta){
+    J.avisoEnviado = true; J.avisos++;
+    var llega = J.reloj + falta, hora = hhmm(llega), envio = hhmm(Math.max(N.t0, llega - 15));
+    $('noti-t').textContent = 'WhatsApp enviado a ' + p.nom;
+    $('noti-h').textContent = envio;
+    $('noti-p').textContent = '«Tu pedido llega en 15 minutos, a las ' + hora + '.» Con link para seguir el camión.';
+    if (falta > 5){ $('noti').classList.add('vis'); en(3600, function(){ $('noti').classList.remove('vis'); }); }
+    $('dest-chip').className = 'chip verde'; $('dest-chip').textContent = 'Cliente avisado';
+    registrar('wa', 'Aviso a ' + p.nom, 'Llega en 15 min, a las ' + hora, envio);
+    marcarPaso(3);
+    vivo('Se envió un WhatsApp a ' + p.nom + ': el pedido llega en 15 minutos.');
+    evento('demo_aviso_whatsapp');
+  }
+  var velocidad = 1;
+  function correr(){
+    if (raf) cancelAnimationFrame(raf);
+    var ult = performance.now();
+    function paso(t){
+      var dt = Math.min(64, t - ult); ult = t;
+      if (pantalla.getAttribute('data-scr') === 'nav' && !N.pausa){
+        // un minuto simulado ≈ 0,45 s reales
+        var uPorMs = (N.L / Math.max(1, N.min + N.extra)) / 450 * velocidad;
+        N.s = Math.min(N.L, N.s + uPorMs * dt * (reducido ? 20 : 1));
+        actualizarNav();
+      }
+      if (N.s < N.L) raf = requestAnimationFrame(paso); else raf = 0;
+    }
+    raf = requestAnimationFrame(paso);
+  }
+  function mensajeNav(txt, ms){
+    var a = $('aviso-nav'); a.textContent = txt; a.classList.add('vis');
+    en(ms || 3200, function(){ a.classList.remove('vis'); });
+  }
+
+  function iniciar(){
+    escenario.classList.add('tocado');
+    if (J.termino){ reiniciar(); }
+    if (!J.empezo){
+      J.empezo = true; J.reloj = 8 * 60;
+      registrar('ok', 'Jornada iniciada', 'GPS activo · salida del depósito', '08:00');
+      evento('demo_iniciar');
+    }
+    if (J.idx >= J.ruta.length){ terminar(); return; }
+    if (!navSvg) prepararNav();
+    if (!N || N.p !== J.ruta[J.idx]) empezarTramo();
+    velocidad = 1; $('btn-acel').disabled = false;
+    ir('nav');
+    vivo('Navegación a ' + J.ruta[J.idx].nom + '.');
+    correr();
+  }
+  function llegar(){
+    if (!N) return;
+    var p = N.p, i = J.idx, tarde = J.reloj - J.plan[i];
+    $('lleg-n').textContent = p.nom;
+    $('lleg-d').textContent = p.dir + ' · e-Factura ' + p.fac;
+    $('lleg-chip').className = 'chip ' + (tarde > 10 ? 'nar' : 'verde');
+    $('lleg-chip').textContent = 'Llegaste ' + relojTxt() + (tarde > 10 ? ' · ' + Math.round(tarde) + ' min tarde' : ' · a tiempo');
+    var ul = $('lleg-bultos'); ul.textContent = '';
+    var prods = [['Agua mineral 2 L × 6', 4], ['Refresco cola 1,5 L × 6', 3], ['Harina 000 × 10 kg', 2], ['Aceite girasol 900 ml × 12', 2], ['Yerba 1 kg × 10', 3]];
+    var n = 0; prods.forEach(function(x){ if (n >= p.bul) return; var q = Math.min(x[1] + Math.floor(p.bul / 6), p.bul - n); n += q; var li = el('li'); li.appendChild(el('b', null, x[0])); li.appendChild(el('span', null, q + ' bultos')); ul.appendChild(li); });
+    var inf = $('lleg-info'); inf.textContent = '';
+    [['Horario del cliente', p.vent], ['Pago', i % 2 ? 'Contado al entregar' : 'Cuenta corriente'], ['Nota del cliente', i === 0 ? 'Entrar por la puerta de atrás' : 'Sin notas']].forEach(function(f){ var li = el('li'); li.appendChild(el('span', null, f[0])); li.appendChild(el('b', null, f[1])); inf.appendChild(li); });
+    $('firma').classList.remove('hecha');
+    ir('llegada');
+    evento('demo_llegada');
+  }
+  function entregar(tipo){
+    var p = N.p;
+    J.hechas.push(p); J.llegadas.push(J.reloj);
+    J.km += N.km; J.reloj += minParada(p);
+    pintarReloj();
+    var txt = {entregado: 'Entregado', parcial: 'Entrega parcial', norecibe: 'No recibió'}[tipo];
+    registrar(tipo === 'entregado' ? 'ok' : 'nar', txt + ' · ' + p.nom, tipo === 'entregado' ? 'Firmó el cliente · la factura queda como entregada' : (tipo === 'parcial' ? 'Faltaron 2 bultos · la base ajusta la factura' : 'Queda para reprogramar · el cliente recibe un WhatsApp'));
+    if (tipo !== 'entregado') J.incs.push({t: txt, d: p.nom});
+    J.idx++; N = null;
+    listarParadas(); miniMapa();
+    $('sig-chip').className = 'chip ' + (tipo === 'entregado' ? 'verde' : 'nar');
+    $('sig-chip').textContent = txt + ' ' + relojTxt();
+    $('sig-t').textContent = tipo === 'entregado' ? 'Listo, quedó registrado.' : 'Quedó registrado para la base.';
+    var ul = $('sig-paradas'); ul.textContent = '';
+    if (J.idx < J.ruta.length){
+      $('sig-d').textContent = 'Tu sistema ya lo sabe. Próxima parada:';
+      J.ruta.slice(J.idx, J.idx + 3).forEach(function(q, k){ ul.appendChild(itemParada(q, J.idx + k)); });
+      $('btn-sig').hidden = false;
+    } else { $('sig-d').textContent = 'Era la última entrega del día.'; $('btn-sig').hidden = true; }
+    ir('siguiente');
+    evento('demo_entrega', {tipo: tipo});
+  }
+  function terminar(){
+    limpiar();
+    // en la demo, las entregas que faltan se completan con tiempos simulados
+    var faltan = J.ruta.slice(J.idx);
+    faltan.forEach(function(p, k){
+      var i = J.idx + k, prev = i === 0 ? DEPO : J.ruta[i - 1];
+      if (k === 0 && N && N.p === p){ J.reloj = N.t0 + N.min + N.extra; J.km += N.km; J.hechas.push(p); J.llegadas.push(J.reloj); J.reloj += minParada(p); return; }
+      J.reloj += kmDe(dist(prev, p)) / VEL * 60 * (k === 4 ? 2.4 : 0.9) - (k > 4 ? 2 : 0);
+      J.km += kmDe(dist(prev, p));
+      J.hechas.push(p); J.llegadas.push(J.reloj); J.reloj += minParada(p);
+    });
+    J.km += kmDe(dist(J.ruta[J.ruta.length - 1], DEPO)); J.reloj += kmDe(dist(J.ruta[J.ruta.length - 1], DEPO)) / VEL * 60;
+    J.idx = J.ruta.length; J.termino = true;
+    pintarReloj(); listarParadas(); miniMapa();
+    $('km-hoy').textContent = fmt1.format(J.km) + ' km';
+    registrar('ok', 'Jornada terminada', 'Reporte enviado a la base');
+    armarReporte();
+    ir('reporte');
+    evento('demo_terminar');
+  }
+  function armarReporte(){
+    var c = $('rep-cuerpo'); c.textContent = '';
+    var aTiempo = J.llegadas.filter(function(t, i){ return t - J.plan[i] <= 10; }).length;
+    var durReal = J.reloj - 8 * 60, dKm = J.km - J.planKm;
+    var cab = el('div', 'rep-cab');
+    cab.appendChild(el('small', null, 'Camión 2 · SCD 2210 · Martín Silva · 28/09'));
+    cab.appendChild(el('b', null, aTiempo + ' de ' + J.ruta.length + ' entregas a tiempo'));
+    cab.appendChild(el('span', 'sello', 'Enviado a la base a las ' + relojTxt()));
+    c.appendChild(cab);
+    var g = el('div', 'rep-grid');
+    [['Entregas', J.hechas.length + ' de ' + J.ruta.length, J.incs.length ? J.incs.length + ' con novedad' : 'sin novedades', J.incs.length ? 'mal' : 'bien'],
+     ['Cumplimiento', Math.round(aTiempo / J.ruta.length * 100) + ' %', 'a tiempo: ±10 min', aTiempo === J.ruta.length ? 'bien' : ''],
+     ['Kilómetros', fmt1.format(J.km), 'plan ' + fmt1.format(J.planKm) + (dKm > 0.05 ? ' · +' + fmt1.format(dKm) : ''), dKm > 2 ? 'mal' : 'bien'],
+     ['Duración', duracion(durReal), 'plan ' + duracion(J.planMin), durReal - J.planMin > 20 ? 'mal' : 'bien']
+    ].forEach(function(k){ var d = el('div'); d.appendChild(el('small', null, k[0])); d.appendChild(el('b', null, k[1])); d.appendChild(el('em', k[3], k[2])); g.appendChild(d); });
+    c.appendChild(g);
+    var l = el('div', 'rep-lista'); var ul = el('ul');
+    J.ruta.forEach(function(p, i){
+      var dif = Math.round(J.llegadas[i] - J.plan[i]);
+      var li = el('li'); li.appendChild(el('span', null, (i + 1) + '. ' + p.nom));
+      li.appendChild(el('b', dif > 10 ? 'tarde' : 'bien', hhmm(J.llegadas[i]) + (dif > 10 ? ' · +' + dif + ' min' : ' · a tiempo')));
+      ul.appendChild(li);
+    });
+    l.appendChild(ul); c.appendChild(l);
+    var l2 = el('div', 'rep-lista'); var ul2 = el('ul');
+    var otros = [['Avisos por WhatsApp', J.ruta.length + ' enviados']].concat(J.agregadas.map(function(x){ return ['Agregada antes de salir', x.nom]; })).concat(J.incs.map(function(x){ return [x.t, x.d]; }));
+    otros.forEach(function(o){ var li = el('li'); li.appendChild(el('span', null, o[0])); li.appendChild(el('b', null, o[1])); ul2.appendChild(li); });
+    l2.appendChild(ul2); c.appendChild(l2);
+  }
+  function reiniciar(){
+    limpiar(); N = null; navSvg = null; nuevaJornada(); pintarReloj();
+    $('noti').classList.remove('vis'); ir('hoy');
+  }
+  function incidencia(tipo){
+    cerrarHojas();
+    var hora = relojTxt();
+    if (tipo === 'desvio'){
+      J.incs.push({t: 'Cambio de ruta', d: hora});
+      registrar('nar', 'Cambio de ruta', 'Corte de calle · ruta recalculada · +1,1 km');
+      if (N){ N.extra += 4; N.km += 1.1; }
+      mensajeNav('Ruta recalculada: +1,1 km, +4 min. La base y el cliente ya tienen la hora nueva.');
+    } else if (tipo === 'combustible'){
+      J.incs.push({t: 'Carga de combustible', d: hora + ' · 12 min'});
+      registrar('nar', 'Carga de combustible', 'Estación sobre la ruta · +12 min · parada operativa');
+      if (N) N.extra += 12;
+      J.comb = 100; $('comb').textContent = '100 %';
+      mensajeNav('Sumamos la estación que está sobre tu ruta. +12 min. Queda como parada operativa en el reporte.');
+    } else {
+      J.incs.push({t: 'Falla mecánica', d: hora});
+      var quedan = J.ruta.length - J.idx - (N ? 0 : 0);
+      registrar('nar', 'Falla mecánica', 'La base tiene tu ubicación · ' + quedan + ' entregas pasan al Camión 3');
+      if (N) N.pausa = true;
+      mensajeNav('Avisamos a la base con tu ubicación. Tus ' + quedan + ' entregas pendientes pasan al Camión 3, y los clientes reciben la hora nueva.', 5200);
+      en(5400, function(){
+        // el resto de la ruta la toma otro camión: la jornada de este camión termina aquí
+        var hechas = J.hechas.length;
+        J.ruta = J.ruta.slice(0, Math.max(hechas, 0));
+        if (!J.ruta.length){ J.ruta = []; }
+        J.reasignadas = quedan;
+        if (!J.ruta.length){ armarReporteMecanico(quedan); ir('reporte'); return; }
+        J.idx = J.ruta.length; terminarSinSimular(quedan);
+      });
+    }
+    evento('demo_incidencia', {tipo: tipo});
+  }
+  function terminarSinSimular(quedan){
+    limpiar(); J.termino = true; pintarReloj(); armarReporte();
+    var c = $('rep-cuerpo'); var aviso = el('div', 'rep-lista'); var ul = el('ul'); var li = el('li'); li.appendChild(el('span', null, 'Reasignadas al Camión 3')); li.appendChild(el('b', 'tarde', quedan + ' entregas')); ul.appendChild(li); aviso.appendChild(ul); c.appendChild(aviso);
+    ir('reporte');
+  }
+  function armarReporteMecanico(quedan){
+    limpiar(); J.termino = true;
+    var c = $('rep-cuerpo'); c.textContent = '';
+    var cab = el('div', 'rep-cab'); cab.appendChild(el('small', null, 'Camión 2 · SCD 2210 · Martín Silva · 28/09')); cab.appendChild(el('b', null, 'Jornada cortada por falla mecánica')); cab.appendChild(el('span', 'sello', 'La base lo vio a las ' + relojTxt())); c.appendChild(cab);
+    var l = el('div', 'rep-lista'); var ul = el('ul');
+    [['Entregas hechas', '0'], ['Reasignadas al Camión 3', quedan + ' entregas'], ['Clientes avisados de la hora nueva', quedan + ''], ['Kilómetros', fmt1.format(J.km + (N ? N.km * (N.s / N.L) : 0))]].forEach(function(o){ var li = el('li'); li.appendChild(el('span', null, o[0])); li.appendChild(el('b', null, o[1])); ul.appendChild(li); });
+    l.appendChild(ul); c.appendChild(l);
+  }
+
+  pantalla.addEventListener('click', function(e){
+    var a = e.target.closest('[data-accion]'); if (!a) return;
+    var acc = a.getAttribute('data-accion');
+    escenario.classList.add('tocado');
+    if (acc === 'iniciar') iniciar();
+    else if (acc === 'acelerar'){ velocidad = velocidad === 1 ? 4 : 1; a.textContent = velocidad === 1 ? 'Adelantar ›' : 'Velocidad normal'; if (!raf && N && N.s < N.L) correr(); }
+    else if (acc === 'llegue') llegar();
+    else if (acc === 'entregado' || acc === 'parcial' || acc === 'norecibe') entregar(acc);
+    else if (acc === 'siguiente') iniciar();
+    else if (acc === 'terminar') terminar();
+    else if (acc === 'reiniciar') reiniciar();
+    else if (acc === 'incidencia') abrirHoja('hoja-inc');
+    else if (acc === 'agregar'){ if (J.empezo){ avisoHoy('Ya estás en la calle: los cambios los hace la base desde el tablero.'); } else { armarExtras(); abrirHoja('hoja-add'); } }
+    else if (acc === 'cerrar-hoja') cerrarHojas();
+  });
+  $$('[data-inc]').forEach(function(b){ b.addEventListener('click', function(){
+    var t = b.getAttribute('data-inc');
+    if (!J.empezo || J.termino){ cerrarHojas(); registrar('nar', {desvio: 'Cambio de ruta', combustible: 'Carga de combustible', mecanico: 'Falla mecánica'}[t], 'Avisado a la base desde el depósito'); return; }
+    if (pantalla.getAttribute('data-scr') !== 'nav') ir('nav');
+    incidencia(t);
+  }); });
+  $('firma').addEventListener('click', function(){ this.classList.add('hecha'); });
+
+  // pasos de la demo
+  $$('[data-paso]').forEach(function(b){ b.addEventListener('click', function(){
+    var n = +b.getAttribute('data-paso');
+    escenario.classList.add('tocado');
+    if (n === 1){ reiniciar(); }
+    else if (n === 2){ if (J.termino) reiniciar(); iniciar(); }
+    else if (n === 3){ if (J.termino) reiniciar(); iniciar(); if (N && !N.aviso){ var f = Math.max(0, 1 - 16 / (N.min + N.extra)); N.s = Math.max(N.s, N.L * f); actualizarNav(); } }
+    else if (n === 4){ if (J.termino) reiniciar(); iniciar(); if (N){ N.s = N.L; actualizarNav(); } llegar(); }
+    else if (n === 5){ if (!J.empezo){ J.empezo = true; J.reloj = 8 * 60; } terminar(); }
+    evento('demo_paso', {paso: n});
+  }); });
+
+  // zonas del camión 2 (se reflejan en el tablero)
+  $$('#zonas-c2 .zona').forEach(function(z){ z.addEventListener('click', function(){
+    var on = z.getAttribute('aria-pressed') !== 'true', zona = z.getAttribute('data-zona');
+    if (!on && C2.zonas.length === 1) return;
+    z.setAttribute('aria-pressed', on ? 'true' : 'false');
+    C2.zonas = on ? C2.zonas.concat([zona]) : C2.zonas.filter(function(x){ return x !== zona; });
+    dibujarTablero(false);
+    registrar('ok', 'Zonas actualizadas', 'Camión 2: ' + C2.zonas.join(', ').toLowerCase());
+  }); });
+
+  /* ================= Calculadora ================= */
+  var PRECIO_GASOIL = 48.10, KM_L = 6, HORA_REPARTO = 582, TC = 40.27, DIAS = 22;
+  var planes = [{hasta: 5, usd: 59, nom: 'Reparto'}, {hasta: 20, usd: 49, nom: 'Flota'}, {hasta: 1e9, usd: 39, nom: 'Distribución'}];
+  var red = 0.12, minDia = 35;
+  function calcular(){
+    var cam = +$('c-cam').value, km = +$('c-km').value;
+    $('o-cam').textContent = cam; $('o-km').textContent = km + ' km';
+    var kmMes = cam * km * DIAS, kmAhorro = kmMes * red;
+    var gasoil = kmAhorro / KM_L * PRECIO_GASOIL;
+    var horas = cam * DIAS * minDia / 60;
+    var sueldos = horas * HORA_REPARTO;
+    var plan = planes.filter(function(p){ return cam <= p.hasta; })[0];
+    var costo = plan.usd * cam * TC;
+    var total = gasoil + sueldos;
+    $('r-total').textContent = '$U ' + fmt.format(Math.round(total / 100) * 100);
+    $('r-km-hoy').textContent = fmt.format(kmMes) + ' km';
+    $('r-km-con').textContent = fmt.format(Math.round(kmMes - kmAhorro)) + ' km';
+    $('b-con').style.width = ((1 - red) * 100) + '%';
+    $('r-gasoil').textContent = '$U ' + fmt.format(Math.round(gasoil / 100) * 100);
+    $('r-horas').textContent = fmt.format(Math.round(horas)) + ' h';
+    $('r-neto').textContent = '$U ' + fmt.format(Math.round((total - costo) / 100) * 100);
+    $('r-nota').textContent = 'Plan ' + plan.nom + ', USD ' + plan.usd + ' por camión + IVA. ' + DIAS + ' días de reparto por mes, ' + Math.round(red * 100) + ' % menos kilómetros y ' + minDia + ' minutos menos por camión y por día. Gasoil a $U 48,10 el litro sin IVA (setiembre de 2026), 6 km por litro y hora de chofer y peón a $U 582 según el laudo del transporte de carga (Grupo 13). Tipo de cambio: $U 40,27.';
+  }
+  $$('.segmento button').forEach(function(b){ b.addEventListener('click', function(){
+    $$('.segmento button').forEach(function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    red = +b.getAttribute('data-red'); minDia = +b.getAttribute('data-min'); calcular();
+  }); });
+  $('c-cam').addEventListener('input', calcular); $('c-km').addEventListener('input', calcular);
+
+  /* ================= Precios ================= */
+  $$('.alternar button').forEach(function(b){ b.addEventListener('click', function(){
+    var anual = b.getAttribute('data-periodo') === 'anual';
+    $$('.alternar button').forEach(function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    $$('[data-precio]').forEach(function(p){ var v = +p.getAttribute('data-precio'); p.textContent = 'USD ' + (anual ? fmt.format(Math.round(v * 10 / 12)) : v); });
+    $$('.precio-nota').forEach(function(n){ n.textContent = anual ? 'USD ' + fmt.format(+n.getAttribute('data-anual')) + ' por camión al año' : ''; });
+    evento('precios_periodo', {periodo: anual ? 'anual' : 'mensual'});
+  }); });
+  $$('[data-camiones]').forEach(function(a){ a.addEventListener('click', function(){ $('f-camiones').value = a.getAttribute('data-camiones'); }); });
+
+  /* ================= Formulario ================= */
+  var CONFIG = {
+    whatsapp: '',       // número en formato internacional, sin + ni espacios. Ej.: 59899123456
+    email: 'federico@dearmascostantini.com',
+    formEndpoint: ''    // opcional: URL de Formspree o Basin para guardar cada pedido
+  };
+  $('form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var f = e.target;
+    if (!f.checkValidity()){ f.reportValidity(); return; }
+    var d = {nombre: f.nombre.value.trim(), empresa: f.empresa.value.trim(), whatsapp: f.whatsapp.value.trim(), sistema: f.sistema.value, camiones: f.camiones.value};
+    var msg = 'Hola, quiero ver una demo de Rondín.\nNombre: ' + d.nombre + '\nEmpresa: ' + d.empresa + '\nWhatsApp: ' + d.whatsapp + '\nSistema: ' + d.sistema + '\nCamiones: ' + d.camiones;
+    if (CONFIG.formEndpoint){
+      try { fetch(CONFIG.formEndpoint, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json'}, body: JSON.stringify(Object.assign({mensaje: msg}, d))}).catch(function(){}); } catch (x) {}
+    }
+    var url;
+    if (CONFIG.whatsapp) url = 'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
+    else url = 'mailto:' + CONFIG.email + '?subject=' + encodeURIComponent('Quiero una demo de Rondín') + '&body=' + encodeURIComponent(msg);
+    evento('lead_enviar', {sistema: d.sistema, camiones: d.camiones});
+    f.hidden = true; $('gracias').hidden = false;
+    $('gracias-txt').textContent = CONFIG.whatsapp ? 'Se abrió WhatsApp con tu mensaje: mandalo y te respondemos en el día hábil.' : 'Se abrió tu correo con el mensaje listo: mandalo y te respondemos en el día hábil.';
+    $('gracias-msg').textContent = msg;
+    window.location.href = url;
+  });
+
+  /* ================= Botón fijo en el celular ================= */
+  var fijo = $('fijo-movil'), probar = $('contacto');
+  function revisarFijo(){ var r = probar.getBoundingClientRect(); fijo.classList.toggle('vis', window.scrollY > 500 && r.top > window.innerHeight); }
+  window.addEventListener('scroll', revisarFijo, {passive: true});
+
+  /* ================= Tablero de la base (iframe escalado) ================= */
+  var vc = $('ventana-cuerpo'), ifr = $('tablero-demo');
+  function escalarTablero(){
+    var w = vc.clientWidth;
+    if (w < 740){ vc.style.height = '820px'; ifr.style.transform = ''; return; }
+    var k = Math.min(1, w / 1440);
+    ifr.style.transform = 'scale(' + k + ')';
+    vc.style.height = Math.round(940 * k) + 'px';
+  }
+  escalarTablero();
+  window.addEventListener('resize', escalarTablero);
+
+  /* ================= Arranque ================= */
+  armarChipsCamiones();
+  nuevaJornada();
+  dibujarTablero(false);
+  armarPedidos();
+  armarGantt();
+  calcular();
+  pintarReloj();
+  var ANCLAS = {pedidos: 0, reparto: 1, aviso: 2, imprevistos: 3, reporte: 4};
+  var ancla = (location.hash || '').slice(1);
+  if (ANCLAS[ancla] != null){ mostrarTab(ANCLAS[ancla]); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1939 @@
+<!doctype html>
+<html lang="es-UY">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Libreta · Tablero del supervisor</title>
+<meta name="description" content="Tablero de Libreta para la supervisión de ventas: la calle de hoy, vendedores contra objetivo, lo que suma la app, clientes que dejaron de comprar y deuda, y la bandeja de pedidos.">
+<meta name="theme-color" content="#0B6E7C">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='26' fill='%230B6E7C'/%3E%3Cg transform='translate(64 64) scale(0.84) translate(-64 -64)'%3E%3Cg fill='none' stroke='%23FFFFFF' stroke-width='15' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='30' y='12' width='68' height='104' rx='14'/%3E%3Cpath d='M78 4V124'/%3E%3C/g%3E%3Ccircle cx='54' cy='38' r='10' fill='%23FF6A3D'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  LIBRETA · TABLERO DEL SUPERVISOR (prototipo interactivo)
+  Dearmas & Costantini · 01/10/2026
+
+  Versión simple, con el alcance de los tableros de Rondín, Encargue y Tildalo: cinco secciones.
+    #hoy   Hoy: quién está en la calle, rutas, pedidos de hoy, desvíos para responder y alertas.
+    #vend  Vendedores: venta contra objetivo (con la raya de dónde deberían estar), ruta, pedidos,
+           oportunidades y comisión. Tocá un vendedor para ver su ruta de hoy y sus clientes en riesgo.
+    #suma  Lo que suma Libreta: oportunidades ofrecidas y vendidas, venta extra por tipo (estimada),
+           clientes recuperados y lo vendido por sugerencias, mes a mes.
+    #cli   Clientes: dejaron de comprar a su ritmo y deuda vencida. Tocá uno para ver su ficha.
+    #ped   Pedidos: la bandeja de la app (Pendiente / En el sistema / Anulado) y la planilla para Doria.
+  La versión anterior (réplica del portal «Comercial» del Business Hub, 18 pantallas) quedó en
+  dashboard/anterior/Libreta_Dashboard_Hub_Comercial.html.
+
+  Datos de ejemplo: Distribuidora Central (mayorista de consumo masivo, Montevideo),
+  supervisora Laura, vendedores María Fernández (mf), Carlos Rodríguez (cr) y Lucía Méndez (lm).
+  Todo se calcula desde los datos del script, así los números cierran entre secciones.
+  Cuando está incrustado en un iframe no toca el historial ni el hash.
+
+  ===================== CONTRATO DE MENSAJES (window.postMessage) =====================
+  El tablero escucha mensajes del documento que lo incrusta (por ejemplo, la demo del celular
+  en la landing). Se aceptan objetos con la propiedad «tipo»:
+
+  1) Pedido nuevo que cargó un vendedor en la app
+     { tipo: 'libreta-pedido',
+       pedido: { n: 'P-2417',                 // número (si falta, se numera solo)
+                 cli: 'robles',               // id del cliente (robles, familia, sarandi, buenavista,
+                                              //   trattoria, pepe, pasaje, estrella…) o su nombre
+                 ven: 'mf',                   // mf | cr | lm (por defecto mf)
+                 hora: '11:32',               // opcional (por defecto la hora del tablero)
+                 tot: 12880,                  // opcional: si falta, se suma de las líneas
+                 lineas: [['LI-002', 6], ['BE-003', 4, true]],  // [código, cantidad, sugerido?]
+                 nota: 'Entregar antes de las 11' } }            // opcional
+     → entra a Pedidos como «Pendiente», suma al contador del menú, se resalta y avisa.
+       Una línea es «sugerido» si viene marcada (tercer valor true) o si es un producto que la
+       app le sugería a ese cliente. Si la parada está en la ruta de hoy, queda hecha con ese
+       pedido, y las oportunidades de ese cliente con esos productos pasan a vendidas
+       (suman en «Lo que suma Libreta»).
+
+  2) Solicitud o desvío que mandó un vendedor
+     { tipo: 'libreta-solicitud',
+       sol: { id: 17,                          // opcional
+              ven: 'mf',
+              tipo: 'Desvío de ruta',          // o 'Visita fuera de ruta', 'Problema en una visita'…
+              txt: 'Pide cambiar el orden…',
+              hora: '11:40',                   // opcional
+              est: 'pend' } }                  // 'pend' (espera aprobación) o 'info' (solo revisar)
+     → entra a «Para decidir» en Hoy, suma al contador y se resalta.
+
+  3) Ir a una sección: { tipo: 'libreta-ir', vista: 'ped' }
+     'ped' → Pedidos · 'desv' → Hoy · también 'hoy', 'vend', 'suma', 'cli'.
+
+  El tablero le avisa al documento que lo incrusta (window.parent.postMessage, solo si está en un iframe):
+     { tipo: 'libreta-panel-listo' }                                      al cargar
+     { tipo: 'libreta-solicitud-respuesta', id, est: 'aprobada'|'rechazada'|'revisada' }
+     { tipo: 'libreta-pedido-estado', n, est: 'cargado'|'anulado'|'pendiente', comprobante?, motivo? }
+     { tipo: 'libreta-tarea', ven, cli, txt }                             al pedir una visita o un cobro
+  ====================================================================================
+-->
+<style>
+:root{
+  --blanco:#FFFFFF; --papel:#F4F5F8; --tinta:#10222A; --tinta-2:#44555C; --tinta-3:#74848A;
+  --linea:#E1E5EA; --linea-2:#EDF0F3;
+  --vereda:#0B6E7C; --vereda-600:#095C68; --vereda-50:#E7F3F5; --vereda-100:#CBE6EA; --vereda-clara:#8FD6DE;
+  --aviso:#FF6A3D; --aviso-50:#FFF0EA; --aviso-tinta:#9A3412;
+  --arena-50:#F5EEE2; --arena-tinta:#6B5428;
+  --rojo:#C63A22; --rojo-50:#FCEAE6;
+  --f:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sombra-1:0 1px 2px rgba(16,34,42,.05);
+  --sombra-2:0 1px 2px rgba(16,34,42,.04),0 10px 28px -18px rgba(16,34,42,.22);
+  --sombra-3:0 2px 6px rgba(16,34,42,.08),0 30px 70px -30px rgba(16,34,42,.45);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--f);color:var(--tinta);background:var(--papel);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+svg{display:block}
+a{color:var(--vereda)}
+h1,h2,h3,p{margin:0}
+[hidden]{display:none!important}
+#main:focus{outline:none}
+:focus-visible{outline:2px solid var(--vereda);outline-offset:2px;border-radius:8px}
+::selection{background:var(--vereda-100)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--mono)}
+.nw{white-space:nowrap}
+.num{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ============ armazón (como Rondín, Encargue y Tildalo) ============ */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.lat{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid var(--linea);padding:22px 16px 18px;display:flex;flex-direction:column;gap:20px;min-width:0;z-index:30}
+.lat .logo{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.lat .logo > svg{width:96px;height:auto}
+.menu{display:flex;flex-direction:column;gap:2px}
+.it{display:flex;align-items:center;gap:11px;width:100%;height:40px;padding:0 10px;border:0;border-radius:10px;background:none;color:var(--tinta-2);font-weight:600;font-size:14px;text-align:left;white-space:nowrap}
+.it:hover{background:var(--papel);color:var(--tinta)}
+.it svg{width:18px;height:18px;flex:none}
+.it span{overflow:hidden;text-overflow:ellipsis}
+.it[aria-current="page"]{background:var(--vereda-50);color:var(--vereda)}
+.cnt{margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:500;font-style:normal;border-radius:999px;padding:1px 7px;min-width:22px;text-align:center;background:var(--papel);color:var(--tinta-2)}
+.cnt.av-n{background:var(--aviso);color:#fff}
+.empresa{margin-top:auto;border-top:1px solid var(--linea);padding-top:14px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:center}
+.av{width:34px;height:34px;border-radius:50%;background:var(--tinta);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;flex:none}
+.empresa b{display:block;font-size:13.5px;line-height:1.25}
+.empresa small{display:block;font-size:12px;color:var(--tinta-3)}
+.conexion{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tinta-2);background:var(--papel);border-radius:9px;padding:7px 10px}
+.conexion i{width:7px;height:7px;border-radius:50%;background:var(--vereda);box-shadow:0 0 0 3px var(--vereda-50);flex:none}
+.cerrar-lat{display:none}
+.velo{display:none}
+
+.pri{min-width:0;padding:22px 30px 34px;display:flex;flex-direction:column;gap:16px}
+.cab{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 20px;min-height:58px}
+.cab-izq{display:flex;align-items:center;gap:12px;min-width:0}
+.cab h1{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.cab p{margin-top:4px;color:var(--tinta-2);font-size:14px}
+.cab-der{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hamb{display:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--linea);background:#fff;place-items:center;flex:none;color:var(--tinta)}
+.hamb svg{width:18px;height:18px}
+.reloj{font-family:var(--mono);font-size:12.5px;color:var(--tinta-2);display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--linea);border-radius:10px;height:38px;padding:0 12px;white-space:nowrap}
+.reloj i{width:7px;height:7px;border-radius:50%;background:var(--vereda);box-shadow:0 0 0 3px var(--vereda-50)}
+.periodo{height:38px;border:1px solid var(--linea);border-radius:10px;background:#fff;padding:0 10px;display:flex;align-items:center;gap:6px;color:var(--tinta-3)}
+.periodo svg{width:16px;height:16px;flex:none}
+.periodo select{border:0;outline:0;background:transparent;font-weight:600;font-size:13.5px;color:var(--tinta);padding-right:2px;cursor:pointer}
+.contenido{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* ============ piezas ============ */
+.card{background:#fff;border:1px solid var(--linea);border-radius:14px;box-shadow:var(--sombra-2);padding:16px 18px;min-width:0}
+.card.plano{box-shadow:none}
+.ct{display:flex;align-items:baseline;justify-content:space-between;gap:6px 14px;margin-bottom:12px;flex-wrap:wrap}
+.ct h2{font-size:15px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.ct span.s{font-size:12.5px;color:var(--tinta-3)}
+.ct .link,.link{border:0;background:none;padding:0;font-size:13px;font-weight:700;color:var(--vereda)}
+.link:hover{color:var(--vereda-600)}
+.punto{width:8px;height:8px;border-radius:50%;background:var(--aviso);box-shadow:0 0 0 3px rgba(255,106,61,.2);flex:none;display:inline-block}
+.muted{color:var(--tinta-3)}
+.baja{color:var(--rojo)}
+.sube{color:var(--vereda)}
+.fila{display:grid;gap:14px;min-width:0;align-items:start}
+.f2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.f21{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+.f-hoy{grid-template-columns:minmax(0,1.42fr) minmax(0,1fr)}
+.estira{align-items:stretch}
+.nota{font-size:12.5px;color:var(--tinta-3);margin:0}
+.nota b{color:var(--tinta-2)}
+.lead{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap}
+.lead p{color:var(--tinta-2);font-size:13.5px;max-width:52rem}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:13.5px;white-space:nowrap;text-decoration:none}
+.btn svg{width:16px;height:16px;flex:none}
+.btn-p{background:var(--vereda);color:#fff}
+.btn-p:hover{background:var(--vereda-600)}
+.btn-s{background:#fff;color:var(--tinta);border-color:var(--linea)}
+.btn-s:hover{border-color:#C6CED6}
+.btn-g{background:none;color:var(--tinta-2);border-color:transparent}
+.btn-g:hover{background:var(--papel);color:var(--tinta)}
+.btn-r{background:var(--rojo);color:#fff}
+.btn-sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:8px}
+.btn-sm svg{width:14px;height:14px}
+.btn:disabled{opacity:.45;cursor:default}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap;line-height:1.35}
+.chip i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.chip.ver{background:var(--vereda-50);color:var(--vereda)}
+.chip.arena{background:var(--arena-50);color:var(--arena-tinta)}
+.chip.rojo{background:var(--rojo-50);color:var(--rojo)}
+.chip.nar{background:var(--aviso-50);color:var(--aviso-tinta)}
+.chip.gris{background:var(--papel);color:var(--tinta-2)}
+.chip.tinta{background:var(--tinta);color:#fff}
+.chip.borde{background:#fff;color:var(--tinta-2);box-shadow:inset 0 0 0 1px var(--linea)}
+.sug{font:500 10.5px var(--mono);background:var(--arena-50);color:var(--arena-tinta);border-radius:5px;padding:1px 5px;margin-left:6px;white-space:nowrap}
+.tag{display:inline-flex;justify-content:center;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.tag.cruzada{background:var(--vereda-50);color:var(--vereda)}
+.tag.recompra{background:var(--arena-50);color:var(--arena-tinta)}
+.tag.reactivar{background:var(--rojo-50);color:var(--rojo)}
+.tag.cobrar{background:var(--aviso-50);color:var(--aviso-tinta)}
+.tag.prospecto{background:var(--papel);color:var(--tinta-2)}
+
+.filtros{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fc{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--linea);background:#fff;font-weight:600;font-size:13px;color:var(--tinta-2);white-space:nowrap}
+.fc:hover{border-color:#C6CED6;color:var(--tinta)}
+.fc i{font:500 11px var(--mono);font-style:normal;color:var(--tinta-3)}
+.fc[aria-pressed="true"]{background:var(--vereda-50);border-color:var(--vereda-100);color:var(--vereda)}
+.fc[aria-pressed="true"] i{color:var(--vereda)}
+.fsep{width:1px;height:20px;background:var(--linea);margin:0 4px}
+.campo{height:34px;border:1px solid var(--linea);border-radius:9px;background:#fff;padding:0 10px;font-size:13px;color:var(--tinta);min-width:0}
+.campo:focus{outline:0;border-color:var(--vereda);box-shadow:0 0 0 3px var(--vereda-50)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.k-hoy{grid-template-columns:minmax(0,1.5fr) repeat(4,minmax(0,1fr))}
+.kpi{background:#fff;border:1px solid var(--linea);border-radius:14px;box-shadow:var(--sombra-1);padding:14px 16px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.kpi small{font-size:12.5px;color:var(--tinta-2);font-weight:600}
+.kpi b{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi em{font-style:normal;font-size:12.5px;color:var(--tinta-3)}
+.kpi em.bien{color:var(--vereda);font-weight:600}
+.kpi em.mal{color:var(--rojo);font-weight:600}
+.kpi.dest{background:var(--vereda);border-color:var(--vereda);color:#fff;box-shadow:0 16px 30px -22px rgba(11,110,124,.9)}
+.kpi.dest small,.kpi.dest em{color:rgba(255,255,255,.86)}
+.kpi.dest em.bien,.kpi.dest em.mal{color:#fff}
+.kpi.grande b{font-size:30px}
+.kpi .bb{height:6px;border-radius:4px;background:rgba(255,255,255,.22);overflow:hidden;margin:8px 0 2px}
+.kpi .bb i{display:block;height:100%;border-radius:4px;background:#fff}
+.kpi .fd{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+button.kpi{text-align:left;font:inherit;color:inherit;width:100%}
+button.kpi:hover{border-color:#C6CED6}
+button.kpi.dest:hover{background:var(--vereda-600)}
+
+.meter{height:8px;border-radius:5px;background:var(--linea-2);overflow:visible;position:relative;min-width:60px}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--vereda)}
+.meter.bajo i{background:#B8914A}
+.meter.mal i{background:var(--rojo)}
+.meter u{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--tinta);text-decoration:none}
+
+/* barras */
+.hb{display:grid;grid-template-columns:110px minmax(0,1fr) minmax(90px,auto);gap:12px;align-items:center;padding:7px 0;font-size:13px}
+.hb .p{height:12px;border-radius:4px;background:var(--linea-2);position:relative}
+.hb .p i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--vereda)}
+.hb .p i.b{background:var(--vereda-clara)}
+.hb .p i.m{background:var(--rojo)}
+.hb .p i.a{background:#B8914A}
+.hb .p u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--tinta);text-decoration:none}
+.hb b{font-family:var(--mono);font-weight:500;font-size:12px;text-align:right;white-space:nowrap}
+.ley{display:flex;gap:14px;font-size:12px;color:var(--tinta-3);margin-top:10px;flex-wrap:wrap}
+.ley i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.graf{width:100%;height:auto;overflow:visible}
+.graf .eje{font:400 10.5px var(--mono);fill:#74848A}
+.graf .val{font:500 10.5px var(--mono);fill:#10222A}
+.graf .bar:hover{opacity:.85}
+
+.avt{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+.avt.mf{background:var(--vereda)}
+.avt.cr{background:var(--tinta)}
+.avt.lm{background:#5E7F86}
+.avt.gr{background:#9AA7AD}
+.quien{display:flex;align-items:center;gap:10px;min-width:0}
+.quien > span,.quien > div{min-width:0}
+.quien b{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quien small{display:block;font-size:12px;color:var(--tinta-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:30px;height:30px;border-radius:8px;border:1px solid var(--linea);background:#fff;display:grid;place-items:center;color:var(--tinta-2);flex:none}
+.ib:hover{border-color:var(--vereda);color:var(--vereda)}
+.ib svg{width:15px;height:15px}
+
+/* tablas */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+.t th{font:500 10.5px var(--mono);color:var(--tinta-3);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:8px 10px;border-bottom:1px solid var(--linea);white-space:nowrap;background:#fff}
+.t th.r,.t td.r{text-align:right}
+.t th[data-sort]{cursor:pointer;user-select:none}
+.t th[data-sort]:hover{color:var(--tinta)}
+.t th .fl{display:inline-block;width:10px;color:var(--vereda)}
+.t td{padding:9px 10px;border-bottom:1px solid var(--linea-2);vertical-align:middle}
+.t tr:last-child td{border-bottom:0}
+.t td.r{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.t td b{font-weight:600}
+.t td small{display:block;font-size:12px;color:var(--tinta-3)}
+.t tr.fk{cursor:pointer}
+.t tr.fk:hover td{background:#FAFBFC}
+.t tr.tot td{border-top:1px solid var(--linea);font-weight:700}
+.lnk{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.lnk:hover b,.lnk:hover{color:var(--vereda)}
+.t td.nw{white-space:nowrap}
+.pag{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;font-size:12.5px;color:var(--tinta-3);flex-wrap:wrap}
+
+/* listas */
+.lis{display:flex;flex-direction:column}
+.li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:start;padding:11px 0;border-top:1px solid var(--linea-2)}
+.li:first-child{border-top:0;padding-top:2px}
+.li .sev{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--tinta-3)}
+.li .sev.pend{background:#B8914A}
+.li .sev.prob{background:var(--rojo)}
+.li .sev.ok{background:var(--vereda)}
+.li b{font-weight:600;font-size:13.5px}
+.li p{margin:2px 0 0;font-size:13px;color:var(--tinta-2)}
+.li .tm{font-family:var(--mono);font-size:11.5px;color:var(--tinta-3)}
+.li .bs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.li.nueva,.ped.nuevo,.prow.nuevo{animation:resalta 3s ease}
+@keyframes resalta{0%,40%{background:var(--aviso-50)}100%{background:transparent}}
+
+/* ============ Hoy ============ */
+.f3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.calle-card{padding-bottom:12px}
+.calle{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.vcalle{display:flex;flex-direction:column;gap:10px;width:100%;border:0;border-left:1px solid var(--linea-2);background:none;text-align:left;padding:2px 18px 4px;min-width:0;border-radius:0}
+.vcalle:first-child{border-left:0;padding-left:2px}
+.vcalle:last-child{padding-right:2px}
+.vcalle:hover .quien b{color:var(--vereda)}
+.vcalle .arr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;min-width:0}
+.vcalle .prog{display:flex;flex-direction:column;gap:5px}
+.vcalle .prog span{font-size:12px;color:var(--tinta-3)}
+.vcalle .prog span b{color:var(--tinta);font-weight:600}
+.vcalle .ahora{font-size:13px;color:var(--tinta-2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vcalle .ahora b{font-weight:600;color:var(--tinta)}
+.vcalle .vend{text-align:right;white-space:nowrap;flex:none}
+.vcalle .vend b{display:block;font:500 13px var(--mono)}
+.vcalle .vend small{font-size:12px;color:var(--tinta-3)}
+.ap{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--vereda);margin-right:5px;vertical-align:1px;box-shadow:0 0 0 3px var(--vereda-50)}
+
+.prow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;border:0;border-top:1px solid var(--linea-2);background:none;text-align:left;padding:8px 2px}
+.prow:first-child{border-top:0;padding-top:0}
+.prow:hover b{color:var(--vereda)}
+.prow .h{font:500 12px var(--mono);color:var(--tinta-3)}
+.prow b{display:block;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow small{display:block;font-size:12px;color:var(--tinta-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .der{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.prow .m{font:500 12.5px var(--mono);white-space:nowrap}
+.prow .chip{font-size:11px;padding:2px 8px}
+
+.alertas{display:flex;flex-direction:column;gap:8px}
+.alerta{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;align-items:start;width:100%;border:1px solid var(--linea);border-radius:12px;background:#fff;text-align:left;padding:10px 12px}
+.alerta:hover{border-color:#C6CED6}
+.alerta .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center}
+.alerta .ic svg{width:16px;height:16px}
+.alerta .ic.rojo{background:var(--rojo-50);color:var(--rojo)}
+.alerta .ic.arena{background:var(--arena-50);color:var(--arena-tinta)}
+.alerta .ic.nar{background:var(--aviso-50);color:var(--aviso-tinta)}
+.alerta .ic.ver{background:var(--vereda-50);color:var(--vereda)}
+.alerta b{display:block;font-size:13.5px;font-weight:600}
+.alerta small{display:block;font-size:12.5px;color:var(--tinta-3);line-height:1.4}
+
+/* ============ Vendedores ============ */
+.vlista{display:flex;flex-direction:column;gap:10px}
+.vcols,.vrow{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.9fr) minmax(0,.85fr) minmax(0,.85fr) minmax(0,.95fr) minmax(0,.9fr) 18px;gap:18px;align-items:center}
+.vcols{padding:0 18px;font:500 10.5px var(--mono);color:var(--tinta-3);text-transform:uppercase;letter-spacing:.05em}
+.vrow{width:100%;text-align:left;background:#fff;border:1px solid var(--linea);border-radius:14px;box-shadow:var(--sombra-2);padding:16px 18px}
+.vrow:hover{border-color:#C6CED6}
+.vrow:hover .quien b{color:var(--vereda)}
+.vrow .avt{width:36px;height:36px;font-size:12.5px}
+.vrow .c b{display:block;font-size:17px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vrow .c small{display:block;font-size:12px;color:var(--tinta-3);white-space:nowrap}
+.vrow .obj{display:flex;flex-direction:column;gap:7px}
+.vrow .obj .oh{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.vrow .obj .oh b{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.vrow .obj .oh span{font-size:12.5px;color:var(--tinta-3)}
+.vrow .obj .oh em{margin-left:auto;font-style:normal;font:500 12.5px var(--mono)}
+.vrow .chev{color:var(--tinta-3)}
+.vrow .chev svg{width:16px;height:16px}
+.vrow .lbl-m{display:none}
+
+/* ============ Lo que suma ============ */
+.mam{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;height:230px;padding:22px 4px 0;border-bottom:1px solid var(--linea)}
+.mam-c{display:flex;flex-direction:column;min-width:0}
+.mam-b{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:12px;background:linear-gradient(var(--linea-2),var(--linea-2)) 0 33%/100% 1px no-repeat,linear-gradient(var(--linea-2),var(--linea-2)) 0 66%/100% 1px no-repeat}
+.mam-b span{position:relative;width:min(30px,36%);border-radius:5px 5px 0 0;min-height:2px}
+.mam-b .b1{background:#5E9AA3}
+.mam-b .b2{background:var(--vereda-clara)}
+.mam-c.hl .b1{background:var(--vereda)}
+.mam-b em{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:4px;font:500 10px var(--mono);font-style:normal;color:var(--tinta-2);white-space:nowrap}
+.mam-c.hl em{color:var(--tinta)}
+.mam-c small{text-align:center;font:400 11px var(--mono);color:var(--tinta-3);padding:6px 0 0;margin-bottom:-24px}
+.mam-c.hl small{color:var(--tinta);font-weight:500}
+.mam + .ley{margin-top:30px}
+.mini-m{display:flex;align-items:center;gap:8px;min-width:120px}
+.mini-m .meter{flex:1;min-width:50px}
+.mini-m span{font:500 12px var(--mono);width:36px;text-align:right}
+.como{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.como li{font-size:13px;color:var(--tinta-2);padding-left:14px;position:relative}
+.como li::before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--vereda-clara)}
+.como li b{color:var(--tinta)}
+.est{font:500 10.5px var(--mono);color:var(--tinta-3);border:1px solid var(--linea);border-radius:5px;padding:0 5px;margin-left:6px;vertical-align:2px;letter-spacing:.02em}
+.kpi.dest .est{color:rgba(255,255,255,.9);border-color:rgba(255,255,255,.35)}
+
+/* pedidos (bandeja como en la app) */
+.peds{display:flex;flex-direction:column;gap:10px;list-style:none;margin:0;padding:0}
+.ped{background:#fff;border:1px solid var(--linea);border-radius:13px;box-shadow:var(--sombra-1)}
+.ped-h{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;border:0;background:none;padding:12px 16px;text-align:left;flex-wrap:wrap}
+.ped-h .l{min-width:0;display:flex;flex-direction:column;gap:2px}
+.ped-h .l span{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600;font-size:14px}
+.ped-h .l .n{font:500 12.5px var(--mono);color:var(--tinta-3)}
+.ped-h .l small{font-size:12px;color:var(--tinta-3)}
+.ped-h .tot{font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ped-b{border-top:1px solid var(--linea-2);padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px}
+.ped-nota{background:var(--papel);border-radius:9px;padding:8px 11px;font-size:12.5px}
+.ped-acc{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ped-in{display:flex;gap:8px;flex-wrap:wrap}
+.ped-in .campo{flex:1;min-width:200px;height:36px}
+
+/* ruta (timeline) */
+.tl{display:flex;flex-direction:column}
+.tl-i{display:grid;grid-template-columns:46px 22px minmax(0,1fr) auto;gap:8px;align-items:start;padding:9px 0;border-top:1px solid var(--linea-2)}
+.tl-i:first-child{border-top:0}
+.tl-i .h{font:500 12px var(--mono);color:var(--tinta-3);padding-top:2px}
+.tl-i .d{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--mono);background:var(--papel);color:var(--tinta-2);border:1px solid var(--linea);position:relative}
+.tl-i .d.hecha{background:var(--vereda);color:#fff;border-color:var(--vereda)}
+.tl-i .d.visita{background:#fff;color:var(--vereda);border:2px solid var(--vereda)}
+.tl-i .d.prob{background:var(--rojo-50);color:var(--rojo);border-color:var(--rojo-50)}
+.tl-i .d .op{position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--aviso);border:1.5px solid #fff}
+.tl-i b{font-weight:600;font-size:13.5px}
+.tl-i small{display:block;font-size:12px;color:var(--tinta-3)}
+
+/* ficha (panel lateral) */
+.velo-f{position:fixed;inset:0;background:rgba(16,34,42,.32);z-index:60}
+.ficha{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--papel);z-index:61;display:flex;flex-direction:column;box-shadow:var(--sombra-3);animation:entra .2s ease}
+@keyframes entra{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.fi-h{background:#fff;border-bottom:1px solid var(--linea);padding:16px 18px;display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center}
+.fi-h .av,.fi-h .avt{width:40px;height:40px;font-size:13px}
+.fi-h small{display:block;font-size:12px;color:var(--tinta-3)}
+.fi-h h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+.fi-b{flex:1;overflow-y:auto;padding:16px 18px 24px;display:flex;flex-direction:column;gap:14px}
+.fi-b .kpi b{font-size:19px}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid var(--linea);background:#fff;display:grid;place-items:center;color:var(--tinta-2)}
+.x svg{width:16px;height:16px}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.facs{display:flex;flex-direction:column}
+.facs div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--linea-2);font-size:13px}
+.facs div:first-child{border-top:0;padding-top:0}
+.facs .mono{font-size:12px;color:var(--tinta-2)}
+.facs b{font:500 12.5px var(--mono);text-align:right}
+
+/* toast */
+.toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center;width:max-content;max-width:calc(100vw - 32px)}
+.toast{background:var(--tinta);color:#fff;border-radius:12px;padding:10px 12px 10px 14px;font-size:13.5px;display:flex;align-items:center;gap:12px;box-shadow:var(--sombra-3);animation:sube .2s ease}
+.toast button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:8px;height:28px;padding:0 10px;font-weight:700;font-size:12.5px;white-space:nowrap}
+@keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ============ responsive ============ */
+@media (max-width:1280px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpis.k-hoy{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpis.k-hoy .grande{grid-column:span 3}
+  .kpis.k4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f-hoy,.f21{grid-template-columns:minmax(0,1fr)}
+  .f3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .f3 > :last-child{grid-column:1/-1}
+  .vcols{display:none}
+  .vrow{grid-template-columns:repeat(4,minmax(0,1fr)) 18px;gap:12px 18px}
+  .vrow .quien{grid-column:1/3}
+  .vrow .obj{grid-column:3/5}
+  .vrow .chev{grid-column:5;grid-row:1}
+  .vrow .lbl-m{display:block;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--tinta-3);margin-bottom:2px}
+}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .lat{position:fixed;left:0;top:0;bottom:0;width:272px;height:100%;transform:translateX(-100%);transition:transform .2s ease;box-shadow:var(--sombra-3)}
+  body.menu-abierto .lat{transform:none}
+  body.menu-abierto .velo{display:block;position:fixed;inset:0;background:rgba(16,34,42,.32);z-index:25}
+  .cerrar-lat{display:grid;width:34px;height:34px;border-radius:9px;border:1px solid var(--linea);background:#fff;place-items:center;color:var(--tinta-2)}
+  .cerrar-lat svg{width:15px;height:15px}
+  .hamb{display:grid}
+  .f2,.f3{grid-template-columns:minmax(0,1fr)}
+  .calle{grid-template-columns:minmax(0,1fr)}
+  .vcalle{border-left:0;border-top:1px solid var(--linea-2);padding:12px 2px}
+  .vcalle:first-child{border-top:0;padding-top:2px}
+}
+@media (max-width:760px){
+  .pri{padding:14px 16px 90px;gap:14px}
+  .cab{flex-direction:column;align-items:stretch;gap:10px;min-height:0}
+  .cab h1{font-size:21px}
+  .cab p{font-size:13px}
+  .cab-der:empty{display:none}
+  .kpis,.kpis.k3,.kpis.k4,.kpis.k-hoy{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpis.k-hoy .grande{grid-column:1/-1}
+  .kpis:not(.k3):not(.k4):not(.k-hoy) > .dest:first-child{grid-column:1/-1}
+  .kpi{padding:12px}
+  .kpi b{font-size:19px}
+  .kpi.grande b{font-size:26px}
+  .card{padding:14px}
+  .vcalle .ahora{white-space:normal}
+  .mam{gap:8px}
+  .vrow{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px}
+  .vrow .quien,.vrow .obj{grid-column:1/-1}
+  .vrow .chev{display:none}
+  .vrow .c b{font-size:15px}
+  .hb{grid-template-columns:84px minmax(0,1fr) auto;gap:8px}
+  .tl-i{grid-template-columns:42px 22px minmax(0,1fr)}
+  .tl-i > :last-child{grid-column:3}
+  .ped-b .t th:nth-child(4),.ped-b .t td:nth-child(4){display:none}
+  .ped-h{padding:12px 14px}
+  .ped-b{padding:10px 12px 12px}
+  .ped-in .campo{min-width:0;flex-basis:100%}
+}
+
+/* ============ asesor (consultor comercial, como en la app) ============ */
+.ase-btn{position:fixed;right:22px;bottom:22px;z-index:70;width:54px;height:54px;border-radius:50%;border:0;background:var(--aviso);color:#fff;display:grid;place-items:center;box-shadow:0 14px 28px -12px rgba(255,106,61,.9);padding:0}
+.ase-btn:hover{filter:brightness(1.05)}
+.ase-btn svg{width:24px;height:24px}
+.ase-btn i{position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;background:#1B9A5A;box-shadow:0 0 0 2.5px #fff}
+body.ase-abierto .ase-btn{display:none}
+.ase{position:fixed;top:0;right:0;bottom:0;z-index:72;width:min(420px,100%);background:#fff;border-left:1px solid var(--linea);box-shadow:var(--sombra-3);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .22s ease;visibility:hidden}
+body.ase-abierto .ase{transform:none;visibility:visible}
+.ase-cab{flex:none;display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--linea);background:var(--papel)}
+.ase-cab .av{width:34px;height:34px;border-radius:50%;background:var(--aviso);color:#fff;display:grid;place-items:center;flex:none}
+.ase-cab .av svg{width:18px;height:18px}
+.ase-cab div{flex:1;min-width:0}
+.ase-cab b{display:block;font-size:14px}
+.ase-cab small{display:block;font-size:12px;color:var(--tinta-3)}
+.ase-msgs{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.am{max-width:92%;padding:9px 12px;border-radius:13px;font-size:13.5px;line-height:1.5;animation:sube .2s ease}
+.am.ia{align-self:flex-start;background:var(--papel);border-bottom-left-radius:4px}
+.am.yo{align-self:flex-end;background:var(--vereda);color:#fff;border-bottom-right-radius:4px}
+.am ul{margin:6px 0 2px;padding-left:18px}
+.am li{margin:2px 0}
+.am .et{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tinta-3);margin-top:6px}
+.am .pausa{display:inline-flex;gap:3px}
+.am .pausa i{width:6px;height:6px;border-radius:50%;background:var(--tinta-3);animation:late 1s infinite}
+@keyframes late{50%{opacity:.25}}
+.am .pausa i:nth-child(2){animation-delay:.15s}.am .pausa i:nth-child(3){animation-delay:.3s}
+.ase-ir{display:inline-flex;margin-top:8px;border:1px solid var(--linea);background:#fff;border-radius:999px;padding:4px 11px;font-weight:700;font-size:12.5px;color:var(--vereda)}
+.ase-ir:hover{border-color:var(--vereda)}
+.ase-acc{margin-top:9px;border:1px solid var(--aviso);background:#fff;border-radius:12px;padding:9px 11px}
+.ase-acc small{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--aviso-tinta);margin-bottom:3px}
+.ase-acc p{margin:0 0 8px;font-size:13px}
+.ase-acc div{display:flex;gap:6px}
+.ase-sug{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px}
+.ase-sug button{border:1px solid var(--linea);background:#fff;border-radius:999px;padding:6px 11px;font-weight:600;font-size:12.5px;color:var(--tinta-2);text-align:left}
+.ase-sug button:hover{border-color:var(--aviso);color:var(--tinta)}
+.ase-in{flex:none;display:flex;gap:8px;padding:10px 14px 14px;border-top:1px solid var(--linea)}
+.ase-in input{flex:1;min-width:0;height:42px;border:1px solid var(--linea);border-radius:12px;padding:0 12px;font-size:14px;background:var(--papel)}
+.ase-in input:focus{outline:0;border-color:var(--aviso);background:#fff}
+.ase-in button{width:42px;height:42px;border-radius:12px;border:0;background:var(--vereda);color:#fff;display:grid;place-items:center;flex:none}
+.ase-in button svg{width:17px;height:17px}
+@media (max-width:760px){.ase{width:100%}.ase-btn{right:16px;bottom:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="lat" id="lat" aria-label="Menú">
+    <div class="logo">
+      <svg viewBox="0 6 398 100" role="img" aria-label="Libreta"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M40 44V100M68 14V100M68 72A28 28 0 1 0 124 72A28 28 0 1 0 68 72M150 100V44M150 72A28 28 0 0 1 178 44M202 72H258A28 28 0 1 0 252.7 88.5M290 31.2V83A17 17 0 0 0 307 100M278 44H305M386 72A28 28 0 1 0 330 72A28 28 0 1 0 386 72M386 44V100" stroke="#10222A" stroke-width="11"/><path d="M12 14V100" stroke="#0B6E7C" stroke-width="11"/></g><circle cx="40" cy="22" r="9" fill="#FF6A3D"/></svg>
+      <button type="button" class="cerrar-lat" data-a="menuCerrar" aria-label="Cerrar el menú"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Secciones"></nav>
+    <div class="empresa">
+      <span class="av">DC</span><div><b>Distribuidora Central</b><small>Laura · Supervisora</small></div>
+      <div class="conexion"><i></i><span id="sync">Conectado a Doria · 10:20</span></div>
+    </div>
+  </aside>
+  <div class="velo" data-a="menuCerrar"></div>
+  <div class="pri">
+    <header class="cab">
+      <div class="cab-izq">
+        <button type="button" class="hamb" data-a="menuAbrir" aria-label="Abrir el menú" aria-controls="lat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        <div><h1 id="titulo">Hoy</h1><p id="bajada"></p></div>
+      </div>
+      <div class="cab-der" id="cab-der"></div>
+    </header>
+    <main class="contenido" id="main" tabindex="-1"></main>
+  </div>
+</div>
+<div id="capa"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<button type="button" class="ase-btn" id="ase-btn" aria-label="Abrir el asesor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 3.6c.2-.8 1.4-.8 1.6 0l1 3.4a4 4 0 0 0 2.7 2.7l3.4 1c.8.2.8 1.4 0 1.6l-3.4 1a4 4 0 0 0-2.7 2.7l-1 3.4c-.2.8-1.4.8-1.6 0l-1-3.4a4 4 0 0 0-2.7-2.7l-3.4-1c-.8-.2-.8-1.4 0-1.6l3.4-1a4 4 0 0 0 2.7-2.7z"/><path d="M19 3v3M17.5 4.5h3M19.5 17.5v2.5M18.2 18.8h2.6"/></svg><i></i></button>
+<aside class="ase" id="ase" role="dialog" aria-label="Asesor comercial">
+  <div class="ase-cab"><span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 3.6c.2-.8 1.4-.8 1.6 0l1 3.4a4 4 0 0 0 2.7 2.7l3.4 1c.8.2.8 1.4 0 1.6l-3.4 1a4 4 0 0 0-2.7 2.7l-1 3.4c-.2.8-1.4.8-1.6 0l-1-3.4a4 4 0 0 0-2.7-2.7l-3.4-1c-.8-.2-.8-1.4 0-1.6l3.4-1a4 4 0 0 0 2.7-2.7z"/></svg></span><div><b>Asesor comercial</b><small>Conoce ventas, clientes, rutas y pedidos al día</small></div><button type="button" class="x" id="ase-cerrar" aria-label="Cerrar el asesor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="ase-msgs" id="ase-msgs" aria-live="polite"></div>
+  <div class="ase-sug" id="ase-sug"></div>
+  <form class="ase-in" id="ase-form"><input id="ase-txt" autocomplete="off" placeholder="Preguntale algo a tu negocio…" aria-label="Pregunta para el asesor"><button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg></button></form>
+</aside>
+
+<script>
+(function(){
+'use strict';
+/* ================= Datos de ejemplo: Distribuidora Central =================
+   Mismo mundo que la landing y el modo demo de la app: mayorista de consumo masivo
+   de Montevideo, supervisora Laura, vendedores María, Carlos y Lucía.
+   Todo lo que se muestra se calcula desde estos datos, así los números cierran
+   entre pantallas. Hoy es martes 29/09/2026, 10:20. */
+var HOY = {txt: 'martes 29 de setiembre', corto: '29/09', hora: '10:20'};
+var MESES = ['Oct', 'Nov', 'Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set'];
+var MESES_L = ['octubre', 'noviembre', 'diciembre', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre'];
+var IX = {set: 11, ago: 10};
+
+var CATALOGO = [
+  {c: 'AL-001', d: 'Arroz blanco tipo patna 1 kg', cat: 'Almacén', p: 58, k: 46},
+  {c: 'AL-002', d: 'Fideos secos tallarín 500 g', cat: 'Almacén', p: 46, k: 36},
+  {c: 'AL-003', d: 'Aceite girasol 900 ml', cat: 'Almacén', p: 98, k: 81},
+  {c: 'AL-004', d: 'Aceite de oliva extra virgen 500 ml', cat: 'Almacén', p: 295, k: 241},
+  {c: 'AL-005', d: 'Yerba mate 1 kg', cat: 'Almacén', p: 235, k: 188},
+  {c: 'AL-007', d: 'Azúcar blanca 1 kg', cat: 'Almacén', p: 52, k: 44},
+  {c: 'AL-008', d: 'Harina de trigo 000 1 kg', cat: 'Almacén', p: 38, k: 30},
+  {c: 'AL-009', d: 'Tomate triturado 1 L', cat: 'Almacén', p: 56, k: 43},
+  {c: 'AL-010', d: 'Atún en aceite 170 g', cat: 'Almacén', p: 88, k: 69},
+  {c: 'BE-001', d: 'Agua mineral sin gas 2 L pack x6', cat: 'Bebidas', p: 215, k: 168},
+  {c: 'BE-003', d: 'Refresco cola 2,25 L pack x6', cat: 'Bebidas', p: 545, k: 463},
+  {c: 'BE-004', d: 'Refresco lima-limón 2,25 L pack x6', cat: 'Bebidas', p: 485, k: 402},
+  {c: 'BE-008', d: 'Cerveza rubia lata 473 ml pack x6', cat: 'Bebidas', p: 395, k: 318},
+  {c: 'LA-001', d: 'Leche entera larga vida 1 L caja x12', cat: 'Lácteos', p: 490, k: 421},
+  {c: 'LA-005', d: 'Queso muzzarella barra x kg', cat: 'Lácteos', p: 385, k: 309},
+  {c: 'LA-006', d: 'Queso rallado 150 g', cat: 'Lácteos', p: 112, k: 86},
+  {c: 'LI-001', d: 'Lavandina 1 L', cat: 'Limpieza', p: 36, k: 26},
+  {c: 'LI-002', d: 'Lavandina bidón 5 L', cat: 'Limpieza', p: 155, k: 117},
+  {c: 'LI-003', d: 'Detergente lavavajillas 750 ml', cat: 'Limpieza', p: 76, k: 57},
+  {c: 'LI-004', d: 'Detergente lavavajillas bidón 5 L', cat: 'Limpieza', p: 325, k: 251},
+  {c: 'LI-005', d: 'Jabón en polvo ropa 800 g', cat: 'Limpieza', p: 142, k: 110},
+  {c: 'PE-001', d: 'Papel higiénico 30 m pack x4', cat: 'Perfumería', p: 88, k: 67},
+  {c: 'PE-006', d: 'Pasta dental 90 g', cat: 'Perfumería', p: 78, k: 58},
+  {c: 'GO-001', d: 'Alfajor de chocolate caja x12', cat: 'Golosinas', p: 365, k: 281},
+  {c: 'GO-007', d: 'Papas fritas 150 g', cat: 'Golosinas', p: 112, k: 84},
+  {c: 'DS-001', d: 'Café molido 250 g', cat: 'Desayuno', p: 235, k: 182},
+  {c: 'DS-005', d: 'Dulce de leche 1 kg', cat: 'Desayuno', p: 195, k: 152},
+  {c: 'DE-004', d: 'Vaso polipapel café 240 ml x50', cat: 'Descartables', p: 185, k: 141}
+];
+var PROD = {}; CATALOGO.forEach(function(p){ PROD[p.c] = p; });
+var CATS = ['Bebidas', 'Almacén', 'Limpieza', 'Lácteos', 'Desayuno', 'Golosinas', 'Perfumería', 'Descartables'];
+/* peso de cada familia en la venta del equipo */
+var CAT_PESO = {Bebidas: .29, 'Almacén': .27, Limpieza: .14, 'Lácteos': .11, Desayuno: .07, Golosinas: .05, 'Perfumería': .04, Descartables: .03};
+var CAT_OBJ = {Bebidas: .285, 'Almacén': .25, Limpieza: .16, 'Lácteos': .12, Desayuno: .065, Golosinas: .045, 'Perfumería': .05, Descartables: .025};
+
+/* Vendedores: los números de setiembre y agosto son los del panel de la landing */
+var VEND = [
+  {id: 'mf', nom: 'María Fernández', corto: 'María', zona: 'Montevideo', tel: '099 318 442', com: .05,
+    mes: [812000, 845000, 968000, 781000, 760000, 835000, 818000, 842000, 830000, 871000, 902000, 769000],
+    obj: {set: 950000, ago: 900000, oct: 950000}, ly: {set: 688000, ago: 815000}, vis: {set: [82, 90], ago: [96, 101]}, ped: {set: 118, ago: 131, jul: 127}, ofr: 41, conc: 17, nuevosMeta: 4, cobrado: 872000},
+  {id: 'cr', nom: 'Carlos Rodríguez', corto: 'Carlos', zona: 'Este y Maldonado', tel: '099 551 207', com: .04,
+    mes: [790000, 812000, 1010000, 1122000, 1048000, 846000, 830000, 822000, 828000, 841000, 861000, 842000],
+    obj: {set: 900000, ago: 880000, oct: 900000}, ly: {set: 764000, ago: 790000}, vis: {set: [74, 88], ago: [90, 98]}, ped: {set: 96, ago: 112, jul: 104}, ofr: 29, conc: 11, nuevosMeta: 4, cobrado: 804000},
+  {id: 'lm', nom: 'Lucía Méndez', corto: 'Lucía', zona: 'Costa de Oro', tel: '098 774 015', com: .06,
+    mes: [560000, 590000, 720000, 905000, 868000, 640000, 612000, 604000, 610000, 622000, 649000, 573000],
+    obj: {set: 800000, ago: 760000, oct: 800000}, ly: {set: 516000, ago: 598000}, vis: {set: [61, 70], ago: [74, 80]}, ped: {set: 71, ago: 84, jul: 79}, ofr: 33, conc: 15, nuevosMeta: 4, cobrado: 598000}
+];
+var VX = {}; VEND.forEach(function(v){ VX[v.id] = v; });
+/* venta del equipo del año anterior (oct 2024 a set 2025) */
+var LY_EQUIPO = [1960000, 2010000, 2390000, 2480000, 2350000, 2060000, 1920000, 1890000, 1905000, 2040000, 2203000, 1968000];
+var NOTAS_CREDITO = {set: 18640, ago: 21310};
+
+/* Formas de la curva de 12 meses (oct a set) */
+var FORMA = {
+  e: [.82, .86, .9, .85, .93, .95, .9, .98, .96, 1.02, 1.04, 1],
+  c: [.7, .72, .78, .8, .82, .86, .9, .95, 1, 1.08, 1.15, 1.22],
+  d: [1.05, 1.04, 1.06, 1.02, 1, 1.01, .98, .95, .9, .84, .78, .7],
+  p: [1.05, 1, 1.02, .98, 1, .96, .9, .82, .6, .38, .17, 0],
+  q: [1.05, 1, 1.02, .98, 1, .96, .9, .82, .45, .15, 0, 0],
+  n: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  j: [0, 0, 0, 0, 0, 0, 0, 0, 0, .7, .9, 1],
+  k: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, .9, 1],
+  s: [.8, .9, 1.25, 1.5, 1.4, .95, .85, .82, .84, .9, .95, 1]
+};
+
+/* Clientes con nombre (los de la landing y los que aparecen en pedidos, riesgo, cobranzas y rutas).
+   m = compra mensual de referencia; sh = forma; f = compra cada (días); u = días desde la última compra;
+   sal = saldo; ven = vencido; dv = días de vencido */
+var CLIENTES = [
+  /* María · Montevideo */
+  {id: 'robles', n: 'Supermercado Los Robles', r: 'Supermercado', z: 'Pocitos', v: 'mf', dir: 'Av. Brasil 2890', rut: '211000020013', m: 68400, sh: 'e', f: 7, u: 6, dia: 'Martes', sal: 0,
+    fam: [['Bebidas', 31], ['Almacén', 24], ['Limpieza', 19], ['Lácteos', 14], ['Perfumería', 12]],
+    fac: [['A 0081311', '22/09', 15840, 'Cobrada'], ['A 0081102', '15/09', 17210, 'Cobrada'], ['A 0080876', '08/09', 16390, 'Cobrada']],
+    notas: [['Compra Ramón, el encargado. Mejor antes de las 11.', '12/08', 'María']], sug: ['LI-002', 'LI-003', 'BE-003', 'LA-001']},
+  {id: 'familia', n: 'Autoservicio La Familia', r: 'Autoservicio', z: 'Centro', v: 'mf', dir: 'Av. 18 de Julio 1214', rut: '211000010012', m: 54200, sh: 'e', f: 7, u: 9, dia: 'Lunes', sal: 8420,
+    fam: [['Bebidas', 38], ['Almacén', 27], ['Golosinas', 15], ['Limpieza', 12], ['Lácteos', 8]],
+    fac: [['A 0081350', '23/09', 8420, 'Pendiente'], ['A 0081190', '16/09', 13870, 'Cobrada']], notas: [], sug: ['BE-003', 'AL-005', 'AL-003', 'GO-001']},
+  {id: 'estrella', n: 'Panadería La Estrella', r: 'Panadería', z: 'Cordón', v: 'mf', dir: 'José E. Rodó 1836', rut: '211000030014', m: 24600, sh: 'e', f: 3, u: 3, dia: 'Viernes', sal: 0,
+    fam: [['Almacén', 58], ['Lácteos', 24], ['Desayuno', 10], ['Limpieza', 8]],
+    fac: [['A 0081420', '26/09', 12310, 'Cobrada']], notas: [], sug: ['AL-008', 'DS-005', 'LA-001', 'AL-007']},
+  {id: 'sarandi', n: 'Almacén Sarandí', r: 'Almacén', z: 'Ciudad Vieja', v: 'mf', dir: 'Sarandí 674', rut: '211000090020', m: 21800, sh: 'e', f: 14, u: 0, dia: 'Martes', sal: 0,
+    fam: [['Almacén', 46], ['Golosinas', 18], ['Bebidas', 16], ['Perfumería', 12], ['Limpieza', 8]],
+    fac: [['A 0080911', '12/09', 10960, 'Cobrada']], notas: [['Cierra de 13 a 16.', '03/07', 'María']], sug: ['AL-005', 'AL-007', 'GO-001', 'PE-001']},
+  {id: 'buenavista', n: 'Cafetería Buena Vista', r: 'Cafetería', z: 'Punta Carretas', v: 'mf', dir: 'José Ellauri 596', rut: '211000040015', m: 16900, sh: 'e', f: 12, u: 12, dia: 'Jueves', sal: 12840, ven: 12840, dv: 12,
+    fam: [['Desayuno', 44], ['Descartables', 22], ['Lácteos', 20], ['Almacén', 14]],
+    fac: [['A 0081245', '17/09', 12840, 'Vencida'], ['A 0080790', '03/09', 9310, 'Cobrada']], notas: [], sug: ['DS-001', 'DE-004', 'DS-005', 'LA-001']},
+  {id: 'trattoria', n: 'Pizzería La Trattoria', r: 'Pizzería', z: 'Pocitos', v: 'mf', dir: 'Av. Luis A. de Herrera 1132', rut: '211000110022', m: 18400, sh: 'p', f: 7, u: 46, dia: 'Viernes', sal: 0,
+    fam: [['Lácteos', 41], ['Almacén', 33], ['Bebidas', 18], ['Descartables', 8]], perdido: 'Quesos',
+    fac: [['A 0079902', '14/08', 3100, 'Cobrada']], notas: [['Cambió de dueño en julio. Preguntar por Martín.', '20/08', 'María']], sug: ['LA-005', 'AL-009', 'AL-004', 'BE-003']},
+  {id: 'pepe', n: 'Almacén Don Pepe', r: 'Almacén', z: 'Cordón', v: 'mf', dir: 'Tristán Narvaja 1577', rut: '211000050016', m: 9800, sh: 'e', f: 21, u: 21, dia: 'Sábado', sal: 0,
+    fam: [['Almacén', 52], ['Limpieza', 21], ['Bebidas', 17], ['Perfumería', 10]],
+    fac: [['A 0080655', '08/09', 4870, 'Cobrada']], notas: [], sug: ['AL-005', 'AL-003', 'LI-001']},
+  {id: 'pasaje', n: 'Kiosco El Pasaje', r: 'Kiosco', z: 'Centro', v: 'mf', dir: 'San José 1145', rut: '211000060017', m: 11200, sh: 'j', f: 7, u: 5, dia: 'Miércoles', sal: 0,
+    fam: [['Golosinas', 48], ['Bebidas', 40], ['Almacén', 12]],
+    fac: [['A 0081402', '24/09', 5630, 'Cobrada']], notas: [['Cliente nuevo desde julio.', '15/07', 'María']], sug: ['GO-001', 'GO-007', 'BE-003']},
+  {id: 'parquerodo', n: 'Autoservicio Parque Rodó', r: 'Autoservicio', z: 'Parque Rodó', v: 'mf', dir: 'Gonzalo Ramírez 1540', rut: '211000130024', m: 38500, sh: 'e', f: 7, u: 0, dia: 'Martes', sal: 27300,
+    fam: [['Bebidas', 34], ['Almacén', 28], ['Limpieza', 18], ['Lácteos', 12], ['Perfumería', 8]], fac: [['A 0081291', '21/09', 9120, 'Cobrada']], notas: [['Hace el pedido por WhatsApp los martes a primera hora.', '02/06', 'María']], sug: ['BE-003', 'LI-003', 'LA-001']},
+  {id: 'rambla', n: 'Supermercado Rambla', r: 'Supermercado', z: 'Punta Carretas', v: 'mf', dir: 'Rambla Mahatma Gandhi 410', rut: '211000140025', m: 61000, sh: 'c', f: 7, u: 4, dia: 'Jueves', sal: 21400,
+    fam: [['Bebidas', 33], ['Almacén', 26], ['Limpieza', 16], ['Lácteos', 13], ['Perfumería', 7], ['Golosinas', 5]], fac: [['A 0081377', '25/09', 21400, 'Pendiente'], ['A 0081188', '18/09', 19630, 'Cobrada']], notas: [], sug: ['BE-004', 'LI-004', 'PE-001']},
+  {id: 'minicordon', n: 'Minimercado Cordón', r: 'Minimercado', z: 'Cordón', v: 'mf', dir: 'Colonia 1822', rut: '211000150026', m: 26300, sh: 'd', f: 7, u: 8, dia: 'Lunes', sal: 11260, ven: 11260, dv: 19,
+    fam: [['Almacén', 36], ['Bebidas', 30], ['Limpieza', 18], ['Golosinas', 16]], fac: [['A 0081160', '10/09', 11260, 'Vencida']], notas: [], sug: ['AL-005', 'BE-003']},
+  {id: 'amigos', n: 'Bar Los Amigos', r: 'Bar', z: 'Ciudad Vieja', v: 'mf', dir: 'Bartolomé Mitre 1390', rut: '211000160027', m: 14800, sh: 'e', f: 10, u: 7, dia: 'Martes', sal: 0,
+    fam: [['Bebidas', 64], ['Golosinas', 14], ['Almacén', 12], ['Descartables', 10]], fac: [], notas: [], sug: ['BE-008', 'GO-007']},
+  {id: 'esquina', n: 'Rotisería La Esquina', r: 'Rotisería', z: 'Cordón', v: 'mf', dir: 'Magallanes 1402', rut: '211000170028', m: 7900, sh: 'p', f: 10, u: 34, dia: 'Miércoles', sal: 7300, ven: 7300, dv: 38,
+    fam: [['Almacén', 52], ['Lácteos', 26], ['Bebidas', 22]], fac: [['A 0080512', '22/08', 7300, 'Vencida']], notas: [], sug: ['AL-009', 'LA-005']},
+  {id: 'puerto', n: 'Café del Puerto', r: 'Cafetería', z: 'Ciudad Vieja', v: 'mf', dir: 'Piedras 236', rut: '211000180029', m: 12600, sh: 'p', f: 10, u: 31, dia: 'Lunes', sal: 0,
+    fam: [['Desayuno', 48], ['Lácteos', 22], ['Descartables', 18], ['Bebidas', 12]], fac: [], notas: [], sug: ['DS-001', 'DE-004']},
+  {id: 'palermo', n: 'Minimercado Palermo', r: 'Minimercado', z: 'Palermo', v: 'mf', dir: 'Durazno 1655', rut: '211000190030', m: 15300, sh: 'p', f: 7, u: 29, dia: 'Viernes', sal: 0,
+    fam: [['Almacén', 40], ['Bebidas', 32], ['Limpieza', 16], ['Golosinas', 12]], fac: [], notas: [], sug: ['BE-003', 'AL-005']},
+  {id: 'rosa', n: 'Almacén Doña Rosa', r: 'Almacén', z: 'Cordón', v: 'mf', dir: 'Minas 1510', rut: '211000200031', m: 8600, sh: 'n', f: 14, u: 11, dia: 'Viernes', sal: 0, alta: '18/09',
+    fam: [['Almacén', 62], ['Limpieza', 22], ['Bebidas', 16]], fac: [], notas: [], sug: ['AL-005', 'LI-002']},
+  {id: 'cagancha', n: 'Kiosco Plaza Cagancha', r: 'Kiosco', z: 'Centro', v: 'mf', dir: 'Rondeau 1602', rut: '211000210032', m: 7400, sh: 'n', f: 7, u: 6, dia: 'Miércoles', sal: 0, alta: '09/09',
+    fam: [['Golosinas', 52], ['Bebidas', 48]], fac: [], notas: [['Vino por la visita de prospección de agosto.', '09/09', 'María']], sug: ['GO-001', 'GO-007']},
+  {id: 'barriosur', n: 'Cafetería Barrio Sur', r: 'Cafetería', z: 'Barrio Sur', v: 'mf', dir: 'Carlos Gardel 1120', rut: '211000220033', m: 6900, sh: 'n', f: 10, u: 13, dia: 'Miércoles', sal: 0, alta: '16/09',
+    fam: [['Desayuno', 55], ['Descartables', 25], ['Lácteos', 20]], fac: [], notas: [], sug: ['DS-001', 'DE-004']},
+  {id: 'trescruces', n: 'Minimercado Tres Cruces', r: 'Minimercado', z: 'Tres Cruces', v: 'mf', dir: 'Bvar. Artigas 1680', rut: '211000230034', m: 12800, sh: 'n', f: 7, u: 2, dia: 'Lunes', sal: 0, alta: '21/09',
+    fam: [['Bebidas', 40], ['Almacén', 34], ['Limpieza', 26]], fac: [], notas: [], sug: ['BE-003', 'LI-002']},
+
+  /* Carlos · Este y Maldonado */
+  {id: 'bolivia', n: 'Minimercado Bolivia', r: 'Minimercado', z: 'Carrasco', v: 'cr', dir: 'Av. Bolivia 2210', rut: '211000240035', m: 36200, sh: 'e', f: 7, u: 0, dia: 'Martes', sal: 18450,
+    fam: [['Bebidas', 36], ['Almacén', 30], ['Limpieza', 18], ['Golosinas', 10], ['Perfumería', 6]], fac: [], notas: [], sug: ['BE-003', 'AL-005', 'DS-001']},
+  {id: 'arocena', n: 'Supermercado Arocena', r: 'Supermercado', z: 'Carrasco', v: 'cr', dir: 'Av. Arocena 1580', rut: '211000250036', m: 84500, sh: 'c', f: 7, u: 0, dia: 'Martes', sal: 52900, ven: 10800, dv: 8,
+    fam: [['Bebidas', 30], ['Almacén', 25], ['Limpieza', 17], ['Lácteos', 14], ['Desayuno', 8], ['Perfumería', 6]], fac: [['A 0081200', '21/08', 10800, 'Vencida'], ['A 0081410', '25/09', 42100, 'Pendiente']], notas: [['Paga a 30 días. Pedir siempre por Andrea, de compras.', '05/05', 'Carlos']], sug: ['LI-004', 'DS-001', 'BE-004']},
+  {id: 'french', n: 'Panadería French', r: 'Panadería', z: 'Punta Gorda', v: 'cr', dir: 'Av. Italia 6020', rut: '211000260037', m: 19700, sh: 'e', f: 5, u: 0, dia: 'Martes', sal: 0,
+    fam: [['Almacén', 60], ['Lácteos', 22], ['Desayuno', 18]], fac: [], notas: [], sug: ['AL-008', 'DS-005']},
+  {id: 'malvinnorte', n: 'Autoservicio Malvín Norte', r: 'Autoservicio', z: 'Malvín', v: 'cr', dir: 'Av. Camino Carrasco 3880', rut: '211000270038', m: 21700, sh: 'p', f: 7, u: 27, dia: 'Martes', sal: 0,
+    fam: [['Bebidas', 42], ['Almacén', 30], ['Limpieza', 28]], fac: [], notas: [['Dice que otro mayorista le da el refresco cola $U 30 menos el pack.', '29/09', 'Carlos']], sug: ['BE-003', 'LI-002']},
+  {id: 'aroma', n: 'Cafetería Aroma Bar', r: 'Cafetería', z: 'Malvín', v: 'cr', dir: 'Av. Legrand 4310', rut: '211000280039', m: 14200, sh: 'p', f: 10, u: 38, dia: 'Jueves', sal: 8900, ven: 8900, dv: 41,
+    fam: [['Desayuno', 46], ['Descartables', 22], ['Lácteos', 20], ['Bebidas', 12]], fac: [['A 0080380', '19/08', 8900, 'Vencida']], notas: [], sug: ['DS-001', 'DE-004']},
+  {id: 'refugio', n: 'Bar El Refugio', r: 'Bar', z: 'Maldonado', v: 'cr', dir: 'Sarandí 845, Maldonado', rut: '211000290040', m: 11800, sh: 'p', f: 10, u: 33, dia: 'Viernes', sal: 9400, ven: 9400, dv: 33,
+    fam: [['Bebidas', 70], ['Golosinas', 16], ['Almacén', 14]], fac: [['A 0080461', '27/08', 9400, 'Vencida']], notas: [], sug: ['BE-008', 'BE-003']},
+  {id: 'esperanza', n: 'Almacén La Esperanza', r: 'Almacén', z: 'Punta Gorda', v: 'cr', dir: 'Coimbra 5790', rut: '211000300041', m: 9600, sh: 'q', f: 14, u: 71, dia: 'Lunes', sal: 19600, ven: 19600, dv: 64,
+    fam: [['Almacén', 56], ['Limpieza', 24], ['Bebidas', 20]], fac: [['A 0079788', '26/07', 19600, 'Vencida']], notas: [['No atiende el teléfono desde agosto.', '10/09', 'Carlos']], sug: ['AL-005', 'LI-002']},
+  {id: 'faro', n: 'Parrillada El Faro', r: 'Restaurante', z: 'Punta del Este', v: 'cr', dir: 'Rambla Artigas y 12, Punta del Este', rut: '211000310042', m: 17400, sh: 'p', f: 10, u: 35, dia: 'Jueves', sal: 0,
+    fam: [['Bebidas', 58], ['Almacén', 24], ['Descartables', 18]], fac: [], notas: [], sug: ['BE-008', 'BE-001']},
+  {id: 'buceo', n: 'Almacén Buceo', r: 'Almacén', z: 'Buceo', v: 'cr', dir: 'Av. Rivera 3620', rut: '211000320043', m: 9200, sh: 'n', f: 14, u: 7, dia: 'Martes', sal: 9200, alta: '22/09',
+    fam: [['Almacén', 58], ['Bebidas', 26], ['Limpieza', 16]], fac: [['A 0081395', '22/09', 9200, 'Pendiente']], notas: [], sug: ['AL-005', 'BE-003']},
+  {id: 'sancarlos', n: 'Autoservicio San Carlos', r: 'Autoservicio', z: 'San Carlos', v: 'cr', dir: 'Treinta y Tres 612, San Carlos', rut: '211000330044', m: 16400, sh: 'n', f: 7, u: 5, dia: 'Jueves', sal: 16400, alta: '10/09',
+    fam: [['Bebidas', 38], ['Almacén', 34], ['Limpieza', 28]], fac: [['A 0081401', '24/09', 16400, 'Pendiente']], notas: [], sug: ['BE-003', 'LI-004']},
+  {id: 'puntagorda', n: 'Supermercado Punta Gorda', r: 'Supermercado', z: 'Punta Gorda', v: 'cr', dir: 'Av. Italia 5890', rut: '211000340045', m: 72400, sh: 'e', f: 7, u: 6, dia: 'Martes', sal: 22400,
+    fam: [['Bebidas', 31], ['Almacén', 27], ['Limpieza', 16], ['Lácteos', 13], ['Perfumería', 7], ['Desayuno', 6]], fac: [['A 0081330', '23/09', 22400, 'Pendiente']], notas: [], sug: ['BE-004', 'LA-001']},
+  {id: 'maldocentro', n: 'Autoservicio Maldonado Centro', r: 'Autoservicio', z: 'Maldonado', v: 'cr', dir: 'Florida 780, Maldonado', rut: '211000350046', m: 41800, sh: 's', f: 7, u: 5, dia: 'Jueves', sal: 8600,
+    fam: [['Bebidas', 40], ['Almacén', 30], ['Limpieza', 18], ['Golosinas', 12]], fac: [], notas: [], sug: ['BE-003', 'BE-008']},
+
+  /* Lucía · Costa de Oro */
+  {id: 'atlantida', n: 'Almacén Atlántida', r: 'Almacén', z: 'Atlántida', v: 'lm', dir: 'Calle 11 y Rambla, Atlántida', rut: '211000360047', m: 24800, sh: 's', f: 7, u: 0, dia: 'Martes', sal: 16450, ven: 6600, dv: 6,
+    fam: [['Almacén', 44], ['Bebidas', 30], ['Limpieza', 26]], fac: [['A 0081140', '08/09', 6600, 'Vencida']], notas: [], sug: ['AL-005', 'LI-003']},
+  {id: 'floresta', n: 'Parador La Floresta', r: 'Parador', z: 'La Floresta', v: 'lm', dir: 'Rambla y Calle 30, La Floresta', rut: '211000370048', m: 16300, sh: 'p', f: 10, u: 41, dia: 'Sábado', sal: 9700, ven: 9700, dv: 45,
+    fam: [['Bebidas', 62], ['Golosinas', 16], ['Descartables', 12], ['Almacén', 10]], fac: [['A 0080301', '15/08', 9700, 'Vencida']], notas: [['Llamó hoy para hacer un pedido.', '29/09', 'Lucía']], sug: ['BE-003', 'BE-001']},
+  {id: 'toscas', n: 'Kiosco Las Toscas', r: 'Kiosco', z: 'Las Toscas', v: 'lm', dir: 'Ruta Interbalnearia km 44', rut: '211000380049', m: 6200, sh: 'p', f: 7, u: 30, dia: 'Viernes', sal: 0,
+    fam: [['Golosinas', 50], ['Bebidas', 50]], fac: [], notas: [], sug: ['GO-001', 'BE-004']},
+  {id: 'solymar', n: 'Supermercado Solymar', r: 'Supermercado', z: 'Solymar', v: 'lm', dir: 'Av. Giannattasio km 23', rut: '211000390050', m: 22100, sh: 'p', f: 7, u: 26, dia: 'Lunes', sal: 0,
+    fam: [['Bebidas', 32], ['Almacén', 30], ['Limpieza', 22], ['Lácteos', 16]], fac: [], notas: [['Abrió un supermercado de cadena a dos cuadras.', '14/09', 'Lucía']], sug: ['LI-004', 'LA-001']},
+  {id: 'salinas', n: 'Almacén Salinas', r: 'Almacén', z: 'Salinas', v: 'lm', dir: 'Calle Ramírez 22, Salinas', rut: '211000400051', m: 7600, sh: 'p', f: 14, u: 44, dia: 'Miércoles', sal: 0,
+    fam: [['Almacén', 60], ['Limpieza', 24], ['Bebidas', 16]], fac: [], notas: [], sug: ['AL-005', 'LI-002']},
+  {id: 'trigal', n: 'Panadería El Trigal', r: 'Panadería', z: 'Parque del Plata', v: 'lm', dir: 'Av. Central 180, Parque del Plata', rut: '211000410052', m: 4900, sh: 'p', f: 7, u: 37, dia: 'Martes', sal: 0,
+    fam: [['Almacén', 70], ['Desayuno', 30]], fac: [], notas: [], sug: ['AL-008', 'DS-005']},
+  {id: 'atlcentro', n: 'Kiosco Atlántida Centro', r: 'Kiosco', z: 'Atlántida', v: 'lm', dir: 'Av. Ciudad de Montevideo 312', rut: '211000420053', m: 5800, sh: 'n', f: 7, u: 4, dia: 'Viernes', sal: 0, alta: '15/09',
+    fam: [['Golosinas', 55], ['Bebidas', 45]], fac: [], notas: [], sug: ['GO-001', 'GO-007']},
+  {id: 'elpinar', n: 'Almacén El Pinar', r: 'Almacén', z: 'El Pinar', v: 'lm', dir: 'Av. Pérez Butler 1450', rut: '211000430054', m: 9700, sh: 'n', f: 14, u: 9, dia: 'Lunes', sal: 9700, alta: '07/09',
+    fam: [['Almacén', 56], ['Limpieza', 26], ['Bebidas', 18]], fac: [['A 0081360', '20/09', 9700, 'Pendiente']], notas: [['Convertido desde prospecto: visita en frío de agosto.', '07/09', 'Lucía']], sug: ['AL-005', 'LI-002']},
+  {id: 'pdelplata', n: 'Minimercado Parque del Plata', r: 'Minimercado', z: 'Parque del Plata', v: 'lm', dir: 'Calle 9 y Av. Central', rut: '211000440055', m: 8300, sh: 'n', f: 7, u: 3, dia: 'Jueves', sal: 0, alta: '23/09',
+    fam: [['Bebidas', 42], ['Almacén', 38], ['Limpieza', 20]], fac: [], notas: [], sug: ['BE-003', 'AL-003']},
+  {id: 'lagomar', n: 'Supermercado Lagomar', r: 'Supermercado', z: 'Lagomar', v: 'lm', dir: 'Av. Giannattasio km 21,5', rut: '211000450056', m: 47200, sh: 'e', f: 7, u: 6, dia: 'Miércoles', sal: 21300,
+    fam: [['Bebidas', 32], ['Almacén', 28], ['Limpieza', 18], ['Lácteos', 14], ['Perfumería', 8]], fac: [['A 0081380', '23/09', 21300, 'Pendiente']], notas: [], sug: ['LI-004', 'BE-004']},
+  {id: 'shangrila', n: 'Autoservicio Shangrilá', r: 'Autoservicio', z: 'Shangrilá', v: 'lm', dir: 'Av. Giannattasio km 18,2', rut: '211000460057', m: 28600, sh: 'c', f: 7, u: 2, dia: 'Lunes', sal: 12200,
+    fam: [['Bebidas', 36], ['Almacén', 32], ['Limpieza', 20], ['Golosinas', 12]], fac: [], notas: [], sug: ['BE-003', 'GO-001']},
+  {id: 'neptunia', n: 'Rotisería Neptunia', r: 'Rotisería', z: 'Neptunia', v: 'lm', dir: 'Ruta Interbalnearia km 34', rut: '211000470058', m: 8900, sh: 's', f: 7, u: 5, dia: 'Viernes', sal: 0,
+    fam: [['Almacén', 48], ['Lácteos', 30], ['Bebidas', 22]], fac: [], notas: [], sug: ['LA-005', 'AL-009']}
+];
+
+/* Cartera completa: se suman clientes de ejemplo hasta llegar a los activos de cada vendedor
+   (78, 81 y 53) y el resto de la venta y del saldo se reparte entre ellos. */
+var META_ACTIVOS = {mf: 78, cr: 81, lm: 53};
+var META_COBRAR = {mf: 148200, cr: 176900, lm: 87200};
+var LUGARES = {
+  mf: ['Pocitos', 'Cordón', 'Centro', 'Ciudad Vieja', 'Punta Carretas', 'Parque Rodó', 'Palermo', 'Barrio Sur', 'Tres Cruces', 'Aguada'],
+  cr: ['Malvín', 'Buceo', 'Carrasco', 'Punta Gorda', 'La Blanqueada', 'Unión', 'Maldonado', 'Punta del Este', 'San Carlos', 'Piriápolis'],
+  lm: ['Atlántida', 'Parque del Plata', 'La Floresta', 'Salinas', 'Pinamar', 'Neptunia', 'Lagomar', 'Solymar', 'El Pinar', 'Las Toscas', 'Shangrilá', 'Marindia']
+};
+var CALLES = {
+  mf: ['Av. Brasil', 'Bvar. España', 'Constituyente', 'Colonia', 'Mercedes', 'Durazno', 'Canelones', 'Gaboto', 'Ellauri', 'Soriano', 'Rincón', 'Paysandú'],
+  cr: ['Av. Italia', 'Av. Rivera', 'Av. Arocena', 'Orinoco', 'Comercio', '8 de Octubre', 'Av. Roosevelt', 'Florida', 'Sarandí', 'Av. Gorlero'],
+  lm: ['Av. Giannattasio km', 'Ruta Interbalnearia km', 'Calle', 'Av. Central', 'Rambla']
+};
+var PROPIOS = ['Don Luis', 'Doña Marta', 'El Trébol', 'El Sol', 'San Cono', 'Los Pinos', 'La Estación', 'Nuevo Siglo', 'La Paz', 'El Ceibo', 'Los Hermanos', 'Don Julio', 'La Aurora', 'Santa Rita', 'Oriental', 'El Molino', 'Los Álamos', 'La Rueda', 'El Galpón', 'La Pradera', 'Las Acacias', 'El Palmar', 'Don Ramón', 'Mi Barrio', 'El Cruce', 'La Cumbre', 'El Buen Trato', 'La Colonial', 'Los Olivos', 'Las Palmas', 'Don Tito', 'La Placita', 'El Surtido', 'Santa Clara', 'El Vecino', 'La Económica', 'Don Carlos', 'El Rincón', 'La Amistad', 'Los Robles II', 'Tres Hermanos', 'El Bosque', 'La Guardia', 'San Pedro', 'La Nueva', 'El Mirador', 'Don Pedro', 'La Ribera', 'Villa Rosa', 'El Paraíso', 'La Perla', 'San Jorge', 'La Delicia', 'El Progreso', 'Los Tilos', 'Don Mario', 'El Pino', 'La Loma', 'El Hornero', 'Las Flores'];
+var RUBROS = [['Almacén', 5], ['Autoservicio', 3], ['Minimercado', 3], ['Kiosco', 3], ['Panadería', 2], ['Cafetería', 2], ['Bar', 1], ['Rotisería', 1], ['Despensa', 1]];
+var FAM_RUBRO = {
+  'Almacén': [['Almacén', 50], ['Limpieza', 20], ['Bebidas', 18], ['Perfumería', 12]],
+  'Despensa': [['Almacén', 54], ['Limpieza', 22], ['Bebidas', 14], ['Golosinas', 10]],
+  'Autoservicio': [['Bebidas', 34], ['Almacén', 30], ['Limpieza', 20], ['Lácteos', 16]],
+  'Minimercado': [['Bebidas', 36], ['Almacén', 32], ['Limpieza', 18], ['Golosinas', 14]],
+  'Kiosco': [['Golosinas', 52], ['Bebidas', 48]],
+  'Panadería': [['Almacén', 62], ['Lácteos', 22], ['Desayuno', 16]],
+  'Cafetería': [['Desayuno', 48], ['Descartables', 22], ['Lácteos', 18], ['Bebidas', 12]],
+  'Bar': [['Bebidas', 66], ['Golosinas', 18], ['Almacén', 16]],
+  'Rotisería': [['Almacén', 50], ['Lácteos', 28], ['Bebidas', 22]]
+};
+var SUG_RUBRO = {'Almacén': ['AL-005', 'LI-002'], 'Despensa': ['AL-003', 'LI-001'], 'Autoservicio': ['BE-003', 'LI-004'], 'Minimercado': ['BE-003', 'AL-005'], 'Kiosco': ['GO-001', 'GO-007'], 'Panadería': ['AL-008', 'DS-005'], 'Cafetería': ['DS-001', 'DE-004'], 'Bar': ['BE-008', 'GO-007'], 'Rotisería': ['LA-005', 'AL-009']};
+var DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+(function armarCartera(){
+  var semilla = 20260929;
+  function azar(){ semilla = (semilla * 1103515245 + 12345) % 2147483648; return semilla / 2147483648; }
+  function elegir(a){ return a[Math.floor(azar() * a.length)]; }
+  function rubro(){ var t = 0, x, tot = RUBROS.reduce(function(a, r){ return a + r[1]; }, 0), q = azar() * tot; for (var i = 0; i < RUBROS.length; i++){ t += RUBROS[i][1]; if (q < t) return RUBROS[i][0]; } return 'Almacén'; }
+  var usados = {}; CLIENTES.forEach(function(c){ usados[c.n] = 1; });
+  /* cada cliente con su propia curva: la forma base más un ruido estable por cliente y mes */
+  function ruido(k, m){ var x = Math.sin((k + 1) * 12.9898 + (m + 1) * 78.233) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; }
+  function curva(c, k){ var ini = c.sh === 'p' ? (c.u >= 40 ? 0 : 1) : 0;
+    return FORMA[c.sh].map(function(f, m){ if (m === 11 || !f) return f; var g = f * (1 + ruido(k, m) * .09); if (c.sh === 'p' && m >= 8) g = f * (c.u < 30 ? 1.25 : c.u > 42 ? .7 : 1) * (1 + ruido(k, m) * .15) + (ini && m === 10 ? .1 : 0); return Math.max(0, g); }); }
+  CLIENTES.forEach(function(c, k){ c.fz = curva(c, k); c.meses = c.fz.map(function(f){ return Math.round(c.m * f / 10) * 10; }); });
+  var n = 0;
+  VEND.forEach(function(v){
+    var propios = CLIENTES.filter(function(c){ return c.v === v.id; });
+    var activos = propios.filter(function(c){ return c.u <= 90; }).length;
+    var faltan = META_ACTIVOS[v.id] - activos, nuevos = [];
+    for (var i = 0; i < faltan; i++){
+      var r = rubro(), nombre, lugar = elegir(LUGARES[v.id]), intentos = 0;
+      do { nombre = r + ' ' + (azar() < .45 ? elegir(LUGARES[v.id]) : elegir(PROPIOS)); intentos++; } while (usados[nombre] && intentos < 40);
+      if (usados[nombre]) nombre = r + ' ' + lugar + ' ' + (i + 2);
+      usados[nombre] = 1;
+      if (LUGARES[v.id].indexOf(nombre.replace(r + ' ', '')) >= 0) lugar = nombre.replace(r + ' ', '');
+      var formas = v.id === 'mf' ? ['e', 'e', 'e', 'c', 'd'] : ['e', 'e', 's', 'c', 'd'];
+      var f = r === 'Panadería' ? 3 : r === 'Kiosco' || r === 'Autoservicio' || r === 'Minimercado' ? 7 : elegir([7, 14, 14, 21]);
+      var calle = elegir(CALLES[v.id]);
+      n++;
+      nuevos.push({id: 'g' + n, n: nombre, r: r, z: lugar, v: v.id,
+        dir: calle + ' ' + (calle.slice(-2) === 'km' ? (18 + Math.floor(azar() * 30)) : (100 + Math.floor(azar() * 4800))),
+        rut: '2110' + String(500000 + n * 137).slice(0, 6) + '0' + String(10 + n % 89),
+        w: 4000 + Math.round(azar() * azar() * 42000), sh: (i === 4 || i === 17) ? 'k' : elegir(formas), f: f, u: Math.floor(azar() * f), dia: elegir(DIAS), sal: 0,
+        fam: FAM_RUBRO[r], fac: [], notas: [], sug: SUG_RUBRO[r], gen: true});
+      nuevos[nuevos.length - 1].fz = curva(nuevos[nuevos.length - 1], 500 + n);
+    }
+    /* reparto de la venta mensual */
+    for (var m = 0; m < 12; m++){
+      var nom = propios.reduce(function(a, c){ return a + c.meses[m]; }, 0);
+      var resto = v.mes[m] - nom, pesos = nuevos.map(function(c){ return c.w * c.fz[m]; }), tp = pesos.reduce(function(a, b){ return a + b; }, 0);
+      var suma = 0, mayor = 0;
+      nuevos.forEach(function(c, i){ c.meses = c.meses || []; c.meses[m] = Math.round(resto * pesos[i] / tp / 10) * 10; suma += c.meses[m]; if (c.meses[m] > nuevos[mayor].meses[m]) mayor = i; });
+      nuevos[mayor].meses[m] += resto - suma;
+    }
+    /* reparto del saldo a cobrar que no está vencido */
+    var salNom = propios.reduce(function(a, c){ return a + c.sal; }, 0), restoSal = META_COBRAR[v.id] - salNom;
+    var conSaldo = nuevos.filter(function(c, i){ return i % 3 === 0; }), tw = conSaldo.reduce(function(a, c){ return a + c.meses[11]; }, 0), ss = 0;
+    conSaldo.forEach(function(c){ c.sal = Math.round(restoSal * c.meses[11] / tw / 10) * 10; ss += c.sal; });
+    conSaldo[0].sal += restoSal - ss;
+    Array.prototype.push.apply(CLIENTES, nuevos);
+  });
+  CLIENTES.forEach(function(c, i){
+    if (!c.meses) c.meses = FORMA[c.sh].map(function(k){ return Math.round(c.m * k / 10) * 10; });
+    c.cod = 'C-' + String(1040 + i * 7).padStart(4, '0');
+    c.ven = c.ven || 0; c.dv = c.dv || 0;
+    c.y = c.meses.reduce(function(a, b){ return a + b; }, 0);
+    var prev = c.meses.slice(6, 11).filter(function(x){ return x > 0; });
+    c.prom = prev.length ? prev.reduce(function(a, b){ return a + b; }, 0) / prev.length : 0;
+    c.m = c.m || Math.round(c.prom || c.meses[11]);
+    c.est = c.sh === 'n' ? 'nuevo' : (c.sh === 'p' || c.sh === 'q') ? 'riesgo' : 'activo';
+    /* evolución: julio a setiembre contra abril a junio */
+    var t2 = c.meses[9] + c.meses[10] + c.meses[11], t1 = c.meses[6] + c.meses[7] + c.meses[8];
+    c.var = t1 ? Math.round((t2 / t1 - 1) * 100) : null;
+    c.evo = (c.sh === 'n' || c.sh === 'k') ? 'nuevo' : c.est === 'riesgo' ? 'perdido' : c.sh === 'j' ? 'crece' : (c.var >= 10 ? 'crece' : c.var <= -10 ? 'cae' : 'estable');
+    if (!c.fac.length && !c.gen) c.fac = [];
+  });
+})();
+var CX = {}; CLIENTES.forEach(function(c){ CX[c.id] = c; });
+
+/* ================= Pedidos (como la bandeja de la app: Pendiente / En el sistema / Anulado) ================= */
+var POP = {'BE-003': 5, 'BE-001': 3, 'BE-004': 3, 'BE-008': 4, 'AL-005': 5, 'AL-003': 3, 'AL-001': 2, 'AL-002': 2, 'AL-007': 2, 'AL-008': 2, 'AL-009': 1, 'AL-010': 1, 'AL-004': 1,
+  'LI-002': 3, 'LI-004': 3, 'LI-003': 2, 'LI-001': 1, 'LI-005': 2, 'LA-001': 5, 'LA-005': 3, 'LA-006': 1, 'PE-001': 3, 'PE-006': 1, 'GO-001': 3, 'GO-007': 2, 'DS-001': 3, 'DS-005': 2, 'DE-004': 1};
+function lineas(arr, cli){
+  var c = CX[cli];
+  return arr.map(function(x){
+    var p = PROD[x[0]] || {c: x[0], d: x[0], p: 0};
+    var sug = x[2] === true || x[2] === false ? x[2] : false;
+    return {c: p.c, d: p.d, q: x[1], p: p.p, imp: p.p * x[1], sug: !!sug};
+  });
+}
+var PEDIDOS = [
+  {n: 'P-2416', cli: 'sarandi', ven: 'mf', f: '29/09', hora: '09:21', est: 'pend', l: [['AL-005', 10, true], ['AL-007', 20], ['GO-001', 4], ['AL-010', 25]], nota: ''},
+  {n: 'P-2415', cli: 'french', ven: 'cr', f: '29/09', hora: '10:05', est: 'pend', l: [['AL-008', 120], ['LA-001', 6], ['DS-005', 10, true], ['AL-007', 30], ['AL-001', 6], ['AL-002', 27]], nota: 'Revisar precio: el cliente pidió la harina al precio de la semana pasada.'},
+  {n: 'P-2414', cli: 'atlantida', ven: 'lm', f: '29/09', hora: '09:40', est: 'cargado', comp: 'A 0081446', por: 'Laura', at: '29/09 09:58', l: [['AL-005', 10], ['BE-001', 6], ['AL-007', 20], ['LI-001', 24, true], ['AL-001', 32], ['AL-003', 25]], nota: ''},
+  {n: 'P-2413', cli: 'parquerodo', ven: 'mf', f: '29/09', hora: '09:12', est: 'cargado', comp: 'A 0081445', por: 'Laura', at: '29/09 09:30', l: [['BE-003', 12], ['BE-008', 10], ['AL-005', 15], ['LA-001', 8], ['LI-003', 24, true], ['AL-001', 30], ['AL-002', 6], ['LI-004', 17]], nota: 'Lo pidió por WhatsApp; María lo cargó desde la app.'},
+  {n: 'P-2412', cli: 'arocena', ven: 'cr', f: '29/09', hora: '08:54', est: 'cargado', comp: 'A 0081444', por: 'Laura', at: '29/09 09:05', l: [['BE-003', 20], ['BE-004', 10], ['LA-001', 15], ['LI-004', 6, true], ['LI-002', 12], ['AL-005', 20], ['AL-003', 30], ['DS-001', 12, true], ['PE-001', 24], ['AL-001', 15], ['AL-002', 38]], nota: 'Entregar por la puerta de carga, antes de las 14.'},
+  {n: 'P-2411', cli: 'bolivia', ven: 'cr', f: '29/09', hora: '08:31', est: 'cargado', comp: 'A 0081443', por: 'Laura', at: '29/09 08:50', l: [['BE-003', 10], ['BE-001', 10], ['AL-005', 12], ['AL-003', 24], ['LI-002', 12], ['GO-001', 6, true], ['PE-001', 12], ['AL-007', 11]], nota: ''}
+];
+/* pedidos de ayer (se arman con lo que suele llevar cada cliente) */
+(function(){
+  var ayer = [['mf', '17:48', 'pend'], ['lm', '16:52', 'cargado'], ['cr', '16:20', 'cargado'], ['mf', '15:34', 'cargado'], ['cr', '14:05', 'cargado'], ['mf', '12:47', 'cargado'], ['mf', '12:40', 'anulado'],
+    ['lm', '11:58', 'cargado'], ['cr', '11:15', 'cargado'], ['mf', '10:42', 'cargado'], ['cr', '10:02', 'cargado'], ['lm', '09:31', 'cargado'], ['cr', '08:47', 'cargado']];
+  var usados = {}, num = 2410, comp = 81442;
+  ayer.forEach(function(a, i){
+    var ven = a[0];
+    var cands = CLIENTES.filter(function(c){ return c.gen && c.v === ven && c.sh !== 'k' && !usados[c.id] && c.meses[11] > 5000; });
+    var c = a[2] === 'anulado' ? CX[PEDIDOS[PEDIDOS.length - 1].cli] : cands[(i * 7) % cands.length];
+    usados[c.id] = 1;
+    if (a[2] !== 'anulado') c.u = 1;
+    var l = [], objetivo = Math.max(4500, Math.round(c.meses[11] * c.f / 30)), vistos = {};
+    c.fam.forEach(function(fm, k){
+      var prods = CATALOGO.filter(function(p){ return p.cat === fm[0]; }).sort(function(x, y){ return (POP[y.c] || 1) - (POP[x.c] || 1) || (x.c < y.c ? -1 : 1); });
+      var cuantos = fm[1] >= 30 ? 2 : 1;
+      for (var j = 0; j < cuantos; j++){
+        var p = prods[(i + j * 2 + k) % prods.length];
+        if (vistos[p.c]) continue; vistos[p.c] = 1;
+        var q = Math.max(1, Math.round(objetivo * fm[1] / 100 / cuantos / p.p));
+        if (q >= 10) q = Math.round(q / 6) * 6;
+        l.push([p.c, q, c.sug.indexOf(p.c) >= 0 && l.length < 2]);
+      }
+    });
+    var ped = {n: 'P-' + num--, cli: c.id, ven: ven, f: '28/09', hora: a[1], est: a[2], l: l, nota: ''};
+    if (a[2] === 'cargado'){ ped.comp = 'A 00' + comp--; ped.por = 'Laura'; var hh = +a[1].slice(0, 2) + 1; ped.at = '28/09 ' + (hh > 18 ? '18:10' : String(hh).padStart(2, '0') + a[1].slice(2)); }
+    if (a[2] === 'pend') ped.nota = 'Entró después del cierre del depósito.';
+    if (a[2] === 'anulado'){ ped.motivo = 'Lo mandó dos veces: quedó el ' + PEDIDOS[PEDIDOS.length - 1].n + '.'; ped.l = PEDIDOS[PEDIDOS.length - 1].l.map(function(x){ return x.slice(); }); }
+    PEDIDOS.push(ped);
+  });
+  PEDIDOS.forEach(function(p){ p.lin = lineas(p.l, p.cli); p.tot = p.lin.reduce(function(a, x){ return a + x.imp; }, 0); delete p.l; });
+})();
+var N_PED = 2417;
+
+/* ================= Rutas de hoy ================= */
+var RUTAS = {
+  mf: [
+    {c: 'sarandi', h: '09:00', est: 'hecha', lle: '09:04', sal: '09:24', ped: 'P-2416'},
+    {c: 'familia', h: '09:45', est: 'visita', lle: '09:52'},
+    {c: 'buenavista', h: '10:40', est: 'pend'},
+    {c: 'robles', h: '11:30', est: 'pend'},
+    {c: 'trattoria', h: '12:20', est: 'pend'}
+  ],
+  cr: [
+    {c: 'bolivia', h: '08:20', est: 'hecha', lle: '08:22', sal: '08:40', ped: 'P-2411'},
+    {c: 'arocena', h: '08:45', est: 'hecha', lle: '08:46', sal: '09:10', ped: 'P-2412'},
+    {c: 'malvinnorte', h: '09:20', est: 'prob', lle: '09:18', sal: '09:26', res: 'Con problema: precio'},
+    {c: 'french', h: '09:50', est: 'hecha', lle: '09:48', sal: '10:08', ped: 'P-2415'},
+    {c: 'aroma', h: '10:40', est: 'pend'},
+    {c: 'buceo', h: '11:20', est: 'pend'},
+    {c: 'puntagorda', h: '12:10', est: 'pend'},
+    {c: 'esperanza', h: '15:00', est: 'pend'}
+  ],
+  lm: [
+    {c: 'shangrila', h: '08:30', est: 'hecha', lle: '08:33', sal: '08:51', res: 'Visita hecha · pide el jueves'},
+    {c: 'atlantida', h: '09:20', est: 'hecha', lle: '09:22', sal: '09:44', ped: 'P-2414'},
+    {c: 'atlcentro', h: '10:10', est: 'visita', lle: '10:12'},
+    {c: 'neptunia', h: '11:00', est: 'pend'},
+    {c: 'pdelplata', h: '11:40', est: 'pend'},
+    {c: 'trigal', h: '12:30', est: 'pend'}
+  ]
+};
+
+/* ================= Oportunidades de hoy ================= */
+var OPT = {cruzada: 'Venta cruzada', recompra: 'Recompra', reactivar: 'Reactivar', cobrar: 'Cobrar', prospecto: 'Prospecto'};
+var OPS = [
+  {id: 1, t: 'cruzada', c: 'robles', a: 'Ofrecele lavandina a', v: 6200, w: 'mf', why: 'Lleva detergente todas las semanas y nunca llevó lavandina.', sug: '8 de cada 10 clientes que llevan detergente también llevan lavandina.', cods: ['LI-002', 'LI-001']},
+  {id: 2, t: 'recompra', c: 'familia', a: 'Reponele refrescos a', v: 9800, w: 'mf', why: 'Lleva refresco cola cada 7 días y van 9 sin comprar.', cods: ['BE-003']},
+  {id: 3, t: 'recompra', c: 'sarandi', a: 'Reponele yerba a', v: 4700, w: 'mf', why: 'Compra yerba cada 14 días y van 17 sin comprar.', cods: ['AL-005'], est: 'vendida', ped: 'P-2416'},
+  {id: 4, t: 'reactivar', c: 'trattoria', a: 'Pasá por', v: 18400, w: 'mf', why: 'No compra hace 46 días. Antes compraba $U 18.400 por mes, sobre todo quesos.', sug: 'Cambió de dueño en julio: preguntar por Martín.', cods: ['LA-005', 'AL-009']},
+  {id: 5, t: 'cobrar', c: 'buenavista', a: 'Cobrale a', v: 12840, w: 'mf', why: 'Tiene $U 12.840 vencidos hace 12 días (factura A 0081245).'},
+  {id: 6, t: 'cruzada', c: 'estrella', a: 'Ofrecele dulce de leche a', v: 3100, w: 'mf', why: 'Lleva harina cada 3 días y nunca llevó dulce de leche.', sug: '7 de cada 10 panaderías que llevan harina también llevan dulce de leche.', cods: ['DS-005']},
+  {id: 7, t: 'reactivar', c: 'palermo', a: 'Llamá a', v: 15300, w: 'mf', why: 'Compraba cada 7 días y hace 29 que no compra.', cods: ['BE-003', 'AL-005']},
+  {id: 8, t: 'prospecto', c: null, n: 'Hostel Ciudad Vieja', a: 'Seguí el presupuesto de', v: 12000, w: 'mf', why: 'Presupuesto #1182 de desayunos enviado el 21/09. Vence en 2 días.'},
+  {id: 9, t: 'reactivar', c: 'malvinnorte', a: 'Llamá a', v: 21700, w: 'cr', why: 'Hace 27 días que no compra (compraba cada 7). Hoy reclamó por el precio del refresco.', sug: 'Con la lista mayorista el pack queda en $U 518: $U 27 menos.', cods: ['BE-003']},
+  {id: 10, t: 'cobrar', c: 'esperanza', a: 'Cobrale a', v: 19600, w: 'cr', why: '$U 19.600 vencidos hace 64 días. Tiene los pedidos bloqueados.'},
+  {id: 11, t: 'reactivar', c: 'faro', a: 'Pasá por', v: 17400, w: 'cr', why: 'No compra hace 35 días. En noviembre arranca la temporada en Punta del Este.', cods: ['BE-008', 'BE-001']},
+  {id: 12, t: 'cobrar', c: 'arocena', a: 'Cobrale a', v: 10800, w: 'cr', why: '$U 10.800 vencidos hace 8 días. Hoy hizo un pedido de $U 42.100.'},
+  {id: 13, t: 'cruzada', c: 'bolivia', a: 'Ofrecele café molido a', v: 5600, w: 'cr', why: 'Lleva yerba todas las semanas y nunca llevó café.', sug: '6 de cada 10 minimercados que llevan yerba también llevan café.', cods: ['DS-001']},
+  {id: 14, t: 'prospecto', c: null, n: 'Supermercado Las Delicias', a: 'Visitá a', v: 30000, w: 'cr', why: 'Prospecto en Carrasco. Abre una segunda sucursal en noviembre.'},
+  {id: 15, t: 'reactivar', c: 'solymar', a: 'Visitá a', v: 22100, w: 'lm', why: 'Hace 26 días que no compra (compraba cada 7). Abrió un supermercado de cadena cerca.', cods: ['LI-004', 'LA-001']},
+  {id: 16, t: 'reactivar', c: 'floresta', a: 'Pasá por', v: 16300, w: 'lm', why: 'No compra hace 41 días. Hoy llamó para hacer un pedido.', cods: ['BE-003', 'BE-001']},
+  {id: 17, t: 'cobrar', c: 'floresta', a: 'Cobrale a', v: 9700, w: 'lm', why: '$U 9.700 vencidos hace 45 días. Cobrá antes de tomar el pedido nuevo.'},
+  {id: 18, t: 'cruzada', c: 'atlantida', a: 'Ofrecele detergente a', v: 3900, w: 'lm', why: 'Lleva lavandina todas las semanas y nunca llevó detergente.', sug: '8 de cada 10 almacenes que llevan lavandina también llevan detergente.', cods: ['LI-003']},
+  {id: 19, t: 'recompra', c: 'shangrila', a: 'Reponele alfajores a', v: 4400, w: 'lm', why: 'Lleva alfajores cada 14 días y van 18 sin comprar.', cods: ['GO-001']},
+  {id: 20, t: 'prospecto', c: null, n: 'Autoservicio Pinamar', a: 'Seguí el presupuesto de', v: 18000, w: 'lm', why: 'Presupuesto #1184 enviado el 24/09, sin respuesta.'}
+];
+
+/* ================= Bandeja de desvíos (solicitudes y problemas) ================= */
+var SOL = [
+  {id: 1, ven: 'cr', tipo: 'Desvío de ruta', txt: 'Tránsito cortado en Av. Italia. Pide pasar primero por Malvín y después por Buceo.', hora: '08:05', f: 'hoy', est: 'pend'},
+  {id: 2, ven: 'lm', tipo: 'Visita fuera de ruta', txt: 'Parador La Floresta la llamó para hacer un pedido. Queda a 2 km de su ruta de hoy.', hora: '07:52', f: 'hoy', est: 'pend', cli: 'floresta'},
+  {id: 3, ven: 'cr', tipo: 'Problema en una visita', txt: 'Autoservicio Malvín Norte: dice que otro mayorista le da el refresco cola $U 30 menos el pack.', hora: '09:26', f: 'hoy', est: 'info', cli: 'malvinnorte'},
+  {id: 4, ven: 'lm', tipo: 'Reprogramar visitas', txt: 'No llega a Salinas y Parque del Plata: pide pasarlas a mañana.', hora: '16:10', f: 'ayer', est: 'aprobada'},
+  {id: 5, ven: 'mf', tipo: 'Problema en una visita', txt: 'Almacén Don Pepe: estaba cerrado.', hora: '15:35', f: 'ayer', est: 'revisada', cli: 'pepe'},
+  {id: 6, ven: 'mf', tipo: 'Visita fuera de ruta', txt: 'María pasó por Kiosco Plaza Cagancha, que no estaba en su ruta.', hora: '12:10', f: 'ayer', est: 'revisada', cli: 'cagancha'}
+];
+
+/* ================= Ofertas ================= */
+var OFERTAS = [
+  {id: 1, p: 'AL-005', c: '$U 219 llevando 10 o más', tipo: 'Llevando X unidades', d1: '28/09', d2: '04/10', to: 'Almacenes y autoservicios', sel: ['mf', 'cr', 'lm'], ch: ['App', 'WhatsApp'], lista: true, seen: 3, sold: 52560, st: 'Vigente'},
+  {id: 2, p: 'LI-004', c: 'Combo con lavandina bidón 5 L a $U 440', tipo: 'Combo', d1: '21/09', d2: '30/09', to: 'Todos los clientes', sel: ['mf', 'cr', 'lm'], ch: ['App'], lista: true, seen: 3, sold: 38280, st: 'Vigente'},
+  {id: 3, p: 'BE-003', c: '8 % de descuento', tipo: '% de descuento', d1: '01/10', d2: '15/10', to: 'Zona Este y Maldonado', sel: ['cr'], ch: ['App', 'Mail'], lista: false, seen: 0, sold: 0, st: 'Programada'},
+  {id: 4, p: 'GO-001', c: '$U 339 la caja', tipo: 'Precio especial', d1: '01/09', d2: '15/09', to: 'Kioscos', sel: ['mf', 'lm'], ch: ['App', 'WhatsApp'], lista: true, seen: 2, sold: 41000, st: 'Terminada'}
+];
+var OF_TIPOS = ['Precio especial', '% de descuento', 'Llevando X unidades', 'Combo'];
+var OF_PARA = ['Todos los clientes', 'Almacenes y autoservicios', 'Supermercados', 'Cafeterías y panaderías', 'Kioscos', 'Zona Montevideo', 'Zona Este y Maldonado', 'Zona Costa de Oro'];
+
+/* ================= Presupuestos ================= */
+var PRES = [
+  {n: 1185, cli: 'Supermercado Las Delicias', ven: 'cr', f: 'Hoy 09:40', est: 'Enviado', l: [['BE-003', 40], ['BE-004', 30], ['LI-004', 24], ['LA-001', 30], ['AL-005', 40], ['AL-003', 60]]},
+  {n: 1184, cli: 'Autoservicio Pinamar', ven: 'lm', f: '24/09', est: 'Sin respuesta', l: [['BE-003', 24], ['AL-005', 30], ['LI-002', 24], ['AL-003', 48], ['GO-001', 12]]},
+  {n: 1183, cli: 'Supermercado Rambla', ven: 'mf', f: '23/09', est: 'Aceptado', cid: 'rambla', l: [['PE-001', 120], ['PE-006', 96], ['LI-005', 60], ['LI-003', 96], ['LI-004', 40]]},
+  {n: 1182, cli: 'Hostel Ciudad Vieja', ven: 'mf', f: '21/09', est: 'Vence en 2 días', l: [['DS-001', 20], ['DS-005', 12], ['LA-001', 6], ['DE-004', 10]]},
+  {n: 1181, cli: 'Supermercado Solymar', ven: 'lm', f: '18/09', est: 'Rechazado', motivo: 'Le dan mejor precio en la cadena.', l: [['BE-003', 30], ['LI-004', 20], ['LA-001', 24], ['AL-005', 30]]},
+  {n: 1180, cli: 'Autoservicio San Carlos', ven: 'cr', f: '10/09', est: 'Pedido', ped: 'P-2352', l: [['BE-003', 12], ['AL-005', 20], ['LI-004', 10], ['AL-003', 24]]}
+];
+PRES.forEach(function(p){ p.lin = lineas(p.l); p.tot = p.lin.reduce(function(a, x){ return a + x.imp; }, 0); });
+
+/* ================= Pipeline ================= */
+var ETAPAS = ['Lead', 'Contactado', 'Propuesta', 'Negociación', 'Ganado'];
+var DEALS = [
+  {id: 1, n: 'Supermercado Las Delicias', t: 'Cuenta nueva · segunda sucursal', v: 30000, s: 0, w: 'cr'},
+  {id: 2, n: 'Hostel Ciudad Vieja', t: 'Desayunos del hostel', v: 12000, s: 0, w: 'mf'},
+  {id: 3, n: 'Rotisería Maldonado Nuevo', t: 'Cuenta nueva', v: 9000, s: 0, w: 'cr'},
+  {id: 4, n: 'Supermercado Los Robles', t: 'Góndola de limpieza', v: 6200, s: 1, w: 'mf'},
+  {id: 5, n: 'Autoservicio Shangrilá', t: 'Sumar golosinas', v: 4400, s: 1, w: 'lm'},
+  {id: 6, n: 'Autoservicio Pinamar', t: 'Cuenta nueva · presupuesto #1184', v: 18000, s: 2, w: 'lm'},
+  {id: 7, n: 'Supermercado Rambla', t: 'Línea de perfumería', v: 9500, s: 2, w: 'mf'},
+  {id: 8, n: 'Supermercado Solymar', t: 'Precio por volumen para que vuelva', v: 22100, s: 3, w: 'lm'},
+  {id: 9, n: 'Parrillada El Faro', t: 'Bebidas para la temporada', v: 17400, s: 3, w: 'cr'},
+  {id: 10, n: 'Kiosco Plaza Cagancha', t: 'Cuenta nueva', v: 7400, s: 4, w: 'mf'},
+  {id: 11, n: 'Almacén El Pinar', t: 'Cuenta nueva', v: 9700, s: 4, w: 'lm'}
+];
+
+/* ================= Prospectos ================= */
+var PROS = [
+  {id: 1, n: 'Supermercado Las Delicias', r: 'Supermercado', z: 'Carrasco', s: 'cr', o: 'Referido por Supermercado Arocena', st: 'Visitado', nx: 'Presupuesto #1185 enviado hoy', v: 30000},
+  {id: 2, n: 'Hostel Ciudad Vieja', r: 'Hotelería', z: 'Ciudad Vieja', s: 'mf', o: 'Visita en frío', st: 'Presupuestado', nx: 'Seguir el presupuesto #1182 · jueves', v: 12000},
+  {id: 3, n: 'Autoservicio Pinamar', r: 'Autoservicio', z: 'Pinamar', s: 'lm', o: 'Visita en frío', st: 'Presupuestado', nx: 'Llamar por el presupuesto #1184', v: 18000},
+  {id: 4, n: 'Cafetería Rambla Sur', r: 'Cafetería', z: 'Barrio Sur', s: 'mf', o: 'Escribió por WhatsApp', st: 'Contactado', nx: 'Visitar el jueves', v: 8500},
+  {id: 5, n: 'Rotisería Maldonado Nuevo', r: 'Rotisería', z: 'Maldonado', s: 'cr', o: 'Visita en frío', st: 'Nuevo', nx: 'Primera visita esta semana', v: 9000},
+  {id: 6, n: 'Kiosco Marindia', r: 'Kiosco', z: 'Marindia', s: 'lm', o: 'Visita en frío', st: 'Nuevo', nx: 'Primera visita el viernes', v: 5200},
+  {id: 7, n: 'Kiosco Plaza Cagancha', r: 'Kiosco', z: 'Centro', s: 'mf', o: 'Visita en frío', st: 'Convertido', nx: 'Primera compra el 09/09', v: 7400},
+  {id: 8, n: 'Almacén El Pinar', r: 'Almacén', z: 'El Pinar', s: 'lm', o: 'Visita en frío', st: 'Convertido', nx: 'Primera compra el 07/09', v: 9700},
+  {id: 9, n: 'Bar Náutico', r: 'Bar', z: 'Buceo', s: 'cr', o: 'Visita en frío', st: 'Descartado', nx: 'Compra directo a la cervecería', v: 0}
+];
+var PROST = {Nuevo: 'gris', Contactado: 'borde', Visitado: 'ver', Presupuestado: 'arena', Convertido: 'ver', Descartado: 'gris'};
+var PROS_META = {mf: [5, 4], cr: [3, 4], lm: [2, 4]};
+
+/* ================= Qué ofrecer ================= */
+var QUE = [
+  {c: 'familia', p: 'BE-003', t: 'recompra', cada: 7, sin: 9, v: 9800},
+  {c: 'puntagorda', p: 'LA-001', t: 'recompra', cada: 7, sin: 9, v: 7400},
+  {c: 'robles', p: 'LI-002', t: 'cruzada', cada: 0, sin: 0, v: 6200},
+  {c: 'maldocentro', p: 'BE-008', t: 'recompra', cada: 7, sin: 8, v: 6300},
+  {c: 'lagomar', p: 'BE-004', t: 'recompra', cada: 7, sin: 10, v: 5800},
+  {c: 'bolivia', p: 'DS-001', t: 'cruzada', cada: 0, sin: 0, v: 5600},
+  {c: 'shangrila', p: 'GO-001', t: 'recompra', cada: 14, sin: 18, v: 4400},
+  {c: 'arocena', p: 'LI-004', t: 'recompra', cada: 14, sin: 15, v: 3900},
+  {c: 'atlantida', p: 'LI-003', t: 'cruzada', cada: 0, sin: 0, v: 3900},
+  {c: 'estrella', p: 'DS-005', t: 'cruzada', cada: 0, sin: 0, v: 3100},
+  {c: 'pepe', p: 'AL-005', t: 'recompra', cada: 21, sin: 21, v: 2400},
+  {c: 'buenavista', p: 'DE-004', t: 'recompra', cada: 14, sin: 12, v: 1900}
+];
+
+/* ================= Reportes ================= */
+var REPS = [
+  {n: 'Resumen del mes para la dirección', q: 'Venta contra objetivo y año pasado, vendedores, clientes que crecen y caen, cobranzas.', cu: 'Día 1 de cada mes', a: 'Laura, Dirección', on: true, csv: 'vendedores'},
+  {n: 'Ventas por vendedor', q: 'Venta, objetivo, visitas, pedidos, ticket y comisión de cada vendedor.', cu: 'Lunes 8:00', a: 'Laura', on: true, csv: 'vendedores'},
+  {n: 'Pedidos del día', q: 'Planilla con los pedidos pendientes, con códigos de cliente y producto, para cargar en Doria.', cu: 'Todos los días 17:30', a: 'Administración', on: true, csv: 'pedidos'},
+  {n: 'Clientes que dejaron de comprar', q: 'Clientes que pasaron su frecuencia habitual, por vendedor.', cu: 'Lunes 8:00', a: 'Cada vendedor', on: true, csv: 'riesgo'},
+  {n: 'Ruta y visitas de la semana', q: 'Visitas planificadas contra hechas, desvíos y visitas fuera de ruta.', cu: 'Sábado 12:00', a: 'Laura', on: false, csv: 'rutas'},
+  {n: 'Cobranzas por vendedor', q: 'Deuda vencida de la cartera de cada vendedor, con días de atraso.', cu: 'Miércoles 8:00', a: 'Cada vendedor', on: true, csv: 'cobranzas'},
+  {n: 'Oportunidades del mes', q: 'Ofrecidas, vendidas y venta que sumaron, por tipo y por vendedor.', cu: 'Viernes 18:00', a: 'Laura', on: false, csv: 'oportunidades'}
+];
+
+/* ================================ utilidades ================================ */
+var EMB = (function(){ try { return window.self !== window.top; } catch (e) { return true; } })();
+var fmt = new Intl.NumberFormat('es-UY', {maximumFractionDigits: 0});
+function $u(n){ return (n < 0 ? '−' : '') + '$U ' + fmt.format(Math.abs(Math.round(n))); }
+function $m(n){ var a = Math.abs(n); if (a >= 1e6) return '$U ' + (n / 1e6).toFixed(2).replace('.', ',') + ' M'; if (a >= 1e4) return '$U ' + fmt.format(Math.round(n / 1000)) + ' mil'; return $u(n); }
+function pc(a, b){ return b ? Math.round(a / b * 100) : 0; }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+function sinT(s){ return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function suma(a, f){ return a.reduce(function(x, y){ return x + (f ? f(y) : y); }, 0); }
+function iniciales(n){ return String(n).split(/\s+/).filter(function(w){ return w.length > 2 || /^[A-ZÁÉÍÓÚ]/.test(w); }).slice(0, 2).map(function(w){ return w[0]; }).join('').toUpperCase(); }
+function $(id){ return document.getElementById(id); }
+function nomV(id){ return VX[id] ? VX[id].nom : id; }
+function corV(id){ return VX[id] ? VX[id].corto : id; }
+function avt(id){ return '<span class="avt ' + (VX[id] ? id : 'gr') + '" title="' + esc(nomV(id)) + '">' + esc(VX[id] ? iniciales(VX[id].nom) : '?') + '</span>'; }
+function chip(cls, t, dot){ return '<span class="chip ' + cls + '">' + (dot ? '<i></i>' : '') + t + '</span>'; }
+function hace(d){ return d === 0 ? 'Hoy' : d === 1 ? 'Ayer' : 'Hace ' + d + ' días'; }
+
+var IC = {
+  grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+  store: '<path d="M4 9.5 5.5 4h13L20 9.5M4 9.5V20h16V9.5M4 9.5h16"/><path d="M10 20v-5h4v5"/>',
+  trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  alert: '<path d="M12 3 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
+  kanban: '<rect x="3.5" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="16.5" y="4" width="4" height="7" rx="1.5"/>',
+  doc: '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7h3.5M9.5 11.5h5M9.5 14.5h5M9.5 17.5h3"/>',
+  cart: '<path d="M3 4h2.5l2.2 11h10.6L20.5 8H7"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>',
+  map: '<path d="M9 4.5L3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/>',
+  inbox: '<path d="M3.5 13.5 6 5h12l2.5 8.5V19a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"/><path d="M3.5 13.5H9a3 3 0 0 0 6 0h5.5"/>',
+  bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+  bell: '<path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21h4"/>',
+  flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  cash: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/>',
+  price: '<path d="M20.5 13.5l-7 7a1.5 1.5 0 0 1-2.1 0L3.5 12.6V3.5h9.1l7.9 7.9a1.5 1.5 0 0 1 0 2.1z"/><circle cx="8" cy="8" r="1.5"/>',
+  report: '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7h3.5"/><path d="M9.5 17v-3M12 17v-5M14.5 17v-2"/>',
+  down: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  wa: '<path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5z"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  send: '<path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  izq: '<path d="m15 6-6 6 6 6"/>',
+  der: '<path d="m9 6 6 6-6 6"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  tel: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/>'
+};
+function ic(n, sw){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.9) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[n] || '') + '</svg>'; }
+var LIBRETA_IC = '<svg viewBox="0 0 128 128" aria-hidden="true"><g fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" transform="translate(64 64) scale(.78) translate(-64 -64)"><rect x="30" y="12" width="68" height="104" rx="14"/><path d="M78 4V124"/></g><circle cx="56" cy="40" r="8" fill="#FF6A3D"/></svg>';
+IC.cal = '<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>';
+IC.chev = '<path d="m9 6 6 6-6 6"/>';
+
+/* ================= Agregados de esta versión =================
+   Hora en que cada vendedor inició la jornada en la app (hoy). */
+var JORNADA = {mf: '08:40', cr: '07:58', lm: '07:45'};
+/* «Lo que suma Libreta», por mes. tipos: [ofrecidas, vendidas, venta extra estimada en $U]
+   (en «cobrar», el tercer valor es lo cobrado, que no es venta). Los totales cierran con
+   VEND (ofr/conc de setiembre) y con «Recuperados en setiembre: 11 de 17» de Clientes. */
+var SUMA = {
+  set: {tipos: {reactivar: [24, 11, 61200], cruzada: [31, 12, 24800], recompra: [33, 16, 42570], cobrar: [15, 4, 38900]},
+    porVen: {mf: [41, 17, 52900], cr: [29, 11, 33140], lm: [33, 15, 42530]}, recup: {mf: [5, 7], cr: [3, 6], lm: [3, 4]}, sug: 96400},
+  ago: {tipos: {reactivar: [21, 8, 44100], cruzada: [28, 10, 20900], recompra: [30, 14, 35600], cobrar: [12, 3, 27400]},
+    porVen: {mf: [36, 14, 41800], cr: [27, 9, 25900], lm: [28, 12, 32900]}, recup: {mf: [4, 6], cr: [2, 5], lm: [2, 4]}, sug: 88100}
+};
+/* mes a mes desde que se usa Libreta (junio fue el primer mes, desde el 9) */
+var SUMA_HIST = {m: ['Jun', 'Jul', 'Ago', 'Set'], extra: [38400, 81300, 100600, 128570], sug: [41000, 73200, 88100, 96400]};
+var TIPOS_OP = [
+  ['reactivar', 'Dejaron de comprar a su ritmo'],
+  ['cruzada', 'Lo que llevan los parecidos y este no'],
+  ['recompra', 'Lo que compra seguido y ya se pasó'],
+  ['cobrar', 'Deuda vencida, en la visita']
+];
+
+/* ================================ estado ================================ */
+var S = {
+  v: 'hoy', per: 'set', venCli: 'todos',
+  pedV: 'pend', pedVen: 'todos', pedOpen: {}, pedModo: {}, pedTxt: {},
+  sort: {}, pag: {}, ficha: null, vendF: null, nuevo: {}, pedidasVisita: {}, pedidoCobro: {},
+  hora: HOY.hora, extraConc: 0, vendHoy: []
+};
+var SECC = [
+  ['hoy', 'Hoy', 'cal', 'Quién está en la calle, cómo van las rutas, qué pedidos entraron y qué espera tu respuesta.'],
+  ['vend', 'Vendedores', 'users', 'Venta contra objetivo, ruta, pedidos, oportunidades y comisión de cada vendedor.'],
+  ['suma', 'Lo que suma Libreta', 'trend', 'Lo que se vendió de más porque la app le dijo al vendedor a quién ofrecerle qué.'],
+  ['cli', 'Clientes', 'store', 'Quién dejó de comprar a su ritmo y quién debe. Tocá un cliente para ver su ficha.'],
+  ['ped', 'Pedidos', 'cart', 'Lo que cargan los vendedores en el comercio. Pasalo a Doria y marcalo como cargado.']
+];
+var VINFO = {}; SECC.forEach(function(s){ VINFO[s[0]] = {t: s[1], i: s[2], d: s[3]}; });
+/* secciones viejas (y del contrato de mensajes) que ahora viven en otra */
+var ALIAS = {dash: 'hoy', desv: 'hoy', ruta: 'hoy', ofr: 'suma', est: 'vend', objs: 'vend', evo: 'cli', cart: 'cli', cobc: 'cli', pros: 'cli'};
+
+/* ================================ cálculos ================================ */
+function mesIx(){ return IX[S.per]; }
+function ventaMes(i, ven){ return suma(VEND.filter(function(v){ return !ven || ven === 'todos' || v.id === ven; }), function(v){ return v.mes[i]; }); }
+function objMes(per, ven){ return suma(VEND.filter(function(v){ return !ven || ven === 'todos' || v.id === ven; }), function(v){ return v.obj[per]; }); }
+function activos(i, ven){ return CLIENTES.filter(function(c){ return (!ven || c.v === ven) && (c.meses[i] + c.meses[i - 1] + c.meses[i - 2]) > 0; }).length; }
+function nuevos(i, ven){ return CLIENTES.filter(function(c){ if (ven && c.v !== ven) return false; for (var k = 0; k < i; k++) if (c.meses[k] > 0) return false; return c.meses[i] > 0; }).length; }
+function compraron(i, ven){ return CLIENTES.filter(function(c){ return (!ven || c.v === ven) && c.meses[i] > 0; }).length; }
+function riesgo(ven){ return CLIENTES.filter(function(c){ return c.est === 'riesgo' && (!ven || c.v === ven); }); }
+function vencidos(ven){ return CLIENTES.filter(function(c){ return c.ven > 0 && (!ven || ven === 'todos' || c.v === ven); }); }
+function pedidosHoy(ven){ return PEDIDOS.filter(function(p){ return p.f === '29/09' && p.est !== 'anulado' && (!ven || p.ven === ven); }); }
+function pendientes(){ return PEDIDOS.filter(function(p){ return p.est === 'pend'; }); }
+function ult24(){ var h = aMin(S.hora); return PEDIDOS.filter(function(p){ return p.est !== 'anulado' && (p.f === '29/09' || (p.f === '28/09' && aMin(p.hora) >= h)); }); }
+function aMin(t){ var p = String(t).split(':'); return +p[0] * 60 + (+p[1] || 0); }
+function solPend(){ return SOL.filter(function(s){ return s.est === 'pend' || s.est === 'info'; }); }
+function opsSet(){ return {ofr: suma(VEND, function(v){ return v.ofr; }) + OPS.filter(function(o){ return o.est === 'ruta' || o.est === 'wa'; }).length, conc: suma(VEND, function(v){ return v.conc; }) + S.extraConc}; }
+function ofertasVig(){ return OFERTAS.filter(function(o){ return o.st === 'Vigente'; }); }
+function metricas(per, ven){
+  var i = IX[per], v = ven && ven !== 'todos' ? ven : null;
+  var venta = ventaMes(i, v), obj = objMes(per, v), ly = suma(VEND.filter(function(x){ return !v || x.id === v; }), function(x){ return x.ly[per]; });
+  var ped = suma(VEND.filter(function(x){ return !v || x.id === v; }), function(x){ return x.ped[per]; });
+  return {venta: venta, obj: obj, ly: ly, ped: ped, ticket: venta / ped, act: activos(i, v), actAnt: activos(i - 1, v), nue: nuevos(i, v), nueAnt: nuevos(i - 1, v),
+    ticketAnt: ventaMes(i - 1, v) / suma(VEND.filter(function(x){ return !v || x.id === v; }), function(x){ return x.ped[per === 'set' ? 'ago' : 'jul']; }),
+    nc: NOTAS_CREDITO[per], riesgo: riesgo(v), cobrar: suma(CLIENTES.filter(function(c){ return !v || c.v === v; }), function(c){ return c.sal; }), vencido: suma(vencidos(v), function(c){ return c.ven; })};
+}
+function catVenta(total){ var r = {}; CATS.forEach(function(c){ r[c] = Math.round(total * CAT_PESO[c]); }); return r; }
+function prodVenta(total){
+  var cat = catVenta(total);
+  return CATALOGO.map(function(p){
+    var enCat = CATALOGO.filter(function(x){ return x.cat === p.cat; }), w = suma(enCat, function(x){ return (POP[x.c] || 1) * x.p; });
+    var v = cat[p.cat] * (POP[p.c] || 1) * p.p / w;
+    return {p: p, v: v, u: Math.round(v / p.p), mg: (p.p - p.k) / p.p};
+  });
+}
+
+/* ================================ piezas de interfaz ================================ */
+function tabla(id, cols, filas, opt){
+  opt = opt || {};
+  var st = S.sort[id];
+  if (st) filas = filas.slice().sort(function(a, b){ var x = a.s[st[0]], y = b.s[st[0]]; if (typeof x === 'string') return x.localeCompare(y, 'es') * st[1]; return ((x || 0) - (y || 0)) * st[1]; });
+  var total = filas.length, lim = opt.pag ? (S.pag[id] || opt.pag) : total, vis = filas.slice(0, lim);
+  var h = '<div class="tw"><table class="t"><thead><tr>' + cols.map(function(c, i){
+    var ord = c.s !== false && c.l ? ' data-sort="' + id + ':' + i + '"' : '', fl = st && st[0] === i ? (st[1] > 0 ? '↑' : '↓') : '';
+    return '<th class="' + (c.r ? 'r' : '') + '"' + (c.w ? ' style="min-width:' + c.w + 'px"' : '') + ord + (ord ? ' aria-sort="' + (fl ? (st[1] > 0 ? 'ascending' : 'descending') : 'none') + '"' : '') + '>' + (c.l || '') + (ord ? ' <span class="fl">' + fl + '</span>' : '') + '</th>';
+  }).join('') + '</tr></thead><tbody>';
+  h += vis.map(function(f){ return '<tr' + (f.a ? ' ' + f.a : '') + '>' + f.c.map(function(x, i){ return '<td class="' + (cols[i].r ? 'r' : '') + (cols[i].nw ? ' nw' : '') + '">' + x + '</td>'; }).join('') + '</tr>'; }).join('');
+  if (!vis.length) h += '<tr><td colspan="' + cols.length + '" class="muted" style="text-align:center;padding:22px">' + (opt.vacio || 'No hay nada para mostrar con estos filtros.') + '</td></tr>';
+  h += '</tbody></table></div>';
+  if (opt.pag && total > opt.pag) h += '<div class="pag"><span>Mostrando ' + vis.length + ' de ' + total + '</span>' + (lim < total ? '<button type="button" class="btn btn-s btn-sm" data-a="mas" data-id="' + id + '" data-n="' + opt.pag + '">Mostrar ' + Math.min(opt.pag, total - lim) + ' más</button>' : '<button type="button" class="btn btn-g btn-sm" data-a="menos" data-id="' + id + '">Mostrar menos</button>') + '</div>';
+  return h;
+}
+function card(tit, cuerpo, extra, cls){ return '<section class="card ' + (cls || '') + '">' + (tit ? '<div class="ct"><h2>' + tit + '</h2>' + (extra || '') + '</div>' : '') + cuerpo + '</section>'; }
+function kpi(l, v, d, tono, cls, go){ var t = go ? 'button type="button" data-a="ir" data-v="' + go + '"' : 'div'; return '<' + t + ' class="kpi ' + (cls || '') + '"><small>' + l + '</small><b>' + v + '</b>' + (d ? '<em class="' + (tono || '') + '">' + d + '</em>' : '') + '</' + t.split(' ')[0] + '>'; }
+function filtroChips(clave, ops, actual){ return '<div class="filtros" role="group">' + ops.map(function(o){ return o === '|' ? '<span class="fsep"></span>' : '<button type="button" class="fc" data-a="filtro" data-k="' + clave + '" data-val="' + o[0] + '" aria-pressed="' + (actual === o[0]) + '">' + o[1] + (o[2] != null ? ' <i>' + o[2] + '</i>' : '') + '</button>'; }).join('') + '</div>'; }
+function chipsVend(clave, actual, conteo){ return filtroChips(clave, [['todos', 'Todos', conteo ? conteo('todos') : null]].concat(VEND.map(function(v){ return [v.id, v.corto, conteo ? conteo(v.id) : null]; })), actual); }
+function segm(clave, ops, actual){ return '<div class="seg" role="group">' + ops.map(function(o){ return '<button type="button" data-a="filtro" data-k="' + clave + '" data-val="' + o[0] + '" aria-pressed="' + (actual === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>'; }
+function medidor(p, tono, marca){ return '<div class="meter ' + (tono || '') + '"><i style="width:' + Math.max(0, Math.min(100, p)) + '%"></i>' + (marca != null ? '<u style="left:' + Math.min(100, marca) + '%"></u>' : '') + '</div>'; }
+function hbar(lbl, v, max, txt, cls, marca){ return '<div class="hb"><span>' + lbl + '</span><div class="p"><i class="' + (cls || '') + '" style="width:' + (max ? Math.max(1, v / max * 100) : 0).toFixed(1) + '%"></i>' + (marca != null ? '<u style="left:' + (marca / max * 100).toFixed(1) + '%"></u>' : '') + '</div><b>' + txt + '</b></div>'; }
+function spark(vals, tono){
+  var max = Math.max.apply(null, vals) || 1, w = 96, h = 26, n = vals.length;
+  var pts = vals.map(function(v, i){ return (i * (w - 4) / (n - 1) + 2).toFixed(1) + ',' + (h - 3 - v / max * (h - 6)).toFixed(1); }).join(' ');
+  var col = tono === 'mal' ? '#C63A22' : tono === 'bien' ? '#0B6E7C' : '#74848A';
+  return '<svg class="spark" viewBox="0 0 96 26" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="' + col + '" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function barras(series, etiquetas, opt){
+  opt = opt || {};
+  var W = 640, H = opt.h || 210, pl = 8, pb = 22, pt = 18, n = etiquetas.length, g = (W - pl * 2) / n, bw = Math.min(22, (g - 10) / series.length);
+  var max = Math.max.apply(null, series.map(function(s){ return Math.max.apply(null, s.v); })) || 1;
+  var h = '<svg class="graf" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opt.aria || 'Gráfico de barras') + '">';
+  for (var k = 1; k <= 3; k++){ var y = pt + (H - pt - pb) * (1 - k / 3); h += '<line x1="0" x2="' + W + '" y1="' + y + '" y2="' + y + '" stroke="#EDF0F3"/>'; }
+  etiquetas.forEach(function(e, i){
+    var x0 = pl + g * i + (g - bw * series.length - 3 * (series.length - 1)) / 2;
+    series.forEach(function(s, j){
+      var v = s.v[i], bh = Math.max(v ? 2 : 0, (H - pt - pb) * v / max), x = x0 + j * (bw + 3), y = H - pb - bh;
+      var col = typeof s.c === 'function' ? s.c(i) : s.c;
+      h += '<rect class="bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="3" fill="' + col + '"><title>' + esc(s.n + ' · ' + e + ': ' + (opt.fmt ? opt.fmt(v) : v)) + '</title></rect>';
+      if (opt.hl === i && j === series.length - 1) h += '<text class="val" x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle">' + esc(opt.fmt ? opt.fmt(v) : v) + '</text>';
+    });
+    h += '<text class="eje" x="' + (pl + g * i + g / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle"' + (opt.hl === i ? ' style="fill:#10222A;font-weight:500"' : '') + '>' + esc(e) + '</text>';
+  });
+  return h + '</svg>';
+}
+function leyenda(items){ return '<div class="ley">' + items.map(function(x){ return '<span><i style="background:' + x[1] + '"></i>' + x[0] + '</span>'; }).join('') + '</div>'; }
+function lead(txt, acts){ return '<div class="lead"><p>' + txt + '</p>' + (acts ? '<div class="acts">' + acts + '</div>' : '') + '</div>'; }
+function boton(txt, a, cls, extra, icono){ return '<button type="button" class="btn ' + (cls || 'btn-s') + '" data-a="' + a + '"' + (extra || '') + '>' + (icono ? ic(icono) : '') + txt + '</button>'; }
+function nombreCli(id){ return CX[id] ? CX[id].n : id; }
+function cliLink(id, extra){ var c = CX[id]; if (!c) return '<b>' + esc(id) + '</b>'; return '<button type="button" class="lnk" data-a="ficha" data-id="' + c.id + '"><b>' + esc(c.n) + '</b></button>' + (extra || ''); }
+
+/* ================================ pantallas ================================ */
+var R = {};
+function ritmo(per){ return per === 'set' ? 97 : 100; }
+function estadoRuta(ven){ var r = RUTAS[ven], hechas = r.filter(function(x){ return x.est === 'hecha' || x.est === 'prob'; }).length; return {hechas: hechas, plan: r.filter(function(x){ return !x.fuera; }).length, total: r.length}; }
+function rutaInfo(ven){
+  var r = RUTAS[ven], e = estadoRuta(ven);
+  e.act = r.filter(function(x){ return x.est === 'visita'; })[0];
+  e.prox = r.filter(function(x){ return x.est === 'pend'; })[0];
+  e.prob = r.filter(function(x){ return x.est === 'prob'; }).length;
+  return e;
+}
+function plata(n){ return $u(n); }
+function tonoObj(p, rt){ return p >= rt - 5 ? '' : p >= rt - 20 ? 'bajo' : 'mal'; }
+function opsMes(per, ven){
+  var b = SUMA[per].porVen, ids = ven ? [ven] : VEND.map(function(v){ return v.id; });
+  var vivo = per === 'set' ? S.vendHoy.filter(function(x){ return !ven || x.ven === ven; }) : [];
+  return {ofr: suma(ids, function(k){ return b[k][0]; }), conc: suma(ids, function(k){ return b[k][1]; }) + vivo.length, extra: suma(ids, function(k){ return b[k][2]; }) + suma(vivo, function(x){ return x.imp; })};
+}
+function sugMes(per){
+  if (per !== 'set') return SUMA[per].sug;
+  var vivo = 0; PEDIDOS.forEach(function(p){ if (p.demo && p.est !== 'anulado') p.lin.forEach(function(l){ if (l.sug) vivo += l.imp; }); });
+  return SUMA.set.sug + vivo;
+}
+
+/* ---------- Hoy ---------- */
+R.hoy = function(){
+  var ph = pedidosHoy().slice().sort(function(a, b){ return aMin(b.hora) - aMin(a.hora); }), tot = suma(ph, function(p){ return p.tot; });
+  var hechas = suma(VEND, function(v){ return estadoRuta(v.id).hechas; }), plan = suma(VEND, function(v){ return estadoRuta(v.id).total; });
+  var pend = pendientes(), M = metricas('set'), p = pc(M.venta, M.obj), sp = solPend(), oh = opsRuta(), vendHoy = OPS.filter(function(o){ return o.est === 'vendida' && o.ped && o.ped !== 'cobrado'; }).length;
+  var h = '<section class="kpis k-hoy">' +
+    '<div class="kpi dest grande"><div class="fd"><small>Vendido hoy</small><small>' + ph.length + ' pedidos · ticket ' + $u(ph.length ? tot / ph.length : 0) + '</small></div><b>' + $u(tot) + '</b><div class="bb" aria-hidden="true"><i style="width:' + pc(hechas, plan) + '%"></i></div><em>' + hechas + ' de ' + plan + ' visitas hechas a las ' + S.hora + '</em></div>' +
+    kpi('Visitas de hoy', hechas + ' de ' + plan, pc(hechas, plan) + ' % de la ruta del día') +
+    kpi('Para ofrecer en la ruta', String(oh.length), oh.length ? '≈ ' + $m(suma(oh, function(o){ return o.v; })) + ' por mes · ' + vendHoy + ' vendida' + (vendHoy === 1 ? '' : 's') + ' hoy' : vendHoy + ' vendidas hoy', '', '', 'suma') +
+    kpi('Por cargar en Doria', String(pend.length), pend.length ? $u(suma(pend, function(x){ return x.tot; })) + ' en pedidos' : 'Todo al día', '', '', 'ped') +
+    kpi('Objetivo de setiembre', p + ' %', 'hoy deberías ir por ' + ritmo('set') + ' %', p >= ritmo('set') - 5 ? 'bien' : 'mal', '', 'vend') + '</section>';
+
+  var calle = VEND.map(function(v){
+    var e = rutaInfo(v.id), ps = pedidosHoy(v.id), pv = pc(e.hechas, e.total);
+    var ahora = e.act ? 'En visita en <b>' + esc(nombreCli(e.act.c)) + '</b> desde las ' + esc(e.act.lle)
+      : e.prox ? 'Próxima: <b>' + esc(nombreCli(e.prox.c)) + '</b> a las ' + e.prox.h : '<b>Terminó la ruta</b>';
+    return '<button type="button" class="vcalle" data-a="vendAbrir" data-ven="' + v.id + '"><span class="arr"><span class="quien">' + avt(v.id) + '<span><b>' + v.nom + '</b><small><span class="ap"></span>Salió ' + JORNADA[v.id] + ' · ' + v.zona + '</small></span></span><span class="vend"><b>' + $u(suma(ps, function(x){ return x.tot; })) + '</b><small>' + ps.length + (ps.length === 1 ? ' pedido' : ' pedidos') + '</small></span></span>' +
+      '<span class="prog">' + medidor(pv) + '<span><b>' + e.hechas + ' de ' + e.total + '</b> visitas' + (e.prob ? ' · <span class="baja">' + e.prob + ' con problema</span>' : '') + '</span></span>' +
+      '<span class="ahora">' + ahora + '</span></button>';
+  }).join('');
+
+  var decidir = sp.length ? listaDesvios(sp) : '<p class="nota" style="padding:6px 0">Nada espera tu respuesta. Los desvíos y problemas que avisen los vendedores aparecen acá.</p>';
+  var resp = SOL.filter(function(s){ return s.f === 'hoy' && !(s.est === 'pend' || s.est === 'info'); }).length;
+
+  var lim = 6, filas = ph.slice(0, lim).map(function(x){
+    var c = CX[x.cli], e = PED_EST[x.est];
+    return '<button type="button" class="prow' + (S.nuevo[x.n] ? ' nuevo' : '') + '" data-a="pedVer" data-id="' + esc(x.n) + '"><span class="h">' + esc(x.hora) + '</span><span><b>' + esc(c ? c.n : x.cli) + '</b><small>' + esc(corV(x.ven)) + ' · ' + esc(x.n) + ' · ' + x.lin.length + (x.lin.length === 1 ? ' producto' : ' productos') + '</small></span><span class="der"><span class="m">' + $u(x.tot) + '</span>' + chip(e[0], e[1]) + '</span></button>';
+  }).join('');
+
+  var al = alertas().map(function(a){
+    return '<button type="button" class="alerta" data-a="' + a.a + '" ' + a.k + '><span class="ic ' + a.tono + '">' + ic(a.ic) + '</span><span><b>' + esc(a.t) + '</b><small>' + esc(a.d) + '</small></span></button>';
+  }).join('');
+
+  h += card('En la calle', '<div class="calle">' + calle + '</div>', '<span class="s">' + VEND.length + ' de ' + VEND.length + ' con la jornada iniciada · tocá uno para ver su ruta</span>', 'calle-card');
+  h += '<div class="fila f3 estira">' +
+    card('Pedidos de hoy', (filas || '<p class="nota">Todavía no entraron pedidos hoy.</p>') + (ph.length > lim ? '<div class="pag"><span>Los ' + lim + ' más recientes</span><button type="button" class="link" data-a="ir" data-v="ped">Ver los ' + ph.length + '</button></div>' : ''), '<span class="s">' + $u(tot) + '</span>') +
+    card((sp.length ? '<span class="punto"></span>' : '') + 'Para decidir', decidir, '<span class="s">' + (sp.length ? sp.length + (sp.length === 1 ? ' pendiente' : ' pendientes') : resp ? resp + ' respondidas hoy' : 'al día') + '</span>') +
+    card('Alertas', '<div class="alertas">' + (al || '<p class="nota">Sin alertas: todo dentro de lo normal.</p>') + '</div>') + '</div>';
+  return h;
+};
+function opsRuta(){
+  var r = [];
+  VEND.forEach(function(v){ RUTAS[v.id].forEach(function(s){ if (s.est === 'pend' || s.est === 'visita') OPS.forEach(function(o){ if (o.c === s.c && o.w === v.id && !o.est && !o.off) r.push(o); }); }); });
+  return r;
+}
+function listaDesvios(lista){
+  return '<div class="lis">' + lista.map(function(s){
+    var pend = s.est === 'pend';
+    var bs = pend ? '<button type="button" class="btn btn-p btn-sm" data-a="solResp" data-id="' + s.id + '" data-est="aprobada">Aprobar</button><button type="button" class="btn btn-s btn-sm" data-a="solResp" data-id="' + s.id + '" data-est="rechazada">Rechazar</button>'
+      : '<button type="button" class="btn btn-p btn-sm" data-a="solResp" data-id="' + s.id + '" data-est="revisada">Marcar revisado</button>' + (s.cli ? '<button type="button" class="btn btn-g btn-sm" data-a="ficha" data-id="' + s.cli + '">Ver cliente</button>' : '');
+    return '<div class="li' + (S.nuevo['sol' + s.id] ? ' nueva' : '') + '"><span class="sev ' + (pend ? 'pend' : 'prob') + '"></span><div><b>' + esc(s.tipo) + ' · ' + esc(corV(s.ven)) + '</b> ' + (pend ? '' : chip('rojo', 'Para revisar')) + '<p>' + esc(s.txt) + '</p><div class="bs">' + bs + '</div></div><span class="tm">' + (s.f === 'ayer' ? 'ayer ' : '') + esc(s.hora) + '</span></div>';
+  }).join('') + '</div>';
+}
+function alertas(){
+  var L = [];
+  /* un vendedor muy atrás del objetivo */
+  var peor = VEND.slice().sort(function(a, b){ return pc(a.mes[11], a.obj.set) - pc(b.mes[11], b.obj.set); })[0], pp = pc(peor.mes[11], peor.obj.set);
+  if (pp < ritmo('set') - 10) L.push({tono: 'rojo', ic: 'flag', t: peor.corto + ' va al ' + pp + ' % del objetivo', d: 'Le faltan ' + $u(peor.obj.set - peor.mes[11]) + ' y el mes cierra mañana. Debería ir por ' + ritmo('set') + ' %.', a: 'vendAbrir', k: 'data-ven="' + peor.id + '"'});
+  /* el cliente más grande que dejó de comprar */
+  var r = riesgo().filter(function(c){ return !S.pedidasVisita[c.id]; }).sort(function(a, b){ return b.m - a.m; })[0];
+  if (r) L.push({tono: 'arena', ic: 'store', t: r.n + ' dejó de comprar', d: 'Compraba ' + $u(r.m) + ' por mes, cada ' + r.f + ' días; van ' + r.u + ' sin comprar. Cartera de ' + corV(r.v) + '.', a: 'ficha', k: 'data-id="' + r.id + '"'});
+  /* deuda vencida en las paradas que faltan hoy */
+  var deu = [];
+  VEND.forEach(function(v){ RUTAS[v.id].forEach(function(s){ var c = CX[s.c]; if (c && c.ven > 0 && (s.est === 'pend' || s.est === 'visita') && deu.indexOf(c) < 0) deu.push(c); }); });
+  if (deu.length){
+    deu.sort(function(a, b){ return b.ven - a.ven; });
+    L.push({tono: 'rojo', ic: 'cash', t: $u(suma(deu, function(c){ return c.ven; })) + ' vencidos en la ruta de hoy', d: deu.slice(0, 3).map(function(c){ return c.n + ' (' + c.dv + ' días)'; }).join(', ') + '. A cobrar en la visita.', a: 'ficha', k: 'data-id="' + deu[0].id + '"'});
+  }
+  /* pedidos de ayer que siguen sin cargar */
+  var viejos = pendientes().filter(function(p){ return p.f !== '29/09'; });
+  if (viejos.length) L.push({tono: 'nar', ic: 'cart', t: viejos.length === 1 ? 'Un pedido de ayer sigue sin cargar' : viejos.length + ' pedidos de ayer siguen sin cargar', d: viejos.slice(0, 2).map(function(p){ return p.n + ' · ' + nombreCli(p.cli) + ' · ' + $u(p.tot); }).join(' / ') + '.', a: 'pedVer', k: 'data-id="' + esc(viejos[0].n) + '"'});
+  return L.slice(0, 5);
+}
+
+/* ---------- Vendedores ---------- */
+R.vend = function(){
+  var per = S.per, i = IX[per], M = metricas(per), rt = ritmo(per), mesL = MESES_L[i];
+  var vis = [suma(VEND, function(v){ return v.vis[per][0]; }), suma(VEND, function(v){ return v.vis[per][1]; })];
+  var O = opsMes(per), com = suma(VEND, function(v){ return v.mes[i] * v.com; }), p = pc(M.venta, M.obj);
+  var h = '<section class="kpis">' +
+    kpi('Venta del equipo · ' + mesL, $u(M.venta), p + ' % del objetivo de ' + $m(M.obj), '', 'dest') +
+    kpi('Ruta cumplida', pc(vis[0], vis[1]) + ' %', vis[0] + ' de ' + vis[1] + ' paradas') +
+    kpi('Pedidos', fmt.format(M.ped), 'ticket promedio ' + $u(M.ticket)) +
+    kpi('Oportunidades vendidas', O.conc + ' de ' + O.ofr, pc(O.conc, O.ofr) + ' % de las ofrecidas', '', '', 'suma') +
+    kpi('Comisiones', $u(com), 'estimadas sobre la venta del mes') + '</section>';
+  h += '<div class="vlista"><div class="vcols" aria-hidden="true"><span>Vendedor</span><span>Venta contra objetivo</span><span>Ruta cumplida</span><span>Pedidos</span><span>Oportunidades</span><span>Comisión</span><span></span></div>' + VEND.map(function(v){
+    var venta = v.mes[i], obj = v.obj[per], pv = pc(venta, obj), vs = v.vis[per], cum = pc(vs[0], vs[1]), o = opsMes(per, v.id), e = estadoRuta(v.id);
+    return '<button type="button" class="vrow" data-a="vendAbrir" data-ven="' + v.id + '"><span class="quien">' + avt(v.id) + '<span><b>' + v.nom + '</b><small>' + v.zona + '</small></span></span>' +
+      '<span class="obj"><span class="oh"><b>' + $u(venta) + '</b><span>de ' + $u(obj) + '</span><em class="' + (pv < rt - 10 ? 'baja' : 'sube') + '">' + pv + ' %</em></span>' + medidor(pv, tonoObj(pv, rt), rt) + '</span>' +
+      '<span class="c"><span class="lbl-m">Ruta cumplida</span><b class="' + (cum < 88 ? 'baja' : '') + '">' + cum + ' %</b><small>' + vs[0] + ' de ' + vs[1] + ' paradas</small></span>' +
+      '<span class="c"><span class="lbl-m">Pedidos</span><b>' + v.ped[per] + '</b><small>ticket ' + $u(venta / v.ped[per]) + '</small></span>' +
+      '<span class="c"><span class="lbl-m">Oportunidades</span><b>' + o.conc + ' de ' + o.ofr + '</b><small>' + pc(o.conc, o.ofr) + ' % vendidas</small></span>' +
+      '<span class="c"><span class="lbl-m">Comisión</span><b>' + $u(venta * v.com) + '</b><small>' + Math.round(v.com * 100) + ' % de la venta</small></span><span class="chev">' + ic('chev', 2.2) + '</span></button>';
+  }).join('') + '</div>';
+  h += '<p class="nota">La raya negra marca dónde deberían estar ' + (per === 'set' ? 'hoy: el ' + rt + ' % del objetivo, con el mes casi terminado' : 'al cierre del mes') + '. La comisión es la venta del mes por el porcentaje de cada vendedor.</p>';
+  var ms = []; for (var k = i - 5; k <= i; k++) ms.push(k);
+  var COL = {mf: '#0B6E7C', cr: '#10222A', lm: '#8FD6DE'};
+  h += '<div class="fila f21">' + card('Venta de los últimos seis meses', barras(VEND.map(function(v){ return {n: v.corto, v: ms.map(function(k){ return v.mes[k]; }), c: COL[v.id]}; }), ms.map(function(k){ return MESES[k]; }), {h: 190, fmt: function(x){ return $m(x); }, aria: 'Venta por mes de cada vendedor'}) + leyenda(VEND.map(function(v){ return [v.corto, COL[v.id]]; })), '<span class="s">Pasá el mouse por una barra para ver el monto</span>') +
+    card('Contra ' + mesL + ' de 2025', '<div class="tw"><table class="t"><thead><tr><th>Vendedor</th><th class="r">2026</th><th class="r">2025</th><th class="r">Variación</th></tr></thead><tbody>' + VEND.map(function(v){ var d = pc(v.mes[i], v.ly[per]) - 100; return '<tr><td><div class="quien">' + avt(v.id) + '<b>' + v.corto + '</b></div></td><td class="r">' + $u(v.mes[i]) + '</td><td class="r">' + $u(v.ly[per]) + '</td><td class="r"><b class="' + (d < 0 ? 'baja' : 'sube') + '">' + (d >= 0 ? '+' : '−') + Math.abs(d) + ' %</b></td></tr>'; }).join('') +
+      '<tr class="tot"><td>Equipo</td><td class="r">' + $u(M.venta) + '</td><td class="r">' + $u(M.ly) + '</td><td class="r">' + (pc(M.venta, M.ly) - 100 >= 0 ? '+' : '−') + Math.abs(pc(M.venta, M.ly) - 100) + ' %</td></tr></tbody></table></div><p class="nota" style="margin-top:10px">' + (per === 'set' ? 'Setiembre 2026 va al día 29; el del año pasado es el mes completo.' : 'Meses completos.') + '</p>') + '</div>';
+  return h;
+};
+
+/* ---------- Lo que suma Libreta ---------- */
+R.suma = function(){
+  var per = S.per, i = IX[per], B = SUMA[per], O = opsMes(per), sug = sugMes(per), mesL = MESES_L[i];
+  var vivo = per === 'set' ? S.vendHoy : [];
+  var recup = [suma(VEND, function(v){ return B.recup[v.id][0]; }), suma(VEND, function(v){ return B.recup[v.id][1]; })];
+  var tipos = TIPOS_OP.map(function(t){ var b = B.tipos[t[0]], x = vivo.filter(function(z){ return z.t === t[0]; }); return {t: t[0], d: t[1], ofr: b[0], conc: b[1] + x.length, imp: b[2] + suma(x, function(z){ return z.imp; })}; });
+  var venta = tipos.filter(function(t){ return t.t !== 'cobrar'; }), cob = tipos.filter(function(t){ return t.t === 'cobrar'; })[0];
+  var extra = suma(venta, function(t){ return t.imp; }), ventaMesT = ventaMes(i);
+  var h = '<section class="kpis">' +
+    '<div class="kpi dest"><small>Venta extra estimada</small><b>' + $u(extra) + '</b><em>por oportunidades · ' + (extra / ventaMesT * 100).toFixed(1).replace('.', ',') + ' % de la venta de ' + mesL + '</em></div>' +
+    kpi('Oportunidades', O.conc + ' de ' + O.ofr, 'vendidas de las ofrecidas · ' + pc(O.conc, O.ofr) + ' %') +
+    kpi('Clientes recuperados', recup[0] + ' de ' + recup[1], 'volvieron a comprar después de la visita') +
+    kpi('Vendido por sugerencias', $u(sug), 'renglones «sugerido» en los pedidos') +
+    kpi('Cobrado en la visita', $u(cob.imp), cob.conc + ' deudas vencidas · no es venta') + '</section>';
+  var tabla_ = '<div class="tw"><table class="t"><thead><tr><th>Tipo</th><th class="r">Ofrecidas</th><th class="r">Vendidas</th><th style="min-width:150px">De cada 100</th><th class="r">Suma</th></tr></thead><tbody>' +
+    tipos.map(function(t){ var pp = pc(t.conc, t.ofr); return '<tr><td><span class="tag ' + t.t + '">' + OPT[t.t] + '</span><small style="margin-top:4px">' + t.d + '</small></td><td class="r">' + t.ofr + '</td><td class="r">' + t.conc + '</td><td><div class="mini-m">' + medidor(pp, t.t === 'cobrar' ? 'bajo' : '') + '<span>' + pp + '</span></div></td><td class="r">' + $u(t.imp) + (t.t === 'cobrar' ? '<small>cobrado</small>' : '') + '</td></tr>'; }).join('') +
+    '<tr class="tot"><td>Total</td><td class="r">' + O.ofr + '</td><td class="r">' + O.conc + '</td><td><div class="mini-m">' + medidor(pc(O.conc, O.ofr)) + '<span>' + pc(O.conc, O.ofr) + '</span></div></td><td class="r">' + $u(extra) + '<small>en venta</small></td></tr></tbody></table></div>';
+  var hist = SUMA_HIST, hl = per === 'set' ? 3 : 2, ext = hist.extra.slice(), sg = hist.sug.slice();
+  ext[3] = suma(TIPOS_OP.filter(function(t){ return t[0] !== 'cobrar'; }), function(t){ var b = SUMA.set.tipos[t[0]]; return b[2]; }) + suma(S.vendHoy, function(z){ return z.imp; }); sg[3] = sugMes('set');
+  h += '<div class="fila f21 estira">' + card('Por tipo de oportunidad', tabla_ + (vivo.length ? '<p class="nota" style="margin-top:10px">Incluye ' + vivo.length + (vivo.length === 1 ? ' oportunidad vendida' : ' oportunidades vendidas') + ' hoy desde el celular.</p>' : ''), '<span class="s">' + mesL + '</span>') +
+    card('Mes a mes', mesAMes(hist.m, ext, sg, hl) + leyenda([['Venta extra estimada por oportunidades', '#0B6E7C'], ['Vendido por sugerencias', '#8FD6DE']]) + '<p class="nota" style="margin-top:8px">Junio fue el primer mes con Libreta (desde el 9). Setiembre, al día 29.</p>', '<span class="s">desde que se usa Libreta</span>') + '</div>';
+  var mxO = Math.max.apply(null, VEND.map(function(v){ return B.porVen[v.id][0]; }));
+  h += '<div class="fila f2 estira">' + card('Por vendedor', '<div class="tw"><table class="t"><thead><tr><th>Vendedor</th><th style="min-width:130px">Vendidas de las ofrecidas</th><th class="r">Venta extra</th><th class="r">Recuperados</th></tr></thead><tbody>' + VEND.map(function(v){
+      var o = opsMes(per, v.id), rc = B.recup[v.id];
+      return '<tr class="fk" data-a="vendAbrir" data-ven="' + v.id + '"><td><div class="quien">' + avt(v.id) + '<b>' + v.corto + '</b></div></td><td><div class="mini-m">' + medidor(pc(o.conc, o.ofr)) + '<span>' + o.conc + '/' + o.ofr + '</span></div></td><td class="r">' + $u(o.extra) + '</td><td class="r">' + rc[0] + ' de ' + rc[1] + '</td></tr>';
+    }).join('') + '</tbody></table></div><p class="nota" style="margin-top:10px">Recuperados: clientes con visita pedida que volvieron a comprar en el mes.</p>') +
+    card('Cómo se calcula', '<ul class="como">' +
+      '<li><b>Venta extra (estimada):</b> lo que el cliente compró de los productos de la oportunidad en la visita en que se la ofrecieron, o lo que compró en el mes en que volvió. Parte quizás se hubiera vendido igual.</li>' +
+      '<li><b>Vendido por sugerencias:</b> la suma exacta de los renglones que el vendedor cargó desde «Sugeridos» en la app. No se suma a la venta extra: muchas veces es el mismo producto.</li>' +
+      '<li><b>Cobrado en la visita:</b> deuda vencida que se cobró cuando la app lo marcó. Es plata que entra, no venta, y va aparte.</li>' +
+      '<li><b>Ofrecida:</b> el vendedor la marcó como ofrecida en la app o cargó un pedido en ese cliente ese día.</li></ul>') + '</div>';
+  return h;
+};
+
+function mesAMes(meses, a, b, hl){
+  var mx = Math.max.apply(null, a.concat(b)) || 1;
+  return '<div class="mam" role="img" aria-label="Venta extra y vendido por sugerencias por mes">' + meses.map(function(m, k){
+    return '<div class="mam-c' + (k === hl ? ' hl' : '') + '"><div class="mam-b"><span class="b1" style="height:' + (a[k] / mx * 100).toFixed(1) + '%" title="Venta extra · ' + m + ': ' + $u(a[k]) + '"><em>' + $m(a[k]).replace('$U ', '') + '</em></span><span class="b2" style="height:' + (b[k] / mx * 100).toFixed(1) + '%" title="Sugerencias · ' + m + ': ' + $u(b[k]) + '"><em>' + $m(b[k]).replace('$U ', '') + '</em></span></div><small>' + m + '</small></div>';
+  }).join('') + '</div>';
+}
+
+/* ---------- Clientes ---------- */
+R.cli = function(){
+  var ven = S.venCli === 'todos' ? null : S.venCli, r = riesgo(ven).sort(function(a, b){ return b.m - a.m; }), vv = vencidos(ven || 'todos').sort(function(a, b){ return b.ven - a.ven; }), m30 = vv.filter(function(c){ return c.dv > 30; });
+  var rc = SUMA.set.recup, rec = ven ? rc[ven] : [suma(VEND, function(v){ return rc[v.id][0]; }), suma(VEND, function(v){ return rc[v.id][1]; })];
+  var h = '<div class="lead">' + chipsVend('venCli', S.venCli, function(v){ return riesgo(v === 'todos' ? null : v).length + vencidos(v).length; }) + '<p class="nota">«Pedir visita» y «Pedir cobro» le dejan la tarea al vendedor en la app.</p></div>';
+  h += '<section class="kpis k4">' + kpi('Dejaron de comprar', String(r.length), $u(suma(r, function(c){ return c.m; })) + ' por mes en juego', '', 'dest') +
+    kpi('Deuda vencida', $u(suma(vv, function(c){ return c.ven; })), vv.length + ' clientes') +
+    kpi('Más de 30 días', $u(suma(m30, function(c){ return c.ven; })), m30.length + ' clientes · pedidos bloqueados', m30.length ? 'mal' : '') +
+    kpi('Recuperados en setiembre', rec[0] + ' de ' + rec[1], 'volvieron después de una visita pedida', 'bien', '', 'suma') + '</section>';
+  var tr = '<div class="tw"><table class="t"><thead><tr><th style="min-width:170px">Cliente</th><th class="r">Sin comprar</th><th class="r">Compraba</th><th></th></tr></thead><tbody>' + (r.map(function(c){
+    return '<tr class="fk" data-a="ficha" data-id="' + c.id + '"><td><b>' + esc(c.n) + '</b><small>' + esc(c.z) + ' · ' + corV(c.v) + '</small></td><td class="r"><b class="baja">' + c.u + ' días</b><small>compra cada ' + c.f + '</small></td><td class="r">' + $u(c.m) + '<small>por mes</small></td><td style="text-align:right">' + (S.pedidasVisita[c.id] ? chip('ver', 'Visita pedida') : '<button type="button" class="btn btn-s btn-sm" data-a="pedirVisita" data-id="' + c.id + '">Pedir visita</button>') + '</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted" style="text-align:center;padding:20px">Nadie dejó de comprar a su ritmo.</td></tr>') + '</tbody></table></div>';
+  var td = '<div class="tw"><table class="t"><thead><tr><th style="min-width:170px">Cliente</th><th class="r">Vencido</th><th>Atraso</th><th></th></tr></thead><tbody>' + (vv.map(function(c){
+    var f = (c.fac || []).filter(function(x){ return x[3] === 'Vencida'; })[0];
+    return '<tr class="fk" data-a="ficha" data-id="' + c.id + '"><td><b>' + esc(c.n) + '</b><small>' + esc(c.z) + ' · ' + corV(c.v) + '</small></td><td class="r">' + $u(c.ven) + '<small>' + (f ? esc(f[0]) : '') + '</small></td><td>' + chip(c.dv > 30 ? 'rojo' : 'arena', c.dv + ' días') + '</td><td style="text-align:right">' + (S.pedidoCobro[c.id] ? chip('ver', 'Cobro pedido') : '<button type="button" class="btn btn-s btn-sm" data-a="pedirCobro" data-id="' + c.id + '">Pedir cobro</button>') + '</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted" style="text-align:center;padding:20px">No hay deuda vencida.</td></tr>') + '</tbody></table></div>';
+  h += '<div class="fila f2">' + card('Dejaron de comprar a su ritmo', tr, '<span class="s">ordenados por plata en juego</span>') + card('Deuda vencida', td, '<span class="s">en rojo, más de 30 días: no pueden pedir</span>') + '</div>';
+  return h;
+};
+
+/* ---------- Pedidos (igual que la bandeja de la app) ---------- */
+var PED_EST = {pend: ['arena', 'Pendiente'], cargado: ['ver', 'En el sistema'], anulado: ['gris', 'Anulado']};
+R.ped = function(){
+  var pend = pendientes(), u24 = ult24(), sug = [];
+  u24.forEach(function(p){ p.lin.forEach(function(l){ if (l.sug) sug.push(l); }); });
+  var h = '<section class="kpis k3">' + kpi('Pendientes de cargar', String(pend.length), pend.length ? $u(suma(pend, function(p){ return p.tot; })) : 'Todo al día', '', 'dest') +
+    kpi('Pedidos de las últimas 24 h', String(u24.length), $u(suma(u24, function(p){ return p.tot; }))) +
+    kpi('Vendido por sugerencias (24 h)', $u(suma(sug, function(l){ return l.imp; })), sug.length + (sug.length === 1 ? ' renglón' : ' renglones') + ' que propuso la app', 'bien') + '</section>';
+  var cnt = function(e){ return PEDIDOS.filter(function(p){ return (e === 'todos' || p.est === e) && (S.pedVen === 'todos' || p.ven === S.pedVen); }).length; };
+  h += '<div class="filtros">' + [['pend', 'Pendientes'], ['cargado', 'En el sistema'], ['anulado', 'Anulados'], ['todos', 'Todos']].map(function(o){ return '<button type="button" class="fc" data-a="filtro" data-k="pedV" data-val="' + o[0] + '" aria-pressed="' + (S.pedV === o[0]) + '">' + o[1] + ' <i>' + cnt(o[0]) + '</i></button>'; }).join('') +
+    '<span class="fsep"></span>' + [['todos', 'Todos los vendedores']].concat(VEND.map(function(v){ return [v.id, v.corto]; })).map(function(o){ return '<button type="button" class="fc" data-a="filtro" data-k="pedVen" data-val="' + o[0] + '" aria-pressed="' + (S.pedVen === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>';
+  var L = PEDIDOS.filter(function(p){ return (S.pedV === 'todos' || p.est === S.pedV) && (S.pedVen === 'todos' || p.ven === S.pedVen); });
+  if (!L.length) return h + '<div class="card plano" style="text-align:center;color:var(--tinta-3);padding:30px">' + (S.pedV === 'pend' ? 'No hay pedidos pendientes: todo lo que cargaron los vendedores ya está en el sistema.' : 'No hay pedidos en esta vista.') + '</div>';
+  h += '<ul class="peds">' + L.map(pedidoHtml).join('') + '</ul>';
+  h += '<p class="nota">La planilla trae los códigos de cliente y de producto para importarla en Doria. Los renglones marcados <span class="sug" style="margin:0">sugerido</span> los propuso la app.</p>';
+  return h;
+};
+function pedidoHtml(p){
+  var e = PED_EST[p.est], ab = S.pedOpen[p.n] != null ? S.pedOpen[p.n] : p.est === 'pend', modo = S.pedModo[p.n], c = CX[p.cli];
+  var h = '<li class="ped' + (S.nuevo[p.n] ? ' nuevo' : '') + '" id="ped-' + p.n + '"><button type="button" class="ped-h" data-a="pedToggle" data-id="' + p.n + '" aria-expanded="' + ab + '"><span class="l"><span><span class="n">' + p.n + '</span>' + esc(c ? c.n : p.cli) + ' ' + chip(e[0], e[1]) + (S.nuevo[p.n] || p.demo ? chip('tinta', 'Recién llegado') : '') + '</span><small>' + esc(nomV(p.ven)) + ' · ' + (p.f === '29/09' ? 'hoy' : p.f === '28/09' ? 'ayer' : p.f) + ' ' + p.hora + ' · ' + p.lin.length + (p.lin.length === 1 ? ' producto' : ' productos') + '</small></span><span class="tot">' + $u(p.tot) + '</span></button>';
+  if (ab){
+    h += '<div class="ped-b">' + tabla('pl-' + p.n, [{l: 'Código', s: false, nw: 1}, {l: 'Producto', s: false}, {l: 'Cant.', r: 1, s: false}, {l: 'Precio', r: 1, s: false}, {l: 'Importe', r: 1, s: false}], p.lin.map(function(l){ return {c: ['<span class="mono muted" style="font-size:12px">' + esc(l.c) + '</span>', esc(l.d) + (l.sug ? '<span class="sug">sugerido</span>' : ''), String(l.q), $u(l.p), $u(l.imp)], s: []}; }));
+    if (p.nota) h += '<p class="ped-nota">Nota: ' + esc(p.nota) + '</p>';
+    if (p.est === 'cargado') h += '<p class="nota">Cargado por ' + esc(p.por || 'Laura') + (p.at ? ' el ' + esc(p.at) : '') + (p.comp ? ' · comprobante ' + esc(p.comp) : '') + '.</p>';
+    if (p.est === 'anulado') h += '<p class="nota">Anulado: ' + esc(p.motivo || '·') + '</p>';
+    h += '<div class="ped-acc">';
+    if (p.est === 'pend' && !modo) h += '<button type="button" class="btn btn-p btn-sm" data-a="pedModo" data-id="' + p.n + '" data-m="cargar">' + ic('check') + 'Ya lo cargué en el sistema</button><button type="button" class="btn btn-g btn-sm" data-a="pedModo" data-id="' + p.n + '" data-m="anular">Anular</button>';
+    if (p.est !== 'pend') h += '<button type="button" class="btn btn-g btn-sm" data-a="pedReabrir" data-id="' + p.n + '">Volver a pendiente</button>';
+    if (c) h += '<button type="button" class="btn btn-g btn-sm" data-a="ficha" data-id="' + c.id + '">Ver cliente</button>';
+    h += '</div>';
+    if (modo){
+      var t = S.pedTxt[p.n] || '';
+      h += '<div class="ped-in"><input class="campo" type="text" data-pedtxt="' + p.n + '" value="' + esc(t) + '" placeholder="' + (modo === 'cargar' ? 'N.º de comprobante en el sistema (opcional)' : 'Por qué se anula') + '" aria-label="' + (modo === 'cargar' ? 'Número de comprobante' : 'Motivo de la anulación') + '">' +
+        (modo === 'cargar' ? '<button type="button" class="btn btn-p btn-sm" data-a="pedCargar" data-id="' + p.n + '">Marcar cargado</button>' : '<button type="button" class="btn btn-r btn-sm" data-a="pedAnular" data-id="' + p.n + '"' + (t.trim().length < 3 ? ' disabled' : '') + '>Anular pedido</button>') +
+        '<button type="button" class="btn btn-g btn-sm" data-a="pedModo" data-id="' + p.n + '" data-m="">Cancelar</button></div>';
+    }
+    h += '</div>';
+  }
+  return h + '</li>';
+}
+
+function facturasDe(c){
+  if (c.fac && c.fac.length) return c.fac;
+  var base = 81000 + (CLIENTES.indexOf(c) * 13) % 400, r = [];
+  if (c.sal) r.push(['A 00' + (base + 30), '2' + (c.id.length % 3 + 1) + '/09', c.sal, 'Pendiente']);
+  if (c.meses[11]) r.push(['A 00' + (base + 12), '1' + (c.id.length % 6 + 2) + '/09', Math.round(c.meses[11] / 2 / 10) * 10, 'Cobrada']);
+  if (c.meses[10]) r.push(['A 00' + base, '2' + (c.id.length % 7 + 1) + '/08', Math.round(c.meses[10] / 2 / 10) * 10, 'Cobrada']);
+  return r;
+}
+
+/* ================================ paneles laterales ================================ */
+function abrirFicha(id){ if (!CX[id]) return; S.ficha = id; S.vendF = null; pintarCapa(); }
+function abrirVend(id){ if (!VX[id]) return; S.vendF = id; S.ficha = null; pintarCapa(); }
+function cerrarCapa(){ S.ficha = null; S.vendF = null; pintarCapa(); }
+function pintarCapa(){
+  var capa = $('capa');
+  if (S.ficha) capa.innerHTML = fichaCliente(CX[S.ficha]);
+  else if (S.vendF) capa.innerHTML = fichaVendedor(VX[S.vendF]);
+  else capa.innerHTML = '';
+}
+function cabFicha(av, sub, tit){ return '<div class="velo-f" data-a="fichaCerrar"></div><aside class="ficha" role="dialog" aria-modal="true" aria-label="' + esc(tit) + '"><div class="fi-h">' + av + '<div><small>' + sub + '</small><h2>' + esc(tit) + '</h2></div><button type="button" class="x" data-a="fichaCerrar" aria-label="Cerrar">' + ic('x', 2.2) + '</button></div><div class="fi-b">'; }
+function fichaCliente(c){
+  var peds = PEDIDOS.filter(function(p){ return p.cli === c.id; }), ops = OPS.filter(function(o){ return o.c === c.id && !o.off && o.est !== 'vendida'; });
+  var h = cabFicha('<span class="av" style="background:#5E7F86">' + esc(iniciales(c.n)) + '</span>', esc(c.r) + ' · ' + esc(c.z) + ' · ' + c.cod + ' · ' + esc(corV(c.v)), c.n);
+  h += '<section class="kpis k3">' + kpi('Compra por mes', $u(c.m), 'cada ' + c.f + ' días') + kpi('Última compra', hace(c.u), c.est === 'riesgo' ? 'pasó su frecuencia' : 'a su ritmo', c.est === 'riesgo' ? 'mal' : '') + kpi('Saldo', c.sal ? $u(c.sal) : 'Al día', c.ven ? $u(c.ven) + ' vencido · ' + c.dv + ' días' : 'sin vencidos', c.ven ? 'mal' : '') + '</section>';
+  h += card('Últimos 12 meses', barras([{n: c.n, v: c.meses, c: function(k){ return k === 11 ? '#0B6E7C' : '#8FC3CA'; }}], MESES, {h: 140, fmt: function(v){ return $u(v); }, hl: 11, aria: 'Compras por mes'}), '<span class="s">' + $u(c.y) + ' en el año</span>');
+  h += card('Qué compra', c.fam.map(function(f){ return hbar(f[0], f[1], 100, f[1] + ' %', c.perdido === f[0] ? 'm' : ''); }).join('') + (c.perdido ? '<p class="nota" style="margin-top:6px">Dejó de llevar <b>' + esc(c.perdido.toLowerCase()) + '</b>.</p>' : ''), '<span class="s">compra los ' + esc(c.dia.toLowerCase()) + '</span>');
+  if (ops.length) h += card('<span class="punto"></span>Para ofrecerle', '<div class="lis">' + ops.map(function(o){ return '<div class="li"><span class="sev ok"></span><div><span class="tag ' + o.t + '">' + OPT[o.t] + '</span><p style="margin-top:6px"><b>' + esc(o.a) + ' ' + esc(c.n) + '.</b> ' + esc(o.why) + (o.sug ? ' ' + esc(o.sug) : '') + '</p></div><span class="tm">≈ ' + $m(o.v) + '</span></div>'; }).join('') + '</div>');
+  var fs = facturasDe(c);
+  h += card('Cuenta', fs.length ? '<div class="facs">' + fs.map(function(f){ return '<div><span><span class="mono">' + esc(f[0]) + '</span> <span class="muted">· ' + esc(f[1]) + '</span></span>' + chip(f[3] === 'Vencida' ? 'rojo' : f[3] === 'Pendiente' ? 'arena' : 'gris', f[3]) + '<b>' + $u(f[2]) + '</b></div>'; }).join('') + '</div>' : '<p class="nota">Sin facturas en los últimos 60 días.</p>', '<span class="s">Saldo ' + (c.sal ? $u(c.sal) : 'al día') + '</span>');
+  if (c.notas.length) h += card('Notas del vendedor', '<div class="lis">' + c.notas.map(function(n){ return '<div class="li"><span class="sev"></span><div><p style="margin:0;color:var(--tinta)">' + esc(n[0]) + '</p></div><span class="tm">' + esc(n[2] || '') + ' · ' + esc(n[1]) + '</span></div>'; }).join('') + '</div>');
+  h += '<div class="acts">' + (S.pedidasVisita[c.id] ? chip('ver', 'Visita pedida a ' + corV(c.v)) : '<button type="button" class="btn btn-p btn-sm" data-a="pedirVisita" data-id="' + c.id + '">' + ic('pin') + 'Pedir visita a ' + corV(c.v) + '</button>') +
+    (c.ven ? (S.pedidoCobro[c.id] ? chip('ver', 'Cobro pedido') : '<button type="button" class="btn btn-s btn-sm" data-a="pedirCobro" data-id="' + c.id + '">' + ic('cash') + 'Pedir cobro</button>') : '') +
+    (peds.length ? '<button type="button" class="btn btn-g btn-sm" data-a="pedVer" data-id="' + esc(peds[0].n) + '">Ver pedido ' + esc(peds[0].n) + '</button>' : '') + '</div>';
+  h += '<p class="nota">' + esc(c.dir) + ' · RUT ' + esc(c.rut) + '</p>';
+  return h + '</div></aside>';
+}
+function timeline(ven){
+  return '<div class="tl">' + RUTAS[ven].map(function(s, k){
+    var c = CX[s.c], d = s.est === 'hecha' ? 'hecha' : s.est === 'visita' ? 'visita' : s.est === 'prob' ? 'prob' : '';
+    var ped = s.ped ? PEDIDOS.filter(function(p){ return p.n === s.ped; })[0] : null;
+    var res = s.est === 'hecha' ? (s.ped ? chip('ver', 'Pedido ' + esc(s.ped) + (ped ? ' · ' + $m(ped.tot) : '')) : chip('gris', esc(s.res || 'Visita hecha'))) : s.est === 'visita' ? chip('borde', 'En visita desde ' + esc(s.lle), true) : s.est === 'prob' ? chip('rojo', esc(s.res || 'Con problema')) : s.fuera ? chip('arena', 'Fuera de ruta') : chip('gris', 'Pendiente');
+    var op = OPS.filter(function(o){ return o.c === s.c && !o.off && o.est !== 'vendida'; }).map(function(o){ return OPT[o.t]; });
+    return '<div class="tl-i"><span class="h">' + s.h + '</span><span class="d ' + d + '">' + (k + 1) + (op.length && !d ? '<i class="op"></i>' : '') + '</span><div>' + cliLink(s.c) + '<small>' + esc(c.z) + (s.lle ? ' · llegó ' + esc(s.lle) + (s.sal ? ', se fue ' + esc(s.sal) : '') : '') + (op.length ? ' · <span style="color:var(--aviso-tinta)">' + op.join(', ') + '</span>' : '') + (c.ven ? ' · <span class="baja">debe ' + $u(c.ven) + '</span>' : '') + '</small></div><div>' + res + '</div></div>';
+  }).join('') + '</div>';
+}
+function fichaVendedor(v){
+  var e = rutaInfo(v.id), ps = pedidosHoy(v.id), p = pc(v.mes[11], v.obj.set), rs = riesgo(v.id).sort(function(a, b){ return b.m - a.m; }), vv = vencidos(v.id).sort(function(a, b){ return b.ven - a.ven; });
+  var h = cabFicha(avt(v.id), esc(v.zona) + ' · ' + esc(v.tel) + ' · salió a las ' + JORNADA[v.id], v.nom);
+  h += '<section class="kpis k3">' + kpi('Objetivo de setiembre', p + ' %', $m(v.mes[11]) + ' de ' + $m(v.obj.set), p >= ritmo('set') - 10 ? 'bien' : 'mal') + kpi('Visitas de hoy', e.hechas + ' de ' + e.total, e.act ? 'en visita ahora' : e.prox ? 'próxima ' + e.prox.h : 'ruta terminada') + kpi('Pedidos de hoy', String(ps.length), $u(suma(ps, function(x){ return x.tot; }))) + '</section>';
+  h += card('Ruta de hoy', timeline(v.id), '<span class="s"><span class="punto" style="width:7px;height:7px;margin-right:5px;vertical-align:1px"></span>con oportunidad</span>');
+  h += card('Clientes en riesgo', rs.length ? '<div class="lis">' + rs.map(function(c){ return '<div class="li"><span class="sev prob"></span><div>' + cliLink(c.id) + '<p>' + c.u + ' días sin comprar (compraba cada ' + c.f + ') · ' + $u(c.m) + ' por mes</p></div><span>' + (S.pedidasVisita[c.id] ? chip('ver', 'Pedida') : '<button type="button" class="btn btn-s btn-sm" data-a="pedirVisita" data-id="' + c.id + '">Pedir visita</button>') + '</span></div>'; }).join('') + '</div>' : '<p class="nota">Ningún cliente pasó su frecuencia de compra.</p>', '<span class="s">' + $u(suma(rs, function(c){ return c.m; })) + ' por mes</span>');
+  if (vv.length) h += card('Deuda vencida de su cartera', '<div class="facs">' + vv.map(function(c){ return '<div><span>' + cliLink(c.id) + '</span>' + chip(c.dv > 30 ? 'rojo' : 'arena', c.dv + ' días') + '<b>' + $u(c.ven) + '</b></div>'; }).join('') + '</div>', '<span class="s">' + $u(suma(vv, function(c){ return c.ven; })) + '</span>');
+  h += '<div class="acts"><button type="button" class="btn btn-s btn-sm" data-a="pedidosDe" data-ven="' + v.id + '">' + ic('cart') + 'Ver sus pedidos</button><button type="button" class="btn btn-g btn-sm" data-a="llamar" data-ven="' + v.id + '">' + ic('tel') + 'Llamar a ' + v.corto + '</button></div>';
+  return h + '</div></aside>';
+}
+
+/* ================================ render ================================ */
+function pintarMenu(){
+  var cnt = {hoy: [solPend().length, 1], ped: [pendientes().length, 1], cli: [riesgo().length + vencidos('todos').length, 0]};
+  $('menu').innerHTML = SECC.map(function(s){ var n = cnt[s[0]]; return '<button type="button" class="it" data-a="ir" data-v="' + s[0] + '"' + (S.v === s[0] ? ' aria-current="page"' : '') + '>' + ic(s[2]) + '<span>' + s[1] + '</span>' + (n && n[0] ? '<i class="cnt' + (n[1] ? ' av-n' : '') + '">' + n[0] + '</i>' : '') + '</button>'; }).join('');
+}
+var CAL_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>';
+function pintarCab(){
+  var info = VINFO[S.v], der = '';
+  $('titulo').textContent = info.t;
+  $('bajada').textContent = info.d;
+  if (S.v === 'hoy') der = '<span class="reloj"><i></i>mar 29/09 · <span id="reloj-h">' + S.hora + '</span></span>';
+  if (S.v === 'vend' || S.v === 'suma') der = '<label class="periodo">' + CAL_IC + '<span class="sr">Período</span><select id="per"><option value="set"' + (S.per === 'set' ? ' selected' : '') + '>Setiembre 2026</option><option value="ago"' + (S.per === 'ago' ? ' selected' : '') + '>Agosto 2026</option></select></label>';
+  if (S.v === 'ped') der = '<button type="button" class="btn btn-s" data-a="csvPed">' + ic('down') + 'Bajar planilla</button>';
+  if (S.v === 'cli') der = '<span class="reloj"><i></i>saldos de Doria · 29/09</span>';
+  $('cab-der').innerHTML = der;
+}
+function render(mantenerScroll){
+  document.title = VINFO[S.v].t + ' · Libreta';
+  pintarMenu(); pintarCab();
+  var y = window.scrollY;
+  $('main').innerHTML = R[S.v]();
+  if (mantenerScroll) window.scrollTo(0, y);
+  if (S.ficha || S.vendF) pintarCapa();
+}
+function ir(v, sinScroll){
+  v = ALIAS[v] || v;
+  if (!R[v]) v = 'hoy';
+  var cambio = S.v !== v;
+  S.v = v;
+  document.body.classList.remove('menu-abierto');
+  if (!EMB){ try { history.replaceState(null, '', '#' + v); } catch (e) {} }
+  render(!cambio || sinScroll);
+  if (cambio && !sinScroll){ window.scrollTo(0, 0); $('main').focus({preventScroll: true}); }
+}
+var tToast;
+function toast(txt, accion, fn){
+  var t = document.createElement('div'); t.className = 'toast';
+  t.innerHTML = '<span>' + esc(txt) + '</span>' + (accion ? '<button type="button">' + esc(accion) + '</button>' : '');
+  if (accion) t.querySelector('button').onclick = function(){ fn(); t.remove(); };
+  var box = $('toasts'); while (box.children.length > 1) box.firstChild.remove();
+  box.appendChild(t);
+  setTimeout(function(){ t.remove(); }, accion ? 6500 : 3800);
+}
+function avisarPadre(msg){ if (EMB){ try { window.parent.postMessage(msg, '*'); } catch (e) {} } }
+function marcarNuevo(k){ S.nuevo[k] = 1; setTimeout(function(){ delete S.nuevo[k]; }, 3200); }
+
+/* ================================ CSV (como la app: «;», BOM y coma decimal) ================================ */
+function celda(v){
+  if (v == null) return '';
+  if (typeof v === 'number') return String(Math.round(v * 100) / 100).replace('.', ',');
+  var s = String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function bajarCsv(nombre, cab, filas){
+  var txt = '﻿' + [cab].concat(filas).map(function(f){ return f.map(celda).join(';'); }).join('\r\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type: 'text/csv;charset=utf-8'}));
+  a.download = nombre; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  toast('Planilla lista: ' + nombre);
+}
+var CSV = {
+  pedidos: function(est){
+    var L = PEDIDOS.filter(function(p){ return (!est || est === 'todos' || p.est === est) && (S.v !== 'ped' || S.pedVen === 'todos' || p.ven === S.pedVen); });
+    var E = {pend: 'PENDIENTE', cargado: 'CARGADO', anulado: 'ANULADO'};
+    bajarCsv('distribuidora-central-pedidos-' + ({pend: 'pendientes', cargado: 'cargados', anulado: 'anulados'}[est] || 'todos') + '-2026-09-29.csv',
+      ['Pedido', 'Fecha', 'Estado', 'Código cliente', 'RUT', 'Cliente', 'Vendedor', 'Código producto', 'Producto', 'Cantidad', 'Precio', 'Importe', 'Moneda', 'Sugerido', 'Nota'],
+      [].concat.apply([], L.map(function(p){ var c = CX[p.cli] || {}; return p.lin.map(function(l){ return [p.n, p.f + '/2026 ' + p.hora, E[p.est], c.cod || '', c.rut || '', c.n || p.cli, nomV(p.ven), l.c, l.d, l.q, l.p, l.imp, 'UYU', l.sug ? 'Sí' : '', p.nota || '']; }); })));
+  },
+  vendedores: function(){
+    var i = IX[S.per];
+    bajarCsv('ventas-por-vendedor-' + MESES_L[i] + '-2026.csv', ['Vendedor', 'Zona', 'Venta', 'Objetivo', '% objetivo', 'Año anterior', 'Pedidos', 'Ticket', 'Visitas hechas', 'Visitas planificadas', 'Oportunidades ofrecidas', 'Oportunidades vendidas', 'Comisión'],
+      VEND.map(function(v){ return [v.nom, v.zona, v.mes[i], v.obj[S.per], pc(v.mes[i], v.obj[S.per]), v.ly[S.per], v.ped[S.per], Math.round(v.mes[i] / v.ped[S.per]), v.vis[S.per][0], v.vis[S.per][1], v.ofr, v.conc, Math.round(v.mes[i] * v.com)]; }));
+  },
+  clientes: function(){ bajarCsv('clientes-2026-09-29.csv', ['Código', 'Cliente', 'RUT', 'Rubro', 'Zona', 'Dirección', 'Vendedor', 'Compras 12 meses', 'Setiembre', 'Saldo', 'Vencido', 'Días de la última compra', 'Estado'], filtraClientes().map(function(c){ return [c.cod, c.n, c.rut, c.r, c.z, c.dir, nomV(c.v), c.y, c.meses[11], c.sal, c.ven, c.u, {nuevo: 'Nuevo', riesgo: 'En riesgo', activo: 'Activo'}[c.est]]; })); },
+  riesgo: function(){ bajarCsv('clientes-que-dejaron-de-comprar.csv', ['Cliente', 'Zona', 'Vendedor', 'Compra cada (días)', 'Días sin comprar', 'Compraba por mes'], riesgo().map(function(c){ return [c.n, c.z, nomV(c.v), c.f, c.u, c.m]; })); },
+  cobranzas: function(){ bajarCsv('cobranzas-deuda-vencida.csv', ['Cliente', 'RUT', 'Vendedor', 'Saldo', 'Vencido', 'Días vencido'], vencidos('todos').map(function(c){ return [c.n, c.rut, nomV(c.v), c.sal, c.ven, c.dv]; })); },
+  rutas: function(){ var f = []; VEND.forEach(function(v){ RUTAS[v.id].forEach(function(s){ f.push([v.nom, s.h, CX[s.c].n, CX[s.c].z, {hecha: 'Hecha', visita: 'En visita', prob: 'Con problema', pend: 'Pendiente'}[s.est] || s.est, s.lle || '', s.sal || '', s.ped || '', s.fuera ? 'Sí' : '']); }); }); bajarCsv('rutas-de-hoy-2026-09-29.csv', ['Vendedor', 'Hora', 'Cliente', 'Zona', 'Estado', 'Llegó', 'Se fue', 'Pedido', 'Fuera de ruta'], f); },
+  oportunidades: function(){ bajarCsv('oportunidades-de-hoy.csv', ['Tipo', 'Cliente', 'Vendedor', 'Qué hacer', 'Motivo', 'Valor por mes', 'Estado'], OPS.filter(function(o){ return !o.off; }).map(function(o){ return [OPT[o.t], o.c ? CX[o.c].n : o.n, nomV(o.w), o.a, o.why, o.v, o.est || 'Abierta']; })); },
+  precios: function(){ bajarCsv('lista-de-precios-distribuidora-central.csv', ['Código', 'Producto', 'Familia', 'Costo', 'Lista general', 'Mayorista', 'Margen %'], CATALOGO.map(function(p){ return [p.c, p.d, p.cat, p.k, p.p, Math.round(p.p * .95), Math.round((p.p - p.k) / p.p * 100)]; })); },
+  estadisticas: function(){ bajarCsv('ventas-por-mes-12-meses.csv', ['Mes', 'María', 'Carlos', 'Lucía', 'Equipo', 'Año anterior'], MESES_L.map(function(m, k){ return [m, VEND[0].mes[k], VEND[1].mes[k], VEND[2].mes[k], ventaMes(k), LY_EQUIPO[k]]; })); }
+};
+
+/* ================================ acciones ================================ */
+function buscarPed(n){ return PEDIDOS.filter(function(x){ return x.n === n; })[0]; }
+var A = {
+  ir: function(el){ ir(el.getAttribute('data-v')); },
+  menuAbrir: function(){ document.body.classList.add('menu-abierto'); },
+  menuCerrar: function(){ document.body.classList.remove('menu-abierto'); },
+  toast: function(el){ toast(el.getAttribute('data-t')); },
+  filtro: function(el){ var k = el.getAttribute('data-k'); S[k] = el.getAttribute('data-val'); S.pag = {}; render(true); },
+  mas: function(el){ var id = el.getAttribute('data-id'); S.pag[id] = (S.pag[id] || +el.getAttribute('data-n')) + +el.getAttribute('data-n'); render(true); },
+  menos: function(el){ delete S.pag[el.getAttribute('data-id')]; render(true); },
+  ficha: function(el, e){ e.stopPropagation(); abrirFicha(el.getAttribute('data-id')); },
+  vendAbrir: function(el){ abrirVend(el.getAttribute('data-ven')); },
+  fichaCerrar: function(){ cerrarCapa(); },
+  pedidosDe: function(el){ S.pedVen = el.getAttribute('data-ven'); S.pedV = 'todos'; cerrarCapa(); ir('ped'); },
+  llamar: function(el){ var v = VX[el.getAttribute('data-ven')]; toast('Llamando a ' + v.corto + ' · ' + v.tel); },
+  pedVer: function(el){
+    var n = el.getAttribute('data-id'), p = buscarPed(n); if (!p) return;
+    cerrarCapa(); S.pedV = p.est; S.pedVen = 'todos'; S.pedOpen[n] = true; ir('ped');
+    var li = $('ped-' + n); if (li) li.scrollIntoView({block: 'center'});
+  },
+  solResp: function(el){
+    var s = SOL.filter(function(x){ return x.id == el.getAttribute('data-id'); })[0], est = el.getAttribute('data-est'); if (!s) return;
+    s.est = est;
+    if (est === 'aprobada' && s.tipo === 'Visita fuera de ruta' && s.cli && !RUTAS[s.ven].some(function(x){ return x.c === s.cli; })) RUTAS[s.ven].push({c: s.cli, h: '11:10', est: 'pend', fuera: true});
+    toast(est === 'revisada' ? 'Marcado como revisado.' : 'Solicitud ' + est + '. A ' + corV(s.ven) + ' le llega el aviso en la app.');
+    avisarPadre({tipo: 'libreta-solicitud-respuesta', id: s.id, est: est});
+    render(true);
+  },
+  pedirVisita: function(el, e){
+    e.stopPropagation();
+    var c = CX[el.getAttribute('data-id')]; if (!c) return; S.pedidasVisita[c.id] = true;
+    toast('Tarea para ' + corV(c.v) + ': visitar ' + c.n + ' mañana. Le aparece en la app.');
+    avisarPadre({tipo: 'libreta-tarea', ven: c.v, cli: c.id, txt: 'Visitar ' + c.n});
+    render(true);
+  },
+  pedirCobro: function(el, e){
+    e.stopPropagation();
+    var c = CX[el.getAttribute('data-id')]; if (!c) return; S.pedidoCobro[c.id] = true;
+    toast('Tarea para ' + corV(c.v) + ': cobrar ' + $u(c.ven) + ' a ' + c.n + '. Le aparece en la app.');
+    avisarPadre({tipo: 'libreta-tarea', ven: c.v, cli: c.id, txt: 'Cobrar ' + $u(c.ven) + ' a ' + c.n});
+    render(true);
+  },
+  pedToggle: function(el){ var n = el.getAttribute('data-id'), p = buscarPed(n); var ab = S.pedOpen[n] != null ? S.pedOpen[n] : p.est === 'pend'; S.pedOpen[n] = !ab; render(true); },
+  pedModo: function(el){ var n = el.getAttribute('data-id'); S.pedModo[n] = el.getAttribute('data-m') || null; S.pedTxt[n] = ''; render(true); var i = document.querySelector('[data-pedtxt="' + n + '"]'); if (i) i.focus(); },
+  pedCargar: function(el){
+    var n = el.getAttribute('data-id'), p = buscarPed(n), t = (S.pedTxt[n] || '').trim().slice(0, 40);
+    p.est = 'cargado'; p.comp = t || null; p.por = 'Laura'; p.at = '29/09 ' + S.hora; S.pedModo[n] = null; S.pedOpen[n] = false;
+    toast('Pedido ' + n + ' marcado como cargado' + (t ? ' · comprobante ' + t : ''), 'Deshacer', function(){ p.est = 'pend'; delete S.pedOpen[n]; avisarPadre({tipo: 'libreta-pedido-estado', n: n, est: 'pendiente'}); render(true); });
+    avisarPadre({tipo: 'libreta-pedido-estado', n: n, est: 'cargado', comprobante: t || null});
+    render(true);
+  },
+  pedAnular: function(el){
+    var n = el.getAttribute('data-id'), p = buscarPed(n), t = (S.pedTxt[n] || '').trim().slice(0, 160);
+    if (t.length < 3) return;
+    p.est = 'anulado'; p.motivo = t; S.pedModo[n] = null; S.pedOpen[n] = false;
+    toast('Pedido ' + n + ' anulado.', 'Deshacer', function(){ p.est = 'pend'; delete S.pedOpen[n]; avisarPadre({tipo: 'libreta-pedido-estado', n: n, est: 'pendiente'}); render(true); });
+    avisarPadre({tipo: 'libreta-pedido-estado', n: n, est: 'anulado', motivo: t});
+    render(true);
+  },
+  pedReabrir: function(el){ var n = el.getAttribute('data-id'), p = buscarPed(n); p.est = 'pend'; delete S.pedOpen[n]; toast('Pedido ' + n + ' de vuelta en pendientes.'); avisarPadre({tipo: 'libreta-pedido-estado', n: n, est: 'pendiente'}); render(true); },
+  csvPed: function(){ CSV.pedidos(S.pedV); }
+};
+
+/* ================================ eventos ================================ */
+document.addEventListener('click', function(e){
+  var th = e.target.closest('th[data-sort]');
+  if (th){ var p = th.getAttribute('data-sort').split(':'), cur = S.sort[p[0]]; S.sort[p[0]] = [+p[1], cur && cur[0] === +p[1] ? -cur[1] : (th.classList.contains('r') ? -1 : 1)]; render(true); return; }
+  var el = e.target.closest('[data-a]');
+  if (el && A[el.getAttribute('data-a')]){ if (el.tagName === 'A') e.preventDefault(); A[el.getAttribute('data-a')](el, e); }
+});
+document.addEventListener('input', function(e){
+  var t = e.target;
+  if (t.hasAttribute && t.hasAttribute('data-pedtxt')){ var n3 = t.getAttribute('data-pedtxt'); S.pedTxt[n3] = t.value; var b = t.parentNode.querySelector('[data-a="pedAnular"]'); if (b) b.disabled = t.value.trim().length < 3; }
+});
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.id === 'per'){ S.per = t.value; render(true); toast('Período: ' + t.options[t.selectedIndex].text); }
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && e.target.hasAttribute && e.target.hasAttribute('data-pedtxt')){ var n = e.target.getAttribute('data-pedtxt'), b = document.querySelector('[data-a="pedCargar"][data-id="' + n + '"],[data-a="pedAnular"][data-id="' + n + '"]'); if (b && !b.disabled) b.click(); }
+  if (e.key === 'Escape'){ if (S.ficha || S.vendF) cerrarCapa(); document.body.classList.remove('menu-abierto'); }
+});
+
+/* ================================ asesor comercial ================================
+   Como el agente consultor de la app (perfil supervisor): diagnóstico, comparación
+   y recomendación, con los datos del panel. Las acciones se proponen y se hacen
+   recién al confirmar. No usa WhatsApp. */
+var ASE = {abierto: false, saludo: false, acciones: {}, n: 0};
+var ASE_SUG = ['¿Cómo venimos contra el objetivo?', '¿Qué clientes de María no compran hace más de 30 días?', '¿Quién debe más de 30 días?', 'Dame un brief de Carlos', '¿Qué pedidos faltan cargar?', 'Pedile a María que pase por La Trattoria el jueves'];
+var GEN_RUBRO = /^(almacen|supermercado|autoservicio|cafeteria|pizzeria|panaderia|kiosco|minimercado|bar|rotiseria|parador|parrillada|despensa|restaurante) /;
+function aseCli(t){
+  var mejor = null, largo = 0;
+  CLIENTES.forEach(function(c){
+    var full = sinT(c.n), corto = full.replace(GEN_RUBRO, '').replace(/^(la|el|los|las|don|dona) /, '');
+    [full, corto].forEach(function(a){ if (a.length >= 4 && t.indexOf(a) >= 0 && a.length > largo){ mejor = c; largo = a.length; } });
+  });
+  return mejor;
+}
+function aseVen(t){ return /maria/.test(t) ? 'mf' : /carlos/.test(t) ? 'cr' : /lucia/.test(t) ? 'lm' : null; }
+function aseRespuesta(texto){
+  var t = sinT(texto), ven = aseVen(t), c = aseCli(t), r = {txt: '', sug: [], acc: null};
+  var M = metricas('set');
+  if (/(pedi|deja|manda).*(pase|visit)|pasar por|pedir visita/.test(t)){
+    if (!c){ r.txt = '¿Qué cliente tiene que visitar? Decime el nombre, por ejemplo «Pedile a María que pase por La Trattoria».'; return r; }
+    var w = ven || c.v, cuando = /lunes|martes|miercoles|jueves|viernes|sabado|manana/.exec(t);
+    r.txt = '<b>' + esc(c.n) + '</b> es de la cartera de ' + esc(corV(c.v)) + ': ' + (c.u ? 'no compra hace ' + c.u + ' días' : 'compró hoy') + (c.m ? ' y compraba ' + $u(c.m) + ' por mes' : '') + '.';
+    r.acc = {txt: 'Dejarle a ' + nomV(w) + ' la tarea de visitar ' + c.n + (cuando ? ' el ' + cuando[0].replace('miercoles', 'miércoles').replace('sabado', 'sábado').replace('manana', 'mañana') : '') + '. Le aparece en la app.', hacer: function(){
+      S.pedidasVisita[c.id] = true; avisarPadre({tipo: 'libreta-tarea', ven: w, cli: c.id, txt: 'Pasá por ' + c.n + (cuando ? ' el ' + cuando[0].replace('miercoles', 'miércoles').replace('sabado', 'sábado').replace('manana', 'mañana') : '')}); render(true);
+      return 'Listo. ' + corV(w) + ' tiene la tarea en «Hoy» de su app.'; }};
+    r.ir = ['Ver la ficha de ' + c.n, 'ficha', c.id];
+    return r;
+  }
+  if (/(carg|pas).*(pedido|sistema)|pedidos? (pendiente|falta)|falta(n)? cargar/.test(t)){
+    var pend = pendientes();
+    if (!pend.length){ r.txt = 'No hay pedidos pendientes: todo lo que cargaron los vendedores ya está en el sistema.'; return r; }
+    r.txt = '<b>' + pend.length + ' pedidos</b> esperan que los pases al sistema, por ' + $u(suma(pend, function(p){ return p.tot; })) + ':<ul>' + pend.map(function(p){ return '<li>' + p.n + ' · ' + esc(CX[p.cli] ? CX[p.cli].n : p.cli) + ' · ' + esc(corV(p.ven)) + ' · ' + $u(p.tot) + (p.nota ? ' · <i>' + esc(p.nota) + '</i>' : '') + '</li>'; }).join('') + '</ul>';
+    var pr = pend[pend.length - 1];
+    r.acc = {txt: 'Marcar el ' + pr.n + ' (' + (CX[pr.cli] ? CX[pr.cli].n : pr.cli) + ') como cargado en el sistema.', hacer: function(){ pr.est = 'cargado'; pr.por = 'Laura'; pr.at = '29/09 ' + S.hora; avisarPadre({tipo: 'libreta-pedido-estado', n: pr.n, est: 'cargado', comprobante: null}); render(true); return 'Hecho: ' + pr.n + ' quedó «En el sistema» y a ' + corV(pr.ven) + ' le llega el aviso.'; }};
+    r.sug = ['Bajame la planilla de pedidos pendientes', '¿Cómo venimos contra el objetivo?'];
+    r.ir = ['Abrir Pedidos', 'ped'];
+    return r;
+  }
+  if (/planilla|excel|csv|bajame/.test(t)){
+    r.txt = 'Te armo la planilla de pedidos pendientes, con los códigos de cliente y producto para importar en Doria.';
+    r.acc = {txt: 'Bajar la planilla de pedidos pendientes (CSV).', hacer: function(){ CSV.pedidos('pend'); return 'Planilla descargada.'; }};
+    return r;
+  }
+  if (/desvio|solicitud|bandeja|aprob/.test(t)){
+    var sp = SOL.filter(function(s){ return s.est === 'pend'; }), info = SOL.filter(function(s){ return s.est === 'info'; });
+    r.ir = ['Ver «Para decidir» en Hoy', 'hoy'];
+    if (!sp.length && !info.length){ r.txt = 'No hay desvíos ni problemas sin revisar: «Para decidir» está al día.'; return r; }
+    r.txt = (sp.length ? '<b>' + sp.length + '</b> esperan tu respuesta:<ul>' + sp.map(function(s){ return '<li>' + esc(s.tipo) + ' · ' + esc(corV(s.ven)) + ': ' + esc(s.txt) + '</li>'; }).join('') + '</ul>' : '') + (info.length ? info.length + ' problemas reportados para revisar.' : '');
+    if (sp.length){ var s0 = sp[0]; r.acc = {txt: 'Aprobar: ' + s0.tipo + ' de ' + corV(s0.ven) + '.', hacer: function(){ s0.est = 'aprobada'; if (s0.tipo === 'Visita fuera de ruta' && s0.cli && !RUTAS[s0.ven].some(function(x){ return x.c === s0.cli; })) RUTAS[s0.ven].push({c: s0.cli, h: '11:10', est: 'pend', fuera: true}); avisarPadre({tipo: 'libreta-solicitud-respuesta', id: s0.id, est: 'aprobada'}); render(true); return 'Aprobado. A ' + corV(s0.ven) + ' le llega el aviso en la app.'; }}; }
+    return r;
+  }
+  if (/lo que suma|venta extra|sugerencia|recuperad|oportunidades vendidas/.test(t)){
+    var Os = opsMes('set'), Bs = SUMA.set, ex = suma(['reactivar', 'cruzada', 'recompra'], function(k){ return Bs.tipos[k][2]; }) + suma(S.vendHoy, function(z){ return z.imp; });
+    r.txt = '<span class="et">Diagnóstico</span>En setiembre los vendedores ofrecieron <b>' + Os.ofr + '</b> oportunidades y vendieron <b>' + Os.conc + '</b> (' + pc(Os.conc, Os.ofr) + ' %). La venta extra estimada es <b>' + $u(ex) + '</b>, y lo vendido por sugerencias suma ' + $u(sugMes('set')) + '.' +
+      '<span class="et">Comparación</span>En agosto fueron ' + opsMes('ago').conc + ' vendidas y ' + $u(100600) + ' de venta extra. Se recuperaron ' + (Bs.recup.mf[0] + Bs.recup.cr[0] + Bs.recup.lm[0]) + ' clientes de ' + (Bs.recup.mf[1] + Bs.recup.cr[1] + Bs.recup.lm[1]) + ' con visita pedida.' +
+      '<span class="et">Recomendación</span>Reactivar es lo que más suma por oportunidad: que cada vendedor tenga al menos dos clientes en riesgo en la ruta de la semana.';
+    r.ir = ['Ver lo que suma Libreta', 'suma']; r.sug = ['¿Qué clientes están más en riesgo?', '¿Qué oportunidades hay para ofrecer?'];
+    return r;
+  }
+  if (/familia|categoria|producto/.test(t) && !/margen|precio/.test(t)){
+    var Mf = metricas('set'), cv = catVenta(Mf.venta), top = prodVenta(Mf.venta).sort(function(a, b){ return b.v - a.v; }).slice(0, 5);
+    r.txt = 'Setiembre por familia:<ul>' + CATS.slice(0, 5).map(function(k){ return '<li><b>' + k + '</b>: ' + $u(cv[k]) + ' (' + Math.round(CAT_PESO[k] * 100) + ' %)</li>'; }).join('') + '</ul>Los productos que más venden:<ul>' + top.map(function(x){ return '<li>' + esc(x.p.d) + ': ' + fmt.format(x.u) + ' unidades, ' + $u(x.v) + ', margen ' + Math.round(x.mg * 100) + ' %</li>'; }).join('') + '</ul>';
+    r.sug = ['¿Qué productos tienen margen bajo?', '¿Cómo venimos contra el objetivo?'];
+    return r;
+  }
+  if (/oferta|promo/.test(t)){
+    var vg = OFERTAS.filter(function(o){ return o.st === 'Vigente'; }), pg = OFERTAS.filter(function(o){ return o.st === 'Programada'; });
+    r.txt = 'Hay <b>' + vg.length + ' ofertas vigentes</b>:<ul>' + vg.map(function(o){ return '<li>' + esc(PROD[o.p].d) + ': ' + esc(o.c) + ' (hasta el ' + o.d2 + ') · vendido ' + $u(o.sold) + '</li>'; }).join('') + '</ul>' + (pg.length ? 'Programada: ' + pg.map(function(o){ return esc(PROD[o.p].d) + ', ' + esc(o.c) + ' desde el ' + o.d1; }).join('; ') + '.' : '') + ' En setiembre se vendieron ' + $u(suma(OFERTAS, function(o){ return o.sold; })) + ' con ofertas.';
+    return r;
+  }
+  if (/presupuesto/.test(t)){
+    var ab = PRES.filter(function(p){ return ['Enviado', 'Sin respuesta', 'Vence en 2 días'].indexOf(p.est) >= 0; });
+    r.txt = 'Presupuestos abiertos: <b>' + ab.length + '</b> por ' + $u(suma(ab, function(p){ return p.tot; })) + '.<ul>' + ab.map(function(p){ return '<li>#' + p.n + ' · ' + esc(p.cli) + ' (' + corV(p.ven) + '): ' + $u(p.tot) + ' · ' + esc(p.est.toLowerCase()) + '</li>'; }).join('') + '</ul>En setiembre se enviaron 23 y se aceptaron 9 (39 %).';
+    return r;
+  }
+  if (/prospect|cliente(s)? nuevo|nuevos clientes/.test(t)){
+    var act = PROS.filter(function(p){ return p.st !== 'Convertido' && p.st !== 'Descartado'; }), nue = suma(VEND, function(v){ return nuevos(11, v.id); });
+    r.txt = 'Clientes nuevos en setiembre: <b>' + nue + '</b> de ' + suma(VEND, function(v){ return v.nuevosMeta; }) + ' de meta. Prospectos activos: <b>' + act.length + '</b>, ' + $u(suma(act, function(p){ return p.v; })) + ' por mes de venta potencial:<ul>' + act.slice(0, 5).map(function(p){ return '<li>' + esc(p.n) + ' (' + corV(p.s) + ') · ' + esc(p.st.toLowerCase()) + ' · ' + esc(p.nx) + '</li>'; }).join('') + '</ul>';
+    return r;
+  }
+  if (/margen|precio/.test(t)){
+    var bj = CATALOGO.filter(function(p){ return (p.p - p.k) / p.p < .16; });
+    r.txt = 'El margen promedio de la lista es ' + Math.round(suma(CATALOGO, function(p){ return (p.p - p.k) / p.p; }) / CATALOGO.length * 100) + ' %. ' + (bj.length ? 'Con menos de 16 %:<ul>' + bj.map(function(p){ return '<li>' + esc(p.d) + ': lista ' + $u(p.p) + ', costo ' + $u(p.k) + ' (' + Math.round((p.p - p.k) / p.p * 100) + ' %). Para volver a 20 %: ' + $u(Math.ceil(p.k / .8)) + '.</li>'; }).join('') + '</ul>' : 'Ningún producto está por debajo de 16 %.');
+    return r;
+  }
+  if (/comision/.test(t)){
+    r.txt = 'Comisiones estimadas de setiembre:<ul>' + VEND.map(function(v){ return '<li><b>' + v.nom + '</b>: ' + $u(v.mes[11] * v.com) + ' (' + Math.round(v.com * 100) + ' % de ' + $u(v.mes[11]) + ')</li>'; }).join('') + '</ul>Total: ' + $u(suma(VEND, function(v){ return v.mes[11] * v.com; })) + '.';
+    r.ir = ['Abrir Vendedores', 'vend'];
+    return r;
+  }
+  if (/ruta|en la calle|visitas de hoy|como van hoy/.test(t) && !ven){
+    r.txt = 'Hoy, a las ' + S.hora + ':<ul>' + VEND.map(function(v){ var e = rutaInfo(v.id); return '<li><b>' + v.corto + '</b>: ' + e.hechas + ' de ' + e.total + ' visitas' + (e.act ? ', en visita en ' + esc(nombreCli(e.act.c)) : e.prox ? ', próxima ' + esc(nombreCli(e.prox.c)) + ' a las ' + e.prox.h : '') + '. ' + pedidosHoy(v.id).length + ' pedidos.</li>'; }).join('') + '</ul>';
+    r.ir = ['Abrir Hoy', 'hoy'];
+    return r;
+  }
+  if (/brief|como viene|resumen de|contame de/.test(t) && ven){
+    var v = VX[ven], i = 11, p = pc(v.mes[i], v.obj.set), e = estadoRuta(ven), rs = riesgo(ven), vv = vencidos(ven), ph = pedidosHoy(ven);
+    r.txt = '<span class="et">Diagnóstico</span><b>' + v.nom + '</b> va ' + $u(v.mes[i]) + ', el <b>' + p + ' %</b> de su objetivo de ' + $u(v.obj.set) + '. Hoy hizo ' + e.hechas + ' de ' + e.total + ' visitas y cargó ' + ph.length + ' pedidos por ' + $u(suma(ph, function(x){ return x.tot; })) + '.' +
+      '<span class="et">Comparación</span>Contra setiembre 2025: ' + (pc(v.mes[i], v.ly.set) - 100 >= 0 ? '+' : '') + (pc(v.mes[i], v.ly.set) - 100) + ' %. Ruta del mes cumplida en ' + pc(v.vis.set[0], v.vis.set[1]) + ' %. Tiene ' + rs.length + ' clientes en riesgo y ' + $u(suma(vv, function(x){ return x.ven; })) + ' vencidos.' +
+      '<span class="et">Recomendación</span>' + (rs.length ? 'Que priorice a <b>' + esc(rs.sort(function(a, b){ return b.m - a.m; })[0].n) + '</b>, el cliente en riesgo que más pesa' : 'Que sume visitas de prospección') + (p < 85 ? ', y revisá con ' + v.corto + ' la ruta del jueves: viene ' + (97 - p) + ' puntos abajo del ritmo.' : '.');
+    r.sug = ['¿Qué clientes de ' + v.corto + ' no compran hace más de 30 días?', 'Pedile a ' + v.corto + ' que pase por ' + (rs[0] ? rs[0].n : 'su cliente más grande')];
+    r.ir = ['Ver la ruta de hoy de ' + v.corto, 'vendedor', v.id];
+    return r;
+  }
+  if (/objetivo|vamos|venimos|falta|meta|cierra/.test(t)){
+    var p2 = pc(M.venta, M.obj), proy = pc(M.venta / 29 * 30, M.obj);
+    var orden = VEND.slice().sort(function(a, b){ return pc(a.mes[11], a.obj.set) - pc(b.mes[11], b.obj.set); });
+    r.txt = '<span class="et">Diagnóstico</span>Setiembre va en <b>' + $u(M.venta) + '</b>, el <b>' + p2 + ' %</b> del objetivo de ' + $u(M.obj) + '. Faltan ' + $u(Math.max(0, M.obj - M.venta)) + ' y al ritmo de hoy el mes cierra en ' + proy + ' %.' +
+      '<span class="et">Comparación</span>Contra setiembre 2025, ' + (pc(M.venta, M.ly) - 100) + ' % arriba. Por vendedor: ' + VEND.map(function(v){ return v.corto + ' ' + pc(v.mes[11], v.obj.set) + ' %'; }).join(', ') + '.' +
+      '<span class="et">Recomendación</span>Lo que más mueve la aguja es <b>' + orden[0].nom + '</b> (' + pc(orden[0].mes[11], orden[0].obj.set) + ' %): tiene ' + riesgo(orden[0].id).length + ' clientes en riesgo para reactivar esta semana.';
+    r.sug = ['Dame un brief de ' + orden[0].corto, '¿Qué clientes están más en riesgo?'];
+    r.ir = ['Abrir Vendedores', 'vend'];
+    return r;
+  }
+  if (/vendio mas|ranking|mejor vendedor|quien vend/.test(t)){
+    var rk = VEND.slice().sort(function(a, b){ return b.mes[11] - a.mes[11]; });
+    r.txt = 'En setiembre:<ul>' + rk.map(function(v){ return '<li><b>' + v.nom + '</b>: ' + $u(v.mes[11]) + ' (' + pc(v.mes[11], v.obj.set) + ' % de su objetivo)</li>'; }).join('') + '</ul>Contra el objetivo, el que mejor viene es ' + VEND.slice().sort(function(a, b){ return pc(b.mes[11], b.obj.set) - pc(a.mes[11], a.obj.set); })[0].corto + '.';
+    r.ir = ['Abrir Vendedores', 'vend'];
+    return r;
+  }
+  if (/riesgo|no compra|dejaron de comprar|dejo de comprar|30 dias/.test(t) && !/debe|vencid/.test(t)){
+    var L = riesgo(ven).sort(function(a, b){ return b.m - a.m; });
+    r.txt = (ven ? VX[ven].corto + ' tiene' : 'Hay') + ' <b>' + L.length + ' clientes</b> que dejaron de comprar a su ritmo, ' + $u(suma(L, function(x){ return x.m; })) + ' por mes en juego. Los que más pesan:<ul>' + L.slice(0, 5).map(function(x){ return '<li><b>' + esc(x.n) + '</b> (' + esc(corV(x.v)) + '): ' + x.u + ' días sin comprar; antes ' + $u(x.m) + '/mes.</li>'; }).join('') + '</ul>Recomendación: pedí visita para los dos primeros esta semana.';
+    if (L[0]) r.sug = ['Pedile a ' + corV(L[0].v) + ' que pase por ' + L[0].n, '¿Quién debe más de 30 días?'];
+    r.ir = ['Abrir Clientes', 'cli'];
+    return r;
+  }
+  if (/debe|vencid|cobr|deuda/.test(t)){
+    var D = vencidos(ven || 'todos').filter(function(x){ return /30/.test(t) ? x.dv > 30 : true; }).sort(function(a, b){ return b.ven - a.ven; });
+    r.txt = D.length ? '<b>' + $u(suma(D, function(x){ return x.ven; })) + '</b> vencidos en ' + D.length + ' clientes:<ul>' + D.slice(0, 6).map(function(x){ return '<li><b>' + esc(x.n) + '</b> (' + esc(corV(x.v)) + '): ' + $u(x.ven) + ', ' + x.dv + ' días.</li>'; }).join('') + '</ul>Los de más de 30 días tienen los pedidos bloqueados hasta pagar.' : 'No hay deuda vencida con ese filtro.';
+    r.sug = ['¿Qué clientes están más en riesgo?'];
+    r.ir = ['Abrir Clientes', 'cli'];
+    return r;
+  }
+  if (/oportunidad|ofrecer|semana/.test(t)){
+    var O = OPS.filter(function(o){ return !o.est && !o.off && (!ven || o.w === ven); }).sort(function(a, b){ return b.v - a.v; });
+    r.txt = 'Las que más plata mueven:<ul>' + O.slice(0, 5).map(function(o){ return '<li><b>' + esc(o.a + ' ' + (o.c ? nombreCli(o.c) : o.n)) + '</b> (' + esc(corV(o.w)) + ', ≈ ' + $m(o.v) + '/mes): ' + esc(o.why) + '</li>'; }).join('') + '</ul>';
+    r.ir = ['Ver lo que suma Libreta', 'suma'];
+    return r;
+  }
+  if (c){
+    r.txt = '<b>' + esc(c.n) + '</b> (' + esc(c.r) + ', ' + esc(c.z) + ', cartera de ' + esc(corV(c.v)) + '): compra ' + $u(c.m) + ' por mes, cada ' + c.f + ' días; la última fue ' + hace(c.u).toLowerCase() + '. Saldo ' + (c.sal ? $u(c.sal) + (c.ven ? ', ' + $u(c.ven) + ' vencido' : '') : 'al día') + '.' + (c.est === 'riesgo' ? ' Está en riesgo.' : '');
+    r.sug = ['Pedile a ' + corV(c.v) + ' que pase por ' + c.n];
+    r.ir = ['Ver la ficha', 'ficha', c.id];
+    return r;
+  }
+  r.txt = 'Puedo contarte cómo vienen las ventas y cada vendedor, quién dejó de comprar, quién debe, qué pedidos faltan cargar y cuánto suma Libreta. También te respondo por familias, productos, ofertas, presupuestos, prospectos, márgenes y comisiones. Y puedo pedir una visita, marcar un pedido como cargado, aprobar un desvío o bajarte una planilla, siempre con tu confirmación.';
+  r.sug = ASE_SUG.slice(0, 3);
+  return r;
+}
+function aseMsg(cls, html){ var d = document.createElement('div'); d.className = 'am ' + cls; d.innerHTML = html; var m = $('ase-msgs'); m.appendChild(d); m.scrollTop = m.scrollHeight; return d; }
+function aseSug(l){ $('ase-sug').innerHTML = l.slice(0, 3).map(function(x){ return '<button type="button" data-ase-q="' + esc(x) + '">' + esc(x) + '</button>'; }).join(''); }
+function aseAbrir(){
+  ASE.abierto = true; document.body.classList.add('ase-abierto');
+  if (!ASE.saludo){ ASE.saludo = true; var M = metricas('set'); aseMsg('ia', 'Hola, Laura. Setiembre va en <b>' + $u(M.venta) + '</b> (' + pc(M.venta, M.obj) + ' % del objetivo), hay <b>' + pendientes().length + ' pedidos</b> por cargar y <b>' + SOL.filter(function(s){ return s.est === 'pend'; }).length + ' desvíos</b> esperando tu respuesta. Preguntame lo que necesites o pedime una acción: la propongo y la hago cuando confirmes.'); aseSug(ASE_SUG); }
+  setTimeout(function(){ $('ase-txt').focus({preventScroll: true}); }, 250);
+}
+function aseCerrar(){ ASE.abierto = false; document.body.classList.remove('ase-abierto'); }
+function asePreguntar(texto){
+  texto = String(texto || '').trim(); if (!texto) return;
+  aseMsg('yo', esc(texto)); $('ase-txt').value = ''; $('ase-sug').innerHTML = '';
+  var d = aseMsg('ia', '<span class="pausa"><i></i><i></i><i></i></span>'), r = aseRespuesta(texto);
+  setTimeout(function(){
+    d.innerHTML = r.txt;
+    if (r.ir){ var bi = document.createElement('button'); bi.type = 'button'; bi.className = 'ase-ir'; bi.setAttribute('data-ase-ir', r.ir[1]); if (r.ir[2]) bi.setAttribute('data-ase-id', r.ir[2]); bi.textContent = r.ir[0] + ' →'; d.appendChild(document.createElement('br')); d.appendChild(bi); }
+    if (r.acc){
+      var aid = ++ASE.n; ASE.acciones[aid] = r.acc;
+      document.querySelectorAll('#ase-msgs .ase-acc button').forEach(function(b){ b.disabled = true; });
+      var box = document.createElement('div'); box.className = 'ase-acc'; box.setAttribute('data-aid', aid);
+      box.innerHTML = '<small>Propuesta · ¿Confirmás?</small><p>' + esc(r.acc.txt) + '</p><div><button type="button" class="btn btn-p btn-sm" data-ase-conf="si">Confirmar</button><button type="button" class="btn btn-s btn-sm" data-ase-conf="no">Cancelar</button></div>';
+      d.appendChild(box);
+    }
+    aseSug(r.sug.length ? r.sug : ASE_SUG);
+    var m = $('ase-msgs'); m.scrollTop = m.scrollHeight;
+  }, 600);
+}
+$('ase-btn').addEventListener('click', aseAbrir);
+$('ase-cerrar').addEventListener('click', aseCerrar);
+$('ase-form').addEventListener('submit', function(e){ e.preventDefault(); e.stopPropagation(); asePreguntar($('ase-txt').value); });
+$('ase').addEventListener('click', function(e){
+  e.stopPropagation();
+  var q = e.target.closest('[data-ase-q]'); if (q){ asePreguntar(q.getAttribute('data-ase-q')); return; }
+  var g = e.target.closest('[data-ase-ir]');
+  if (g){
+    var k = g.getAttribute('data-ase-ir'), gid = g.getAttribute('data-ase-id');
+    if (window.innerWidth < 900) aseCerrar();
+    if (k === 'ficha') abrirFicha(gid); else if (k === 'vendedor') abrirVend(gid); else { cerrarCapa(); ir(k); }
+    return;
+  }
+  var c = e.target.closest('[data-ase-conf]'); if (!c) return;
+  var box = c.closest('.ase-acc'); box.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+  var aid = box.getAttribute('data-aid'), acc = ASE.acciones[aid]; delete ASE.acciones[aid];
+  if (c.getAttribute('data-ase-conf') === 'si' && acc){ aseMsg('yo', 'Confirmar'); aseMsg('ia', esc(acc.hacer())); }
+  else { aseMsg('yo', 'Cancelar'); aseMsg('ia', 'No hice nada. La acción quedó sin hacer.'); }
+});
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && ASE.abierto) aseCerrar(); });
+
+/* ================================ mensajes desde la demo del celular ================================ */
+function recibirPedido(d){
+  if (!d || typeof d !== 'object') return;
+  var cliId = CX[d.cli] ? d.cli : (CLIENTES.find(function(c){ return sinT(c.n) === sinT(d.cli || ''); }) || {}).id;
+  var ven = VX[d.ven] ? d.ven : (cliId ? CX[cliId].v : 'mf');
+  var num = typeof d.n === 'string' && /^[\w-]{1,20}$/.test(d.n) ? d.n : 'P-' + N_PED;
+  if (PEDIDOS.some(function(p){ return p.n === num; })) return;
+  var m = /^P-(\d+)$/.exec(num); if (m && +m[1] >= N_PED) N_PED = +m[1] + 1;
+  var sugCli = cliId ? CX[cliId].sug : [], ops = OPS.filter(function(o){ return o.c === cliId; });
+  var lin = (Array.isArray(d.lineas) ? d.lineas : []).filter(function(l){ return Array.isArray(l) && l.length >= 2 && +l[1] > 0; }).slice(0, 80).map(function(l){
+    var p = PROD[l[0]] || {c: String(l[0]).slice(0, 20), d: String(l[0]).slice(0, 60), p: 0}, q = Math.round(+l[1]);
+    var sug = l[2] === true || sugCli.indexOf(p.c) >= 0 || ops.some(function(o){ return (o.cods || []).indexOf(p.c) >= 0; });
+    return {c: p.c, d: p.d, q: q, p: p.p, imp: p.p * q, sug: sug};
+  });
+  var tot = typeof d.tot === 'number' && d.tot > 0 ? Math.round(d.tot) : suma(lin, function(l){ return l.imp; });
+  var hora = typeof d.hora === 'string' && /^\d{1,2}:\d{2}$/.test(d.hora) ? d.hora : S.hora;
+  var ped = {n: num, cli: cliId || String(d.cli || 'Cliente').slice(0, 60), ven: ven, f: '29/09', hora: hora, est: 'pend', lin: lin, tot: tot, nota: typeof d.nota === 'string' ? d.nota.slice(0, 200) : '', demo: true};
+  PEDIDOS.unshift(ped);
+  if (cliId){
+    var c = CX[cliId]; c.u = 0;
+    RUTAS[ven].forEach(function(s){ if (s.c === cliId && s.est !== 'hecha'){ s.est = 'hecha'; s.lle = s.lle || hora; s.ped = num; } });
+    OPS.forEach(function(o){ if (o.c === cliId && !o.est && !o.off && (o.cods || []).some(function(cd){ return lin.some(function(l){ return l.c === cd; }); })){
+      o.est = 'vendida'; o.ped = num; S.extraConc++;
+      S.vendHoy.push({t: o.t, ven: o.w, ped: num, imp: suma(lin.filter(function(l){ return (o.cods || []).indexOf(l.c) >= 0; }), function(l){ return l.imp; })});
+    } });
+  }
+  S.pedOpen[num] = true; marcarNuevo(num);
+  toast('Pedido nuevo de ' + corV(ven) + ': ' + num + ' · ' + (cliId ? CX[cliId].n : ped.cli) + ' · ' + $u(tot), S.v === 'ped' ? null : 'Ver', function(){ S.pedV = 'pend'; S.pedVen = 'todos'; ir('ped'); });
+  if (S.v === 'ped'){ S.pedV = S.pedV === 'todos' ? 'todos' : 'pend'; }
+  render(true);
+}
+function recibirSolicitud(d){
+  if (!d || typeof d !== 'object' || !d.txt) return;
+  var id = typeof d.id === 'number' && !SOL.some(function(s){ return s.id === d.id; }) ? d.id : Date.now();
+  var s = {id: id, ven: VX[d.ven] ? d.ven : 'mf', tipo: String(d.tipo || 'Solicitud').slice(0, 60), txt: String(d.txt).slice(0, 300), hora: typeof d.hora === 'string' && /^\d{1,2}:\d{2}$/.test(d.hora) ? d.hora : S.hora, f: 'hoy', est: d.est === 'info' ? 'info' : 'pend', cli: CX[d.cli] ? d.cli : null};
+  SOL.unshift(s); marcarNuevo('sol' + s.id);
+  toast(s.tipo + ' de ' + corV(s.ven) + (s.est === 'pend' ? ': espera tu respuesta.' : ': para revisar.'), S.v === 'hoy' ? null : 'Ver', function(){ ir('hoy'); });
+  render(true);
+}
+window.addEventListener('message', function(e){
+  var d = e.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.tipo === 'libreta-pedido') recibirPedido(d.pedido);
+  else if (d.tipo === 'libreta-solicitud') recibirSolicitud(d.sol);
+  else if (d.tipo === 'libreta-ir' && typeof d.vista === 'string' && (R[d.vista] || ALIAS[d.vista])){ cerrarCapa(); ir(d.vista); }
+});
+
+/* reloj del tablero: avanza de a un minuto */
+setInterval(function(){
+  var m = aMin(S.hora) + 1; S.hora = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  $('sync').textContent = 'Conectado a Doria · ' + S.hora;
+  var r = $('reloj-h'); if (r) r.textContent = S.hora;
+}, 60000);
+
+/* arranque */
+(function(){
+  var h = (location.hash || '').slice(1);
+  h = ALIAS[h] || h;
+  if (R[h]) S.v = h;
+  $('sync').textContent = 'Conectado a Doria · ' + S.hora;
+  render();
+  avisarPadre({tipo: 'libreta-panel-listo'});
+})();
+})();
+</script>
+</body>
+</html>

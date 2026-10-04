@@ -171,7 +171,7 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'chat-cta-inline';
-    button.innerHTML = 'Hablemos de tu negocio <span aria-hidden="true">→</span>';
+    button.innerHTML = 'Hablar con el estudio <span aria-hidden="true">→</span>';
     button.addEventListener('click', () => {
       toggleChat(false);
       setTimeout(() => openCalendly(), 200);

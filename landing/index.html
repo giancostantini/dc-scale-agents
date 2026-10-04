@@ -60,6 +60,10 @@
   <symbol id="i-rondin" viewBox="0 0 128 128"><path d="M64 35A32 32 0 1 1 40.2 45.6M41.2 63.9L40.2 45.6L21.9 46.6" fill="none" stroke="#0B7A55" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><circle cx="64" cy="35" r="11.5" fill="#F26A1B"/></symbol>
   <symbol id="i-encargue" viewBox="14 18 94 96"><g fill="none" stroke="#5B3BD6" stroke-width="12.5" stroke-linecap="round" stroke-linejoin="round"><path d="M29.51 76.08A30 30 0 1 1 44.76 89.82L25 95ZM86 32V96"/></g><circle cx="56" cy="62" r="10" fill="#FF6A3D"/></symbol>
   <symbol id="i-libreta" viewBox="0 0 128 128"><g fill="none" stroke="#0B6E7C" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><rect x="30" y="12" width="68" height="104" rx="14"/><path d="M78 4V124"/></g><circle cx="54" cy="38" r="9" fill="#FF6A3D"/></symbol>
+  <symbol id="m-tildalo" viewBox="4 12 112 76"><path d="M16 66C20 50 34 46 42 58L52 74L104 24" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="m-rondin" viewBox="0 0 128 128"><path d="M64 35A32 32 0 1 1 40.2 45.6M41.2 63.9L40.2 45.6L21.9 46.6" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><circle cx="64" cy="35" r="11.5" fill="#F26A1B"/></symbol>
+  <symbol id="m-encargue" viewBox="14 18 94 96"><g fill="none" stroke="currentColor" stroke-width="12.5" stroke-linecap="round" stroke-linejoin="round"><path d="M29.51 76.08A30 30 0 1 1 44.76 89.82L25 95ZM86 32V96"/></g><circle cx="56" cy="62" r="10" fill="#FF6A3D"/></symbol>
+  <symbol id="m-libreta" viewBox="0 0 128 128"><g fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><rect x="30" y="12" width="68" height="104" rx="14"/><path d="M78 4V124"/></g><circle cx="54" cy="38" r="9" fill="#FF6A3D"/></symbol>
   <symbol id="u-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="u-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="u-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -91,9 +95,9 @@
       <a href="#aplicaciones">Aplicaciones</a>
       <a href="#clientes">Clientes</a>
       <a href="#forma">Cómo trabajamos</a>
-      <a href="/inversiones">Inversiones</a>
+      <a href="#inversiones">Inversiones</a>
     </nav>
-    <a class="btn btn-sand header-cta" href="#contacto" data-booking>Hablemos de tu negocio</a>
+    <a class="cta-pill sm header-cta" href="#contacto" data-booking><span class="faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="40" height="40"><img src="photos/gianluca.jpg" alt="" width="40" height="40"></span><span class="tx"><b>Hablar con el estudio</b></span><span class="go" aria-hidden="true"><svg width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></span></a>
     <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menú" aria-controls="menu" aria-expanded="false"><span></span><span></span></button>
   </div>
 </header>
@@ -110,10 +114,10 @@
       <a href="#aplicaciones"><span class="n">03</span>Aplicaciones</a>
       <a href="#clientes"><span class="n">04</span>Clientes</a>
       <a href="#forma"><span class="n">05</span>Cómo trabajamos</a>
-      <a href="/inversiones"><span class="n">06</span>Inversiones</a>
+      <a href="#inversiones"><span class="n">06</span>Inversiones</a>
     </nav>
     <div class="menu-foot">
-      <button class="btn btn-sand" type="button" data-booking>Hablemos de tu negocio <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button>
+      <button class="cta-pill" type="button" data-booking><span class="faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="40" height="40"><img src="photos/gianluca.jpg" alt="" width="40" height="40"></span><span class="tx"><b>Hablar con el estudio</b><small>30 min con Federico y Gianluca</small></span><span class="go" aria-hidden="true"><svg width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></span></button>
       <p>Dearmas <span class="amp">&amp;</span> Costantini · Tecnología Empresarial</p>
     </div>
   </div>
@@ -121,48 +125,79 @@
 
 <main id="main">
 
-<!-- ======================= HERO: aplicaciones ======================= -->
-<section class="hero" id="top" aria-roledescription="carrusel" aria-label="Aplicaciones de D&amp;C">
+<!-- ======================= HERO ======================= -->
+<section class="hero" id="top" aria-labelledby="hero-title">
   <div class="grid-bg" aria-hidden="true"></div>
-  <div class="slides" id="slides">
-    <article class="slide is-on" data-i="0" aria-roledescription="diapositiva" aria-label="1 de 5: Business Hub">
-      <div class="slide-media" aria-hidden="true"><img src="assets/apps/hub.jpg" alt="" width="1800" height="1125" fetchpriority="high" decoding="async"></div>
-      <div class="shell slide-inner"><div class="slide-copy">
-        <p class="slide-kicker"><span class="kicker-ic is-hub" aria-hidden="true">D<span class="amp">&amp;</span>C</span><b>Business Hub</b><span class="by">by <span class="dc">D<span class="amp">&amp;</span>C</span></span><span class="cat">El centro de la operación</span></p><h1 class="slide-title" id="hero-title">Tecnología para operar mejor<span class="fin">.</span></h1><p class="slide-text">Diseñamos sistemas que conectan y simplifican la operación de las empresas. El Business Hub reúne ventas, compras, reparto y finanzas en un solo lugar.</p><ul class="slide-chips"><li>Todas las áreas en un sistema</li><li>Conectado a tu ERP</li><li>Asistente con tus datos</li></ul><div class="slide-actions"><a class="btn btn-sand" href="#contacto" data-booking>Hablemos de tu negocio <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></a><a class="link-arrow" href="#hub">Conocer el Business Hub <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
-      </div></div>
-    </article>
-    <article class="slide" data-i="1" aria-roledescription="diapositiva" aria-label="2 de 5: Libreta" aria-hidden="true" inert>
-      <div class="slide-media" aria-hidden="true"><img src="assets/apps/libreta.jpg" alt="" width="1800" height="1125" loading="lazy" decoding="async"></div>
-      <div class="shell slide-inner"><div class="slide-copy">
-        <p class="slide-kicker"><span class="kicker-ic" aria-hidden="true"><svg><use href="#i-libreta"/></svg></span><b>Libreta</b><span class="by">by <span class="dc">D<span class="amp">&amp;</span>C</span></span><span class="cat">Vendedores en calle</span></p><h2 class="slide-title">Los clientes visitados compraron 32 % más.</h2><p class="slide-text">Resultado de una distribuidora de Montevideo en sus primeros dos meses con el sistema de ventas que dio origen a Libreta.</p><dl class="slide-stats"><div><dt>+32 %</dt><dd>compras de los clientes visitados con la app</dd></div><div><dt>96 %</dt><dd>de la ruta planificada, cumplida</dd></div><div><dt>2 de 3</dt><dd>clientes que habían dejado de comprar volvieron</dd></div></dl><div class="slide-actions"><button class="btn btn-sand" type="button" data-booking data-topic="Quiero ver una demo de Libreta.">Pedir una demo <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button><a class="link-arrow" href="#aplicaciones" data-sol-link="libreta">Ver cómo funciona <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
-      </div></div>
-    </article>
-    <article class="slide" data-i="2" aria-roledescription="diapositiva" aria-label="3 de 5: Tildalo" aria-hidden="true" inert>
-      <div class="slide-media" aria-hidden="true"><img src="assets/apps/tildalo.jpg" alt="" width="1800" height="1125" loading="lazy" decoding="async"></div>
-      <div class="shell slide-inner"><div class="slide-copy">
-        <p class="slide-kicker"><span class="kicker-ic" aria-hidden="true"><svg><use href="#i-tildalo"/></svg></span><b>Tildalo</b><span class="by">by <span class="dc">D<span class="amp">&amp;</span>C</span></span><span class="cat">Facturas de compra</span></p><h2 class="slide-title">Cada factura de compra, cargada y controlada.</h2><p class="slide-text">Tildalo lee la factura del proveedor, la valida con las reglas de DGI, la asocia a tu catálogo y te avisa si te cobraron más que la última vez.</p><ul class="slide-chips"><li>Foto, PDF o XML del CFE</li><li>Controles de DGI</li><li>Aviso de aumentos de costo</li></ul><div class="slide-actions"><button class="btn btn-sand" type="button" data-booking data-topic="Quiero ver una demo de Tildalo.">Pedir una demo <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button><a class="link-arrow" href="https://www.tildalo.app" target="_blank" rel="noopener">Ir a tildalo.app <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
-      </div></div>
-    </article>
-    <article class="slide" data-i="3" aria-roledescription="diapositiva" aria-label="4 de 5: Rondín" aria-hidden="true" inert>
-      <div class="slide-media" aria-hidden="true"><img src="assets/apps/rondin.jpg" alt="" width="1800" height="1125" loading="lazy" decoding="async"></div>
-      <div class="shell slide-inner"><div class="slide-copy">
-        <p class="slide-kicker"><span class="kicker-ic" aria-hidden="true"><svg><use href="#i-rondin"/></svg></span><b>Rondín</b><span class="by">by <span class="dc">D<span class="amp">&amp;</span>C</span></span><span class="cat">Reparto y rutas</span></p><h2 class="slide-title">Cada camión sale con su recorrido armado.</h2><p class="slide-text">Rondín reparte los pedidos según zona y capacidad, guía al chofer y le avisa al cliente por WhatsApp 15 minutos antes de llegar.</p><ul class="slide-chips"><li>Recorridos por zona y capacidad</li><li>Aviso al cliente 15 minutos antes</li><li>Seguimiento en vivo</li></ul><div class="slide-actions"><button class="btn btn-sand" type="button" data-booking data-topic="Quiero ver una demo de Rondín.">Pedir una demo <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button><a class="link-arrow" href="#aplicaciones" data-sol-link="rondin">Ver cómo funciona <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
-      </div></div>
-    </article>
-    <article class="slide" data-i="4" aria-roledescription="diapositiva" aria-label="5 de 5: Encargue" aria-hidden="true" inert>
-      <div class="slide-media" aria-hidden="true"><img src="assets/apps/encargue.jpg" alt="" width="1800" height="1125" loading="lazy" decoding="async"></div>
-      <div class="shell slide-inner"><div class="slide-copy">
-        <p class="slide-kicker"><span class="kicker-ic" aria-hidden="true"><svg><use href="#i-encargue"/></svg></span><b>Encargue</b><span class="by">by <span class="dc">D<span class="amp">&amp;</span>C</span></span><span class="cat">Pedidos por WhatsApp</span></p><h2 class="slide-title">Los pedidos de WhatsApp entran solos al sistema.</h2><p class="slide-text">Encargue entiende el pedido por texto, audio o foto, lo confirma con precio y stock, lo carga en tu ERP y sugiere lo que el cliente suele llevar.</p><ul class="slide-chips"><li>Texto, audio o foto</li><li>Carga directa al ERP</li><li>Venta sugerida en cada pedido</li></ul><div class="slide-actions"><button class="btn btn-sand" type="button" data-booking data-topic="Quiero ver una demo de Encargue.">Pedir una demo <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button><a class="link-arrow" href="#aplicaciones" data-sol-link="encargue">Ver cómo funciona <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
-      </div></div>
-    </article>
-  </div>
+  <div class="shell hero-inner">
+    <div class="hero-copy">
+      <p class="eyebrow on-dark hero-fade" style="--d:.05s"><span class="dc">D<span class="amp">&amp;</span>C</span> · Estudio de Tecnología Empresarial</p>
+      <h1 id="hero-title">
+        <span class="ln"><span style="--i:0">Tecnología</span></span>
+        <span class="ln"><span style="--i:1">para operar</span></span>
+        <span class="ln"><span style="--i:2">mejor<span class="fin">.</span></span></span>
+      </h1>
+      <p class="hero-sub hero-fade" style="--d:.55s">Hacemos más eficiente la operación de las empresas. Diseñamos sistemas que conectan y simplifican cada área del negocio.</p>
+      <div class="hero-actions hero-fade" style="--d:.7s">
+        <a class="cta-pill lg" href="#contacto" data-booking><span class="faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="40" height="40"><img src="photos/gianluca.jpg" alt="" width="40" height="40"></span><span class="tx"><b>Hablar con el estudio</b><small>30 min con Federico y Gianluca</small></span><span class="go" aria-hidden="true"><svg width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></span></a>
+        <a class="link-arrow" href="#hub">Conocer el Business Hub <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
+      </div>
+    </div>
 
-  <div class="shell slider-bar">
-    <div class="dots" role="tablist" aria-label="Elegir aplicación"><button class="sdot is-on" type="button" role="tab" data-i="0" aria-selected="true" aria-label="Business Hub"><span class="n">01</span><span class="bar"><i></i></span></button><button class="sdot" type="button" role="tab" data-i="1" aria-selected="false" aria-label="Libreta" tabindex="-1"><span class="n">02</span><span class="bar"><i></i></span></button><button class="sdot" type="button" role="tab" data-i="2" aria-selected="false" aria-label="Tildalo" tabindex="-1"><span class="n">03</span><span class="bar"><i></i></span></button><button class="sdot" type="button" role="tab" data-i="3" aria-selected="false" aria-label="Rondín" tabindex="-1"><span class="n">04</span><span class="bar"><i></i></span></button><button class="sdot" type="button" role="tab" data-i="4" aria-selected="false" aria-label="Encargue" tabindex="-1"><span class="n">05</span><span class="bar"><i></i></span></button></div>
-    <div class="slider-nav">
-      <button class="snav" type="button" data-dir="-1" aria-label="Anterior"><svg aria-hidden="true"><use href="#u-left"/></svg></button>
-      <button class="snav pause" type="button" aria-pressed="false" aria-label="Pausar"><svg class="i-pause" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2v8M9 2v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="i-play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2.2v7.6L10 6z" fill="currentColor"/></svg></button>
-      <button class="snav" type="button" data-dir="1" aria-label="Siguiente"><svg aria-hidden="true"><use href="#u-arrow"/></svg></button>
+    <div class="stage-wrap hero-fade" style="--d:.3s">
+      <div class="stage" id="stage" aria-label="El Business Hub y las aplicaciones de D&amp;C">
+        <div class="sc sc-hub is-on" data-scene="0" aria-label="Business Hub">
+          <div class="sc-frame"><img src="assets/apps/hub.jpg" alt="Inicio del Business Hub" width="1800" height="1125" fetchpriority="high" decoding="async"></div>
+          <a class="sc-pill is-hub" href="#hub"><span class="hub-mark" aria-hidden="true">D<span class="amp">&amp;</span>C</span>Business Hub, el centro de la operación <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
+        </div>
+        <div class="sc sc-tiles" data-scene="1" aria-label="Las aplicaciones">
+          <a class="tile" href="https://www.tildalo.app" target="_blank" rel="noopener" style="--c:var(--c-tildalo);--x:2%;--y:8%;--r:-7deg"><span class="tile-top"><svg aria-hidden="true"><use href="#m-tildalo"/></svg></span><span class="tile-bottom"><b>Tildalo</b><small>Facturas de compra</small></span></a>
+          <a class="tile" href="/rondin" style="--c:var(--c-rondin);--x:34%;--y:30%;--r:5deg"><span class="tile-top"><svg aria-hidden="true"><use href="#m-rondin"/></svg></span><span class="tile-bottom"><b>Rondín</b><small>Reparto y rutas</small></span></a>
+          <a class="tile" href="/encargue" style="--c:var(--c-encargue);--x:64%;--y:2%;--r:-3deg"><span class="tile-top"><svg aria-hidden="true"><use href="#m-encargue"/></svg></span><span class="tile-bottom"><b>Encargue</b><small>Pedidos por WhatsApp</small></span></a>
+          <a class="tile" href="/libreta" style="--c:var(--c-libreta);--x:60%;--y:52%;--r:8deg"><span class="tile-top"><svg aria-hidden="true"><use href="#m-libreta"/></svg></span><span class="tile-bottom"><b>Libreta</b><small>Vendedores en calle</small></span></a>
+          <span class="sc-pill is-quiet">Cuatro aplicaciones. Un mismo sistema.</span>
+        </div>
+        <div class="sc sc-app" data-scene="2" style="--c:var(--c-libreta)" aria-label="Libreta">
+          <img class="sc-phone" src="assets/apps/phone_libreta.webp" alt="Libreta en el celular" width="540" height="1130" loading="lazy" decoding="async">
+          <div class="sc-card">
+            <p class="k"><span class="ai" aria-hidden="true"><svg><use href="#i-libreta"/></svg></span><b>Libreta</b><span>Vendedores en calle</span></p>
+            <strong class="big">+32 %</strong>
+            <p class="txt">compraron los clientes visitados con la app, en una distribuidora de Montevideo.</p>
+            <div class="row"><span><b>96 %</b>de la ruta cumplida</span><span><b>2 de 3</b>clientes recuperados</span></div>
+          </div>
+          <a class="sc-pill" href="/libreta">Ver la web de Libreta <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
+        </div>
+        <div class="sc sc-app" data-scene="3" style="--c:var(--c-tildalo)" aria-label="Tildalo">
+          <img class="sc-phone" src="assets/apps/phone_tildalo.webp" alt="Tildalo en el celular" width="528" height="1088" loading="lazy" decoding="async">
+          <div class="sc-card">
+            <p class="k"><span class="ai" aria-hidden="true"><svg><use href="#i-tildalo"/></svg></span><b>Tildalo</b><span>Facturas de compra</span></p>
+            <strong class="big">1 foto</strong>
+            <p class="txt">alcanza para cargar una factura de compra. Tildalo la lee, la valida y te avisa si te cobraron más.</p>
+            <div class="row"><span><b>DGI</b>controles automáticos</span><span><b>XML</b>o PDF del CFE</span></div>
+          </div>
+          <a class="sc-pill" href="https://www.tildalo.app" target="_blank" rel="noopener">Ver la web de Tildalo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
+        </div>
+        <div class="sc sc-app" data-scene="4" style="--c:var(--c-rondin)" aria-label="Rondín">
+          <img class="sc-phone" src="assets/apps/phone_rondin.webp" alt="Rondín en el celular" width="528" height="1088" loading="lazy" decoding="async">
+          <div class="sc-card">
+            <p class="k"><span class="ai" aria-hidden="true"><svg><use href="#i-rondin"/></svg></span><b>Rondín</b><span>Reparto y rutas</span></p>
+            <strong class="big">15 min</strong>
+            <p class="txt">antes de llegar, el cliente recibe el aviso por WhatsApp. Cada camión sale con su recorrido armado.</p>
+            <div class="row"><span><b>Zona</b>y capacidad por camión</span><span><b>En vivo</b>seguimiento del reparto</span></div>
+          </div>
+          <a class="sc-pill" href="/rondin">Ver la web de Rondín <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
+        </div>
+        <div class="sc sc-app" data-scene="5" style="--c:var(--c-encargue)" aria-label="Encargue">
+          <img class="sc-phone" src="assets/apps/phone_encargue.webp" alt="Encargue en el celular" width="540" height="1148" loading="lazy" decoding="async">
+          <div class="sc-card">
+            <p class="k"><span class="ai" aria-hidden="true"><svg><use href="#i-encargue"/></svg></span><b>Encargue</b><span>Pedidos por WhatsApp</span></p>
+            <strong class="big">24 h</strong>
+            <p class="txt">tomando pedidos por WhatsApp. Los confirma con precio y stock y los carga en tu sistema.</p>
+            <div class="row"><span><b>ERP</b>carga directa</span><span><b>+ venta</b>sugerida en cada pedido</span></div>
+          </div>
+          <a class="sc-pill" href="/encargue">Ver la web de Encargue <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
+        </div>
+      </div>
+      <div class="stage-bar" aria-label="Elegir qué mostrar"><button class="sb is-on" type="button" data-scene="0" aria-label="Business Hub"><i></i></button><button class="sb" type="button" data-scene="1" aria-label="Aplicaciones"><i></i></button><button class="sb" type="button" data-scene="2" aria-label="Libreta"><i></i></button><button class="sb" type="button" data-scene="3" aria-label="Tildalo"><i></i></button><button class="sb" type="button" data-scene="4" aria-label="Rondín"><i></i></button><button class="sb" type="button" data-scene="5" aria-label="Encargue"><i></i></button></div>
     </div>
   </div>
 
@@ -189,14 +224,21 @@
     <div class="sec-head">
       <div>
         <p class="eyebrow" data-reveal><span class="n">01</span><span class="dc">D<span class="amp">&amp;</span>C</span></p>
-        <h2 class="h-section" id="estudio-title" data-reveal style="--d:.08s">Tecnología empresarial, <span class="soft">con personas detrás.</span></h2>
+        <h2 class="h-section" id="estudio-title" data-reveal style="--d:.08s">Hacemos más eficiente la operación de las empresas. <span class="soft">Con tecnología, y con personas detrás.</span></h2>
       </div>
-      <p class="lead" data-reveal style="--d:.16s">Somos un estudio de tecnología empresarial. Trabajamos como un estudio contable o jurídico: conocemos a fondo a cada cliente y respondemos por lo que construimos.</p>
+      <p class="lead" data-reveal style="--d:.16s">Ese es nuestro objetivo. Somos un estudio de tecnología empresarial: entendemos cómo funciona tu negocio y aplicamos tecnología donde hoy se pierde tiempo y plata.</p>
+    </div>
+
+    <div class="levers">
+      <div class="lever" data-reveal><span class="n">01</span><h3>Menos tareas manuales</h3><p>Lo que hoy se tipea o se copia de un lado a otro entra solo al sistema.</p></div>
+      <div class="lever" data-reveal style="--d:.08s"><span class="n">02</span><h3>Menos errores</h3><p>Controles automáticos antes de que un error cueste plata.</p></div>
+      <div class="lever" data-reveal style="--d:.16s"><span class="n">03</span><h3>Más tiempo para vender</h3><p>El equipo deja de perseguir datos y se enfoca en los clientes.</p></div>
+      <div class="lever" data-reveal style="--d:.24s"><span class="n">04</span><h3>Decisiones al día</h3><p>La dirección ve toda la operación en un solo lugar.</p></div>
     </div>
 
     <div class="estudio-grid">
       <div class="estudio-copy">
-        <p class="lead" data-reveal>Desarrollamos tecnología para empresas comerciales, distribuidoras y negocios que venden productos. Antes de diseñar nada, entendemos cómo compran, venden, entregan y cobran.</p>
+        <p class="lead" data-reveal>Trabajamos como un estudio contable o jurídico, pero en tecnología: conocemos a fondo a cada cliente y respondemos por lo que construimos. Nos especializamos en empresas comerciales, distribuidoras y negocios que venden productos.</p>
         <div class="compare" role="table" aria-label="Diferencia entre un proveedor de software y un estudio de tecnología empresarial" data-reveal style="--d:.1s">
           <div class="compare-row compare-head" role="row"><span role="columnheader">Un proveedor de software</span><span role="columnheader">Un estudio de tecnología empresarial</span></div>
           <div class="compare-row" role="row"><span role="cell">Recibe un pedido y lo programa.</span><span role="cell">Entiende el negocio y propone qué conviene construir.</span></div>
@@ -219,12 +261,6 @@
       </aside>
     </div>
 
-    <div class="pillars">
-      <div class="pillar" data-reveal><span class="n">01</span><h3>Producto propio</h3><p>Desarrollamos y mantenemos nuestras propias aplicaciones.</p></div>
-      <div class="pillar" data-reveal style="--d:.08s"><span class="n">02</span><h3>Conocimiento del negocio</h3><p>Entendemos tu operación antes de proponer tecnología.</p></div>
-      <div class="pillar" data-reveal style="--d:.16s"><span class="n">03</span><h3>Cercanía</h3><p>Conversaciones directas, sin intermediarios ni tickets.</p></div>
-      <div class="pillar" data-reveal style="--d:.24s"><span class="n">04</span><h3>Acompañamiento</h3><p>Implementamos con tu equipo y seguimos midiendo después.</p></div>
-    </div>
   </div>
 </section>
 
@@ -238,48 +274,19 @@
       </div>
       <div data-reveal style="--d:.16s">
         <span class="hub-badge"><span class="hub-mark" aria-hidden="true">D<span class="amp">&amp;</span>C</span>El producto insignia de <span class="dc">D<span class="amp">&amp;</span>C</span></span>
-        <p class="lead">El Business Hub reúne la información y los procesos de cada área (comercial, operaciones, administración y finanzas) en un solo sistema. La dirección ve el negocio completo y cada equipo trabaja sobre los mismos datos.</p>
-        <p class="hint"><i></i>Tocá un módulo para recorrerlo.</p>
+        <p class="lead">El Business Hub reúne la información y los procesos de cada área (comercial, operaciones, administración, finanzas y equipo) en un solo sistema, junto con el equipo. La dirección ve el negocio completo y cada área trabaja sobre los mismos datos.</p>
+        <p class="hint"><i></i>Es el Business Hub real: recorré sus módulos.</p>
       </div>
     </div>
 
-    <div class="app" id="hubApp" data-reveal>
-      <aside class="app-side">
-        <div class="app-brand"><span class="hub-mark" aria-hidden="true">D<span class="amp">&amp;</span>C</span><span class="bt"><b>Business Hub</b><small>Distribuidora demo</small></span></div>
-        <div class="app-nav" role="tablist" aria-label="Módulos del Business Hub">
-          <button type="button" role="tab" data-view="inicio" aria-selected="true" aria-controls="hubView"><svg aria-hidden="true"><use href="#u-home"/></svg>Inicio</button>
-          <button type="button" role="tab" data-view="comercial" aria-selected="false" aria-controls="hubView"><svg aria-hidden="true"><use href="#u-sales"/></svg>Comercial</button>
-          <button type="button" role="tab" data-view="operaciones" aria-selected="false" aria-controls="hubView"><svg aria-hidden="true"><use href="#u-ops"/></svg>Operaciones</button>
-          <button type="button" role="tab" data-view="administracion" aria-selected="false" aria-controls="hubView"><svg aria-hidden="true"><use href="#u-admin"/></svg>Administración</button>
-          <button type="button" role="tab" data-view="finanzas" aria-selected="false" aria-controls="hubView"><svg aria-hidden="true"><use href="#u-money"/></svg>Finanzas</button>
-        </div>
-        <p class="app-sub">Aplicaciones</p>
-        <ul class="app-apps">
-          <li><span class="ai"><svg aria-hidden="true"><use href="#i-tildalo"/></svg></span>Tildalo<span class="ok" title="Conectada"></span></li>
-          <li><span class="ai"><svg aria-hidden="true"><use href="#i-rondin"/></svg></span>Rondín<span class="ok" title="Conectada"></span></li>
-          <li><span class="ai"><svg aria-hidden="true"><use href="#i-encargue"/></svg></span>Encargue<span class="ok" title="Conectada"></span></li>
-          <li><span class="ai"><svg aria-hidden="true"><use href="#i-libreta"/></svg></span>Libreta<span class="ok" title="Conectada"></span></li>
-        </ul>
-        <div class="app-user"><span class="avatar">DG</span><span><b>Dirección</b>Perfil de ejemplo</span></div>
-      </aside>
-      <div class="app-main">
-        <div class="app-top">
-          <span class="app-crumb">Business Hub / <b data-crumb>Inicio</b></span>
-          <button class="app-search" type="button" data-view="asistente"><svg aria-hidden="true"><use href="#u-search"/></svg><span>Preguntale algo a tu negocio…</span><kbd>⌘K</kbd></button>
-          <span class="avatar" aria-hidden="true">DG</span>
-        </div>
-        <div class="app-view" id="hubView" role="tabpanel" aria-live="polite">
-          <div class="view-head"><div><h4>Así está tu negocio hoy</h4><p>Resumen de todas las áreas, actualizado en tiempo real.</p></div><span class="period">Este mes</span></div>
-          <div class="kpis">
-            <div class="kpi is-main"><span>Ventas del mes</span><b>$U 4,82 M</b><em class="up">▲ 6,4 % vs. mes anterior</em></div>
-            <div class="kpi"><span>Pedidos de hoy</span><b>46</b><em class="up">▲ 8 vs. ayer</em></div>
-            <div class="kpi"><span>Por cobrar vencido</span><b>$U 312 mil</b><em class="up">▼ 4,1 % este mes</em></div>
-            <div class="kpi"><span>Entregas a tiempo</span><b>94 %</b><em class="up">▲ 2 puntos</em></div>
-          </div>
-          <span class="demo-tag">Datos de ejemplo</span>
-        </div>
+    <div class="hub-embed" id="hubEmbed" data-reveal>
+      <div class="hub-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Business Hub · demo navegable con datos de ejemplo</span><a href="demo/hub/" target="_blank" rel="noopener">Abrir en pantalla completa <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
+      <div class="hub-viewport">
+        <img class="hub-poster" src="assets/apps/hub.jpg" alt="Inicio del Business Hub" width="1800" height="1125" loading="lazy" decoding="async">
+        <iframe title="Business Hub de D&amp;C, demo navegable" data-src="demo/hub/" loading="lazy" tabindex="-1"></iframe>
       </div>
     </div>
+    <a class="hub-open" href="demo/hub/" target="_blank" rel="noopener">Abrir el Business Hub <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a>
 
     <div class="hub-facts">
       <div data-reveal><h3>Completo o por módulos</h3><p>Se instala entero o se activan solo las áreas que tu empresa necesita hoy.</p></div>
@@ -311,7 +318,7 @@
           <div class="sol-body" id="sol-tildalo"><div><div class="sol-inner">
             <p class="sol-pain"><b>El problema:</b> cargar a mano las facturas de proveedores lleva horas y deja pasar aumentos.</p>
             <p class="sol-does">Tildalo lee cada factura (foto, PDF o el XML del CFE), la valida con las reglas de DGI, asocia cada renglón a tu catálogo y te avisa si un proveedor te cobró más que la última vez.</p>
-            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: compras y costos</span><a class="link-arrow" href="https://www.tildalo.app" target="_blank" rel="noopener">Conocer Tildalo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a></div>
+            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: compras y costos</span><a class="link-arrow" href="https://www.tildalo.app" target="_blank" rel="noopener">Ver la web de Tildalo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a><button class="link-arrow quiet" type="button" data-booking data-topic="Quiero ver una demo de Tildalo.">Pedir una demo</button></div>
           </div></div></div>
         </div>
 
@@ -324,7 +331,7 @@
           <div class="sol-body" id="sol-rondin"><div><div class="sol-inner">
             <p class="sol-pain"><b>El problema:</b> rutas armadas a ojo y clientes que no saben cuándo llega el camión.</p>
             <p class="sol-does">Rondín toma los pedidos facturados, arma el recorrido de cada camión según zona y capacidad, guía al chofer y le avisa al cliente por WhatsApp 15 minutos antes de llegar.</p>
-            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: operaciones y entregas</span><button class="link-arrow" type="button" data-booking data-topic="Quiero ver una demo de Rondín.">Pedir una demo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></button></div>
+            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: operaciones y entregas</span><a class="link-arrow" href="/rondin">Ver la web de Rondín <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a><button class="link-arrow quiet" type="button" data-booking data-topic="Quiero ver una demo de Rondín.">Pedir una demo</button></div>
           </div></div></div>
         </div>
 
@@ -337,7 +344,7 @@
           <div class="sol-body" id="sol-encargue"><div><div class="sol-inner">
             <p class="sol-pain"><b>El problema:</b> pedidos que llegan por WhatsApp y alguien tiene que pasar al sistema.</p>
             <p class="sol-does">Un agente entiende el pedido (texto, audio o foto), lo confirma con precio, stock y día de entrega, lo carga al ERP y sugiere lo que el cliente suele llevar.</p>
-            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: comercial y pedidos</span><button class="link-arrow" type="button" data-booking data-topic="Quiero ver una demo de Encargue.">Pedir una demo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></button></div>
+            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: comercial y pedidos</span><a class="link-arrow" href="/encargue">Ver la web de Encargue <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a><button class="link-arrow quiet" type="button" data-booking data-topic="Quiero ver una demo de Encargue.">Pedir una demo</button></div>
           </div></div></div>
         </div>
 
@@ -350,7 +357,7 @@
           <div class="sol-body" id="sol-libreta"><div><div class="sol-inner">
             <p class="sol-pain"><b>El problema:</b> vendedores con planillas, listas de precios viejas y pedidos que llegan tarde.</p>
             <p class="sol-does">Cada vendedor tiene en el celular su ruta, la cartera, precios y stock al día, y carga el pedido en la visita. El supervisor ve todo el equipo en un tablero.</p>
-            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: comercial y equipo</span><button class="link-arrow" type="button" data-booking data-topic="Quiero ver una demo de Libreta.">Pedir una demo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></button></div>
+            <div class="sol-meta"><span class="hubchip"><i>D&amp;C</i>En el Hub: comercial y equipo</span><a class="link-arrow" href="/libreta">Ver la web de Libreta <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></a><button class="link-arrow quiet" type="button" data-booking data-topic="Quiero ver una demo de Libreta.">Pedir una demo</button></div>
           </div></div></div>
         </div>
       </div>
@@ -358,65 +365,23 @@
       <div class="sol-side">
         <div class="sol-stage" id="solStage">
           <figure class="sol-frame">
-            <!-- Tildalo -->
-            <div class="shot is-on" data-shot="tildalo">
-              <div class="doc">
-                <div class="doc-head" data-seq style="--i:0"><span class="ai"><svg aria-hidden="true"><use href="#i-tildalo"/></svg></span><div><b>Fundición Oriental</b><small>Factura electrónica 1043 · 24 renglones</small></div><span class="status"><i></i>Validada</span></div>
-                <div class="doc-lines">
-                  <div class="doc-line is-up" data-seq style="--i:1"><span class="ck"><svg aria-hidden="true"><use href="#u-check"/></svg></span><span>Válvula esférica 1/2"</span><span>24 u</span><b>$U 325</b></div>
-                  <div class="doc-line" data-seq style="--i:2"><span class="ck"><svg aria-hidden="true"><use href="#u-check"/></svg></span><span>Codo de bronce 3/4"</span><span>40 u</span><b>$U 112</b></div>
-                  <div class="doc-line" data-seq style="--i:3"><span class="ck"><svg aria-hidden="true"><use href="#u-check"/></svg></span><span>Niple de bronce 1/2"</span><span>60 u</span><b>$U 58</b></div>
-                </div>
-                <div class="doc-total" data-seq style="--i:4"><span>IVA y RUT verificados</span><b>$U 48.312</b></div>
-                <div class="doc-alert" data-seq style="--i:5"><p><b>Subió 9 %.</b> La válvula esférica 1/2" pasó de $U 298 a $U 325 desde la última compra.</p><div class="acts"><span class="mini-btn">Aprobar</span><span class="mini-btn ghost">Reclamar</span></div></div>
-              </div>
-            </div>
-            <!-- Rondín -->
-            <div class="shot" data-shot="rondin" aria-hidden="true">
-              <div class="phone"><div class="phone-screen">
-                <div class="phone-bar"><span class="ai"><svg aria-hidden="true"><use href="#i-rondin"/></svg></span><div><b>Camión 2 · Matías</b><small>14 entregas · salió 08:10</small></div></div>
-                <div class="phone-body">
-                  <div class="map" data-seq style="--i:0">
-                    <svg viewBox="0 0 244 205" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                      <g stroke="#fff" stroke-width="7" fill="none"><path d="M-10 40H260M-10 105H260M-10 168H260M38-10V220M112-10V220M190-10V220"/><path d="M-10 210 250 -6" stroke-width="5"/></g>
-                      <path class="route" d="M22 182 L38 168 L38 105 L112 105 L112 40 L190 40 L190 105 L226 105"/>
-                      <circle class="stop" cx="38" cy="140" r="5"/><circle class="stop" cx="80" cy="105" r="5"/><circle class="stop" cx="112" cy="62" r="5"/><circle class="stop" cx="160" cy="40" r="5"/><circle class="stop" cx="190" cy="80" r="5"/><circle class="stop" cx="226" cy="105" r="5"/>
-                      <circle class="truck" cx="112" cy="62" r="8"/>
-                    </svg>
-                  </div>
-                  <div class="trip-card" data-seq style="--i:1"><b>Próxima: Sanitaria Oeste</b><small>Llegada estimada 10:42 · a 6,2 km</small></div>
-                  <div class="notice" data-seq style="--i:2"><svg aria-hidden="true"><use href="#u-check"/></svg><span>Aviso enviado al cliente: “El camión llega en 15 minutos”.</span></div>
-                  <div class="trip-card" data-seq style="--i:3"><b>Entregadas 6 de 14</b><small>Vas 8 minutos adelantado</small></div>
-                </div>
-              </div></div>
-            </div>
-            <!-- Encargue -->
-            <div class="shot" data-shot="encargue" aria-hidden="true">
-              <div class="phone"><div class="phone-screen chat-ui">
-                <div class="phone-bar" style="background:#fff"><span class="ai"><svg aria-hidden="true"><use href="#i-encargue"/></svg></span><div><b>Ferretería Malvín</b><small>Atendido por Encargue</small></div></div>
-                <div class="phone-body">
-                  <div class="bub in" data-seq style="--i:0">Buen día! Mandame 10 codos de 110 y 5 cuplas</div>
-                  <div class="bub out" data-seq style="--i:1"><span class="who">Encargue</span>Listo: 10 codos PVC 110 mm y 5 cuplas PVC 110 mm. Total $U 4.870. ¿Te lo llevamos el jueves?</div>
-                  <div class="bub out" data-seq style="--i:2"><span class="who">Encargue</span>Las últimas veces sumaste pegamento PVC. ¿Agrego 2?</div>
-                  <div class="bub in" data-seq style="--i:3">Dale, agregalo</div>
-                  <div class="bub done" data-seq style="--i:4">✓ Pedido 4.512 cargado en el sistema</div>
-                </div>
-              </div></div>
-            </div>
-            <!-- Libreta -->
-            <div class="shot" data-shot="libreta" aria-hidden="true">
-              <div class="phone"><div class="phone-screen">
-                <div class="phone-bar"><span class="ai"><svg aria-hidden="true"><use href="#i-libreta"/></svg></span><div><b>Hoy · Valeria</b><small>8 visitas · zona Centro</small></div></div>
-                <div class="phone-body">
-                  <div class="visit" data-seq style="--i:0;--c:var(--ok)"><i></i><div><b>Pinturas Cordón</b><small>Pedido · $U 14.200</small></div><span class="tag t-ok">Hecho</span></div>
-                  <div class="visit" data-seq style="--i:1;--c:var(--arena)"><i></i><div><b>Sanitaria Oeste</b><small>11:30 · cada 15 días</small></div><span class="tag">Ahora</span></div>
-                  <div class="visit" data-seq style="--i:2;--c:var(--alerta)"><i></i><div><b>Corralón del Sur</b><small>42 días sin comprar</small></div><span class="tag t-red">Reactivar</span></div>
-                  <div class="usual" data-seq style="--i:3"><small>Lo que suele llevar Sanitaria Oeste</small><div><span>Pegamento PVC 250 cc</span><b>× 6</b></div><div><span>Cinta de teflón</span><b>× 20</b></div><div><span>Codo PVC 110 mm</span><b>× 12</b></div></div>
-                  <span class="mini-btn" data-seq style="--i:4;text-align:center">+ Cargar pedido</span>
-                </div>
-              </div></div>
-            </div>
-            <figcaption>Pantallas de ejemplo</figcaption>
+            <a class="shot is-on" data-shot="tildalo" href="https://www.tildalo.app" target="_blank" rel="noopener">
+              <img class="phone-img" src="assets/apps/phone_tildalo.webp" alt="Tildalo en el celular, como en su web" width="528" height="1088" loading="lazy" decoding="async">
+              <span class="shot-cta">Ver la web de Tildalo <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></span>
+            </a>
+            <a class="shot" data-shot="rondin" href="/rondin" aria-hidden="true" tabindex="-1">
+              <img class="phone-img" src="assets/apps/phone_rondin.webp" alt="Rondín en el celular, como en su web" width="528" height="1088" loading="lazy" decoding="async">
+              <span class="shot-cta">Ver la web de Rondín <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></span>
+            </a>
+            <a class="shot" data-shot="encargue" href="/encargue" aria-hidden="true" tabindex="-1">
+              <img class="phone-img" src="assets/apps/phone_encargue.webp" alt="Encargue en el celular, como en su web" width="540" height="1148" loading="lazy" decoding="async">
+              <span class="shot-cta">Ver la web de Encargue <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></span>
+            </a>
+            <a class="shot" data-shot="libreta" href="/libreta" aria-hidden="true" tabindex="-1">
+              <img class="phone-img" src="assets/apps/phone_libreta.webp" alt="Libreta en el celular, como en su web" width="540" height="1130" loading="lazy" decoding="async">
+              <span class="shot-cta">Ver la web de Libreta <svg class="arr" width="14" height="14" aria-hidden="true"><use href="#u-out"/></svg></span>
+            </a>
+            <figcaption>Como en la web de cada aplicación</figcaption>
           </figure>
         </div>
       </div>
@@ -517,20 +482,43 @@
     <div class="people" data-reveal>
       <span class="faces"><img src="photos/federico.jpg" alt="" width="48" height="48" loading="lazy"><img src="photos/gianluca.jpg" alt="" width="48" height="48" loading="lazy"></span>
       <p>Federico y Gianluca participan en cada proyecto. <b>Del primer diagnóstico al soporte, hablás con los socios.</b></p>
-      <button class="btn btn-ink" type="button" data-booking>Hablemos <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button>
+      <button class="cta-pill ink" type="button" data-booking><span class="faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="40" height="40"><img src="photos/gianluca.jpg" alt="" width="40" height="40"></span><span class="tx"><b>Hablar con el estudio</b></span><span class="go" aria-hidden="true"><svg width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></span></button>
     </div>
   </div>
 </section>
 
-<!-- ======================= 06 · CTA FINAL ======================= -->
+<!-- ======================= 06 · INVERSIONES ======================= -->
+<section class="sec sec-light sec-rule" id="inversiones" aria-labelledby="inv-title">
+  <div class="shell">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" data-reveal><span class="n">06</span>Inversiones</p>
+        <h2 class="h-section" id="inv-title" data-reveal style="--d:.08s">Invertí en una aplicación de <span class="dc">D<span class="amp">&amp;</span>C</span>. <span class="soft">Cada una es un negocio propio.</span></h2>
+      </div>
+      <p class="lead" data-reveal style="--d:.16s">Abrimos la posibilidad de que inversores participen en Tildalo, Rondín, Encargue o Libreta y las acompañen en su crecimiento. Cada aplicación tiene su marca, sus clientes y sus ingresos recurrentes.</p>
+    </div>
+    <div class="flow f4" role="list">
+      <span class="flow-track" aria-hidden="true"></span>
+      <div class="flow-step" role="listitem" style="--i:0"><span class="dot" aria-hidden="true">01</span><h3>Elegís la aplicación</h3><p>Cada una resuelve un problema concreto de la operación y tiene su propio mercado.</p><p class="get"><b>Recibís</b>La presentación de la aplicación.</p></div>
+      <div class="flow-step" role="listitem" style="--i:1"><span class="dot" aria-hidden="true">02</span><h3>Conocés sus números</h3><p>Te mostramos clientes, ingresos, costos y el plan de crecimiento.</p><p class="get"><b>Recibís</b>La información para decidir.</p></div>
+      <div class="flow-step" role="listitem" style="--i:2"><span class="dot" aria-hidden="true">03</span><h3>Acordamos tu participación</h3><p>Definimos en forma privada el monto, la participación y los plazos.</p><p class="get"><b>Recibís</b>Un acuerdo por escrito.</p></div>
+      <div class="flow-step" role="listitem" style="--i:3"><span class="dot" aria-hidden="true">04</span><h3>La hacemos crecer</h3><p>El equipo de <span class="dc">D<span class="amp">&amp;</span>C</span> la desarrolla, la vende y la opera.</p><p class="get"><b>Recibís</b>Reportes periódicos de su evolución.</p></div>
+    </div>
+    <div class="inv-foot" data-reveal>
+      <button class="cta-pill ink" type="button" data-booking data-topic="Quiero conocer las oportunidades de inversión en una aplicación de D&amp;C."><span class="faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="40" height="40"><img src="photos/gianluca.jpg" alt="" width="40" height="40"></span><span class="tx"><b>Hablar sobre inversión</b><small>30 min con Federico y Gianluca</small></span><span class="go" aria-hidden="true"><svg width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></span></button>
+      <p class="legal-note">Esta sección es informativa. No constituye una oferta pública de valores ni una recomendación de inversión. Cada participación se analiza y se acuerda en forma privada y por escrito, según la normativa aplicable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 07 · CTA FINAL ======================= -->
 <section class="cta on-dark" id="contacto" aria-labelledby="cta-title">
   <div class="grid-bg" aria-hidden="true"></div>
   <div class="shell">
-    <p class="eyebrow" data-reveal><span class="n">06</span>Hablemos</p>
-    <h2 id="cta-title" data-reveal style="--d:.08s">Tu empresa ya tiene una forma de operar. <span class="soft">Nosotros construimos la tecnología alrededor de ella.</span></h2>
+    <p class="eyebrow" data-reveal><span class="n">07</span>Hablemos</p>
+    <h2 id="cta-title" data-reveal style="--d:.08s">Tu empresa ya tiene una forma de operar. <span class="soft">Nosotros construimos la tecnología que la hace más eficiente.</span></h2>
     <div class="cta-row" data-reveal style="--d:.16s">
-      <button class="btn btn-sand" type="button" data-booking>Hablemos de tu negocio <svg class="arr" width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></button>
-      <div class="cta-who"><span class="faces"><img src="photos/federico.jpg" alt="" width="48" height="48" loading="lazy"><img src="photos/gianluca.jpg" alt="" width="48" height="48" loading="lazy"></span><span><b>30 minutos con Federico y Gianluca</b>Elegís el horario en el calendario.</span></div>
+      <button class="cta-pill lg" type="button" data-booking><span class="faces" aria-hidden="true"><img src="photos/federico.jpg" alt="" width="40" height="40"><img src="photos/gianluca.jpg" alt="" width="40" height="40"></span><span class="tx"><b>Hablar con el estudio</b><small>30 min con Federico y Gianluca</small></span><span class="go" aria-hidden="true"><svg width="16" height="16" aria-hidden="true"><use href="#u-arrow"/></svg></span></button>
     </div>
     <div class="cta-meta" data-reveal style="--d:.24s">
       <span><svg aria-hidden="true"><use href="#u-check"/></svg>Directo con los socios</span>
@@ -557,7 +545,7 @@
           <li><a href="#estudio">D&amp;C</a></li>
           <li><a href="#clientes">Clientes</a></li>
           <li><a href="#forma">Cómo trabajamos</a></li>
-          <li><a href="/inversiones">Inversiones</a></li>
+          <li><a href="#inversiones">Inversiones</a></li>
         </ul>
       </div>
       <div class="foot-col">
@@ -565,15 +553,15 @@
         <ul>
           <li><a href="#hub">Business Hub</a></li>
           <li><a href="https://www.tildalo.app" target="_blank" rel="noopener">Tildalo ↗</a></li>
-          <li><a href="#aplicaciones" data-sol-link="rondin">Rondín</a></li>
-          <li><a href="#aplicaciones" data-sol-link="encargue">Encargue</a></li>
-          <li><a href="#aplicaciones" data-sol-link="libreta">Libreta</a></li>
+          <li><a href="/rondin">Rondín</a></li>
+          <li><a href="/encargue">Encargue</a></li>
+          <li><a href="/libreta">Libreta</a></li>
         </ul>
       </div>
       <div class="foot-col">
         <h3>Contacto</h3>
         <ul>
-          <li><button type="button" data-booking>Agendar 30 minutos</button></li>
+          <li><button type="button" data-booking>Hablar con el estudio</button></li>
           <li><a href="mailto:federico@dearmascostantini.com">federico@dearmascostantini.com</a></li>
           <li><a href="mailto:gianluca@dearmascostantini.com">gianluca@dearmascostantini.com</a></li>
           <li><a href="https://www.linkedin.com/company/dearmas-costantini/" target="_blank" rel="noopener">LinkedIn ↗</a></li>
@@ -581,7 +569,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      <span>© 2026 Dearmas &amp; Costantini · Tecnología Empresarial · Uruguay y Argentina</span>
+      <span>© 2026 Dearmas &amp; Costantini · Tecnología Empresarial · LATAM</span>
       <span class="foot-legal"><a href="/privacidad">Privacidad</a><a href="/terminos">Términos</a></span>
     </div>
   </div>
