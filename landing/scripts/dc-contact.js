@@ -179,12 +179,15 @@
     return button;
   }
 
+  // La web no usa guiones para separar frases; si el modelo pone uno, se cambia por coma.
+  const clean = text => text.replace(/\s*[—–]\s*/g, ', ');
+
   function appendMessage(role, text, opts = {}) {
     const div = document.createElement('div');
     div.className = `chat-msg chat-msg-${role}`;
     text.split(/\n\n+/).forEach(paragraph => {
       const p = document.createElement('p');
-      p.textContent = paragraph.trim();
+      p.textContent = role === 'bot' ? clean(paragraph.trim()) : paragraph.trim();
       div.appendChild(p);
     });
     if (opts.cta) div.appendChild(ctaButton());
@@ -226,7 +229,7 @@
       pending = 0;
       div.replaceChildren(...accumulated.split(/\n\n+/).map(text => {
         const p = document.createElement('p');
-        p.textContent = text;
+        p.textContent = clean(text);
         return p;
       }));
       chatMessages.scrollTop = chatMessages.scrollHeight;

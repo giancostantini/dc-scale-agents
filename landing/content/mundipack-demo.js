@@ -20,11 +20,11 @@ export const clients = [
 ];
 
 export const products = [
-  { id: 'vasos', name: 'Vasos de cartón · pack 50', code: 'DEMO-101', family: 'Vasos', price: 240, stock: 180 },
-  { id: 'bolsas', name: 'Bolsas kraft · pack 100', code: 'DEMO-102', family: 'Bolsas', price: 380, stock: 92 },
-  { id: 'servilletas', name: 'Servilletas · pack 200', code: 'DEMO-103', family: 'Papel', price: 160, stock: 240 },
-  { id: 'bandejas', name: 'Bandejas compostables · pack 25', code: 'DEMO-104', family: 'Envases', price: 320, stock: 18 },
-  { id: 'potes', name: 'Potes con tapa · pack 50', code: 'DEMO-105', family: 'Envases', price: 290, stock: 120 },
+  { id: 'vasos', name: 'Vasos de cartón · pack 50', code: 'DEMO 101', family: 'Vasos', price: 240, stock: 180 },
+  { id: 'bolsas', name: 'Bolsas kraft · pack 100', code: 'DEMO 102', family: 'Bolsas', price: 380, stock: 92 },
+  { id: 'servilletas', name: 'Servilletas · pack 200', code: 'DEMO 103', family: 'Papel', price: 160, stock: 240 },
+  { id: 'bandejas', name: 'Bandejas compostables · pack 25', code: 'DEMO 104', family: 'Envases', price: 320, stock: 18 },
+  { id: 'potes', name: 'Potes con tapa · pack 50', code: 'DEMO 105', family: 'Envases', price: 290, stock: 120 },
 ];
 
 export const months = ['Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep'];

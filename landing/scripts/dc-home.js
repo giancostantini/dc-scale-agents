@@ -1,7 +1,7 @@
 // Home de D&C · Tecnología Empresarial.
-// Header, apariciones al hacer scroll, ecosistema del hero, Business Hub
-// navegable, soluciones, recorrido de un pedido, forma de trabajar y la
-// demo de Mundipack. Sin dependencias.
+// Header, apariciones al hacer scroll, diapositivas del hero, socios
+// estratégicos, Business Hub navegable, aplicaciones, recorrido de un
+// pedido, forma de trabajar y la demo de Mundipack. Sin dependencias.
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -19,12 +19,13 @@ window.__dcReady = true;
 
 initHeader();
 initReveal();
-initHero();
+initSlider();
+initMarquee();
 initHubApp();
 initSolutions();
 initChain();
 initFlow();
-initDemo();
+initClients();
 
 /* ---------------------------------------------------------------- Header */
 function initHeader() {
@@ -42,7 +43,7 @@ function initHeader() {
     menu.addEventListener('click', event => {
       if (event.target === menu || event.target.closest('a[href^="#"]')) menu.close();
     });
-    matchMedia('(min-width: 1200px)').addEventListener('change', ({ matches }) => { if (matches && menu.open) menu.close(); });
+    matchMedia('(min-width: 1280px)').addEventListener('change', ({ matches }) => { if (matches && menu.open) menu.close(); });
   } else if (toggle) {
     toggle.hidden = true;
   }
@@ -75,228 +76,135 @@ function initReveal() {
   items.forEach(el => io.observe(el));
 }
 
-/* ------------------------------------------------------ Hero: ecosistema */
-function initHero() {
+/* ------------------------------------------ Hero: diapositivas */
+// Cada aplicación aparece con su pantalla y lo que logra; avanza sola,
+// como el hero de Globant. Se puede elegir, deslizar o pausar.
+function initSlider() {
   const hero = $('#top');
-  const eco = $('#eco');
-  if (!hero || !eco) return;
-  nextFrame(() => hero.classList.add('is-ready'));
+  const slides = hero ? $$('.slide', hero) : [];
+  if (!slides.length) return;
+  const dots = $$('.sdot', hero);
+  const pauseBtn = $('.snav.pause', hero);
+  const DURATION = 7000;
+  let current = 0, elapsed = 0, userPaused = false, focusPaused = false, visible = true, running = false, last = 0;
 
-  const svg = $('.eco-lines', eco);
-  const hub = $('#ecoHub');
-  const tiles = $$('.eco-app', eco).sort((a, b) => a.dataset.step - b.dataset.step);
-  const steps = $$('.step', hero);
-  const pauseBtn = $('.steps-pause', hero);
-  const caption = $('.steps-caption', hero);
-  const feed = $('.hub-feed', hub);
-  const rows = $$('.hub-row', hub);
-  const NS = 'http://www.w3.org/2000/svg';
-
-  const STEPS = [
-    { name: 'Tildalo', color: 'var(--c-tildalo)', text: 'Factura de Fundición Oriental leída y validada.', em: 'Subió 9 % desde la última compra.', inc: 1 },
-    { name: 'Rondín', color: 'var(--c-rondin)', text: 'Camión 2 en ruta con 14 entregas.', em: 'Sanitaria Oeste ya recibió el aviso de llegada.', inc: 1 },
-    { name: 'Encargue', color: 'var(--c-encargue)', text: 'Pedido por WhatsApp de Ferretería Malvín.', em: '12 artículos, cargado al sistema.', inc: 1 },
-    { name: 'Libreta', color: 'var(--c-libreta)', text: 'Valeria tomó un pedido en Pinturas Cordón.', em: 'Sumó lo que el cliente suele llevar.', inc: 14 },
-    { name: 'Business Hub', color: 'var(--arena)', text: 'Compras, reparto, pedidos y ventas en un mismo sistema.', em: 'Toda la operación, en un solo lugar.' },
-  ];
-  const DURATION = [5200, 5200, 5200, 5200, 7000];
-  const values = [127, 38, 45, 182];
-  const format = [n => `${n} facturas`, n => `${n} entregas`, n => `${n} pedidos`, n => `$U ${n} mil`];
-  steps.forEach((step, i) => { STEPS[i].desc = $('.d', step)?.textContent || ''; });
-
-  // Líneas, puertos y paquetes de datos (uno por aplicación).
-  const paths = [], ports = [], packets = [];
-  tiles.forEach(() => {
-    const path = document.createElementNS(NS, 'path');
-    path.setAttribute('class', 'eco-path');
-    svg.append(path);
-    paths.push(path);
-  });
-  tiles.forEach(() => {
-    const port = document.createElementNS(NS, 'circle');
-    port.setAttribute('class', 'eco-port');
-    port.setAttribute('r', '3.5');
-    svg.append(port);
-    ports.push(port);
-  });
-  tiles.forEach(() => {
-    const packet = document.createElementNS(NS, 'circle');
-    packet.setAttribute('class', 'eco-packet');
-    packet.setAttribute('r', '4');
-    packet.style.opacity = '0';
-    svg.append(packet);
-    packets.push(packet);
-  });
-
-  const box = el => ({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
-  function layout() {
-    const width = eco.clientWidth, height = eco.clientHeight;
-    if (!width) return;
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    const h = box(hub);
-    tiles.forEach((tile, i) => {
-      const t = box(tile);
-      const top = t.y + t.h / 2 < h.y + h.h / 2;
-      const left = t.x + t.w / 2 < h.x + h.w / 2;
-      const sx = t.x + t.w / 2;
-      const sy = top ? t.y + t.h : t.y;
-      let ex, ey, d;
-      if (sx > h.x - 10 && sx < h.x + h.w + 10) {
-        // La app queda encima o debajo del Hub: entra por el borde superior o inferior.
-        ex = Math.min(Math.max(sx, h.x + 22), h.x + h.w - 22);
-        ey = top ? h.y : h.y + h.h;
-        const mid = (sy + ey) / 2;
-        d = `M${sx},${sy} C${sx},${mid} ${ex},${mid} ${ex},${ey}`;
-      } else {
-        // La app queda al costado: baja y entra por el lateral del Hub.
-        ex = left ? h.x : h.x + h.w;
-        ey = h.y + h.h * (top ? 0.34 : 0.66);
-        d = `M${sx},${sy} C${sx},${sy + (ey - sy) * 0.82} ${sx + (ex - sx) * 0.3},${ey} ${ex},${ey}`;
-      }
-      paths[i].setAttribute('d', d);
-      ports[i].setAttribute('cx', ex);
-      ports[i].setAttribute('cy', ey);
+  const bar = i => $('.bar i', dots[i]);
+  function go(i) {
+    const n = slides.length;
+    current = (i + n) % n;
+    elapsed = 0;
+    slides.forEach((slide, k) => {
+      const on = k === current;
+      slide.classList.toggle('is-on', on);
+      slide.setAttribute('aria-hidden', String(!on));
+      slide.inert = !on;
     });
-  }
-  layout();
-  if ('ResizeObserver' in window) new ResizeObserver(layout).observe(eco);
-  else addEventListener('resize', layout);
-  document.fonts?.ready.then(layout);
-
-  function sendPacket(i, duration = 1000) {
-    return new Promise(resolve => {
-      if (reduced) { resolve(); return; }
-      const path = paths[i], packet = packets[i];
-      const length = path.getTotalLength();
-      const start = performance.now();
-      packet.style.opacity = '1';
-      const tick = now => {
-        const k = Math.min(1, (now - start) / duration);
-        const eased = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-        const point = path.getPointAtLength(length * eased);
-        packet.setAttribute('cx', point.x);
-        packet.setAttribute('cy', point.y);
-        if (k < 1) requestAnimationFrame(tick);
-        else { packet.style.opacity = '0'; resolve(); }
-      };
-      requestAnimationFrame(tick);
+    dots.forEach((dot, k) => {
+      const on = k === current;
+      dot.classList.toggle('is-on', on);
+      dot.setAttribute('aria-selected', String(on));
+      dot.tabIndex = on ? 0 : -1;
+      bar(k).style.transform = `scaleX(${k < current || (on && (reduced || userPaused)) ? 1 : 0})`;
     });
+    // La pantalla de la diapositiva siguiente se pide antes de que haga falta.
+    const next = $('img[loading="lazy"]', slides[(current + 1) % n]);
+    if (next) next.loading = 'eager';
   }
 
-  function setFeed(i) {
-    const s = STEPS[i];
-    const previous = $$('.hub-feed-item:not(.is-out)', feed);
-    const item = document.createElement('div');
-    item.className = 'hub-feed-item is-in-start';
-    item.style.setProperty('--c', s.color);
-    item.innerHTML = `<span class="src"><i></i>${s.name} · ahora</span>${s.text} <em>${s.em}</em>`;
-    feed.append(item);
-    nextFrame(() => item.classList.remove('is-in-start'));
-    previous.forEach(old => { old.classList.add('is-out'); setTimeout(() => old.remove(), 600); });
-  }
-
-  function bump(i, by) {
-    const el = $('b', rows[i]);
-    const from = values[i], to = from + by;
-    values[i] = to;
-    rows[i].classList.add('is-hot');
-    if (reduced) { el.textContent = format[i](to); return; }
-    const start = performance.now();
-    const tick = now => {
-      const k = Math.min(1, (now - start) / 700);
-      el.textContent = format[i](Math.round(from + (to - from) * k));
-      if (k < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-
-  let current = -1, elapsed = 0, token = 0;
-  let userPaused = false, focusPaused = false, visible = true;
-
-  function go(i, fromUser = false) {
-    current = i; elapsed = 0;
-    const mine = ++token;
-    const all = i === 4;
-    tiles.forEach((tile, k) => tile.classList.toggle('is-on', all || k === i));
-    eco.classList.toggle('is-focused', !all);
-    hub.classList.toggle('is-center', all);
-    paths.forEach((path, k) => path.classList.toggle('is-on', all || k === i));
-    rows.forEach(row => row.classList.remove('is-hot'));
-    steps.forEach((step, k) => {
-      const on = k === i;
-      step.classList.toggle('is-on', on);
-      step.setAttribute('aria-selected', String(on));
-      step.tabIndex = on ? 0 : -1;
-      $('.bar i', step).style.transform = `scaleX(${k < i || (on && (reduced || userPaused)) ? 1 : 0})`;
-    });
-    if (caption) caption.innerHTML = `<b>${STEPS[i].name}</b> · ${STEPS[i].desc}`;
-    if (!all) {
-      setTimeout(async () => {
-        if (mine !== token) return;
-        await sendPacket(i, 1000);
-        if (mine !== token) return;
-        bump(i, STEPS[i].inc);
-        setFeed(i);
-      }, fromUser ? 80 : 300);
-    } else {
-      setFeed(4);
-      tiles.forEach((_, k) => setTimeout(async () => {
-        if (mine !== token) return;
-        await sendPacket(k, 1100);
-        if (mine === token) rows[k].classList.add('is-hot');
-      }, 200 + k * 160));
-    }
-  }
-
-  const isPaused = () => userPaused || focusPaused || document.hidden || !visible || reduced;
-  let last = performance.now(), running = false;
+  const paused = () => userPaused || focusPaused || document.hidden || !visible || reduced;
   function frame(now) {
     const dt = Math.min(100, now - last);
     last = now;
-    if (!isPaused() && current >= 0) {
+    if (!paused()) {
       elapsed += dt;
-      const k = Math.min(1, elapsed / DURATION[current]);
-      $('.bar i', steps[current]).style.transform = `scaleX(${k})`;
-      if (k >= 1) go((current + 1) % STEPS.length);
+      const k = Math.min(1, elapsed / DURATION);
+      bar(current).style.transform = `scaleX(${k})`;
+      if (k >= 1) go(current + 1);
     }
     if (visible) requestAnimationFrame(frame); else running = false;
   }
   function run() { if (running) return; running = true; last = performance.now(); requestAnimationFrame(frame); }
 
-  steps.forEach((step, i) => {
-    step.addEventListener('click', () => go(i, true));
-    step.addEventListener('keydown', event => {
-      const delta = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+  dots.forEach((dot, i) => {
+    dot.addEventListener('click', () => go(i));
+    dot.addEventListener('keydown', event => {
+      const delta = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
       if (!delta) return;
       event.preventDefault();
-      const next = (i + delta + steps.length) % steps.length;
-      steps[next].focus();
-      go(next, true);
+      go(current + delta);
+      dots[current].focus();
     });
   });
-  tiles.forEach((tile, i) => tile.addEventListener('click', () => go(i, true)));
-  const stepsList = $('.steps-list', hero);
-  stepsList.addEventListener('focusin', event => { if (event.target.matches(':focus-visible')) focusPaused = true; });
-  stepsList.addEventListener('focusout', () => { focusPaused = false; });
+  $$('.snav[data-dir]', hero).forEach(button => button.addEventListener('click', () => go(current + Number(button.dataset.dir))));
   pauseBtn.addEventListener('click', () => {
     userPaused = !userPaused;
     pauseBtn.setAttribute('aria-pressed', String(userPaused));
-    pauseBtn.setAttribute('aria-label', userPaused ? 'Reanudar el recorrido' : 'Pausar el recorrido');
+    pauseBtn.setAttribute('aria-label', userPaused ? 'Reanudar' : 'Pausar');
+    if (userPaused) bar(current).style.transform = 'scaleX(1)';
+    else elapsed = 0;
   });
+  // Mientras alguien navega con el teclado dentro de una diapositiva, no avanza.
+  $('#slides').addEventListener('focusin', event => { if (event.target.matches(':focus-visible')) focusPaused = true; });
+  $('#slides').addEventListener('focusout', () => { focusPaused = false; });
+
+  // Deslizar con el dedo
+  let startX = null, startY = null;
+  const area = $('#slides');
+  area.addEventListener('pointerdown', event => { if (event.pointerType !== 'mouse') { startX = event.clientX; startY = event.clientY; } });
+  area.addEventListener('pointerup', event => {
+    if (startX === null) return;
+    const dx = event.clientX - startX, dy = event.clientY - startY;
+    startX = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) go(current + (dx < 0 ? 1 : -1));
+  });
+  area.addEventListener('pointercancel', () => { startX = null; });
 
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
       if (visible) run();
-    }, { threshold: 0.15 }).observe(hero);
+    }, { threshold: 0.2 }).observe(hero);
   }
+  if (reduced) pauseBtn.hidden = true;
+  go(0);
+  run();
+}
 
-  if (reduced) {
-    // Sin animaciones: se muestra el ecosistema completo y se recorre a mano.
-    pauseBtn.hidden = true;
-    go(4);
-  } else {
-    setTimeout(() => { go(0); run(); }, 1300);
+/* ------------------------------------------- Socios estratégicos */
+// Repite los logos hasta llenar el ancho y los desplaza en un loop continuo.
+function initMarquee() {
+  const marquee = $('.marquee');
+  if (!marquee) return;
+  const track = $('.marquee-track', marquee);
+  const group = $('.marquee-group', track);
+  const originals = [...group.children];
+  function fill() {
+    $$('.marquee-group.is-clone', track).forEach(node => node.remove());
+    $$('[data-clone]', group).forEach(node => node.remove());
+    let guard = 0;
+    while (group.scrollWidth < marquee.clientWidth && guard++ < 12) {
+      originals.forEach(item => {
+        const copy = item.cloneNode(true);
+        copy.dataset.clone = '';
+        copy.setAttribute('aria-hidden', 'true');
+        group.append(copy);
+      });
+    }
+    const twin = group.cloneNode(true);
+    twin.classList.add('is-clone');
+    twin.setAttribute('aria-hidden', 'true');
+    track.append(twin);
+    track.style.setProperty('--dur', `${Math.max(20, Math.round(group.scrollWidth / 40))}s`);
+  }
+  fill();
+  if ('ResizeObserver' in window) {
+    let width = marquee.clientWidth, timer = 0;
+    new ResizeObserver(() => {
+      if (Math.abs(marquee.clientWidth - width) < 40) return;
+      width = marquee.clientWidth;
+      clearTimeout(timer);
+      timer = setTimeout(fill, 150);
+    }).observe(marquee);
   }
 }
 
@@ -514,18 +422,26 @@ function initFlow() {
   io.observe(flow);
 }
 
-/* --------------------------------------------- 04 · Demo de Mundipack */
-function initDemo() {
+/* ------------------------------------------ 04 · Clientes y demo */
+// La recreación del sistema de Mundipack se abre y se carga a pedido.
+function initClients() {
+  const toggle = $('[data-demo-toggle]');
+  const shell = $('#mpShell');
   const mount = $('#mpMount');
-  if (!mount) return;
-  const load = () => import('./mundipack-demo.js')
-    .then(({ createMundipackDemo }) => mount.replaceChildren(createMundipackDemo()))
-    .catch(error => console.warn('[demo]', error));
-  if (!('IntersectionObserver' in window)) { load(); return; }
-  const io = new IntersectionObserver(entries => {
-    if (!entries.some(entry => entry.isIntersecting)) return;
-    io.disconnect();
-    load();
-  }, { rootMargin: '900px 0px' });
-  io.observe(mount);
+  if (!toggle || !shell || !mount) return;
+  let loaded = false;
+  toggle.addEventListener('click', () => {
+    const open = shell.hidden;
+    shell.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    $('.lbl', toggle).textContent = open ? 'Ocultar la recreación' : 'Recorrer una recreación del sistema';
+    if (!open) return;
+    if (!loaded) {
+      loaded = true;
+      import('./mundipack-demo.js')
+        .then(({ createMundipackDemo }) => mount.replaceChildren(createMundipackDemo()))
+        .catch(error => { loaded = false; console.warn('[demo]', error); });
+    }
+    shell.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  });
 }
